@@ -2,7 +2,7 @@ export * from './types';
 export { gcd, lcm, mod } from './math';
 export { parsePattern } from './parse';
 export type { ParseError, ParseResult } from './parse';
-export { cycleLength, isVanilla, makeGrids, reduceRatio } from './grid';
+export { activeHands, cycleLength, isVanilla, makeGrids, reduceRatio } from './grid';
 export { flightsOf } from './flights';
 export { ballCount, validate } from './validate';
 export { swapSites } from './swap';

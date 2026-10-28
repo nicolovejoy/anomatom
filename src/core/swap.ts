@@ -1,4 +1,4 @@
-import type { HandPattern, Throw } from './types';
+import type { HandPattern } from './types';
 
 /**
  * MATH.md §3. Exchange the landing beats of the throws at sites i and j of one hand. The
@@ -8,8 +8,9 @@ import type { HandPattern, Throw } from './types';
 export function swapSites(pattern: HandPattern, i: number, j: number): HandPattern | null {
   if (i === j) return pattern;
   const [lo, hi] = i < j ? [i, j] : [j, i];
-  const a = pattern[lo] as Throw;
-  const b = pattern[hi] as Throw;
+  const a = pattern[lo];
+  const b = pattern[hi];
+  if (a === undefined || b === undefined) return null;
   const d = hi - lo;
   if (a.height - d < 0) return null;
   const out = [...pattern];

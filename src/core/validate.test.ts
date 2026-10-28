@@ -20,8 +20,8 @@ test('an unanswered cross: hand 2 gets two balls at once, hand 1 has none to thr
       hand: 1,
       pulse: 0,
       throws: [
-        { hand: 1, index: 0 },
         { hand: 0, index: 1 },
+        { hand: 1, index: 0 },
       ],
     },
     { kind: 'no-ball', hand: 0, beat: 0 },
@@ -37,10 +37,23 @@ test('0 alone is valid with no balls', () => {
 });
 
 test('510 is a collision: all three land on the same beat', () => {
+  // Cycle 6: landings 5, 2, 2, 8≡2, 5, 5. Hand 1 collects three at pulse 2, hand 2 three at 5;
+  // same group of throws, reported once.
   const v = validate({ ratio: { a: 1, b: 1 }, hands: [pat('510')] });
   expect(v.ok).toBe(false);
   if (v.ok) return;
-  expect(v.errors[0]?.kind).toBe('collision');
+  expect(v.errors.filter((e) => e.kind === 'collision')).toEqual([
+    {
+      kind: 'collision',
+      hand: 0,
+      pulse: 2,
+      throws: [
+        { hand: 0, index: 0 },
+        { hand: 0, index: 1 },
+        { hand: 0, index: 2 },
+      ],
+    },
+  ]);
 });
 
 test('a 3:2 collision from two same-hand throws names both', () => {
