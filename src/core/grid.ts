@@ -1,5 +1,5 @@
 import { gcd, lcm } from './math';
-import type { Grid, PatternInput, Ratio } from './types';
+import type { Grid, HandPattern, PatternInput, Ratio } from './types';
 
 export function reduceRatio(ratio: Ratio): Ratio {
   const g = gcd(ratio.a, ratio.b);
@@ -29,11 +29,16 @@ export function makeGrids(ratio: Ratio): [Grid, Grid] {
   ];
 }
 
+/** The sequences in play: one vanilla sequence at 1:1, one per hand otherwise. */
+export function activeHands(input: PatternInput): readonly HandPattern[] {
+  return isVanilla(input.ratio) ? input.hands.slice(0, 1) : input.hands;
+}
+
 /** Pulses after which both hands repeat. */
 export function cycleLength(input: PatternInput): number {
   if (isVanilla(input.ratio)) {
     // n shared beats, one pulse each; both hands repeat after an even number of beats.
-    return lcm((input.hands[0] as PatternInput['hands'][number]).length, 2);
+    return lcm((input.hands[0] as HandPattern).length, 2);
   }
   const grids = makeGrids(input.ratio);
   return input.hands.reduce(

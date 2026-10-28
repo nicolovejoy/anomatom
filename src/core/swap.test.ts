@@ -48,3 +48,8 @@ test('a swap that would need a negative height is refused', () => {
 test('swapping a site with itself changes nothing', () => {
   expect(swapSites(pat('441'), 1, 1)).toEqual(pat('441'));
 });
+
+test('a site outside the pattern is refused either way round', () => {
+  expect(swapSites(pat('441'), 0, 3)).toBeNull();
+  expect(swapSites(pat('441'), 3, 0)).toBeNull();
+});

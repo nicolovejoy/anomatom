@@ -52,17 +52,24 @@ describe('1:1 vanilla, fractional mean', () => {
 
 test('432: all three throws land on the same beat', () => {
   // Landings 0+4, 1+3, 2+2 are 4, 4, 4 (0-based), i.e. 5, 5, 5 as MATH.md counts them.
+  // The same group lands again at pulse 7 ≡ 1 on hand 2: one collision, reported once.
   const errors = errorsOf(vanilla('432'));
-  expect(errors[0]).toEqual({
-    kind: 'collision',
-    hand: 0,
-    pulse: 4,
-    throws: [
-      { hand: 0, index: 0 },
-      { hand: 0, index: 1 },
-      { hand: 0, index: 2 },
-    ],
-  });
+  expect(errors.filter((e) => e.kind === 'collision')).toEqual([
+    {
+      kind: 'collision',
+      hand: 0,
+      pulse: 4,
+      throws: [
+        { hand: 0, index: 0 },
+        { hand: 0, index: 1 },
+        { hand: 0, index: 2 },
+      ],
+    },
+  ]);
+});
+
+test('at 1:1 only the first sequence counts: 3 / 3 is the three-ball cascade', () => {
+  expect(validate(twoHands('3', '3', 1, 1))).toEqual({ ok: true, balls: 3 });
 });
 
 describe('3:2, Nickmans', () => {

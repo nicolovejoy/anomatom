@@ -16,12 +16,15 @@ export const copy = {
         return `at most ${error.max} throws`;
     }
   },
-  validationError(error: ValidationError): string {
+  /** `vanilla`: at 1:1 a pulse is a shared beat, so it is named as such and counted from 1. */
+  validationError(error: ValidationError, vanilla: boolean): string {
     switch (error.kind) {
       case 'fractional-balls':
         return `${error.balls} balls: the digits must average to a whole number`;
-      case 'collision':
-        return `${throwList(error.throws)} ${error.throws.length === 2 ? 'both' : 'all'} land on pulse ${error.pulse}`;
+      case 'collision': {
+        const where = vanilla ? `beat ${error.pulse + 1}` : `pulse ${error.pulse}`;
+        return `${throwList(error.throws)} ${error.throws.length === 2 ? 'both' : 'all'} land on ${where}`;
+      }
       case 'cross-off-grid':
         return `cross throw from hand ${error.fromHand + 1} beat ${error.beat + 1} lands between hand ${2 - error.fromHand}’s beats; nearest legal landing is pulse ${error.nearestLegal}`;
       case 'no-ball':

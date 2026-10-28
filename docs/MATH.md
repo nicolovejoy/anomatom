@@ -12,11 +12,11 @@ App: the input is this sequence, one per hand.
 
 ## 2. Validity (Buhler, Eisenbud, Graham, Wright 1994 [1])
 
-A sequence is a juggling pattern iff the landing beats i + tᵢ (mod n) are all distinct for i = 1 … n. Two equal landing beats mean two balls arrive in one hand at once: a collision.
+A sequence is a juggling pattern iff the landing beats i + tᵢ (mod n) are all distinct for i = 1 … n. Equal landing beats mean two or more balls arrive in one hand at once: a collision.
 
 Corollary (the average theorem): the number of balls is the mean of the digits, so a sequence whose mean is not an integer is already invalid.
 
-App: the validator. A failure names the two throws whose landings coincide. The check is O(n) and runs on every keystroke.
+App: the validator. A failure names every throw in a colliding group; when several errors follow from one cause (a collision usually leaves some beat with no ball), the first is the one shown. The check is O(n) and runs on every keystroke.
 
 ## 3. The swap property
 

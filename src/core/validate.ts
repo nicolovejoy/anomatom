@@ -1,5 +1,5 @@
 import { flightsOf } from './flights';
-import { cycleLength, makeGrids } from './grid';
+import { activeHands, cycleLength, makeGrids } from './grid';
 import { lcm, mod } from './math';
 import type { Flight, PatternInput, Validation, ValidationError } from './types';
 
@@ -21,6 +21,9 @@ export function validate(input: PatternInput): Validation {
   const offGrid: ValidationError[] = [];
   const collisions: ValidationError[] = [];
   const noBall: ValidationError[] = [];
+  // A cycle holds several periods of a hand's sequence, so one group of throws can collide
+  // on several pulses (and, at 1:1, in either hand). Report each group once.
+  const seen = new Set<string>();
 
   for (const hand of [0, 1] as const) {
     const landings = new Map<number, Flight[]>();
@@ -40,10 +43,9 @@ export function validate(input: PatternInput): Validation {
       const pulse = mod(f.land, cycle);
       landings.set(pulse, [...(landings.get(pulse) ?? []), f]);
     }
-    const seen = new Set<string>();
     for (const [pulse, group] of landings) {
       if (group.length < 2) continue;
-      const throws = group.map((f) => f.id);
+      const throws = group.map((f) => f.id).sort((p, q) => p.hand - q.hand || p.index - q.index);
       const key = throws.map((t) => `${t.hand}:${t.index}`).join(',');
       if (seen.has(key)) continue;
       seen.add(key);
@@ -62,7 +64,7 @@ export function validate(input: PatternInput): Validation {
 
 /** The average theorem, summed over hands: total flight time per cycle over the cycle. */
 export function ballCount(input: PatternInput): number {
-  return input.hands.reduce(
+  return activeHands(input).reduce(
     (sum, hand) => sum + hand.reduce((s, t) => s + t.height, 0) / hand.length,
     0,
   );
