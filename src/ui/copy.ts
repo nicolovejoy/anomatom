@@ -4,7 +4,11 @@ import type { ThrowId, ValidationError } from '../core/types';
 
 export const copy = {
   title: 'jugglebeat',
-  placeholder: 'A siteswap pattern as polyrhythm. Nothing to see yet: the core math is in, the sound comes next.',
+  placeholder: 'A siteswap pattern as polyrhythm. Type a pattern, press play, hear it on a TR-808. The picture comes next.',
+  patternLabel: 'Siteswap',
+  play: 'Play',
+  stop: 'Stop',
+  valid: (balls: number) => `${balls} ball${balls === 1 ? '' : 's'}`,
   oneHandHint: 'At a ratio other than 1:1 a digit counts that hand’s own beats, so 2 is a two-ball fountain, not a hold.',
   parseError(error: ParseError): string {
     switch (error.kind) {

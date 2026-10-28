@@ -1,5 +1,5 @@
 import { expect, test } from 'vitest';
-import { makeGrids, reduceRatio } from './grid';
+import { isCoincident, makeGrids, reduceRatio } from './grid';
 
 test('3:2 puts hand 1 on 2-pulse beats and hand 2 on 3-pulse beats, both from pulse 0', () => {
   expect(makeGrids({ a: 3, b: 2 })).toEqual([
@@ -25,4 +25,14 @@ test('1:1 is vanilla: both hands on 2-pulse beats, hand 2 offset by one pulse', 
     { pulsesPerBeat: 2, offset: 0 },
     { pulsesPerBeat: 2, offset: 1 },
   ]);
+});
+
+test('a coincident pulse is a beat of both hands', () => {
+  const grids = makeGrids({ a: 3, b: 2 });
+  expect([0, 1, 2, 3, 4, 5, 6, 12].map((p) => isCoincident(grids, p))).toEqual([
+    true, false, false, false, false, false, true, true,
+  ]);
+  // Vanilla hands alternate, so no pulse is a beat of both.
+  const vanilla = makeGrids({ a: 1, b: 1 });
+  expect([0, 1, 2].map((p) => isCoincident(vanilla, p))).toEqual([false, false, false]);
 });
