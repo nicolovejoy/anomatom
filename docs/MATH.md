@@ -20,7 +20,7 @@ App: the validator. A failure names the two throws whose landings coincide. The 
 
 ## 3. The swap property
 
-Swapping the landing beats of two throws gives another valid pattern with the same ball count. If throws at positions i and j have heights a and b, the new heights are b + (j − i) at i and a − (j − i) at j. 51 ↔ 24; 441 ↔ 531 (swap positions 2 and 3). This is where the name "siteswap" comes from.
+Swapping the landing beats of two throws gives another valid pattern with the same ball count. If throws at positions i and j have heights a and b, the new heights are b + (j − i) at i and a − (j − i) at j. 51 ↔ 24; 441 ↔ 531 (swap positions 1 and 2; positions 2 and 3 give 423). When a throw is marked `x`, the mark belongs to the landing and moves with it. This is where the name "siteswap" comes from.
 
 App: the Swap knob, and the first suggested fix for a collision (swap the colliding pair, which moves one landing off the other).
 
@@ -32,7 +32,7 @@ App: v1 uses the ground state as the common start and changes pattern only at a 
 
 ## 5. Crossings (Ehrenborg and Readdy 1996 [3])
 
-Draw the ladder diagram: beats across, each flight an arc from throw to landing. Ehrenborg and Readdy weight a pattern by q^c where c is the number of times arcs cross. A cascade crosses on every beat; a fountain never does. c is a property of the pattern, cheap to count from the Schedule.
+Draw the ladder diagram: pulses across, each flight an arc from throw to landing. Ehrenborg and Readdy weight a pattern by q^c where c is the number of times arcs cross. For v1, c counts the pairs of arcs in one cycle with s₁ < s₂ < e₁ < e₂, comparing each arc against the arcs of the following cycles it overlaps; this is the ladder's arc count, not the count of ball paths crossing in space, so a fountain's overlapping same-hand arcs count too. Zero-length flights are not arcs. c is a property of the pattern, cheap to count from the flights.
 
 App: one scalar per pattern, exposed to the sound panel ("crossings to filter").
 
@@ -44,16 +44,20 @@ The timing rule, which the article leaves implicit but its non-crossing example 
 
 1. Time is continuous; each hand's grid is a quantisation of it. The common grid is the LCM of the two: 6 pulses per span for 3:2. Call one pulse the tatum.
 2. A throw is legal iff it lands on a beat of the **catching** hand's grid. Same-hand throws therefore obey ordinary siteswap on that hand's own grid, and a hand's digits still count that hand's beats.
-3. A cross throw is legal only where both grids coincide. For 3:2 that is once per span; for 4:3 once per span; for 1:1 every beat, which recovers vanilla siteswap.
+3. A cross throw is legal only where both grids coincide. For 3:2 that is once per span; for 4:3 once per span. (For a reduced ratio, rule 2 already implies this: a landing on the catching hand's grid that was launched from the throwing hand's grid is a multiple of both beat lengths.)
+4. Phase: beat 0 of each hand's sequence is pulse 0, the coincident pulse. Rotating a sequence changes which throws can cross, so two rotations of the same digits are different patterns.
+5. Vanilla siteswap is not the 1:1 case of this model but its half-beat-offset case: both hands on 2-pulse beats, hand 2 one pulse behind, every pulse a beat of exactly one hand. The app models 1:1 this way, so a vanilla `3` is a 3-pulse flight and odd digits cross.
 
-Notation. At 1:1 the input is one vanilla siteswap on the shared beat, hands alternating, odd digits crossing, exactly as jugglers write it. At any other ratio each hand has its own sequence in one-hand counting: a digit is the number of that hand's beats the ball is in the air, and a throw crosses only when marked with `x` (so `2 2x` on a hand means hold-length throws, the second going across). The app converts a 1:1 vanilla pattern into this per-hand form internally, so the Schedule has one shape.
+Notation. At 1:1 the input is one vanilla siteswap on the shared beat, hands alternating, odd digits crossing, exactly as jugglers write it. At any other ratio each hand has its own sequence in one-hand counting: a digit is the number of that hand's beats the ball is in the air, and a throw crosses only when marked with `x`. Note that one-hand `2` is a two-ball fountain on that hand (vanilla `4`), not a hold. Both notations become the same thing internally: a list of flights with launch and landing in integer pulses, so the Schedule has one shape.
 
 Consequences:
 
-- Each hand's siteswap is validated by §2 on its own grid.
-- A cross throw's landing pulse must be a multiple of the span; otherwise the validator reports "cross throw from hand 1 beat 2 lands between hand 2's beats; nearest legal landing is pulse 6".
+- Validity is one check per hand, generalising §2: the pulses on which balls land in that hand (its own uncrossed throws plus the other hand's `x` throws, taken mod cycle) must be exactly the pulses on which that hand throws, no pulse twice. A hand validated by §2 alone is not enough once `x` throws leave it; the check also catches a hand asked to throw a ball it never received. A `0` is a zero-length flight landing on its own beat, which keeps the landing set a permutation of the beat set.
+- The average theorem applies to the combined count: the sum over hands of each hand's mean digit. A single hand's mean may be fractional when crosses are unbalanced; the per-hand check catches that.
+- A cross throw's landing pulse must be a multiple of the span; otherwise the validator reports "cross throw from hand 1 beat 2 lands between hand 2's beats; nearest legal landing is pulse 6" (the next multiple of the span at or after the landing).
 - The musical downbeat and the only legal crossing point are the same pulse, which is why the crossing flashes and gets the accent.
-- The cycle is the LCM over both hands of (siteswap period × that hand's pulses per beat).
+- The cycle is the LCM over both hands of (siteswap period × that hand's pulses per beat). For vanilla, the period rounded up to even.
+- Ball identity can take several cycles to repeat: following each landing to the next throw from that hand partitions a cycle's flights into orbits, and an orbit whose flights total m cycles of air time carries m balls one cycle apart. In `441` one orbit carries all three balls, so the same ball returns to the same throw after three cycles. The Schedule's period is the cycle times the LCM of the orbit sizes, and events span one period.
 
 App: this is the data model (one siteswap per hand, a ratio, cross throws on the LCM lattice) and the second validator check. Galloped patterns are out of scope.
 
@@ -73,9 +77,11 @@ Pulse length in seconds = 60 / (bpm₁ × pulsesPerBeat₁), where pulsesPerBeat
 | `21` | 1:1 | 1.5 | no | fractional mean |
 | `43` | 1:1 | 3.5 | no | fractional mean |
 | `4441` | 1:1 | 3.25 | no | fractional mean |
-| `432` | 1:1 | 3 | no | landings 5, 6, 5 collide: throws 1 and 3 |
-| `2` / `2` | 3:2 | 4 | yes | Nickmans' non-crossing 3:2 pattern: each hand fountains two balls on its own grid |
-| `2x 2 2` / `2 2x` | 3:2 | 4 | depends on phase | a cross from each hand; valid only if each `x` lands on a span pulse. Work it by hand; it is the first polyrhythm-with-crossing test |
-| `2x 2` / `2 2` | 3:2 | 4 | no | the cross from hand 1 beat 1 lands at pulse 4, between hand 2's beats (3 and 6) |
+| `432` | 1:1 | 3 | no | landings 5, 5, 5: all three throws collide |
+| `510` | 1:1 | 2 | no | landings 6, 3, 3 → mod 3 all 0: three-way collision with a `0` |
+| `2` / `2` | 3:2 | 4 | yes | Nickmans' non-crossing 3:2 pattern: each hand fountains two balls on its own grid; cycle 6 |
+| `2x 2 2` / `2 2x` | 3:2 | 4 | no | hand 1's `x` leaves pulse 0 and lands at 4, between hand 2's beats 3 and 6; hand 2's `x` leaves pulse 3 and lands at 9, off hand 1's even grid |
+| `2 2x 2` / `2x 2` | 3:2 | 4 | yes | the same digits rotated: hand 1's `x` leaves pulse 2, hand 2's leaves pulse 0, both land at pulse 6, each into the slot the other vacated. The demo pattern; its period is 18 pulses |
+| `2x 2` / `2 2` | 3:2 | 4 | no | period 2 on a 3-beat hand makes a 12-pulse cycle; the `x` fires at pulses 0, 4, 8 and lands at 4, 8, 12, legal only the third time |
 
-The 3:2 rows are the ones that prove the project. Draw their ladders by hand before trusting the code, and treat the "depends" row as a worked exercise whose answer goes in the test.
+The 3:2 rows are the ones that prove the project. Their ladders were drawn by hand (2026-10-28) before the tests were written; the tests in `src/core/table.test.ts` encode this table row for row.

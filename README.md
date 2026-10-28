@@ -16,6 +16,17 @@ Target sound: ambient, afrobeat, world percussion, trance. Open source, MIT, sta
 
 Design doc with the full discussion: https://claude.ai/artifact/Svd3Vd6dcB8DkfGZzmSRiQ
 
+## Develop
+
+Node 20. Then:
+
+    npm install
+    npm test          # vitest with coverage; src/core is held at 100% lines
+    npm run typecheck
+    npm run dev       # Vite dev server
+
+CI runs the same three on every push.
+
 ## Origin
 
 A conversation between Nico Lovejoy and Charlie about vibe-coding music, and the symmetry between polyrhythm rules and juggling math. Juggling theory from Buhler, Eisenbud, Graham, Wright and those who followed; see the bibliography.
