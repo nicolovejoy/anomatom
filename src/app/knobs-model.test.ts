@@ -15,7 +15,7 @@ import {
   handState,
   patternText,
   pieces,
-  sameRatio,
+  siteCovering,
   statusLines,
   stepRatio,
   swapText,
@@ -140,6 +140,17 @@ describe('pattern text', () => {
 });
 
 describe('swap', () => {
+  test('siteCovering: a selection over exactly one throw, its digit and x', () => {
+    expect(siteCovering('5 3x1', 0, 1)).toBe(0);
+    expect(siteCovering('5 3x1', 2, 4)).toBe(1);
+    expect(siteCovering('5 3x1', 4, 3)).toBe(1);
+    expect(siteCovering('5 3x1', 1, 2)).toBeNull();
+    expect(siteCovering('5 3x1', 0, 3)).toBeNull();
+    expect(siteCovering('5 3x1', 3, 5)).toBeNull();
+    expect(siteCovering('531', 1, 1)).toBeNull();
+    expect(siteCovering('531', 3, 4)).toBeNull();
+  });
+
   test('toggleSite: two in one hand, untap, other hand restarts, a third keeps the last two', () => {
     let s = toggleSite(null, 0, 1);
     expect(s).toEqual({ hand: 0, sites: [1] });
@@ -161,10 +172,7 @@ describe('swap', () => {
 });
 
 describe('ratio, tempo and time', () => {
-  test('sameRatio reduces; stepRatio clamps and stays unreduced', () => {
-    expect(sameRatio({ a: 2, b: 2 }, one)).toBe(true);
-    expect(sameRatio({ a: 6, b: 4 }, threeTwo)).toBe(true);
-    expect(sameRatio(threeTwo, one)).toBe(false);
+  test('stepRatio clamps and stays unreduced', () => {
     expect(stepRatio(threeTwo, 0, 1)).toEqual({ a: 4, b: 2 });
     expect(stepRatio(threeTwo, 1, -1)).toEqual({ a: 3, b: 1 });
     expect(stepRatio({ a: 1, b: 1 }, 1, -1)).toEqual({ a: 1, b: 1 });

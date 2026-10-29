@@ -1,6 +1,6 @@
 // The knob panel's logic (SPEC §4.1, §4.2), pure: no DOM, no timers. mount-knobs.ts and
 // mount-ladder.ts turn these values into elements and pixels.
-import { isVanilla, makeGrids, parsePattern, reduceRatio, swapSites, validate, validateAll } from '../core';
+import { isVanilla, makeGrids, parsePattern, swapSites, validate, validateAll } from '../core';
 import type { ErrorDetail, Hand, HandPattern, ParseResult, PatternInput, Ratio, Throw } from '../core';
 import { BPM_RANGE, MAX_RATIO } from '../tunables';
 import { copy } from '../ui/copy';
@@ -157,6 +157,20 @@ export function pieces(
   return out;
 }
 
+/**
+ * The throw a keyboard selection covers, for choosing a swap site without a pointer: the site
+ * when every character in [start, end) belongs to that one throw (its digit, its `x`, or both);
+ * null for an empty selection or one that spans whitespace or two throws.
+ */
+export function siteCovering(text: string, start: number, end: number): number | null {
+  const lo = Math.min(start, end);
+  const hi = Math.max(start, end);
+  if (lo === hi) return null;
+  const covered = pieces(text, new Set(), new Set(), null).slice(lo, hi);
+  const site = covered[0]?.site ?? null;
+  return site !== null && covered.every((p) => p.site === site) ? site : null;
+}
+
 export interface Caret {
   readonly start: number;
   readonly end: number;
@@ -206,13 +220,6 @@ export function swapText(text: string, i: number, j: number, vanilla: boolean): 
 // ---------------------------------------------------------------------------------------------
 // Ratio, tempo, time
 // ---------------------------------------------------------------------------------------------
-
-/** Chips compare by the reduced ratio: 2:2 is 1:1. */
-export function sameRatio(p: Ratio, q: Ratio): boolean {
-  const a = reduceRatio(p);
-  const b = reduceRatio(q);
-  return a.a === b.a && a.b === b.b;
-}
 
 /** A stepper: one side up or down by one, within 1 … MAX_RATIO. Left unreduced, so a stepper moves one step at a time. */
 export function stepRatio(r: Ratio, hand: Hand, delta: number): Ratio {

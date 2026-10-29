@@ -3,9 +3,10 @@
 // panel is open, and this panel re-reads it on every change (an edit here, or a restored share
 // link). The logic is in knobs-model.ts; this file is elements and events.
 //
-// Space toggles play from anywhere (one capturing handler, at the bottom). No control here
-// claims Space: the pattern inputs ignore spaces anyway, and range sliders do not use it. A
-// control that does need Space (a select, say) opts out by sitting inside `[data-keeps-space]`.
+// Space toggles play from anywhere (one capturing handler, at the bottom), with two
+// exemptions: a pattern text input, where Space types the space that separates throws at other
+// ratios than 1:1; and any control inside `[data-keeps-space]` (a select, say). Range sliders
+// do not use Space, so they need no exemption.
 import { buildSchedule, fixesFor, isVanilla, reduceRatio } from '../core';
 import type { Hand, PatternInput, Schedule } from '../core';
 import { BPM_RANGE, KNOBS, MAX_RATIO, RATIO_CHIPS } from '../tunables';
@@ -22,7 +23,7 @@ import {
   hand2Bpm,
   handState,
   pieces,
-  sameRatio,
+  siteCovering,
   statusLines,
   stepRatio,
   swapText,
@@ -212,7 +213,11 @@ export const mountKnobs: Mount = (root, { store, player, sound }) => {
         b.className = 'fix';
         b.textContent = fixLabel(fix);
         // Never applied on its own: only this click changes the pattern.
-        b.addEventListener('click', () => store.set({ patterns: fixTexts(fix, store.get().patterns) }));
+        b.addEventListener('click', () => {
+          store.set({ patterns: fixTexts(fix, store.get().patterns) });
+          // The button is gone with the next check; focus returns to the pattern.
+          (inputs[0] as HTMLInputElement).focus();
+        });
         return b;
       }),
     );
@@ -266,7 +271,8 @@ export const mountKnobs: Mount = (root, { store, player, sound }) => {
     (labels[0] as HTMLLabelElement).textContent = vanilla ? copy.patternLabel : copy.handLabel(0);
     (labels[1] as HTMLLabelElement).textContent = copy.handLabel(1);
     for (const chip of chips) {
-      const on = sameRatio({ a: Number(chip.dataset.a), b: Number(chip.dataset.b) }, state.ratio);
+      // Pressed only for its exact a:b: 2:2 from the steppers is not the 1:1 chip, which still normalises it.
+      const on = Number(chip.dataset.a) === state.ratio.a && Number(chip.dataset.b) === state.ratio.b;
       chip.setAttribute('aria-pressed', String(on));
     }
     HANDS.forEach((h) => {
@@ -342,11 +348,8 @@ export const mountKnobs: Mount = (root, { store, player, sound }) => {
 
   playButton.addEventListener('click', toggle);
   stopButton.addEventListener('click', stop);
-  form.addEventListener('submit', (e) => {
-    // Enter in an input plays (or resumes); it never pauses.
-    e.preventDefault();
-    start();
-  });
+  // Enter never submits the form (there is no submit button); a pattern input handles it below.
+  form.addEventListener('submit', (e) => e.preventDefault());
 
   // -------------------------------------------------------------------------------------------
   // Pattern inputs, the digit pad, swap
@@ -361,16 +364,38 @@ export const mountKnobs: Mount = (root, { store, player, sound }) => {
   HANDS.forEach((h) => {
     const input = inputs[h] as HTMLInputElement;
     const mirror = mirrors[h] as HTMLSpanElement;
+    /** The selection last turned into a swap site, so `select` and `keyup` choose it once. */
+    let chosenRange = '';
     const remember = () => {
       activeHand = h;
-      carets[h] = { start: input.selectionStart ?? input.value.length, end: input.selectionEnd ?? input.value.length };
+      const start = input.selectionStart ?? input.value.length;
+      const end = input.selectionEnd ?? input.value.length;
+      carets[h] = { start, end };
       mirror.scrollLeft = input.scrollLeft;
+      // Swap by keyboard: selecting exactly one throw (Shift and an arrow) chooses it.
+      const range = `${start}:${end}`;
+      if (start === end || range === chosenRange) {
+        if (start === end) chosenRange = '';
+        return;
+      }
+      const site = siteCovering(input.value, start, end);
+      if (site === null) return;
+      chosenRange = range;
+      selection = toggleSite(selection, h, site);
+      swapFailed = false;
+      renderMirrors(store.get());
     };
     input.addEventListener('focus', () => (activeHand = h));
     for (const type of ['select', 'keyup', 'pointerup', 'scroll']) input.addEventListener(type, remember);
     input.addEventListener('input', () => {
       setPattern(h, input.value);
       remember();
+    });
+    // Enter plays, or resumes; it never pauses.
+    input.addEventListener('keydown', (e) => {
+      if (e.key !== 'Enter' || e.isComposing) return;
+      e.preventDefault();
+      start();
     });
     // A tap on a throw chooses it for Swap (SPEC §4.1): the throw under the pointer, read off
     // the coloured text behind the input.
@@ -429,9 +454,8 @@ export const mountKnobs: Mount = (root, { store, player, sound }) => {
     });
     chip.addEventListener('click', () => select(chip));
   }
-  /** Makes `chip`'s ratio the active one; the chip already active changes nothing. */
+  /** Makes `chip`'s ratio the active one, exactly as written (so 2:2 → 1:1 works). */
   function select(chip: HTMLButtonElement) {
-    if (chip.getAttribute('aria-pressed') === 'true') return;
     store.set({ ratio: reduceRatio({ a: Number(chip.dataset.a), b: Number(chip.dataset.b) }) });
   }
   HANDS.forEach((h) => {
@@ -469,18 +493,18 @@ export const mountKnobs: Mount = (root, { store, player, sound }) => {
   // Space
   // -------------------------------------------------------------------------------------------
 
-  // Space always plays and pauses, wherever focus is. Captured before a focused button or input
-  // sees it: a button would otherwise activate (a ratio chip clicked earlier keeps focus), and
-  // an input would get a space, which the parser ignores anyway. Buttons activate on keyup in
-  // some browsers, so that is suppressed too. The one exemption: a control inside
-  // `[data-keeps-space]` keeps Space for itself (none in this panel).
+  // Space plays and pauses, wherever focus is. Captured before a focused control sees it, so a
+  // button does not activate (a ratio chip clicked earlier keeps focus); buttons activate on
+  // keyup in some browsers, so that is suppressed too. Exempt: a pattern text input, where
+  // Space types a space (the separator at other ratios than 1:1), and any control inside
+  // `[data-keeps-space]`.
   const isSpace = (e: KeyboardEvent) =>
     e.code === 'Space' &&
     !e.ctrlKey &&
     !e.metaKey &&
     !e.altKey &&
     !e.isComposing &&
-    !(e.target instanceof Element && e.target.closest('[data-keeps-space]'));
+    !(e.target instanceof Element && e.target.closest('.pattern-field, [data-keeps-space]'));
   document.addEventListener(
     'keydown',
     (e) => {

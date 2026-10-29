@@ -121,6 +121,57 @@ test('an invalid edit while playing: the old pattern plays on, the broken one gr
   await expect(page.locator('.ladder-broken')).toBeHidden();
 });
 
+test('Space types a space in a pattern input; Enter there plays; Space elsewhere pauses', async ({ page }) => {
+  await page.goto('/');
+  await page.locator('.chip', { hasText: '3:2' }).click();
+  await hand1(page).fill('');
+  await hand1(page).click();
+  await page.keyboard.type('2');
+  await page.keyboard.press('Space');
+  await page.keyboard.type('2x');
+  await page.keyboard.press('Space');
+  await page.keyboard.type('2');
+  await expect(hand1(page)).toHaveValue('2 2x 2');
+  await expect(page.locator('#play')).toHaveText('Play');
+  await page.locator('#hand-1').fill('2x 2');
+  await page.locator('#hand-1').press('Enter');
+  await expect(page.locator('#play')).toHaveText('Pause');
+  // Enter never pauses.
+  await page.locator('#hand-1').press('Enter');
+  await expect(page.locator('#play')).toHaveText('Pause');
+  await page.locator('#volume').focus();
+  await page.keyboard.press('Space');
+  await expect(page.locator('#play')).toHaveText('Play');
+  await expect(page.locator('#scrub')).toBeEnabled();
+});
+
+test('swap by keyboard: Shift+Arrow over one throw chooses it', async ({ page }) => {
+  await page.goto('/');
+  await hand1(page).fill('531');
+  await hand1(page).press('Home');
+  await hand1(page).press('Shift+ArrowRight');
+  await hand1(page).press('ArrowRight');
+  await hand1(page).press('Shift+ArrowRight');
+  await expect(page.locator('.mirror .chosen')).toHaveCount(2);
+  await expect(page.locator('#swap')).toBeEnabled();
+  await page.locator('#swap').press('Enter');
+  await expect(hand1(page)).toHaveValue('441');
+});
+
+test('a fix click returns focus to the input; a chip always applies its exact ratio', async ({ page }) => {
+  await page.goto('/');
+  await hand1(page).fill('432');
+  await page.locator('.fix').first().click();
+  await expect(hand1(page)).toBeFocused();
+  // Steppers to 2:2, then the 1:1 chip normalises it.
+  await page.locator('.stepper[data-hand="0"] [data-delta="1"]').click();
+  await page.locator('.stepper[data-hand="1"] [data-delta="1"]').click();
+  await expect(page.locator('.chip[aria-pressed="true"]')).toHaveCount(0);
+  await page.locator('.chip', { hasText: '1:1' }).click();
+  await expect(page.locator('.stepper[data-hand="0"] output')).toHaveText('1');
+  await expect(page.locator('.chip', { hasText: '1:1' })).toHaveAttribute('aria-pressed', 'true');
+});
+
 test('phone width folds the panel under a button; the juggler and ladder stay', async ({ page }) => {
   await page.setViewportSize({ width: 390, height: 844 });
   await page.goto('/');

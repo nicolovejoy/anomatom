@@ -21,7 +21,6 @@ export const copy = {
   handLabel: (hand: 0 | 1) => `Hand ${hand + 1} pattern`,
   ratioLabel: 'Ratio',
   ratioChip: (a: number, b: number) => `${a}:${b}`,
-  spaceHint: 'Space starts and stops me.',
   play: 'Play',
   stop: 'Stop',
   valid: (balls: number) => `I have ${balls} ball${balls === 1 ? '' : 's'}.`,
@@ -144,7 +143,7 @@ export const copy = {
   // -------------------------------------------------------------------------------------------
 
   pause: 'Pause',
-  spacePlayPause: 'Space plays and pauses me, wherever you are on the page.',
+  spacePlayPause: 'Space plays and pauses me, except while you type a pattern.',
   /** The digit pad beside the pattern inputs. */
   digitPadLabel: 'Type a throw',
   crossKey: 'x',
@@ -168,7 +167,7 @@ export const copy = {
       ? `Each hand beats at ${bpm1} bpm, so my shared beat runs at ${bpm1 * 2}.`
       : `Hand 1 beats at ${bpm1} bpm, hand 2 at ${bpm2}.`,
   swap: 'Swap',
-  swapHint: 'Tap two throws in one pattern, then Swap.',
+  swapHint: 'Tap two throws in one pattern, or select each with Shift and an arrow key, then Swap.',
   swapChosen: (count: number) => (count === 1 ? 'One throw chosen; tap one more.' : 'Two throws chosen.'),
   swapImpossible: 'I can’t swap those: the earlier throw would have to land before it is thrown.',
   scrubLabel: 'Time in the cycle',
