@@ -27,7 +27,7 @@ interface Segment {
   /** Audio-clock seconds at this segment's pulse 0. */
   readonly startTime: number;
   readonly pulseLen: number;
-  /** Seconds at which the next segment takes over; null for the last. Flights launched before it are drawn to their landing. */
+  /** Seconds at which the next segment takes over; null for the last. Flights launched before it are drawn to their landing, retimed to the next segment's pulse length (see Retiming). */
   readonly endTime: number | null;
   /**
    * Ball identity across the switch into this segment: new ball id → the previous segment's ball
@@ -45,7 +45,7 @@ interface PlayerView {
 }
 ```
 
-When stopped, `player.view()` returns one segment of the latest valid edit placed so that `now` is pulse 0 (or the scrub position). Wave 0 implements this with the current single-schedule player and converts `ladderFrame` to take `(segments, now)`, including several segments: each segment's throws are drawn from its start until its `endTime`, flights to their landing, colours through `carry`. Wave 0 tests that with hand-built two-segment views (a tempo change and a pattern change). B adds queued switches and tempo changes behind the same shape.
+When stopped, `player.view()` returns one segment of the latest valid edit placed so that `now` is pulse 0 (or the scrub position). Wave 0 implements this with the current single-schedule player and converts `ladderFrame` to take `(segments, now)`, including several segments: each segment's throws are drawn from its start until its `endTime`, flights to their landing (retimed, see Retiming), colours through `carry`. Wave 0 tests that with hand-built two-segment views (a tempo change and a pattern change). B adds queued switches and tempo changes behind the same shape.
 
 **Carry-over rule** (`carryOver(old, new, boundary)`, pure, in `src/core`, owned by B; A and the ladder read only `carry`). Let B be the boundary in the old segment's pulses.
 
@@ -53,7 +53,7 @@ When stopped, `player.view()` returns one segment of the latest valid edit place
 - A crossing flight landing at (B + p, hand) is matched only to the new ball whose *first* throw is at (p, hand) in the new segment. That makes the map one-to-one: each new ball has one first throw, and each (pulse, hand) one throw.
 - The new ball id maps to the old one and keeps its colour.
 - When both patterns pass through the same state at B, every ball carries (`3` → `441`). Otherwise, or when the ball count changes, the rest go unmatched (MATH §4; `3` → `51` cannot carry all three, since `51` is excited).
-- An unmatched old flight lands and vanishes into the hand. An unmatched new ball appears held at its first throw point at `startTime`.
+- An unmatched old flight lands and vanishes into the hand. An unmatched new ball appears held at its first throw point at `startTime`. Accepted for v1: while an unmatched old flight is still landing, the count can briefly exceed both patterns' (`3` → `51` can show 4 for under one cycle).
 
 **Retiming across a tempo or ratio change.** A crossing flight is drawn from its launch, in old time, to its landing, in new time: `startTime + p × new.pulseLen`. It is one parabola over that span, so a carried ball lands exactly when its new throw sounds. Old throws at or after `endTime` are never played; the new segment owns them.
 

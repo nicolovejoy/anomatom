@@ -114,7 +114,7 @@ v1 is done when all of these hold in Chrome, Safari and Firefox on a laptop, and
 1. `3`, `441`, `531`, `51`, `5551`, `97531` validate and play with a 1:1 ratio; the ladder and the juggler agree with hand-drawn ladder diagrams for each.
 2. `12`, `21`, `43`, `4441` report a fractional ball count and offer a one-digit fix that is itself valid; `432` and `510` report a collision naming the right throws and offer fixes that are themselves valid.
 3. `2` on each hand at 3:2 validates and plays as two fountains, and the strip shows 3 against 2; `2 2x 2` / `2x 2` validates with both crosses landing on the downbeat and the strip shows the exchange with the accent, while `2x 2 2` / `2 2x` is rejected naming the landing pulses. This is the demo as pitched. (Notation: `MATH.md` §6 and §8.)
-4. Changing tempo or pattern while playing never clicks, drops a ball on screen, or stutters the strip; the change lands on the next cycle. A ball the new pattern has no place for is caught and stays in the hand; a ball it needs appears in the hand (`MATH.md` §4); neither counts as a drop.
+4. Changing tempo or pattern while playing never clicks, drops a ball on screen, or stutters the strip; the change lands on the next cycle. A ball the new pattern has no place for is caught and disappears into the hand; a ball it needs appears in the hand (`MATH.md` §4); neither counts as a drop.
 5. A share link round-trips: open it in a fresh tab and the knobs, sound panel and pattern match.
 6. Audio events land within 2 ms of their scheduled time (measured from the audio clock in a test), and the drawn ball position at a catch is at the catching hand's throw point within one ball radius.
 7. The About page renders the full bibliography with working links.
