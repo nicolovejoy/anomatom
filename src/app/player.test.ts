@@ -22,6 +22,8 @@ function fakeSound() {
     now: () => clock,
     resume: vi.fn(),
     preload: vi.fn(),
+    setFilter: vi.fn(),
+    playPad: vi.fn(),
     play: (hit: { sample: string }, time: number) => played.push({ sample: hit.sample, time }),
     close: vi.fn(),
   };
@@ -781,6 +783,132 @@ test('scrub ahead, resume, pause in the wait, resume: the picture stays on the s
   const after = pulsesOf(played.slice(n).map((p) => p.time), 0.05, 0.25);
   expect(after[0]).toBe(5);
   expect(after).toEqual(range(5, 5 + after.length));
+  player.stop();
+  vi.useRealTimers();
+});
+
+// ---------------------------------------------------------------------------------------------
+// The Mapping wired in (stream F): live edits, the pad at each cycle start, the filter
+// ---------------------------------------------------------------------------------------------
+
+const padOn = { ...DEFAULT_MAPPING, pad: { ...DEFAULT_MAPPING.pad, on: true } };
+const filterOn = { ...DEFAULT_MAPPING, filter: { on: true, low: 400, high: 12000 } };
+
+test('setMapping preloads what the new mapping needs; the same mapping again does nothing', () => {
+  const { sound } = fakeSound();
+  const player = createPlayer(sound);
+  player.setMapping(padOn);
+  expect(sound.preload).toHaveBeenCalledTimes(1);
+  expect(sound.preload).toHaveBeenCalledWith(padOn);
+  player.setMapping(padOn);
+  expect(sound.preload).toHaveBeenCalledTimes(1);
+});
+
+test('a mapping edit while playing is heard from the next look-ahead window, not the next cycle', () => {
+  vi.useFakeTimers();
+  const { sound, played, tick } = fakeSound();
+  const run = runner(tick);
+  const player = createPlayer(sound);
+  player.play(schedule('441'), DEFAULT_MAPPING, 120);
+  run(0.3);
+  const before = played.length;
+  player.setMapping({ ...DEFAULT_MAPPING, perHeight: { ...DEFAULT_MAPPING.perHeight, 1: 'cowbell' } });
+  run(0.3);
+  const fresh = played.slice(before);
+  expect(fresh.length).toBeGreaterThan(0);
+  // A cycle of 441 is 3 pulses = 0.75 s; the edit lands inside the cycle that is playing.
+  expect(fresh.some((p) => p.sample === 'cowbell')).toBe(true);
+  expect(played.slice(0, before).some((p) => p.sample === 'cowbell')).toBe(false);
+  player.stop();
+  vi.useRealTimers();
+});
+
+test('the pad plays at every cycle start, with the cycle length, on the mapping’s instrument', () => {
+  vi.useFakeTimers();
+  const { sound, tick } = fakeSound();
+  const run = runner(tick);
+  const player = createPlayer(sound);
+  const mapping = { ...padOn, pad: { ...padOn.pad, instrument: 'soundfont' as const } };
+  player.play(schedule('3'), mapping, 120); // cycle 2 pulses of 0.25 s
+  run(1.2);
+  const calls = vi.mocked(sound.playPad).mock.calls;
+  expect(calls.length).toBeGreaterThanOrEqual(3);
+  [0.05, 0.55, 1.05].forEach((t, i) => expect(calls[i]?.[2]).toBeCloseTo(t, 9));
+  expect(calls.every((c) => c[0] === 'soundfont' && c[3] === 0.25)).toBe(true);
+  expect(calls[0]?.[1][0]?.durationPulses).toBe(2);
+  player.stop();
+  vi.useRealTimers();
+});
+
+test('the pad is silent while off, and a mapping edit switches it on mid-play', () => {
+  vi.useFakeTimers();
+  const { sound, tick } = fakeSound();
+  const run = runner(tick);
+  const player = createPlayer(sound);
+  player.play(schedule('3'), DEFAULT_MAPPING, 120);
+  run(0.6);
+  expect(sound.playPad).not.toHaveBeenCalled();
+  player.setMapping(padOn);
+  run(1);
+  expect(sound.playPad).toHaveBeenCalled();
+  player.stop();
+  vi.useRealTimers();
+});
+
+test('the pad also sounds at pulse 0 of a pattern that takes over at a cycle boundary, once', () => {
+  vi.useFakeTimers();
+  const { sound, tick } = fakeSound();
+  const run = runner(tick);
+  const player = createPlayer(sound);
+  player.play(schedule('3'), padOn, 120);
+  run(0.3);
+  player.setEdit(schedule('441'), 120);
+  run(3);
+  const S = (player.view().segments[1] as Segment).startTime;
+  const times = vi.mocked(sound.playPad).mock.calls.map((c) => c[2]);
+  expect(times.filter((t) => Math.abs(t - S) < 1e-9)).toHaveLength(1);
+  expect(new Set(times).size).toBe(times.length);
+  // A cycle of 441 is six pulses (vanilla cycles are even); the old pattern's are two.
+  expect(times.some((t) => Math.abs(t - (S + 6 * 0.25)) < 1e-9)).toBe(true);
+  expect(times.filter((t) => t < S - 1e-9).every((t) => Math.abs((t - 0.05) / 0.5 - Math.round((t - 0.05) / 0.5)) < 1e-9)).toBe(true);
+  player.stop();
+  vi.useRealTimers();
+});
+
+test('the filter follows the crossings of the pattern that sounds, and only changes are sent', () => {
+  vi.useFakeTimers();
+  const { sound, tick } = fakeSound();
+  const run = runner(tick);
+  const player = createPlayer(sound);
+  player.play(schedule('0'), filterOn, 120); // no arcs: the low end
+  run(0.5);
+  expect(sound.setFilter).toHaveBeenCalledTimes(1);
+  expect(sound.setFilter).toHaveBeenLastCalledWith(400);
+  player.setMapping({ ...filterOn, filter: { on: true, low: 300, high: 12000 } });
+  run(0.2);
+  expect(sound.setFilter).toHaveBeenCalledTimes(2);
+  expect(sound.setFilter).toHaveBeenLastCalledWith(300);
+  player.setEdit(schedule('97531'), 120);
+  run(8);
+  const last = vi.mocked(sound.setFilter).mock.calls.at(-1)?.[0] as number;
+  expect(last).toBeGreaterThan(300);
+  player.setMapping(DEFAULT_MAPPING);
+  run(0.2);
+  expect(sound.setFilter).toHaveBeenLastCalledWith(20000);
+  player.stop();
+  vi.useRealTimers();
+});
+
+test('a fresh play sends the cutoff again, in case the context is new', () => {
+  vi.useFakeTimers();
+  const { sound, tick } = fakeSound();
+  const run = runner(tick);
+  const player = createPlayer(sound);
+  player.play(schedule('3'), DEFAULT_MAPPING, 120);
+  run(0.2);
+  player.stop();
+  player.play(schedule('3'), DEFAULT_MAPPING, 120);
+  expect(sound.setFilter).toHaveBeenCalledTimes(2);
   player.stop();
   vi.useRealTimers();
 });
