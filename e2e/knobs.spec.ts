@@ -148,7 +148,8 @@ test('Space types a space in a pattern input; Enter there plays; Space elsewhere
 test('swap by keyboard: Shift+Arrow over one throw chooses it', async ({ page }) => {
   await page.goto('/');
   await hand1(page).fill('531');
-  await hand1(page).press('Home');
+  // Home is not "start of line" on macOS WebKit and Firefox, so put the caret there directly.
+  await hand1(page).evaluate((el: HTMLInputElement) => el.setSelectionRange(0, 0));
   await hand1(page).press('Shift+ArrowRight');
   await hand1(page).press('ArrowRight');
   await hand1(page).press('Shift+ArrowRight');
