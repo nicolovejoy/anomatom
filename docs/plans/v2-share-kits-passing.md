@@ -1,6 +1,6 @@
 # v2: sharing, kits, passing
 
-Status: drafted 2026-10-29, not started. Nico decided: share link always in reach, a few drum kits to choose from, then straight to passing (not independent layers first). Process as in `docs/plans/v1-parallel.md` (Roles and process) and `docs/plans/phone-sheet.md`; one PR per stream, governor merges on green CI after a fresh-eyes review, checkpoint smoke test after each wave.
+Status: drafted 2026-10-29, not started. On hold for a rethink of the mental model: see `docs/plans/rethink-brief.md`. Nico decided: share link always in reach, a few drum kits to choose from, then straight to passing (not independent layers first). Process as in `docs/plans/v1-parallel.md` (Roles and process) and `docs/plans/phone-sheet.md`; one PR per stream, governor merges on green CI after a fresh-eyes review, checkpoint smoke test after each wave.
 
 ## Wave 1: polish (three parallel streams, small)
 
