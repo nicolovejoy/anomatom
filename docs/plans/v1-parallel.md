@@ -118,7 +118,7 @@ Motion:
 - `d = min(dwell × catching hand's pulsesPerBeat, maxDwellShare × flight)`.
 - The catching hand is `cross ? 1 − hand : hand`, the same as the catch event's `hand`.
 - Apex = `g·air²/8` (SPEC §4.1, MATH §7).
-- Before a ball's first throw at or after pulse 0, it sits held at that throw point. The ladder draws nothing before 0, and the two views must agree (SPEC §7.1).
+- Before a ball's first throw at or after pulse 0, it waits in its hand (superseded 2026-10-29 by the governor's A ruling below: at the hand's catch point, riding the scoop in over the dwell before the throw, so waiting balls never stack). The ladder draws nothing before 0, and the two views must agree (SPEC §7.1).
 
 Switches follow the carry-over rule above: a carried ball moves without a jump from its old flight into its new throw; an unmatched old ball lands and vanishes; an unmatched new ball appears held. Scene bounds fit the larger of the old and new segments across a switch, so the scale doesn't jump.
 
@@ -249,3 +249,4 @@ Dated 2026-10-29.
 - Wave 1 per-task review is replaced by one review per stream at its end, to save tokens (Nico, 2026-10-29).
 - E: Left/Right arrow keys move across the ratio chips (shipped in the wave 0 follow-up; E keeps it when rebuilding the panel). Labels read "Pattern", with a two-entry glossary under the panel; E keeps both.
 - 2026-10-29, C: `Mapping.byBall` (per-ball sample list, used by the ball-to-pitch preset) is accepted beyond SPEC §4.3; the preset name is derived by `presetOf`, never stored. F wires: `sound.preload(mapping)` on every mapping change, `sound.setMaster(volume)` and `sound.setFilter(filterCutoff(crossings, mapping))` on change, and `sound.playPad(mapping.pad.instrument, padHitsAt(cyclePulse, mapping, cyclePulses), time, pulseLen)` at each cycle start. Pad voices and `FILTER_FULL_CROSSINGS` await Nico's ear.
+- 2026-10-29, A: a ball waiting for its first throw sits at its hand's catch point and rides the scoop in over the dwell before that throw (not at the throw point), so two balls waiting in one hand never overlap; physics scale and `minRadiusPx` stay, and Nico judges the 3:2 scale at the checkpoint (alternatives: a taller region, or a compressed vertical axis).
