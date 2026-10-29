@@ -3,7 +3,7 @@
 import { expect, isCdnError, test } from './fixtures';
 
 test('the aborted sample CDN shows the failed state and a retry control that tries again', async ({ page }) => {
-  await page.goto('/');
+  await page.goto('/#v1.e30');
   const status = page.locator('.sound-status');
   await expect(status).toHaveAttribute('data-state', 'failed');
   await expect(status).toContainText('I could not fetch my drum sounds');
@@ -21,7 +21,7 @@ test('the aborted sample CDN shows the failed state and a retry control that tri
 
 test('at 390px wide Play and the sound status are visible without opening Knobs', async ({ page }) => {
   await page.setViewportSize({ width: 390, height: 844 });
-  await page.goto('/');
+  await page.goto('/#v1.e30');
   await expect(page.locator('.knobs-toggle')).toBeVisible();
   await expect(page.locator('#knobs-body')).toBeHidden();
   await expect(page.locator('#play')).toBeVisible();
