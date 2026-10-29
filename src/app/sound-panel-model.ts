@@ -19,8 +19,9 @@ import { CROSS_BOOST_RANGE, FILTER_HZ_RANGE, GAIN_RANGE, KIT_SAMPLES, MAX_HEIGHT
 export type MappingEdit =
   | { readonly kind: 'preset'; readonly name: PresetName }
   | { readonly kind: 'height'; readonly height: number; readonly sample: Sample }
-  | { readonly kind: 'pan'; readonly hand: 0 | 1; readonly value: number }
-  | { readonly kind: 'gain'; readonly hand: 0 | 1; readonly value: number }
+  | { readonly kind: 'partSample'; readonly part: number; readonly sample: Sample }
+  | { readonly kind: 'pan'; readonly part: number; readonly value: number }
+  | { readonly kind: 'gain'; readonly part: number; readonly value: number }
   | { readonly kind: 'catchesOn'; readonly on: boolean }
   | { readonly kind: 'catchSample'; readonly sample: Sample }
   | { readonly kind: 'accent'; readonly velocity: number }
@@ -54,15 +55,22 @@ function edited(m: Mapping, edit: MappingEdit): Mapping | undefined {
       if (sample === undefined || !Number.isInteger(edit.height) || edit.height < 1 || edit.height > MAX_HEIGHT) {
         return undefined;
       }
-      // A ball-to-pitch list would override the height's sound, so choosing a height's sound ends it.
-      return { ...m, byBall: null, perHeight: { ...m.perHeight, [edit.height]: sample } };
+      // A ball-to-pitch list would override the height's sound, so choosing a height's sound ends it,
+      // and a height's sound is only heard by a mapping that reads height.
+      return { ...m, byHeight: true, byBall: null, perHeight: { ...m.perHeight, [edit.height]: sample } };
+    }
+    case 'partSample': {
+      const sample = knownSample(edit.sample);
+      if (sample === undefined || !m.parts[edit.part]) return undefined;
+      // A part's own sound is only heard by a mapping that does not read height or ball.
+      const parts = m.parts.map((v, i) => (i === edit.part ? { ...v, sample } : v));
+      return { ...m, byHeight: false, byBall: null, parts };
     }
     case 'pan':
     case 'gain': {
-      if (!Number.isFinite(edit.value)) return undefined;
+      if (!Number.isFinite(edit.value) || !m.parts[edit.part]) return undefined;
       const value = within(edit.value, edit.kind === 'pan' ? PAN_RANGE : GAIN_RANGE);
-      const hands = m.hands.map((v, h) => (h === edit.hand ? { ...v, [edit.kind]: value } : v));
-      return { ...m, hands: hands as unknown as Mapping['hands'] };
+      return { ...m, parts: m.parts.map((v, i) => (i === edit.part ? { ...v, [edit.kind]: value } : v)) };
     }
     case 'catchesOn':
       return { ...m, catches: { ...m.catches, on: edit.on } };

@@ -32,7 +32,6 @@ import {
 import { shareUrl } from './share';
 import './sound-panel.css';
 
-const HANDS = [0, 1] as const;
 const label = (sample: Sample) => (sample === null ? copy.noSample : (copy.sampleNames[sample] ?? sample));
 
 export const mountSoundPanel: Mount = (root, { store, player }) => {
@@ -41,12 +40,27 @@ export const mountSoundPanel: Mount = (root, { store, player }) => {
     samples.map((s) => `<option value="${sampleValue(s)}">${label(s)}</option>`).join('');
   const allSamples: readonly Sample[] = [null, ...KIT_SAMPLES];
 
+  /** One row of sound, pan and gain per part; the part is read back from `data-part`. */
+  const renderParts = (count: number) =>
+    Array.from(
+      { length: count },
+      (_, i) => `<div class="sp-row"><label for="sp-part-sample-${i}">${copy.partSoundLabel(i)}</label>
+        <select id="sp-part-sample-${i}" data-part="${i}" data-field="sample">${sampleOptions(allSamples)}</select></div>
+      <div class="sp-row"><label for="sp-pan-${i}">${copy.panLabel(i)}</label>
+        <input id="sp-pan-${i}" data-part="${i}" data-field="pan" type="range" min="${PAN_RANGE.min}" max="${PAN_RANGE.max}" step="${SOUND_PANEL.panStep}" />
+        <output id="sp-pan-out-${i}"></output></div>
+      <div class="sp-row"><label for="sp-gain-${i}">${copy.gainLabel(i)}</label>
+        <input id="sp-gain-${i}" data-part="${i}" data-field="gain" type="range" min="${GAIN_RANGE.min}" max="${GAIN_RANGE.max}" step="${SOUND_PANEL.gainStep}" />
+        <output id="sp-gain-out-${i}"></output></div>`,
+    ).join('');
+
   root.innerHTML = `
     <div id="sound-panel" class="sound-panel" data-keeps-space>
       <div class="sp-row">
         <label for="sp-kit">${copy.kitLabel}</label>
         <select id="sp-kit">${['TR-808'].map((k) => `<option value="${k}">${copy.kitNames[k as 'TR-808']}</option>`).join('')}</select>
       </div>
+      <p class="sp-note">${copy.soundBallCountNote}</p>
       <div class="sp-row">
         <label for="sp-preset">${copy.presetLabel}</label>
         <select id="sp-preset">
@@ -63,16 +77,8 @@ export const mountSoundPanel: Mount = (root, { store, player }) => {
           )
           .join('')}
       </fieldset>
-      <fieldset>
-        <legend>${copy.handsHeading}</legend>
-        ${HANDS.map(
-          (h) => `<div class="sp-row"><label for="sp-pan-${h}">${copy.panLabel(h)}</label>
-            <input id="sp-pan-${h}" type="range" min="${PAN_RANGE.min}" max="${PAN_RANGE.max}" step="${SOUND_PANEL.panStep}" />
-            <output id="sp-pan-out-${h}"></output></div>
-          <div class="sp-row"><label for="sp-gain-${h}">${copy.gainLabel(h)}</label>
-            <input id="sp-gain-${h}" type="range" min="${GAIN_RANGE.min}" max="${GAIN_RANGE.max}" step="${SOUND_PANEL.gainStep}" />
-            <output id="sp-gain-out-${h}"></output></div>`,
-        ).join('')}
+      <fieldset id="sp-parts">
+        <legend>${copy.partsHeading}</legend>
       </fieldset>
       <fieldset>
         <legend>${copy.catchesHeading}</legend>
@@ -115,8 +121,7 @@ export const mountSoundPanel: Mount = (root, { store, player }) => {
   const $ = <T extends Element>(selector: string) => root.querySelector(selector) as T;
   const preset = $<HTMLSelectElement>('#sp-preset');
   const heightSelects = heights.map((h) => $<HTMLSelectElement>(`#sp-height-${h}`));
-  const pan = HANDS.map((h) => $<HTMLInputElement>(`#sp-pan-${h}`));
-  const gain = HANDS.map((h) => $<HTMLInputElement>(`#sp-gain-${h}`));
+  const partsBox = $<HTMLFieldSetElement>('#sp-parts');
   const catchesOn = $<HTMLInputElement>('#sp-catches-on');
   const catchSample = $<HTMLSelectElement>('#sp-catch-sample');
   const accent = $<HTMLInputElement>('#sp-accent');
@@ -132,7 +137,8 @@ export const mountSoundPanel: Mount = (root, { store, player }) => {
   /** The only write to the Mapping. */
   const edit = (e: MappingEdit) => store.set({ mapping: applyEdit(store.get().mapping, e) });
 
-  let lastPreset: PresetName = 'height-drum';
+  let lastPreset: PresetName = 'voice-per-part';
+  let partCount = -1;
   let offeredDownbeat = '';
 
   // Controls are filled from the store; a control being typed in is left alone.
@@ -146,11 +152,16 @@ export const mountSoundPanel: Mount = (root, { store, player }) => {
     if (name !== 'custom') lastPreset = name;
     preset.value = name;
     heights.forEach((h, i) => ((heightSelects[i] as HTMLSelectElement).value = sampleValue(m.perHeight[h] ?? null)));
-    HANDS.forEach((h) => {
-      setIfIdle(pan[h] as HTMLInputElement, String(m.hands[h].pan));
-      setIfIdle(gain[h] as HTMLInputElement, String(m.hands[h].gain));
-      $<HTMLOutputElement>(`#sp-pan-out-${h}`).value = String(m.hands[h].pan);
-      $<HTMLOutputElement>(`#sp-gain-out-${h}`).value = String(m.hands[h].gain);
+    if (m.parts.length !== partCount) {
+      partCount = m.parts.length;
+      partsBox.innerHTML = renderParts(partCount);
+    }
+    m.parts.forEach((v, i) => {
+      $<HTMLSelectElement>(`#sp-part-sample-${i}`).value = sampleValue(v.sample);
+      setIfIdle($<HTMLInputElement>(`#sp-pan-${i}`), String(v.pan));
+      setIfIdle($<HTMLInputElement>(`#sp-gain-${i}`), String(v.gain));
+      $<HTMLOutputElement>(`#sp-pan-out-${i}`).value = String(v.pan);
+      $<HTMLOutputElement>(`#sp-gain-out-${i}`).value = String(v.gain);
     });
     catchesOn.checked = m.catches.on;
     catchSample.value = sampleValue(m.catches.sample);
@@ -178,17 +189,24 @@ export const mountSoundPanel: Mount = (root, { store, player }) => {
       edit({ kind: 'height', height: i + 1, sample: sampleFromValue(select.value) }),
     ),
   );
-  // Pan and gain are baked into each hand's kit (a change loads it again), so they commit when
-  // the slider is let go or a key steps it, not on every pixel of a drag; the number follows the drag.
-  HANDS.forEach((h) => {
-    for (const [slider, kind, out] of [
-      [pan[h], 'pan', `#sp-pan-out-${h}`],
-      [gain[h], 'gain', `#sp-gain-out-${h}`],
-    ] as const) {
-      const input = slider as HTMLInputElement;
-      input.addEventListener('input', () => ($<HTMLOutputElement>(out).value = input.value));
-      input.addEventListener('change', () => edit({ kind, hand: h, value: Number(input.value) }));
+  // Pan and gain move the part's nodes (nothing reloads), but commit when the slider is let go or a
+  // key steps it, not on every pixel of a drag; the number follows the drag. One listener for every
+  // part's rows: the rows are made again when the number of parts changes.
+  const partOf = (target: EventTarget | null) => {
+    const el = target as HTMLElement;
+    return { part: Number(el.dataset.part), field: el.dataset.field };
+  };
+  partsBox.addEventListener('input', (e) => {
+    const { part, field } = partOf(e.target);
+    if (field === 'pan' || field === 'gain') {
+      $<HTMLOutputElement>(`#sp-${field}-out-${part}`).value = (e.target as HTMLInputElement).value;
     }
+  });
+  partsBox.addEventListener('change', (e) => {
+    const { part, field } = partOf(e.target);
+    const value = (e.target as HTMLInputElement).value;
+    if (field === 'sample') edit({ kind: 'partSample', part, sample: sampleFromValue(value) });
+    else if (field === 'pan' || field === 'gain') edit({ kind: field, part, value: Number(value) });
   });
   catchesOn.addEventListener('change', () => edit({ kind: 'catchesOn', on: catchesOn.checked }));
   catchSample.addEventListener('change', () => edit({ kind: 'catchSample', sample: sampleFromValue(catchSample.value) }));

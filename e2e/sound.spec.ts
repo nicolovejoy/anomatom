@@ -23,7 +23,7 @@ test('the Sound tab shows the panel; another tab hides it', async ({ page }) => 
   await expect(page.locator('.sound-panel')).toBeHidden();
   await openPanel(page);
   await expect(page.locator('#tab-sound')).toHaveAttribute('aria-selected', 'true');
-  await expect(page.locator('#sp-preset')).toHaveValue('height-drum');
+  await expect(page.locator('#sp-preset')).toHaveValue('voice-per-part');
   await shot(page, 'tab');
   await openTab(page, 'pattern');
   await expect(page.locator('.sound-panel')).toBeHidden();
@@ -36,7 +36,7 @@ test('an edit reads as custom, and Reset to preset undoes it', async ({ page }) 
   await page.locator('#sp-height-3').selectOption('cowbell');
   await expect(page.locator('#sp-preset')).toHaveValue('custom');
   await page.locator('#sp-reset').click();
-  await expect(page.locator('#sp-preset')).toHaveValue('height-drum');
+  await expect(page.locator('#sp-preset')).toHaveValue('voice-per-part');
   await expect(page.locator('#sp-height-3')).toHaveValue('snare');
   await page.locator('#sp-preset').selectOption('ball-pitch');
   await page.locator('#sp-height-1').selectOption('kick');
@@ -171,7 +171,7 @@ test('a junk hash loads the defaults and the page works', async ({ page }) => {
     await expect(page.locator('#hand-0')).toHaveValue('3');
     await expect(page.locator('#bpm')).toHaveValue('120');
     await openPanel(page);
-    await expect(page.locator('#sp-preset')).toHaveValue('height-drum');
+    await expect(page.locator('#sp-preset')).toHaveValue('voice-per-part');
     await expect(page.locator('#play')).toBeEnabled();
   }
   expect(errors).toEqual([]);
