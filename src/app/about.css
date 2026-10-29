@@ -1,4 +1,23 @@
-/* The About page. */
+/* The About page. Body text keeps a readable measure; the page never scrolls sideways. */
+.about {
+  max-width: 40rem;
+  overflow-wrap: anywhere;
+}
 .about a {
   color: inherit;
+}
+.about h3 {
+  margin: 1.6em 0 0.4em;
+}
+.about h4 {
+  margin: 1.2em 0 0.4em;
+  font-size: 1em;
+  opacity: 0.75;
+}
+.about .bibliography,
+.about ul {
+  padding-left: 1.6em;
+}
+.about li {
+  margin: 0.5em 0;
 }

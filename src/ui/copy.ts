@@ -70,6 +70,31 @@ export const copy = {
   // D: About
   // -------------------------------------------------------------------------------------------
 
+  aboutIdeaHeading: 'The idea',
+  aboutIdea: [
+    'A siteswap ladder diagram is a piano roll. Each throw is a note. It starts when a ball leaves a hand and ends when the ball lands, so the height of the throw is the length of the note.',
+    'My hands are two voices. Give each hand its own beat and I play a polyrhythm: three beats in one hand against two in the other is two grids laid over each other.',
+    'The rule that keeps two balls from landing in one hand at once is the rule that keeps two notes from sounding on one beat. If a pattern is a pattern I can juggle, it is also music I can play.',
+  ],
+  aboutSoundHeading: 'How I make sound',
+  aboutSound: [
+    'I keep one clock, the audio clock. Nothing else keeps time. The picture reads it on every frame.',
+    'From your pattern I build a list of Events: a throw or a catch, in a hand, at a whole-number pulse. I turn pulses into seconds only when I schedule a sound or draw a frame.',
+    'The Mapping decides what each Event sounds like: which drum, how long, how loud, and which side. The sound panel edits the Mapping and nothing else does.',
+  ],
+  aboutReadingHeading: 'What I read',
+  aboutReadingIntro: 'The numbers are the ones the math notes cite.',
+  aboutCreditsHeading: 'Credits',
+  aboutCredits: [
+    { name: 'sani.js', url: 'https://github.com/monkape/sani.js', note: 'the siteswap animator. MIT.' },
+    { name: 'smplr', url: 'https://github.com/danigb/smplr', note: 'plays the sampled drums. MIT.' },
+    { name: 'L6', url: 'https://github.com/nicolovejoy/l6-music', note: 'the repo whose audio code I reuse.' },
+  ] as const,
+  aboutRepo: 'My source is on GitHub',
+  aboutRepoUrl: 'https://github.com/nicolovejoy/anomatom',
+  aboutLicence: 'It is open source under the MIT licence.',
+
+
   // -------------------------------------------------------------------------------------------
   // E: Knobs
   // -------------------------------------------------------------------------------------------
