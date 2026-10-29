@@ -178,6 +178,11 @@ export const copy = {
   fixesLabel: 'Nearest patterns I can juggle:',
   fixesNone: 'I found no pattern nearby that I can juggle.',
   fixLabel: (texts: readonly string[]) => texts.join(' / '),
+  /** The samples, beside Play. Loading is quiet; failed says what it means for the reader and offers the retry. */
+  soundLoading: 'I am fetching my drum sounds.',
+  soundReady: 'My sounds are ready.',
+  soundFailed: 'I could not fetch my drum sounds, so I am silent.',
+  soundRetry: 'Try again',
   knobsOpen: 'Knobs',
   knobsClose: 'Hide knobs',
   /** A parse error at other ratios than 1:1 names the input it is in. */

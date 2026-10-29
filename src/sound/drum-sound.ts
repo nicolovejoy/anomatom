@@ -10,6 +10,7 @@
 import type { Hand } from '../core/types';
 import { FILTER_OPEN_HZ, PARAM_SMOOTH_SECONDS } from '../tunables';
 import type { Hit, Mapping, PadHit, PadInstrument } from './mapping';
+import { browserAudioSession } from './audio-session.browser';
 import { browserPad } from './pad.browser';
 
 export type NoteStart = { note: string; velocity: number; time: number; duration: number };
@@ -32,12 +33,19 @@ export type LoadKit = (
   destination: AudioNode,
 ) => Promise<Kit>;
 
+/** What the reader sees of the samples: nothing asked for yet, fetching, all in, or a fetch failed. */
+export type SoundStatus = 'idle' | 'loading' | 'ready' | 'failed';
+
+/** The slice of `navigator.audioSession` used; null where the browser has none (everything but iOS Safari). */
+export type AudioSession = { type: string };
+
 export type LoadPad = (context: AudioContext, instrument: PadInstrument, destination: AudioNode) => Promise<Pad>;
 
 export function createDrumSound(
   makeContext: () => AudioContext | null,
   loadKit: LoadKit,
   loadPad: LoadPad = browserPad,
+  audioSession: () => AudioSession | null = browserAudioSession,
 ) {
   let context: AudioContext | null | undefined;
   let bus: { filter: BiquadFilterNode; master: GainNode } | null = null;
@@ -52,6 +60,38 @@ export function createDrumSound(
   // Per pad instrument: loaded once per context and kept (the cache), so switching back is instant.
   const pads = new Map<PadInstrument, Pad>();
   const padsRequested = new Set<PadInstrument>();
+  // The status: loads in flight, whether one failed, and who to tell. `epoch` moves on close so a
+  // load from a closed context cannot touch the count.
+  let inFlight = 0;
+  let failed = false;
+  let epoch = 0;
+  let lastMapping: Mapping | null = null;
+  const listeners = new Set<() => void>();
+
+  function status(): SoundStatus {
+    if (inFlight > 0) return 'loading';
+    if (failed) return 'failed';
+    return ready.size > 0 || pads.size > 0 ? 'ready' : 'idle';
+  }
+
+  function notify() {
+    for (const listener of [...listeners]) listener();
+  }
+
+  /** Counts a load in flight; the returned function ends it, once. */
+  function begin(): () => void {
+    const mine = epoch;
+    let open = true;
+    inFlight++;
+    failed = false;
+    notify();
+    return () => {
+      if (!open || mine !== epoch) return;
+      open = false;
+      inFlight--;
+      notify();
+    };
+  }
 
   function audio(): AudioContext | null {
     if (context === undefined) {
@@ -78,6 +118,7 @@ export function createDrumSound(
     const key = `${pan}/${gain}`;
     if (requested.get(hand) === key) return;
     requested.set(hand, key);
+    const end = begin();
     loadKit(ctx, hand, pan, gain, (bus as NonNullable<typeof bus>).filter)
       .then((kit) => {
         if (context !== ctx || requested.get(hand) !== key) return kit.dispose();
@@ -99,13 +140,18 @@ export function createDrumSound(
       })
       .catch(() => {
         // The next preload tries again.
-        if (context === ctx && requested.get(hand) === key) requested.delete(hand);
-      });
+        if (context === ctx && requested.get(hand) === key) {
+          requested.delete(hand);
+          failed = true;
+        }
+      })
+      .finally(end);
   }
 
   function loadPadInstrument(ctx: AudioContext, instrument: PadInstrument) {
     if (padsRequested.has(instrument)) return;
     padsRequested.add(instrument);
+    const end = begin();
     loadPad(ctx, instrument, (bus as NonNullable<typeof bus>).filter)
       .then((pad) => {
         if (context !== ctx) return pad.dispose();
@@ -124,8 +170,12 @@ export function createDrumSound(
         );
       })
       .catch(() => {
-        if (context === ctx) padsRequested.delete(instrument);
-      });
+        if (context === ctx) {
+          padsRequested.delete(instrument);
+          failed = true;
+        }
+      })
+      .finally(end);
   }
 
   return {
@@ -134,6 +184,7 @@ export function createDrumSound(
      * on. Safe to call again; call it whenever the mapping changes.
      */
     preload(mapping: Mapping) {
+      lastMapping = mapping;
       const ctx = audio();
       if (!ctx) return;
       mapping.hands.forEach((voice, hand) => load(ctx, hand as Hand, voice.pan, voice.gain));
@@ -143,7 +194,21 @@ export function createDrumSound(
     resume() {
       const ctx = audio();
       if (!ctx) return;
+      // iOS mutes Web Audio under the ringer switch unless the page asks for the playback session.
+      const session = audioSession();
+      if (session && session.type !== 'playback') session.type = 'playback';
       if (ctx.state === 'suspended' || (ctx.state as string) === 'interrupted') void ctx.resume();
+    },
+    /** Whether the samples are loading, in, or failed to load. */
+    status,
+    /** Calls `listener` whenever the status may have changed; returns the way to stop. */
+    subscribe(listener: () => void) {
+      listeners.add(listener);
+      return () => void listeners.delete(listener);
+    },
+    /** Tries the failed samples again: the same preload, for the mapping last asked for. */
+    retry() {
+      if (lastMapping) this.preload(lastMapping);
     },
     /** The one clock. 0 where there is no audio. */
     now(): number {
@@ -182,6 +247,10 @@ export function createDrumSound(
       padsRequested.clear();
       loading.clear();
       requested.clear();
+      epoch++;
+      inFlight = 0;
+      failed = false;
+      notify();
       bus = null;
       if (context) void context.close();
       context = null;
