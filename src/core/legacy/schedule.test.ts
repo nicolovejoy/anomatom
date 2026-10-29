@@ -1,6 +1,6 @@
 import { expect, test } from 'vitest';
 import { parsePattern } from './parse';
-import { buildSchedule } from './schedule';
+import { buildSchedule, toPartSchedule } from './schedule';
 import type { Event, PatternInput, Schedule } from './types';
 
 function pat(text: string) {
@@ -76,4 +76,21 @@ test('3:2 schedule carries both grids and the cross flag', () => {
 
 test('an invalid pattern has no schedule', () => {
   expect(() => buildSchedule(vanilla('432'))).toThrow();
+});
+
+test('toPartSchedule reads hands as parts, grids as spacing and phase, and is memoized', () => {
+  const legacy = buildSchedule(vanilla('531'));
+  const parts = toPartSchedule(legacy);
+  expect(parts.grids).toEqual([
+    { spacing: 2, phase: 0 },
+    { spacing: 2, phase: 1 },
+  ]);
+  expect(parts.cycle).toBe(legacy.cycle);
+  expect(parts.period).toBe(legacy.period);
+  expect(parts.balls).toBe(legacy.balls);
+  expect(parts.verdict.ok).toBe(true);
+  expect(parts.events.map((e) => [e.kind, e.pulse, e.part, e.ball, e.height, e.flight, e.cross])).toEqual(
+    legacy.events.map((e) => [e.kind, e.pulse, e.hand, e.ball, e.height, e.flight, e.cross]),
+  );
+  expect(toPartSchedule(legacy)).toBe(parts);
 });

@@ -3,6 +3,8 @@ import { DEFAULT_MAPPING, PARAM_SMOOTH_SECONDS } from '../tunables';
 import { createDrumSound, type Kit } from './drum-sound';
 import type { Hit } from './mapping';
 
+const voice = (i: number) => DEFAULT_MAPPING.parts[i] as (typeof DEFAULT_MAPPING.parts)[0];
+
 type Started = { note: string; velocity: number; time: number; duration: number };
 
 function fakeParam() {
@@ -64,7 +66,7 @@ function fakeKit() {
   return kit;
 }
 
-const hit = (hand: 0 | 1): Hit => ({ sample: 'kick', hand, velocity: 100, pan: 0, gain: 1, durationPulses: 2 });
+const hit = (part: number): Hit => ({ sample: 'kick', part, velocity: 100, pan: 0, gain: 1, durationPulses: 2 });
 
 async function settle() {
   await new Promise((r) => setTimeout(r, 0));
@@ -72,7 +74,7 @@ async function settle() {
 
 test('silent until the kit is in, then plays at the given time', async () => {
   const kits = [fakeKit(), fakeKit()];
-  const loadKit = vi.fn(async (_c: AudioContext, hand: 0 | 1) => kits[hand] as Kit);
+  const loadKit = vi.fn(async (_c: AudioContext, part: number) => kits[part] as Kit);
   const sound = createDrumSound(() => fakeContext(), loadKit);
   sound.preload(DEFAULT_MAPPING);
   await settle();
@@ -90,7 +92,7 @@ test('silent until the kit is in, then plays at the given time', async () => {
 
 test('each hand gets one kit, played through its own gain and panner with the mapping pan and gain', async () => {
   const ctx = fakeContext();
-  const loadKit = vi.fn(async (_c: AudioContext, _h: 0 | 1, _d: AudioNode) => fakeKit() as Kit);
+  const loadKit = vi.fn(async (_c: AudioContext, _p: number, _d: AudioNode) => fakeKit() as Kit);
   const sound = createDrumSound(() => ctx, loadKit);
   sound.preload(DEFAULT_MAPPING);
   await settle();
@@ -108,13 +110,13 @@ test('each hand gets one kit, played through its own gain and panner with the ma
 
 test('changing a hand pan or gain moves the node params and never reloads the kit', async () => {
   const ctx = fakeContext();
-  const loadKit = vi.fn(async (_c: AudioContext, _h: 0 | 1, _d: AudioNode) => fakeKit() as Kit);
+  const loadKit = vi.fn(async (_c: AudioContext, _p: number, _d: AudioNode) => fakeKit() as Kit);
   const sound = createDrumSound(() => ctx, loadKit);
   sound.preload(DEFAULT_MAPPING);
   sound.preload(DEFAULT_MAPPING);
   await settle();
   expect(loadKit).toHaveBeenCalledTimes(2);
-  sound.preload({ ...DEFAULT_MAPPING, hands: [{ pan: 0.1, gain: 0.5 }, DEFAULT_MAPPING.hands[1]] });
+  sound.preload({ ...DEFAULT_MAPPING, parts: [{ ...voice(0), pan: 0.1, gain: 0.5 }, voice(1)] });
   await settle();
   expect(loadKit).toHaveBeenCalledTimes(2);
   const [g0] = ctx.nodes.filter((n) => n.kind === 'gain').slice(1);
@@ -188,7 +190,7 @@ test('a new pan or gain leaves the loaded kits playing, undisposed and not reloa
   kits[0]?.resolve();
   kits[1]?.resolve();
   await settle();
-  sound.preload({ ...DEFAULT_MAPPING, hands: [DEFAULT_MAPPING.hands[0], { pan: 0, gain: 0.5 }] });
+  sound.preload({ ...DEFAULT_MAPPING, parts: [voice(0), { ...voice(1), pan: 0, gain: 0.5 }] });
   sound.play(hit(1), 1, 0.25);
   expect(kits[1]?.started).toHaveLength(1);
   expect(kits.map((k) => k.disposed)).toEqual([false, false]);
@@ -249,7 +251,7 @@ test('status: idle, loading, ready; subscribers hear each change and can stop', 
   expect(heard.at(-1)).toBe('ready');
   stop();
   const count = heard.length;
-  sound.preload({ ...DEFAULT_MAPPING, hands: [{ pan: 0, gain: 0.5 }, { pan: 0, gain: 0.5 }] });
+  sound.preload({ ...DEFAULT_MAPPING, parts: [{ ...voice(0), pan: 0, gain: 0.5 }, { ...voice(1), pan: 0, gain: 0.5 }] });
   expect(heard).toHaveLength(count);
 });
 

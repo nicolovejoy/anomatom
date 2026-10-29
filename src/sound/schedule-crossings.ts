@@ -4,27 +4,18 @@
 // so the cycle's flights are its throws that start inside the first cycle (a throw event is a
 // flight: it launches at its pulse and lands `flight` pulses later). Height-0 throws are not
 // arcs and `countCrossings` skips them.
-import { countCrossings } from '../core/legacy/crossings';
-import type { Flight, Schedule } from '../core/legacy/types';
+import { countCrossings, type Arc } from '../core/crossings';
+import type { Schedule } from '../core/types';
 
 const memo = new WeakMap<Schedule, number>();
 
 export function crossingsOfSchedule(schedule: Schedule): number {
   const known = memo.get(schedule);
   if (known !== undefined) return known;
-  const flights: Flight[] = schedule.events
+  const arcs: Arc[] = schedule.events
     .filter((e) => e.kind === 'throw' && e.pulse < schedule.cycle)
-    .map((e, index) => ({
-      id: { hand: e.hand, index },
-      from: e.hand,
-      to: e.cross ? (e.hand === 0 ? 1 : 0) : e.hand,
-      beat: 0,
-      height: e.height,
-      cross: e.cross,
-      launch: e.pulse,
-      land: e.pulse + e.flight,
-    }));
-  const count = countCrossings(flights, schedule.cycle);
+    .map((e) => ({ launch: e.pulse, land: e.pulse + e.flight }));
+  const count = countCrossings(arcs, schedule.cycle);
   memo.set(schedule, count);
   return count;
 }

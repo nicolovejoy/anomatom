@@ -176,6 +176,11 @@ export const KIT_SAMPLES: readonly string[] = [
   'tom-low',
 ];
 
+/** The kits a part may name (the kits stream adds more); the hash accepts only these. */
+export const KIT_IDS: readonly string[] = ['TR-808'];
+/** Most voices a mapping holds or a link may carry. */
+export const MAX_MAPPING_PARTS = 8;
+
 /** The panel's ranges (SPEC §4.3). */
 export const PAN_RANGE = { min: -1, max: 1 } as const;
 export const GAIN_RANGE = { min: 0, max: 1 } as const;
@@ -230,18 +235,21 @@ function heights(names: readonly Sample[]): Record<number, Sample> {
 
 /** SPEC §6: the v1 mapping. Sample names are smplr's TR-808 groups. */
 const HEIGHT_DRUM: Mapping = {
-  kit: 'TR-808',
+  byHeight: true,
   perHeight: heights(['hihat-close', 'hihat-close', 'snare', 'tom-low', 'kick', 'kick', 'kick', 'kick', 'kick']),
   byBall: null,
-  hands: [
-    { pan: -0.6, gain: 1 },
-    { pan: 0.6, gain: 1 },
+  parts: [
+    { kit: 'TR-808', sample: 'kick', pan: -0.6, gain: 1 },
+    { kit: 'TR-808', sample: 'snare', pan: 0.6, gain: 1 },
   ],
   catches: { on: false, sample: 'rimshot' },
   crossAccent: { velocity: 20, downbeat: 'clap' },
   filter: { on: false, ...DEFAULT_FILTER_HZ },
   pad: { on: false, instrument: 'mellotron', chord: 'Dm9' },
 };
+
+/** Voice per part (design §7): each part keeps its own drum, low then high, and flight length picks nothing. */
+const VOICE_PER_PART: Mapping = { ...HEIGHT_DRUM, byHeight: false };
 
 /** Height to pitch: the higher the throw, the lower the sound, nine distinct steps. */
 const HEIGHT_PITCH: Mapping = {
@@ -257,12 +265,13 @@ const BALL_TO_PITCH: Mapping = {
 };
 
 export const PRESET_MAPPINGS = {
+  'voice-per-part': VOICE_PER_PART,
   'height-drum': HEIGHT_DRUM,
   'height-pitch': HEIGHT_PITCH,
   'ball-pitch': BALL_TO_PITCH,
 } as const;
 
-export const DEFAULT_MAPPING: Mapping = HEIGHT_DRUM;
+export const DEFAULT_MAPPING: Mapping = VOICE_PER_PART;
 
 // ---------------------------------------------------------------------------------------------
 // D: About
