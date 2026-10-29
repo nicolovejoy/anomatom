@@ -10,10 +10,12 @@ export function createPlayer(sound: DrumSound) {
   let timer: ReturnType<typeof setInterval> | undefined;
   let start = 0;
   let pulseLen = 1;
+  let current: Schedule | null = null;
 
   function stop() {
     if (timer !== undefined) clearInterval(timer);
     timer = undefined;
+    current = null;
   }
 
   function play(schedule: Schedule, mapping: Mapping, bpm: number) {
@@ -23,6 +25,7 @@ export function createPlayer(sound: DrumSound) {
     sound.preload(mapping);
     pulseLen = pulseSeconds(bpm, schedule.grids);
     start = sound.now() + START_DELAY_SECONDS;
+    current = schedule;
     let scheduledTo = 0;
     const tick = () => {
       // From wherever the last window ended, or from now if the clock has run past it (a
@@ -46,10 +49,8 @@ export function createPlayer(sound: DrumSound) {
     play,
     stop,
     playing,
-    toggle(schedule: Schedule, mapping: Mapping, bpm: number) {
-      if (playing()) stop();
-      else play(schedule, mapping, bpm);
-    },
+    /** What is sounding right now, so the picture follows the sound, not the latest edit. */
+    schedule: () => current,
     /** The playhead in pulses since the start, fractional; 0 when stopped. */
     position: () => (playing() ? (sound.now() - start) / pulseLen : 0),
   };

@@ -77,3 +77,10 @@ test('a window entirely before the start is empty of bars', () => {
   expect(f.bars).toEqual([]);
   expect(f.cycleLines).toEqual([]);
 });
+
+test('a flight that lands exactly at the window start is not drawn; one landing inside is', () => {
+  // 3 at 1:1, window starting at pulse 7: the throw at 4 lands at 7 (out), the one at 5 lands at 8 (in).
+  const f = ladderFrame(buildSchedule(vanilla('3')), 10, view);
+  const overhang = f.bars.filter((b) => b.x0 < 0).map((b) => b.x0 + f.start).sort((a, b) => a - b);
+  expect(overhang).toEqual([5, 6]);
+});

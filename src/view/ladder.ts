@@ -49,8 +49,9 @@ export function ladderFrame(schedule: Schedule, position: number, view: LadderVi
   const bars: Bar[] = [];
   for (const e of schedule.events) {
     if (e.kind !== 'throw') continue;
-    // The repetitions of this throw whose flight overlaps [start, end), none before pulse 0.
-    const first = Math.max(0, Math.ceil((start - e.flight - e.pulse) / period));
+    // The repetitions of this throw whose flight overlaps [start, end), none before pulse 0:
+    // launch + flight > start, i.e. a flight landing exactly at the window start is out.
+    const first = Math.max(0, Math.floor((start - e.flight - e.pulse) / period) + 1);
     for (let k = first; e.pulse + k * period < end; k++) {
       const launch = e.pulse + k * period;
       bars.push({

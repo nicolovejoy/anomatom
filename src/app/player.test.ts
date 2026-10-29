@@ -109,13 +109,15 @@ test('position is the playhead in pulses, fractional, and 0 when stopped', () =>
   vi.useRealTimers();
 });
 
-test('toggle plays when stopped and stops when playing', () => {
+test('the schedule being played is exposed while playing, null when stopped', () => {
   vi.useFakeTimers();
   const { sound } = fakeSound();
   const player = createPlayer(sound);
-  player.toggle(schedule('3'), DEFAULT_MAPPING, 120);
-  expect(player.playing()).toBe(true);
-  player.toggle(schedule('3'), DEFAULT_MAPPING, 120);
-  expect(player.playing()).toBe(false);
+  expect(player.schedule()).toBeNull();
+  const s = schedule('441');
+  player.play(s, DEFAULT_MAPPING, 120);
+  expect(player.schedule()).toBe(s);
+  player.stop();
+  expect(player.schedule()).toBeNull();
   vi.useRealTimers();
 });

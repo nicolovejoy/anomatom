@@ -37,9 +37,10 @@ export function drawLadder(canvas: HTMLCanvasElement, frame: Frame) {
 
   for (const t of frame.ticks) {
     const y = laneY[t.hand] as number;
-    const len = t.coincident ? 14 : 7;
+    const kind = t.coincident ? 'coincident' : 'beat';
+    const len = LADDER.tickPx[kind];
     ctx.strokeStyle = t.coincident ? LADDER.tickCoincident : LADDER.tick;
-    ctx.lineWidth = t.coincident ? 2 : 1;
+    ctx.lineWidth = LADDER.tickWidthPx[kind];
     ctx.beginPath();
     ctx.moveTo(px(t.x), y - len);
     ctx.lineTo(px(t.x), y + len);
@@ -63,7 +64,7 @@ export function drawLadder(canvas: HTMLCanvasElement, frame: Frame) {
     const y1 = rowY(b.to, b.ball);
     if (b.cross) {
       ctx.strokeStyle = colour;
-      ctx.lineWidth = LADDER.barPx * 0.6;
+      ctx.lineWidth = LADDER.crossLinePx;
       ctx.lineCap = 'round';
       ctx.beginPath();
       ctx.moveTo(x0, y0);
@@ -76,7 +77,7 @@ export function drawLadder(canvas: HTMLCanvasElement, frame: Frame) {
   }
 
   ctx.strokeStyle = LADDER.playhead;
-  ctx.lineWidth = 2;
+  ctx.lineWidth = LADDER.playheadWidthPx;
   ctx.beginPath();
   ctx.moveTo(px(frame.playhead), 0);
   ctx.lineTo(px(frame.playhead), height);

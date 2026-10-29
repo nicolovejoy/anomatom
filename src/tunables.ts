@@ -16,8 +16,9 @@ export const SCHEDULER_INTERVAL_MS = 25;
 /** Delay between pressing play and the first pulse, so the first window has room. */
 export const START_DELAY_SECONDS = 0.05;
 
-/** The pattern in the box when the page opens. */
+/** The patterns in the boxes when the page opens: a vanilla cascade, and a two-ball fountain for hand 2 at other ratios. */
 export const DEFAULT_PATTERN = '3';
+export const DEFAULT_PATTERN_HAND2 = '2';
 
 /** MIDI-style velocity of an unaccented throw, and the ceiling. */
 export const BASE_VELOCITY = 100;
@@ -44,6 +45,12 @@ export const LADDER = {
   lanePaddingPx: 18,
   barPx: 8,
   rowGapPx: 2,
+  /** Cross flights are drawn as lines this fraction of the bar height. */
+  crossLinePx: 5,
+  /** Tick half-lengths and widths: coincident pulses, then ordinary beats. */
+  tickPx: { coincident: 14, beat: 7 },
+  tickWidthPx: { coincident: 2, beat: 1 },
+  playheadWidthPx: 2,
   /** Stable colours by ball id; repeats past the end. */
   palette: ['#e6553a', '#3a7be6', '#f0c33c', '#4fb477', '#b05ce6', '#e67e3a', '#3ac0e6', '#e63a9a', '#8fb43a'],
   background: '#14161a',

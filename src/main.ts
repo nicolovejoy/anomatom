@@ -5,7 +5,7 @@ import { browserContext, tr808 } from './sound/tr808';
 import { createPlayer } from './app/player';
 import { drawLadder } from './app/ladder-canvas';
 import { ladderFrame } from './view/ladder';
-import { DEFAULT_BPM, DEFAULT_MAPPING, DEFAULT_PATTERN, LADDER, RATIO_CHIPS } from './tunables';
+import { DEFAULT_BPM, DEFAULT_MAPPING, DEFAULT_PATTERN, DEFAULT_PATTERN_HAND2, LADDER, RATIO_CHIPS } from './tunables';
 import { copy } from './ui/copy';
 
 const app = document.getElementById('app');
@@ -21,7 +21,7 @@ if (app) {
       </div>
       <div class="row">
         <label id="label-0">${copy.patternLabel} <input id="hand-0" value="${DEFAULT_PATTERN}" autocomplete="off" /></label>
-        <label id="label-1" hidden>${copy.handLabel(1)} <input id="hand-1" value="2" autocomplete="off" /></label>
+        <label id="label-1" hidden>${copy.handLabel(1)} <input id="hand-1" value="${DEFAULT_PATTERN_HAND2}" autocomplete="off" /></label>
       </div>
       <p id="hint" class="hint" hidden>${copy.oneHandHint}</p>
       <div class="row">
@@ -96,6 +96,11 @@ if (app) {
     stopButton.disabled = true;
   }
 
+  function toggle() {
+    if (player.playing()) stop();
+    else play();
+  }
+
   for (const input of inputs) input.addEventListener('input', check);
   for (const chip of chips) {
     chip.addEventListener('click', () => setRatio({ a: Number(chip.dataset.a), b: Number(chip.dataset.b) }));
@@ -105,18 +110,20 @@ if (app) {
     play();
   });
   stopButton.addEventListener('click', stop);
-  // Space plays and stops, except inside a per-hand input where a space separates throws.
+  // Space plays and stops. Not inside a per-hand input, where a space separates throws, and
+  // not on a focused button, which Space already activates.
   document.addEventListener('keydown', (e) => {
     if (e.code !== 'Space' || e.repeat) return;
-    const inInput = e.target instanceof HTMLInputElement;
-    if (inInput && !isVanilla(ratio)) return;
+    if (e.target instanceof HTMLButtonElement) return;
+    if (e.target instanceof HTMLInputElement && !isVanilla(ratio)) return;
     e.preventDefault();
-    if (player.playing()) stop();
-    else play();
+    toggle();
   });
 
+  // The picture follows what sounds; when stopped, the latest edit.
   function frame() {
-    if (schedule) drawLadder(canvas, ladderFrame(schedule, player.position(), LADDER));
+    const shown = player.schedule() ?? schedule;
+    if (shown) drawLadder(canvas, ladderFrame(shown, player.position(), LADDER));
     requestAnimationFrame(frame);
   }
 
