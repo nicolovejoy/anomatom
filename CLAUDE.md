@@ -1,4 +1,4 @@
-# jugglebeat
+# anomatom
 
 Read `docs/SPEC.md` before building anything; it is the contract. `docs/MATH.md` is the theory and the test cases. `docs/ROADMAP.md` is the build order, one PR per step. `docs/BIBLIOGRAPHY.md` ships on the About page.
 

@@ -1,4 +1,4 @@
-# jugglebeat
+# anomatom
 
 A browser demo that juggles a siteswap pattern on screen and plays it as music at the same time, from one clock. Type a pattern, see whether a juggler could do it, and if so hear it and watch it.
 

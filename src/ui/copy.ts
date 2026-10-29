@@ -3,7 +3,7 @@ import type { ParseError } from '../core/parse';
 import type { ThrowId, ValidationError } from '../core/types';
 
 export const copy = {
-  title: 'jugglebeat',
+  title: 'anomatom',
   placeholder: 'A siteswap pattern as polyrhythm. Type a pattern, press play, hear it on a TR-808 and watch it scroll.',
   patternLabel: 'Siteswap',
   handLabel: (hand: 0 | 1) => `Hand ${hand + 1}`,
