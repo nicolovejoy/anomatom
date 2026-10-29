@@ -110,15 +110,28 @@ if (app) {
     play();
   });
   stopButton.addEventListener('click', stop);
-  // Space plays and stops. Not inside a per-hand input, where a space separates throws, and
-  // not on a focused button, which Space already activates.
-  document.addEventListener('keydown', (e) => {
-    if (e.code !== 'Space' || e.repeat) return;
-    if (e.target instanceof HTMLButtonElement) return;
-    if (e.target instanceof HTMLInputElement && !isVanilla(ratio)) return;
-    e.preventDefault();
-    toggle();
-  });
+  // Space always plays and stops, wherever focus is. Captured before a focused button or input
+  // sees it: a button would otherwise activate (a ratio chip clicked earlier keeps focus), and
+  // an input would get a space, which the parser ignores anyway. Buttons activate on keyup in
+  // some browsers, so that is suppressed too.
+  const isSpace = (e: KeyboardEvent) =>
+    e.code === 'Space' && !e.ctrlKey && !e.metaKey && !e.altKey && !e.isComposing;
+  document.addEventListener(
+    'keydown',
+    (e) => {
+      if (!isSpace(e)) return;
+      e.preventDefault();
+      if (!e.repeat) toggle();
+    },
+    { capture: true },
+  );
+  document.addEventListener(
+    'keyup',
+    (e) => {
+      if (isSpace(e)) e.preventDefault();
+    },
+    { capture: true },
+  );
 
   // The picture follows what sounds; when stopped, the latest edit.
   function frame() {
