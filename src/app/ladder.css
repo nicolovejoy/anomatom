@@ -5,3 +5,11 @@
   border-radius: 6px;
   margin: 12px 0;
 }
+.ladder[hidden] {
+  display: none;
+}
+/* The broken pattern, above the one that plays (SPEC 4.2). */
+.ladder-broken {
+  opacity: 0.85;
+  margin-bottom: 0;
+}

@@ -249,6 +249,35 @@ export const DEFAULT_MAPPING: Mapping = HEIGHT_DRUM;
 // E: Knobs
 // ---------------------------------------------------------------------------------------------
 
+/** The knob panel and the fix state (SPEC §4.1, §4.2). */
+export const KNOBS = {
+  /**
+   * Fix suggestions can take tens of ms on a long pattern, so they are worked out this long
+   * after the last keystroke, never on each one; a result for text since changed is dropped.
+   */
+  fixDebounceMs: 150,
+  /** At this width or narrower the panel folds under a button; the juggler and ladder stay. */
+  phoneMaxWidthPx: 600,
+  /** The warning colour: colliding digits, their flights on the ladder, the invalid indicator. */
+  warning: '#ff6b4a',
+  /** The valid indicator and the chosen swap sites. */
+  ok: '#4fb477',
+  selected: '#3a7be6',
+  /** Volume slider step, 0 to 1. */
+  volumeStep: 0.01,
+  /** Positions on the scrub slider across one cycle. */
+  scrubSteps: 1000,
+} as const;
+
+/** The broken pattern's strip (SPEC §4.2), and the accent mark at coincident cross landings (SPEC §7.3). */
+export const LADDER_E = {
+  /** Bars of the broken pattern drawn above the playing one, greyed; colliding ones keep the warning colour. */
+  greyBar: '#596070',
+  /** The accent: a triangle on the catching hand's lane, pointing into the strip. */
+  accent: '#ffffff',
+  accentPx: 7,
+} as const;
+
 // ---------------------------------------------------------------------------------------------
 // F: Sound panel and share
 // ---------------------------------------------------------------------------------------------

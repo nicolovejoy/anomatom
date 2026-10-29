@@ -1,8 +1,16 @@
-// Draws a ladder Frame on a canvas. Reads nothing but the frame and the tunables.
-import type { Frame } from '../view/ladder';
-import { BALL_COLOURS, LADDER } from '../tunables';
+// Draws a ladder Frame on a canvas. Reads nothing but the frame, its options and the tunables.
+import type { Accent } from '../view/accents';
+import type { Bar, Frame } from '../view/ladder';
+import { BALL_COLOURS, KNOBS, LADDER, LADDER_E } from '../tunables';
 
-export function drawLadder(canvas: HTMLCanvasElement, frame: Frame) {
+export interface DrawOptions {
+  /** The broken pattern above the playing one (SPEC §4.2): bars grey, except the colliding ones. */
+  readonly greyed?: boolean;
+  /** Marks at coincident cross landings (SPEC §7.3). */
+  readonly accents?: readonly Accent[];
+}
+
+export function drawLadder(canvas: HTMLCanvasElement, frame: Frame, options: DrawOptions = {}) {
   const ctx = canvas.getContext('2d');
   if (!ctx) return;
   const dpr = window.devicePixelRatio || 1;
@@ -56,8 +64,14 @@ export function drawLadder(canvas: HTMLCanvasElement, frame: Frame) {
     ctx.stroke();
   }
 
-  for (const b of frame.bars) {
-    const colour = BALL_COLOURS[b.colour % BALL_COLOURS.length] as string;
+  // Flagged flights last, so the warning colour is never hidden under another bar.
+  const bars: Bar[] = [...frame.bars.filter((b) => !b.broken), ...frame.bars.filter((b) => b.broken)];
+  for (const b of bars) {
+    const colour = b.broken
+      ? KNOBS.warning
+      : options.greyed
+        ? LADDER_E.greyBar
+        : (BALL_COLOURS[b.colour % BALL_COLOURS.length] as string);
     const x0 = px(b.x0);
     const x1 = Math.max(px(b.x1), x0 + LADDER.minBarPx);
     const y0 = rowY(b.from, b.colour);
@@ -74,6 +88,21 @@ export function drawLadder(canvas: HTMLCanvasElement, frame: Frame) {
       ctx.fillStyle = colour;
       ctx.fillRect(x0, y0 - LADDER.barPx / 2, x1 - x0, LADDER.barPx);
     }
+  }
+
+  // A triangle on the catching hand's lane, pointing into the strip.
+  ctx.fillStyle = LADDER_E.accent;
+  for (const a of options.accents ?? []) {
+    const x = px(a.x);
+    const y = laneY[a.hand] as number;
+    const s = LADDER_E.accentPx;
+    const dir = a.hand === 0 ? 1 : -1;
+    ctx.beginPath();
+    ctx.moveTo(x - s, y - dir * s);
+    ctx.lineTo(x + s, y - dir * s);
+    ctx.lineTo(x, y);
+    ctx.closePath();
+    ctx.fill();
   }
 
   ctx.strokeStyle = LADDER.playhead;
