@@ -52,8 +52,9 @@ test('a tempo change between two 3s carries every ball to itself', () => {
     expect(carry.size).toBe(3);
     expect(isOneToOne(carry)).toBe(true);
   }
-  // At B = 2 only the throws at 0 and 1 have happened: two balls in the air, two carried.
-  expect(carryOver(three, three, 2).size).toBe(2);
+  // At B = 2 only the throws at 0 and 1 have happened; the third ball waits in hand 1 for its
+  // first throw at pulse 2 and continues the ball thrown at new pulse 0.
+  expect(carryOver(three, three, 2).size).toBe(3);
   expect(carryOver(three, three, 6)).toEqual(
     new Map([
       [0, 0],
@@ -97,8 +98,41 @@ test('a ratio change, 3 at 1:1 → 2 / 2 at 3:2, does not throw and stays one-to
   }
 });
 
-test('flights launched before the old segment’s pulse 0 never happened, so nothing crosses at B = 0', () => {
-  expect(carryOver(vanilla('3'), vanilla('441'), 0).size).toBe(0);
+test('3 → 441 at B = 2: two balls in the air and one still in hand, all three carried', () => {
+  const three = vanilla('3');
+  const carry = carryOver(three, vanilla('441'), 2);
+  expect(carry.size).toBe(3);
+  expect(isOneToOne(carry)).toBe(true);
+  // The waiting ball is 3's ball first thrown at old pulse 2 (hand 1); 441 throws first at
+  // pulse 0 from hand 1.
+  const waiting = three.events.find((e) => e.kind === 'throw' && e.pulse === 2)?.ball;
+  const atZero = [...firstThrows(vanilla('441'))].find(([, t]) => t.pulse === 0)?.[0];
+  expect(carry.get(atZero as number)).toBe(waiting);
+});
+
+test('crossing and waiting balls together stay one-to-one at every early boundary', () => {
+  // A pulse that receives a landing is never a ball's first throw, so in a valid pattern a
+  // waiting ball and a crossing flight never claim the same new ball; the guard is defensive.
+  const names = ['3', '441', '531', '51', '97531', '4'];
+  for (const a of names) {
+    for (const b of names) {
+      const old = vanilla(a);
+      const next = vanilla(b);
+      for (let B = 0; B <= 2 * old.cycle; B += old.cycle) {
+        const carry = carryOver(old, next, B);
+        expect(isOneToOne(carry)).toBe(true);
+        expect(carry.size).toBeLessThanOrEqual(Math.min(old.balls, next.balls));
+      }
+    }
+  }
+  // Same pattern, same state: everything carries even before every ball has been thrown.
+  expect(carryOver(vanilla('97531'), vanilla('97531'), 0).size).toBe(5);
+});
+
+test('at B = 0 nothing was thrown: every ball waits and carries to the ball thrown at its own first pulse', () => {
+  const carry = carryOver(vanilla('3'), vanilla('441'), 0);
+  expect(carry.size).toBe(3);
+  expect(isOneToOne(carry)).toBe(true);
 });
 
 test('441 → 3 at a later cycle uses the balls of that cycle', () => {

@@ -8,7 +8,9 @@ import type { Hand, Schedule } from './types';
  * at B; only launches at or after the old segment's pulse 0 happened. A crossing flight landing
  * at (B + p, hand) continues the new ball whose first throw is at (p, hand). Each new ball has
  * one first throw and each (pulse, hand) at most one throw, so the map, new ball id → old ball
- * id, is one-to-one. Old and new balls with no partner are simply absent.
+ * id, is one-to-one. An old ball not yet thrown at B (first throw at q ≥ B, in hand h)
+ * continues the new ball first thrown at (q − B, h), if no crossing flight claimed it. Old and
+ * new balls with no partner are simply absent.
  */
 export function carryOver(old: Schedule, next: Schedule, boundary: number): Map<number, number> {
   // Events are sorted by pulse, so a ball's first throw is the first one met.
@@ -30,6 +32,19 @@ export function carryOver(old: Schedule, next: Schedule, boundary: number): Map<
       const ball = firstThrow.get(key(launch + e.flight - boundary, to));
       if (ball !== undefined) carry.set(ball, e.ball);
     }
+  }
+
+  // Balls not yet thrown at B (governor ruling 2026-10-29): an old ball whose first throw is at
+  // old pulse q ≥ B waits in hand h, and continues the new ball whose first throw is at
+  // (q − B, h), unless a crossing flight already claimed that new ball. Still one-to-one: a
+  // waiting ball was never in the air, so it is not among the crossing flights' balls.
+  const waiting = new Set<number>();
+  for (const e of old.events) {
+    if (e.kind !== 'throw' || waiting.has(e.ball)) continue;
+    waiting.add(e.ball);
+    if (e.pulse < boundary) continue;
+    const ball = firstThrow.get(key(e.pulse - boundary, e.hand));
+    if (ball !== undefined && !carry.has(ball)) carry.set(ball, e.ball);
   }
   return carry;
 }
