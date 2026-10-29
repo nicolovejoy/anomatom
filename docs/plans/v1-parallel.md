@@ -1,6 +1,6 @@
 # v1 in parallel
 
-Status: agreed with Nico 2026-10-29, revised after the PR 8 review; not started. Delete this file when wave 2 merges; git keeps it.
+Status: complete 2026-10-29. Waves 0-2 and G merged (PRs 11-20). Kept, not deleted as first planned: the frozen contracts and rulings here are cited from source comments (`carry.ts`, `player.ts`, `mount.ts`, `share.ts`, `tunables.ts`, `copy.ts`).
 
 Spec: `docs/SPEC.md` (binding). Theory: `docs/MATH.md`. Conventions: `CLAUDE.md`. This plan covers roadmap steps 4-7 and wins where the roadmap's end states differ.
 

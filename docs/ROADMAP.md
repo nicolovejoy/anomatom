@@ -4,7 +4,7 @@ One PR per step, or two when a step's logic and UI are built in parallel (`docs/
 
 ## v1
 
-Steps 1-3 shipped serially. Steps 4-7 run in parallel streams under `docs/plans/v1-parallel.md`, which reassigns their end states to its streams; where the two differ, the plan wins.
+Steps 1-3 shipped serially. Steps 4-7 shipped in parallel streams under `docs/plans/v1-parallel.md`, which reassigns their end states to its streams; where the two differ, the plan wins.
 
 1. **Repo and core math.** Public repo `nicolovejoy/anomatom`, MIT. Validity, swap, ball count, crossings, and the Schedule for 1:1 and for per-hand ratios, with the worked cases in `MATH.md` §8 as tests. End state: `npm test` proves every row of that table. No UI, no sound.
 2. **Clock and sound.** The one clock, the smplr instrument factory (from L6), the default Mapping. A bare page: type a siteswap, press play, hear the 808. End state: the first audible milestone; `3` and `441` sound different.
