@@ -180,7 +180,7 @@ export const copy = {
   fixLabel: (texts: readonly string[]) => texts.join(' / '),
   /** The samples, beside Play. Loading is quiet; failed says what it means for the reader and offers the retry. */
   soundLoading: 'I am fetching my drum sounds.',
-  soundReady: 'My sounds are ready.',
+  soundReady: 'My drum sounds are ready.',
   soundFailed: 'I could not fetch my drum sounds, so I am silent.',
   soundRetry: 'Try again',
   knobsOpen: 'Knobs',

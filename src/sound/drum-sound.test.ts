@@ -299,3 +299,28 @@ test('status: a pad that fails to load is failed too; close resets and stale loa
   await settle();
   expect(sound.status()).toBe('idle');
 });
+
+test('status: a failed pad that is turned off is no longer a failure', async () => {
+  const pad = fakeKit();
+  const kit = fakeKit();
+  const sound = createDrumSound(() => fakeContext(), async () => kit as Kit, async () => pad as Kit);
+  const on = { ...DEFAULT_MAPPING, pad: { ...DEFAULT_MAPPING.pad, on: true } };
+  sound.preload(on);
+  await settle();
+  kit.resolve();
+  pad.reject(new Error('offline'));
+  await settle();
+  expect(sound.status()).toBe('failed');
+  const heard: string[] = [];
+  sound.subscribe(() => heard.push(sound.status()));
+  sound.preload({ ...DEFAULT_MAPPING, pad: { ...DEFAULT_MAPPING.pad, on: false } });
+  expect(sound.status()).toBe('ready');
+  expect(heard).toEqual(['ready']);
+});
+
+test('the playback audio session is also set when the context is made', () => {
+  const session = { type: 'auto' };
+  const sound = createDrumSound(() => fakeContext(), async () => fakeKit() as Kit, undefined, () => session);
+  sound.preload(DEFAULT_MAPPING);
+  expect(session.type).toBe('playback');
+});

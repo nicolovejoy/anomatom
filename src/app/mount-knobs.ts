@@ -45,7 +45,6 @@ export const mountKnobs: Mount = (root, { store, player, sound }) => {
   root.style.setProperty('--ok', KNOBS.ok);
   root.style.setProperty('--selected', KNOBS.selected);
   root.innerHTML = `
-    <button type="button" class="knobs-toggle" aria-expanded="false" aria-controls="knobs-body" hidden>${copy.knobsOpen}</button>
     <div class="knobs-transport">
       <div class="row transport">
         <button id="play" type="button">${copy.play}</button>
@@ -53,11 +52,12 @@ export const mountKnobs: Mount = (root, { store, player, sound }) => {
         <span id="pending" class="pending" hidden>${copy.nextCycle}</span>
         <input id="scrub" type="range" min="0" max="${KNOBS.scrubSteps}" step="1" value="0" disabled aria-label="${copy.scrubLabel}" />
       </div>
-      <div class="row sound-status" role="status" hidden>
-        <span class="sound-status-text"></span>
+      <div class="row sound-status">
+        <span class="sound-status-text" role="status"></span>
         <button id="sound-retry" type="button" hidden>${copy.soundRetry}</button>
       </div>
     </div>
+    <button type="button" class="knobs-toggle" aria-expanded="false" aria-controls="knobs-body" hidden>${copy.knobsOpen}</button>
     <div id="knobs-body">
       <form class="knobs">
         <div class="group patterns">
@@ -327,7 +327,6 @@ export const mountKnobs: Mount = (root, { store, player, sound }) => {
   /** Shows whether the samples are loading, in or failed, beside Play; Retry only when failed. */
   function showSoundStatus() {
     const status = sound.status();
-    soundStatus.hidden = status === 'idle';
     soundStatus.dataset.state = status;
     soundStatusText.textContent =
       status === 'loading' ? copy.soundLoading : status === 'failed' ? copy.soundFailed : status === 'ready' ? copy.soundReady : '';
