@@ -1,5 +1,5 @@
 import { expect, test, vi } from 'vitest';
-import { DEFAULT_MAPPING } from '../tunables';
+import { DEFAULT_MAPPING, PARAM_SMOOTH_SECONDS } from '../tunables';
 import { createDrumSound, type Kit } from './drum-sound';
 import type { Hit } from './mapping';
 
@@ -13,13 +13,14 @@ function fakeParam() {
 }
 
 function fakeContext(state: AudioContextState = 'suspended') {
-  const nodes: { kind: string; connected: unknown[]; gain: ReturnType<typeof fakeParam>; frequency: ReturnType<typeof fakeParam>; type?: string }[] = [];
+  const nodes: { kind: string; connected: unknown[]; gain: ReturnType<typeof fakeParam>; frequency: ReturnType<typeof fakeParam>; pan: ReturnType<typeof fakeParam>; type?: string }[] = [];
   const node = (kind: string) => {
     const n = {
       kind,
       connected: [] as unknown[],
       gain: fakeParam(),
       frequency: fakeParam(),
+      pan: fakeParam(),
       type: undefined as string | undefined,
       connect: (to: unknown) => n.connected.push(to),
     };
@@ -31,6 +32,7 @@ function fakeContext(state: AudioContextState = 'suspended') {
     destination: { kind: 'destination' },
     createGain: () => node('gain'),
     createBiquadFilter: () => node('filter'),
+    createStereoPanner: () => node('panner'),
     currentTime: 1.5,
     state,
     resume: vi.fn(async () => {
@@ -86,27 +88,39 @@ test('silent until the kit is in, then plays at the given time', async () => {
   expect(kits[1]?.started).toEqual([]);
 });
 
-test('each hand gets its own kit with the mapping pan and gain', async () => {
-  const loadKit = vi.fn(async () => fakeKit() as Kit);
-  const sound = createDrumSound(() => fakeContext(), loadKit);
+test('each hand gets one kit, played through its own gain and panner with the mapping pan and gain', async () => {
+  const ctx = fakeContext();
+  const loadKit = vi.fn(async (_c: AudioContext, _h: 0 | 1, _d: AudioNode) => fakeKit() as Kit);
+  const sound = createDrumSound(() => ctx, loadKit);
   sound.preload(DEFAULT_MAPPING);
   await settle();
-  expect(loadKit.mock.calls.map((c) => c.slice(1, 4))).toEqual([
-    [0, -0.6, 1],
-    [1, 0.6, 1],
-  ]);
+  expect(loadKit.mock.calls.map((c) => c[1])).toEqual([0, 1]);
+  const filter = ctx.nodes.find((n) => n.kind === 'filter');
+  const gains = ctx.nodes.filter((n) => n.kind === 'gain').slice(1);
+  const panners = ctx.nodes.filter((n) => n.kind === 'panner');
+  expect(panners.map((p) => p.pan.value)).toEqual([-0.6, 0.6]);
+  expect(gains.map((g) => g.gain.value)).toEqual([1, 1]);
+  // The kit plays into its hand's gain, which feeds its panner, which feeds the filter.
+  expect(loadKit.mock.calls.map((c) => c[2])).toEqual(gains);
+  expect(gains.map((g, i) => g.connected[0] === panners[i])).toEqual([true, true]);
+  expect(panners.map((p) => p.connected)).toEqual([[filter], [filter]]);
 });
 
-test('preloading twice does not load twice; a changed mapping reloads', async () => {
-  const loadKit = vi.fn(async () => fakeKit() as Kit);
-  const sound = createDrumSound(() => fakeContext(), loadKit);
+test('changing a hand pan or gain moves the node params and never reloads the kit', async () => {
+  const ctx = fakeContext();
+  const loadKit = vi.fn(async (_c: AudioContext, _h: 0 | 1, _d: AudioNode) => fakeKit() as Kit);
+  const sound = createDrumSound(() => ctx, loadKit);
   sound.preload(DEFAULT_MAPPING);
   sound.preload(DEFAULT_MAPPING);
   await settle();
   expect(loadKit).toHaveBeenCalledTimes(2);
-  sound.preload({ ...DEFAULT_MAPPING, hands: [{ pan: 0, gain: 0.5 }, { pan: 0, gain: 0.5 }] });
+  sound.preload({ ...DEFAULT_MAPPING, hands: [{ pan: 0.1, gain: 0.5 }, DEFAULT_MAPPING.hands[1]] });
   await settle();
-  expect(loadKit).toHaveBeenCalledTimes(4);
+  expect(loadKit).toHaveBeenCalledTimes(2);
+  const [g0] = ctx.nodes.filter((n) => n.kind === 'gain').slice(1);
+  const [p0] = ctx.nodes.filter((n) => n.kind === 'panner');
+  expect(g0?.gain.targets).toEqual([[0.5, 1.5, PARAM_SMOOTH_SECONDS]]);
+  expect(p0?.pan.targets).toEqual([[0.1, 1.5, PARAM_SMOOTH_SECONDS]]);
 });
 
 test('a failed load is retried on the next preload', async () => {
@@ -148,7 +162,20 @@ test('close disposes kits and the context; a kit arriving after close is dropped
   expect(sound.now()).toBe(0);
 });
 
-test('a new mapping disposes the loaded kit; a kit arriving for a superseded request is dropped', async () => {
+test('a kit whose samples arrive after close is disposed and not played', async () => {
+  const kit = fakeKit();
+  const sound = createDrumSound(() => fakeContext(), async () => kit as Kit);
+  sound.preload(DEFAULT_MAPPING);
+  await settle();
+  sound.close();
+  kit.resolve();
+  await settle();
+  expect(kit.disposed).toBe(true);
+  sound.play(hit(0), 1, 0.25);
+  expect(kit.started).toEqual([]);
+});
+
+test('a new pan or gain leaves the loaded kits playing, undisposed and not reloaded', async () => {
   const kits: ReturnType<typeof fakeKit>[] = [];
   const loadKit = vi.fn(async () => {
     const k = fakeKit();
@@ -161,26 +188,11 @@ test('a new mapping disposes the loaded kit; a kit arriving for a superseded req
   kits[0]?.resolve();
   kits[1]?.resolve();
   await settle();
-  sound.play(hit(0), 1, 0.25);
-  expect(kits[0]?.started).toHaveLength(1);
-  // Hand 2's voice changes: its loaded kit keeps playing until the replacement is in.
   sound.preload({ ...DEFAULT_MAPPING, hands: [DEFAULT_MAPPING.hands[0], { pan: 0, gain: 0.5 }] });
-  expect(kits[1]?.disposed).toBe(false);
   sound.play(hit(1), 1, 0.25);
   expect(kits[1]?.started).toHaveLength(1);
-  expect(kits[0]?.disposed).toBe(false);
-  expect(loadKit).toHaveBeenCalledTimes(3);
-  // Before that kit arrives the voice changes again: the late kit is dropped unloaded.
-  sound.preload({ ...DEFAULT_MAPPING, hands: [DEFAULT_MAPPING.hands[0], { pan: 0.2, gain: 0.5 }] });
-  await settle();
-  expect(kits[2]?.disposed).toBe(true);
-  expect(loadKit).toHaveBeenCalledTimes(4);
-  kits[3]?.resolve();
-  await settle();
-  expect(kits[1]?.disposed).toBe(true);
-  sound.play(hit(1), 1, 0.25);
-  expect(kits[3]?.started).toHaveLength(1);
-  expect(kits[1]?.started).toHaveLength(1);
+  expect(kits.map((k) => k.disposed)).toEqual([false, false]);
+  expect(loadKit).toHaveBeenCalledTimes(2);
 });
 
 test('an interrupted context (iOS) is resumed too', () => {
@@ -191,24 +203,6 @@ test('an interrupted context (iOS) is resumed too', () => {
   const running = fakeContext('running');
   createDrumSound(() => running, async () => fakeKit() as Kit).resume();
   expect(running.resume).not.toHaveBeenCalled();
-});
-
-test('a kit that finishes loading after its voice changed is dropped', async () => {
-  const kits: ReturnType<typeof fakeKit>[] = [];
-  const loadKit = vi.fn(async () => {
-    const k = fakeKit();
-    kits.push(k);
-    return k as Kit;
-  });
-  const sound = createDrumSound(() => fakeContext(), loadKit);
-  sound.preload(DEFAULT_MAPPING);
-  await settle(); // both kits are now loading
-  sound.preload({ ...DEFAULT_MAPPING, hands: [{ pan: 0, gain: 1 }, DEFAULT_MAPPING.hands[1]] });
-  kits[0]?.resolve();
-  await settle();
-  expect(kits[0]?.disposed).toBe(true);
-  sound.play(hit(0), 1, 0.25);
-  expect(kits[0]?.started).toEqual([]);
 });
 
 test('resume asks iOS for the playback audio session, before resuming; a browser without one is fine', async () => {

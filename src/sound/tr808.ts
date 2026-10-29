@@ -22,22 +22,35 @@ function importSmplr() {
   }));
 }
 
-export async function tr808(
-  context: AudioContext,
-  _hand: Hand,
-  pan: number,
-  gain: number,
-  destination: AudioNode,
-): Promise<Kit> {
+// One sample loader per context, shared by both hands' machines: the TR-808 is fetched and
+// decoded once. Pan and gain live on the hand's nodes in drum-sound.ts, not on the machine.
+// The loader caches a sample once it has arrived, so a machine made while another is still
+// fetching would fetch again: each context's machines are made one after another.
+const loaders = new WeakMap<AudioContext, import('smplr').SampleLoader>();
+const lastLoad = new WeakMap<AudioContext, Promise<unknown>>();
+
+export async function tr808(context: AudioContext, _hand: Hand, destination: AudioNode): Promise<Kit> {
   const smplr = await importSmplr();
+  // Join the queue synchronously, so the second hand waits for the first hand's samples.
+  const turn = (lastLoad.get(context) ?? Promise.resolve()).catch(() => undefined);
+  let finish!: () => void;
+  lastLoad.set(context, new Promise<void>((resolve) => (finish = resolve)));
+  await turn;
+  let loader = loaders.get(context);
+  if (!loader) {
+    loader = smplr.SampleLoader(context);
+    loaders.set(context, loader);
+  }
   const machine = smplr.DrumMachine(context, {
     instrument: 'TR-808',
-    pan,
-    volume: Math.round(gain * KIT_VOLUME),
+    volume: KIT_VOLUME,
     destination,
+    loader,
   });
+  const ready = machine.load.then(() => undefined);
+  ready.then(finish, finish);
   return {
-    ready: machine.load.then(() => undefined),
+    ready,
     start: (event) => machine.start(event),
     dispose: () => machine.disconnect(),
   };
