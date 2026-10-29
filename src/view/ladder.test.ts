@@ -1,7 +1,7 @@
-import { expect, test } from 'vitest';
-import { buildSchedule, parsePattern } from '../core';
-import type { PatternInput, Schedule } from '../core';
-import { axisPulse, ladderFrame } from './ladder';
+import { describe, expect, test } from 'vitest';
+import { buildSchedule, parsePattern, validate } from '../core';
+import type { PatternInput, Schedule, ValidationError } from '../core';
+import { axisPulse, brokenFrame, ladderFrame } from './ladder';
 import type { LadderView } from './ladder';
 import type { Segment } from './types';
 
@@ -220,4 +220,128 @@ test('tempo change: the time a crossing flight’s x1 reaches the playhead is ne
     expect(t).toBeCloseTo(next.startTime + p * next.pulseLen);
     expect(axisPulse(segments, t)).toBeCloseTo(b.land);
   }
+});
+
+describe('brokenFrame: an invalid pattern on the strip, collisions flagged (SPEC §4.2)', () => {
+  const errorsOf = (input: PatternInput): readonly ValidationError[] => {
+    const v = validate(input);
+    if (v.ok) throw new Error('valid');
+    return v.errors;
+  };
+  const twoHands = (h1: string, h2: string, a: number, b: number): PatternInput => ({
+    ratio: { a, b },
+    hands: [pat(h1), pat(h2)],
+  });
+  /** Bars with their launch and landing on the broken pattern's own pulse count, anchor at 0. */
+  const flights = (f: ReturnType<typeof brokenFrame>, anchor = 0) =>
+    f.bars.map((b) => ({ ...b, launch: b.x0 + f.start - anchor, land: b.x1 + f.start - anchor }));
+
+  test('432, stopped with nothing to show: pulse 0 at the playhead, the colliding bars flagged and meeting at pulse 4', () => {
+    const input = vanilla('432');
+    const f = brokenFrame(input, errorsOf(input), [], 5, view);
+    expect(f.start).toBe(-3);
+    expect(f.playhead).toBe(3);
+    const bars = flights(f);
+    // Launched at 0, 1, 2 (digits 4, 3, 2), all landing in hand 1 at pulse 4.
+    const first = bars.filter((b) => b.launch >= 0 && b.launch < 3);
+    expect(first.map((b) => b.x0)).toEqual([3, 4, 5]);
+    expect(first.every((b) => b.broken === true && b.land === 4 && b.to === 0)).toBe(true);
+    expect(new Set(first.map((b) => b.x1)).size).toBe(1);
+    // The pattern is a loop: the cycle before pulse 0 shows too, flagged the same.
+    expect(bars.some((b) => b.launch < 0 && b.broken)).toBe(true);
+    // Every flight of 432 is in its collision group.
+    expect(bars.every((b) => b.broken)).toBe(true);
+    // Balls number the digits; with no segment the colours are those numbers.
+    expect(first.map((b) => [b.ball, b.colour])).toEqual([
+      [0, 0],
+      [1, 1],
+      [2, 2],
+    ]);
+    // Its own grid and cycle: 432's cycle is 6, its pulses alternate hands.
+    expect(f.cycleLines.map((x) => x + f.start)).toEqual([0, 6]);
+    expect(f.ticks).toHaveLength(12);
+  });
+
+  test('432 over the stopped view of the last valid edit: same placement, colours clear of its balls', () => {
+    const input = vanilla('432');
+    const stopped: Segment = { schedule: buildSchedule(vanilla('441')), startTime: 5, pulseLen: 0.25, endTime: null, carry: new Map() };
+    const f = brokenFrame(input, errorsOf(input), [stopped], 5, view);
+    const base = ladderFrame([stopped], 5, view);
+    expect(f.start).toBe(base.start);
+    const bars = flights(f);
+    expect(bars.find((b) => b.launch === 0)?.x0).toBe(f.playhead);
+    // 441's balls are colours 0-2, so 432's three digits take 3, 4 and 5.
+    expect(new Set(bars.map((b) => b.colour))).toEqual(new Set([3, 4, 5]));
+  });
+
+  test('while playing, pulse 0 sits at the playing segment’s start, in phase with it', () => {
+    const input = vanilla('432');
+    const playing = single(buildSchedule(vanilla('3')));
+    const f = brokenFrame(input, errorsOf(input), [playing], 10, view); // window [7, 19)
+    expect(f.start).toBe(7);
+    expect(f.cycleLines.map((x) => x + f.start)).toEqual([12, 18]);
+    const launches = flights(f).map((b) => Math.round(b.launch)).sort((a, b) => a - b);
+    // 432's flights launched at 3, 4 and 5 all land at 7, the window's start, so are out.
+    expect(launches[0]).toBe(6);
+    expect(launches.at(-1)).toBe(18);
+  });
+
+  test('a later segment moves the anchor to its own start on the strip', () => {
+    const input = vanilla('432');
+    const s3 = buildSchedule(vanilla('3'));
+    const segments: Segment[] = [
+      { schedule: s3, startTime: 0, pulseLen: 1, endTime: 4, carry: new Map() },
+      { schedule: s3, startTime: 4, pulseLen: 0.5, endTime: null, carry: new Map() },
+    ];
+    const f = brokenFrame(input, errorsOf(input), segments, 5, view); // axis 6, window [3, 15)
+    expect(f.cycleLines.map((x) => x + f.start)).toEqual([4, 10]);
+  });
+
+  test('2 2x 2 / 2 2 at 3:2: only the two flights landing together in hand 2 are flagged', () => {
+    const input = twoHands('2 2x 2', '2 2', 3, 2);
+    const f = brokenFrame(input, errorsOf(input), [], 0, { windowPulses: 6, playheadFraction: 0 });
+    const bars = flights(f);
+    const broken = bars.filter((b) => b.broken).map((b) => [b.from, b.launch, b.land]);
+    expect(broken).toEqual(
+      expect.arrayContaining([
+        [0, 2, 6],
+        [1, 0, 6],
+      ]),
+    );
+    expect(broken).toHaveLength(2);
+    expect(bars.filter((b) => !b.broken).length).toBeGreaterThan(0);
+    // Hand 2's digits are numbered after hand 1's three.
+    expect(bars.find((b) => b.from === 1 && b.launch === 3)?.ball).toBe(4);
+  });
+
+  test('2x 2 2 / 2 2x at 3:2: each off-grid cross is flagged, landing between the other hand’s beats', () => {
+    const input = twoHands('2x 2 2', '2 2x', 3, 2);
+    const f = brokenFrame(input, errorsOf(input), [], 0, { windowPulses: 6, playheadFraction: 0 });
+    // This cycle's flights only (the previous cycle's hand-2 cross also reaches into the window).
+    const broken = flights(f)
+      .filter((b) => b.broken && b.launch >= 0)
+      .map((b) => [b.from, b.launch, b.land]);
+    expect(broken).toEqual(
+      expect.arrayContaining([
+        [0, 0, 4],
+        [1, 3, 9],
+      ]),
+    );
+    expect(broken).toHaveLength(2);
+  });
+
+  test('510: the flagged 0 is drawn as a bar of no length; a fractional count flags nothing and draws no 0', () => {
+    const f = brokenFrame(vanilla('510'), errorsOf(vanilla('510')), [], 0, { windowPulses: 6, playheadFraction: 0 });
+    const zeros = flights(f).filter((b) => b.height === 0);
+    expect(zeros.length).toBeGreaterThan(0);
+    expect(zeros.every((b) => b.broken && b.x0 === b.x1)).toBe(true);
+
+    const g = brokenFrame(vanilla('5011'), errorsOf(vanilla('5011')), [], 0, { windowPulses: 8, playheadFraction: 0 });
+    expect(g.bars.some((b) => b.height === 0)).toBe(false);
+    expect(g.bars.every((b) => b.broken === false)).toBe(true);
+  });
+
+  test('ladderFrame never sets the flag', () => {
+    expect(frameAt(buildSchedule(vanilla('3')), 5, view).bars.every((b) => b.broken === undefined)).toBe(true);
+  });
 });
