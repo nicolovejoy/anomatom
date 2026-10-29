@@ -1,6 +1,6 @@
 # v1 in parallel
 
-Status: agreed with Nico 2026-10-29, revised after the PR 8 review; not started. Delete this file when wave 2 merges; git keeps it.
+Status: complete 2026-10-29. Waves 0-2 and G merged (PRs 11-20). Kept, not deleted as first planned: the frozen contracts and rulings here are cited from source comments (`carry.ts`, `player.ts`, `mount.ts`, `share.ts`, `tunables.ts`, `copy.ts`).
 
 Spec: `docs/SPEC.md` (binding). Theory: `docs/MATH.md`. Conventions: `CLAUDE.md`. This plan covers roadmap steps 4-7 and wins where the roadmap's end states differ.
 
@@ -255,3 +255,12 @@ Dated 2026-10-29.
 - 2026-10-29, B: `carryOver` also carries balls not yet thrown at the boundary. An old ball first thrown at old pulse q ≥ B, waiting in hand h, continues the new ball first thrown at (q − B, h), unless a crossing flight claimed that ball; the map stays one-to-one, and `3` → `441` at B = 2 carries all three.
 - 2026-10-29, B: after `resume()`, `view().now` holds at the frozen time for up to `START_DELAY_SECONDS` until the clock reaches it, so the picture does not jump back.
 - 2026-10-29, B: a crossing flight's catch that lands past the end of the next segment is not played (adjacent segments only).
+- 2026-10-29, wave 2 (Opus governor): PR 16's post-merge review fixed first as its own PR (17) before F, since both edit `player.ts`.
+- 2026-10-29, E/F: E owns volume end to end (slider → `store.volume` → `sound.setMaster`); F wires only Mapping-derived calls.
+- 2026-10-29, E: a Space typed in a pattern input types a space; the play toggle skips `.pattern-field` and `[data-keeps-space]`. Enter in a pattern input plays or resumes, never pauses.
+- 2026-10-29, E: ratio steppers keep the ratio unreduced (6:4 stays 6:4); a chip always applies its exact ratio and shows pressed only for that exact a:b.
+- 2026-10-29, E: play and resume are disabled while the edit is invalid, even when paused; the broken pattern is a second greyed strip above the playing one.
+- 2026-10-29, F: `player.setMapping(mapping)` is the one path for panel edits and restored links. A hash pattern that doesn't parse falls back to that hand's default; one that parses but doesn't validate restores into the fix state.
+- 2026-10-29, F: pan and gain commit on release, because each value reloads the kit. Copy share link builds from the live store, so it is right inside the replaceState debounce.
+- 2026-10-29, G: e2e aborts the sample CDN for every context (`e2e/fixtures.ts`); no test reaches smpldsnds.github.io. CI gives Firefox a PulseAudio null sink. §7.6 is a scheduler unit test; real-browser timer jitter is not proven.
+- Backlog from reviews: the TR-808 kit is downloaded once per hand (one DrumMachine per hand in `tr808.ts`); pan/gain arrow keys reload the kit per step (a GainNode/StereoPanner in `drum-sound.ts` would fix both); Enter in the tempo box does nothing; the nested `lastStateHash` set re-runs listeners once per shared change.
