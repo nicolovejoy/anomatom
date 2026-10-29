@@ -1,4 +1,6 @@
-import { gcd, lcm, mod } from '../math';
+import { gcd, mod } from '../math';
+import { cycleOf } from '../parts';
+import { partsOfInput } from './convert';
 import type { Grid, HandPattern, PatternInput, Ratio } from './types';
 
 export function reduceRatio(ratio: Ratio): Ratio {
@@ -34,17 +36,9 @@ export function activeHands(input: PatternInput): readonly HandPattern[] {
   return isVanilla(input.ratio) ? input.hands.slice(0, 1) : input.hands;
 }
 
-/** Pulses after which both hands repeat. */
+/** Pulses after which both hands repeat: the part model's cycle (`cycleOf`). */
 export function cycleLength(input: PatternInput): number {
-  if (isVanilla(input.ratio)) {
-    // n shared beats, one pulse each; both hands repeat after an even number of beats.
-    return lcm((input.hands[0] as HandPattern).length, 2);
-  }
-  const grids = makeGrids(input.ratio);
-  return input.hands.reduce(
-    (acc, hand, h) => lcm(acc, hand.length * (grids[h] as Grid).pulsesPerBeat),
-    1,
-  );
+  return cycleOf(partsOfInput(input));
 }
 
 /** True when both hands have a beat on this pulse: the only place a cross may land. */

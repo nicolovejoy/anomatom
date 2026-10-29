@@ -9,5 +9,5 @@ export { swapSites } from './swap';
 export { countCrossings } from './crossings';
 export { buildSchedule } from './schedule';
 export { carryOver } from './carry';
-export { fixesFor } from './fixes';
+export { fixesFor, searchFixes } from './fixes';
 export type { FixLimits } from './fixes';

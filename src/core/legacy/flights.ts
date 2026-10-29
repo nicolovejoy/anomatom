@@ -1,58 +1,38 @@
-import { cycleLength, isVanilla, makeGrids } from './grid';
-import type { Flight, Hand, HandPattern, PatternInput } from './types';
-
-const other = (h: Hand): Hand => (h === 0 ? 1 : 0);
+import { beatsOf } from '../flights';
+import { cycleOf, throwsOf, vanillaIndex } from '../parts';
+import { partsOfInput } from './convert';
+import { isVanilla } from './grid';
+import type { Flight, Hand, PatternInput } from './types';
 
 /**
- * Every throw of one cycle, placed on the pulse grid. This is the one place notation becomes
- * pulses. Height-0 throws are included as zero-length flights landing on their own beat, which
- * keeps the landing set a permutation of the beat set (MATH.md §2).
+ * Every throw of one cycle, placed on the pulse grid, in the two-hand shape: the part model's
+ * flights (src/core/flights.ts), plus each `0` as a zero-length flight landing on its own beat,
+ * which keeps the landing set a permutation of the beat set (MATH.md §2). At 1:1 a throw's id is
+ * its position in the one siteswap, and its beat is the shared beat (the pulse).
  */
 export function flightsOf(input: PatternInput): Flight[] {
-  const cycle = cycleLength(input);
-  if (isVanilla(input.ratio)) return vanillaFlights(input.hands[0] as HandPattern, cycle);
-  const grids = makeGrids(input.ratio);
+  const parts = partsOfInput(input);
+  const cycle = cycleOf(parts);
+  const vanilla = isVanilla(input.ratio);
+  const length = input.hands[0]?.length ?? 0;
   const flights: Flight[] = [];
-  input.hands.forEach((hand, h) => {
-    const from = h as Hand;
-    const { pulsesPerBeat } = grids[from];
-    for (let beat = 0; beat * pulsesPerBeat < cycle; beat++) {
-      const index = beat % hand.length;
-      const { height, cross } = hand[index] as HandPattern[number];
-      const launch = beat * pulsesPerBeat;
+  parts.forEach((part, p) => {
+    const from = p as Hand;
+    const throws = throwsOf(part);
+    beatsOf(part, cycle, (beat, launch, index) => {
+      const t = throws[index] as (typeof throws)[number];
+      const to = (t.to ?? from) as Hand;
       flights.push({
-        id: { hand: from, index },
+        id: vanilla ? { hand: 0, index: vanillaIndex(p, index, length) } : { hand: from, index },
         from,
-        to: cross ? other(from) : from,
-        beat,
-        height,
-        cross,
+        to,
+        beat: vanilla ? launch : beat,
+        height: t.height / part.unit,
+        cross: to !== from,
         launch,
-        land: launch + height * pulsesPerBeat,
+        land: launch + t.height,
       });
-    }
+    });
   });
   return flights.sort((p, q) => p.launch - q.launch || p.from - q.from);
-}
-
-function vanillaFlights(pattern: HandPattern, cycle: number): Flight[] {
-  const flights: Flight[] = [];
-  for (let beat = 0; beat < cycle; beat++) {
-    const index = beat % pattern.length;
-    const { height } = pattern[index] as HandPattern[number];
-    const from = (beat % 2) as Hand;
-    const cross = height % 2 === 1;
-    flights.push({
-      // One input sequence at 1:1, so every throw id names hand 0.
-      id: { hand: 0, index },
-      from,
-      to: cross ? other(from) : from,
-      beat,
-      height,
-      cross,
-      launch: beat,
-      land: beat + height,
-    });
-  }
-  return flights;
 }

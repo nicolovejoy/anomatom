@@ -1,4 +1,8 @@
-// The data model. Pulses are integers everywhere in this directory.
+// The two-hand model, kept for one wave so the app builds while stream B moves its callers to
+// src/core (docs/plans/model-waves.md). Every function here delegates to the part model.
+import type { Ratio } from '../types';
+
+export type { Ratio };
 
 /** Hand 1 is 0, hand 2 is 1. */
 export type Hand = 0 | 1;
@@ -11,11 +15,6 @@ export interface Throw {
 
 export type HandPattern = readonly Throw[];
 
-/** Hand ratio a:b, hand 1 making a beats while hand 2 makes b. */
-export interface Ratio {
-  readonly a: number;
-  readonly b: number;
-}
 
 /**
  * The user's input. At 1:1 `hands` holds one vanilla siteswap (hands alternate, odd digits
