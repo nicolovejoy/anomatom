@@ -12,7 +12,8 @@ test('432: the collision named, digits in the warning colour, three fixes that v
   await expect(status(page)).toContainText('throws 1, 2 and 3 all land in hand 1 on beat 5');
   await expect(page.locator('.pattern-row[data-hand="0"] .mirror .warn')).toHaveCount(3);
   await expect(page.locator('.pattern-row[data-hand="0"] .indicator')).toHaveAttribute('data-state', 'bad');
-  await expect(page.locator('#play')).toBeDisabled();
+  // The sound is never gated (design §6): Play stays on.
+  await expect(page.locator('#play')).toBeEnabled();
   const fixes = page.locator('.fix');
   await expect(fixes).toHaveCount(3);
   await shot(page, '432');
@@ -100,11 +101,10 @@ test('play, pause, scrub, resume, stop; Space toggles; volume and sound panel', 
   // A pattern change while paused waits for the next cycle.
   await hand1(page).fill('441');
   await expect(page.locator('#pending')).toBeVisible();
-  // Invalid while paused: play disabled, the broken strip shown above.
+  // Not juggleable while paused: it still plays (design §6), so Play stays on.
   await hand1(page).fill('432');
-  await expect(page.locator('#play')).toBeDisabled();
-  await expect(page.locator('.ladder-broken')).toBeVisible();
-  await shot(page, 'broken-above');
+  await expect(page.locator('#play')).toBeEnabled();
+  await shot(page, 'broken-paused');
   await hand1(page).fill('441');
   await page.locator('#play').click();
   await expect(page.locator('#play')).toHaveText('Pause');
@@ -122,7 +122,7 @@ test('play, pause, scrub, resume, stop; Space toggles; volume and sound panel', 
   await expect(page).toHaveURL(/#about$/);
 });
 
-test('an invalid edit while playing: the old pattern plays on, the broken one greyed above', async ({ page }) => {
+test('an edit I can’t juggle while playing: it is queued and plays, its bars grey', async ({ page }) => {
   await page.goto('/#v1.e30');
   await openTab(page, 'rhythm');
   await page.locator('.chip', { hasText: '3:2' }).click();
@@ -130,13 +130,13 @@ test('an invalid edit while playing: the old pattern plays on, the broken one gr
   await openTab(page, 'pattern');
   await hand1(page).fill('2x 2 2');
   await page.locator('#hand-1').fill('2 2x');
-  await expect(page.locator('.ladder-broken')).toBeVisible();
+  await expect(page.locator('#status')).toContainText('lands between');
   // While playing the button pauses; it stays usable.
   await expect(page.locator('#play')).toHaveText('Pause');
   await expect(page.locator('#play')).toBeEnabled();
   await shot(page, 'greyed-3-2');
   await stopPlaying(page);
-  await expect(page.locator('.ladder-broken')).toBeHidden();
+  await expect(page.locator('#play')).toBeEnabled();
 });
 
 test('Space types a space in a pattern input; Enter there plays; Space elsewhere pauses', async ({ page }) => {
