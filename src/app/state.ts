@@ -23,7 +23,11 @@ export interface AppState {
   readonly lastStateHash: string | null;
   /** UI state: whether the sound panel is open. Stream E sets it, stream F reads it; the share hash never carries it. */
   readonly soundPanelOpen: boolean;
+  /** UI state: which tab of the phone sheet is open, or null when it is closed (docs/plans/phone-sheet.md). Never in the share hash. */
+  readonly sheetTab: SheetTab | null;
 }
+
+export type SheetTab = 'pattern' | 'rhythm' | 'sound';
 
 export function defaultState(): AppState {
   return {
@@ -34,6 +38,7 @@ export function defaultState(): AppState {
     mapping: DEFAULT_MAPPING,
     lastStateHash: null,
     soundPanelOpen: false,
+    sheetTab: null,
   };
 }
 

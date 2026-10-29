@@ -11,6 +11,7 @@ test('the defaults come from the tunables', () => {
     mapping: DEFAULT_MAPPING,
     lastStateHash: null,
     soundPanelOpen: false,
+    sheetTab: null,
   });
 });
 
