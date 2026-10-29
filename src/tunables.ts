@@ -90,6 +90,13 @@ export const LADDER = {
 // B: Player and fixes
 // ---------------------------------------------------------------------------------------------
 
+/**
+ * Fix suggestions for an invalid pattern (SPEC §4.2). `count`: how many are offered. `budget`:
+ * the most candidate patterns validated per call, so a long pattern with no near fix cannot
+ * stall a keystroke; past it, fewer fixes are offered.
+ */
+export const FIXES = { count: 3, budget: 20_000 } as const;
+
 // ---------------------------------------------------------------------------------------------
 // C: Mapping and sound
 // ---------------------------------------------------------------------------------------------
