@@ -234,3 +234,17 @@ Check for Nico: the iPhone checklist.
 - Hands, then clubs, drawn from `held` and `progress`.
 - A 3D juggler you can orbit around: issue #7, P3.
 - The robot: anomatom as a polyphonic juggling robot, one view the juggler and one the drummer at a kit. Four limbs, each on its own grid, means `Hand = 0 | 1` becomes a limb index; the grid model already describes limb independence.
+
+## Rulings (governor)
+
+Dated 2026-10-29.
+
+- Colours: `src/view/colours.ts` `ballColours(segments)` is the one colour rule; the ladder and the juggler (A) both read it. Uncarried new balls avoid every colour of the previous segment.
+- Segments are never dropped in v1 (B).
+- Segment boundaries: B builds segments with `endTime === next.startTime`, at a whole pulse of the old segment. `carryOver` links adjacent segments only; a flight longer than the next segment (e.g. `97531` → `3` → another switch) is drawn by the ladder but its carry is not followed across two switches, accepted for v1.
+- `Bar.colour` is set by `ballColours`; B's `brokenFrame` fills it too.
+- Browser-only modules are named `*.browser.ts` and excluded from coverage (C's pad loading).
+- `soundPanelOpen` lives in `AppState`, set by E, read by F, never in the hash (C's `hash.ts` encodes pattern, ratio, bpm and mapping only).
+- D's bibliography parser lives at `src/view/bibliography.ts` (pure, covered by the `src/view/**` glob).
+- Wave 1 per-task review is replaced by one review per stream at its end, to save tokens (Nico, 2026-10-29).
+- E: Left/Right arrow keys move across the ratio chips (shipped in the wave 0 follow-up; E keeps it when rebuilding the panel). Labels read "Pattern", with a two-entry glossary under the panel; E keeps both.

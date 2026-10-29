@@ -201,36 +201,23 @@ test('ticks and cycle lines follow each segment’s own grid and cycle', () => {
   expect(f.ticks.map((t) => t.x + f.start)).toEqual([-2, -1, 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13]);
 });
 
-test('an uncarried ball takes the lowest free colour, and colours carry through several switches', () => {
-  const three = buildSchedule(vanilla('3'));
-  const four = buildSchedule(vanilla('4'));
-  const s0: Segment = { schedule: three, startTime: 0, pulseLen: 1, endTime: 6, carry: new Map() };
-  // 3 → 4: new balls 1 and 2 continue old balls 0 and 2; new balls 0 and 3 are new.
-  const s1: Segment = {
-    schedule: four,
-    startTime: 6,
-    pulseLen: 1,
-    endTime: 12,
-    carry: new Map([
-      [1, 0],
-      [2, 2],
-    ]),
-  };
-  // 4 → 3: new ball 0 continues ball 1 of the 4, which continued ball 0 of the first 3. An
-  // id the previous segment never had is treated as uncarried.
-  const s2: Segment = {
-    schedule: three,
-    startTime: 12,
-    pulseLen: 1,
-    endTime: null,
-    carry: new Map([
-      [0, 1],
-      [1, 9],
-    ]),
-  };
-  const f = ladderFrame([s0, s1, s2], 12, { windowPulses: 24, playheadFraction: 0.5 }); // [0, 24)
-  const colourOf = (from: number, to: number, ball: number) =>
-    f.bars.find((b) => b.x0 + f.start >= from && b.x0 + f.start < to && b.ball === ball)?.colour;
-  expect([0, 1, 2, 3].map((b) => colourOf(6, 12, b))).toEqual([1, 0, 2, 3]);
-  expect([0, 1, 2].map((b) => colourOf(12, 24, b))).toEqual([0, 1, 2]);
+test('tempo change: the time a crossing flight’s x1 reaches the playhead is next.startTime + p × next.pulseLen', () => {
+  const sched = buildSchedule(vanilla('3'));
+  const carry = new Map([
+    [0, 0],
+    [1, 1],
+    [2, 2],
+  ]);
+  const segments = switchAt(sched, 0.25, sched, 0.2, carry);
+  const [, next] = segments;
+  const { old } = split(segments, next.startTime + 2 * next.pulseLen);
+  const crossing = old.filter((b) => b.land > B - 1e-9);
+  expect(crossing).toHaveLength(3);
+  for (const b of crossing) {
+    const p = Math.round(b.launch) + 3 - B;
+    // The time at which the playhead reaches x1, solved in the next segment's pulses.
+    const t = next.startTime + (b.land - B) * next.pulseLen;
+    expect(t).toBeCloseTo(next.startTime + p * next.pulseLen);
+    expect(axisPulse(segments, t)).toBeCloseTo(b.land);
+  }
 });

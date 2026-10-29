@@ -1,5 +1,5 @@
 /* The knob panel. Colours and sizes that matter live in tunables. */
-.row {
+.knobs .row {
   display: flex;
   flex-wrap: wrap;
   gap: 8px;
@@ -13,10 +13,26 @@
 .knobs button {
   padding: 6px 12px;
 }
-.chip[aria-pressed='true'] {
+.knobs .chip[aria-pressed='true'] {
   outline: 2px solid #3a7be6;
 }
-.hint {
+.knobs .hint {
   opacity: 0.7;
   font-size: 0.9em;
+}
+#status {
+  margin: 8px 0;
+}
+.glossary {
+  margin: 16px 0 0;
+  max-width: 40em;
+  font-size: 0.85em;
+  opacity: 0.65;
+}
+.glossary dt {
+  font-weight: 600;
+  margin-top: 6px;
+}
+.glossary dd {
+  margin: 0;
 }
