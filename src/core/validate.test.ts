@@ -1,6 +1,6 @@
-import { expect, test } from 'vitest';
+import { describe, expect, test } from 'vitest';
 import { parsePattern } from './parse';
-import { validate } from './validate';
+import { validate, validateAll } from './validate';
 import type { PatternInput } from './types';
 
 function pat(text: string) {
@@ -75,5 +75,66 @@ test('a 3:2 collision from two same-hand throws names both', () => {
       { hand: 0, index: 1 },
       { hand: 0, index: 2 },
     ],
+  });
+});
+
+describe('validateAll: every error, with the digits it involves', () => {
+  const vanilla = (text: string): PatternInput => ({ ratio: { a: 1, b: 1 }, hands: [pat(text)] });
+
+  test('a valid pattern has no details', () => {
+    expect(validateAll(vanilla('441'))).toEqual([]);
+  });
+
+  test('432 names all three colliding throws, every digit, in hand 1’s list', () => {
+    const details = validateAll(vanilla('432'));
+    const collisions = details.filter((d) => d.error.kind === 'collision');
+    expect(collisions).toHaveLength(1);
+    expect(collisions[0]?.error).toMatchObject({ hand: 0, pulse: 4 });
+    expect(collisions[0]?.digits).toEqual([[0, 1, 2], []]);
+    // For a whole ball count the errors are validate's, in its order.
+    const v = validate(vanilla('432'));
+    expect(v.ok).toBe(false);
+    if (!v.ok) expect(details.map((d) => d.error)).toEqual(v.errors);
+  });
+
+  test('510 names its three-way collision including the 0', () => {
+    const collisions = validateAll(vanilla('510')).filter((d) => d.error.kind === 'collision');
+    expect(collisions.map((d) => d.digits)).toEqual([[[0, 1, 2], []]]);
+  });
+
+  test('2x 2 2 / 2 2x names both off-grid landing pulses and the digit of each', () => {
+    const input: PatternInput = { ratio: { a: 3, b: 2 }, hands: [pat('2x 2 2'), pat('2 2x')] };
+    const offGrid = validateAll(input).filter((d) => d.error.kind === 'cross-off-grid');
+    // Ordered by catching hand: hand 2's cross lands in hand 1, so it comes first.
+    expect(offGrid).toEqual([
+      {
+        error: { kind: 'cross-off-grid', fromHand: 1, beat: 1, landingPulse: 9, nearestLegal: 12 },
+        digits: [[], [1]],
+      },
+      {
+        error: { kind: 'cross-off-grid', fromHand: 0, beat: 0, landingPulse: 4, nearestLegal: 6 },
+        digits: [[0], []],
+      },
+    ]);
+  });
+
+  test('a missing ball names the throw that has nothing to throw, per hand', () => {
+    const input: PatternInput = { ratio: { a: 3, b: 2 }, hands: [pat('2 2x 2'), pat('2 2')] };
+    expect(validateAll(input).find((d) => d.error.kind === 'no-ball')).toEqual({
+      error: { kind: 'no-ball', hand: 0, beat: 0 },
+      digits: [[0], []],
+    });
+    // At 1:1 a beat of either hand is a beat of the one sequence: in 432, hand 2's beat 5 is digit 3.
+    const details = validateAll(vanilla('432'));
+    expect(details).toContainEqual({ error: { kind: 'no-ball', hand: 1, beat: 5 }, digits: [[2], []] });
+  });
+
+  test('a fractional count comes first, involves no single digit, and the landing errors follow', () => {
+    // 43: mean 3.5, and both throws land on the same pulse of the cycle.
+    const details = validateAll(vanilla('43'));
+    expect(details[0]).toEqual({ error: { kind: 'fractional-balls', balls: 3.5 }, digits: [[], []] });
+    expect(details.slice(1).some((d) => d.error.kind === 'collision')).toBe(true);
+    // validate still stops at the fraction.
+    expect(validate(vanilla('43'))).toEqual({ ok: false, errors: [{ kind: 'fractional-balls', balls: 3.5 }] });
   });
 });
