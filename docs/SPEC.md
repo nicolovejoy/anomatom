@@ -37,7 +37,7 @@ Not in v1: more than one juggler, pattern generation, MIDI in, live-coding the m
 
 Layout top to bottom: juggler, ladder strip, knob panel. On a phone the knob panel folds under a button; the two views stay.
 
-Juggler: side view, two hands, N balls in stable colours. Apex height grows with the square of the throw height. A cross throw that lands on a pulse where both hand grids coincide flashes.
+Juggler: front view (hands left and right, like the ladder's lanes), N balls in stable colours. v1 draws the balls only; the hands are where the balls are caught and thrown, drawn later along with clubs. Apex height grows with the square of the throw height. A cross throw that lands on a pulse where both hand grids coincide flashes.
 
 Ladder strip: time runs left to right, a fixed playhead, one lane per hand. Each flight is a bar from throw to catch in its ball's colour; cross flights are diagonals between the lanes. Tick marks show both hand grids at different weights so 3:2 reads at a glance. A thin vertical line marks each cycle start.
 
