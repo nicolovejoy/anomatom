@@ -1,6 +1,6 @@
 # Phone sheet and first minute
 
-Status: wave 1 dispatched 2026-10-29.
+Status: wave 1 merged 2026-10-29 (PRs 25 C, 26 B, 27 A); awaiting Nico's checkpoint.
 
 Source: the "iPhone-first play view" boards 2a, 2b and 3 on the design canvas https://claude.ai/artifact/6DnKUCfmbQB4tYpM43B1Jq (Nico chose 2 + 3 over the keypad instrument, 1a/1b). Spec: `docs/SPEC.md` stays binding on behaviour; this plan changes layout only, except where a stream says otherwise. Process as in `docs/plans/v1-parallel.md` (Roles and process), with: governor Opus, frugal on tokens; one review per stream at its end; merge on green CI without asking.
 
@@ -33,3 +33,9 @@ From the mocks. Ground `#0e1013`, surface `#171a20`, raised `#20242c`, rule `#2a
 - Done means: unit tests with fakes proving one load for two hands and no reload on pan/gain change; coverage thresholds unchanged or raised.
 
 Merge order: C, then B, then A (A rebases last over B's `main.ts` line). Then checkpoint: governor posts Nico's smoke test.
+
+## Rulings and backlog
+
+- C: `Store.derive` added to `state.ts` (governor ruling) instead of share wrapping `store.set`. `dm.json` is still fetched once per hand; samples once.
+- A: Stop and the time slider show only while paused (SPEC §4.1 lists play/pause and the slider, no Stop while playing). `soundPanelOpen` retired for `sheetTab`. Hand bars added under the juggler.
+- Backlog from the PR 27 review: the About "?" glyph is inline in `main.ts`, not in `copy.ts`; the ghost-strip label in `mount-ladder.ts` duplicates `summary()` in `sheet-model.ts`; phone landscape under 760 px likely overflows (juggler min 120 px + ladder + 62dvh sheet); tabs lack Home/End keys.
