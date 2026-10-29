@@ -117,6 +117,8 @@ export const JUGGLER = {
   /** The hands: a bar under each hand's catch-to-throw span (board 2a), this tall, this far under a held ball. */
   hand: '#3a404b',
   handBarPx: 9,
+  /** A hand bar is never wider than this, centred on its hand's span. */
+  handMaxPx: 64,
   handGapPx: 4,
   /** The flash: a ring this many radii out, in this colour, as wide as `flashRingPx`. */
   flashRing: '#ffffff',
@@ -289,8 +291,8 @@ export const LADDER_E = {
    * the warning colour meeting at a ring on the landing pulse, and a small label.
    */
   ghost: {
-    heightPx: 56,
-    lanePaddingPx: 14,
+    heightPx: 60,
+    lanePaddingPx: 20,
     linePx: 3,
     alpha: 0.6,
     ringPx: 7,

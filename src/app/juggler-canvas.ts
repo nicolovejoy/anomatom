@@ -37,11 +37,11 @@ export function drawJuggler(canvas: HTMLCanvasElement, frame: JugglerFrame) {
   const handY = Math.min(py(0) + r + JUGGLER.handGapPx, height - JUGGLER.handBarPx);
   ctx.fillStyle = JUGGLER.hand;
   for (const h of [0, 1] as const) {
-    const a = px(Math.min(JUGGLER.catchX[h], JUGGLER.throwX[h])) - r;
-    const b = px(Math.max(JUGGLER.catchX[h], JUGGLER.throwX[h])) + r;
+    const mid = px((JUGGLER.catchX[h] + JUGGLER.throwX[h]) / 2);
+    const w = Math.min(Math.abs(px(JUGGLER.catchX[h]) - px(JUGGLER.throwX[h])) + 2 * r, JUGGLER.handMaxPx);
     const bar = JUGGLER.handBarPx;
     ctx.beginPath();
-    ctx.roundRect(a, handY, b - a, bar, bar / 2);
+    ctx.roundRect(mid - w / 2, handY, w, bar, bar / 2);
     ctx.fill();
   }
 
