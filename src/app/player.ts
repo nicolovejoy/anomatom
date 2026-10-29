@@ -36,8 +36,8 @@
 //   Scheduling picks up at the first whole pulse at or after the frozen time, so a scrub to a
 //   whole pulse plays that pulse's hit. A resume before the glide ends needs no shift and
 //   continues seamlessly, the picture still following the clock.
-import { carryOver } from '../core/carry';
-import type { Grid, Schedule } from '../core/types';
+import { carryOver } from '../core/legacy/carry';
+import type { Grid, Schedule } from '../core/legacy/types';
 import type { DrumSound } from '../sound/drum-sound';
 import { filterCutoff, hitFor, padHitsAt, type Hit, type Mapping } from '../sound/mapping';
 import { crossingsOfSchedule } from '../sound/schedule-crossings';

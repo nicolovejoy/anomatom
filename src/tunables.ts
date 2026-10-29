@@ -142,6 +142,17 @@ export const JUGGLER = {
 export const FIXES = { count: 3, budget: 300_000 } as const;
 
 // ---------------------------------------------------------------------------------------------
+// Model A: core model (docs/plans/model-waves.md)
+// ---------------------------------------------------------------------------------------------
+
+/**
+ * The finest lattice refinement `withPhase` will make for a phase between pulses (design §4):
+ * a phase of p/q pulses refines the lattice q times, for q up to this. A finer phase is refused
+ * and the parts come back unchanged.
+ */
+export const MAX_PHASE_REFINEMENT = 64;
+
+// ---------------------------------------------------------------------------------------------
 // C: Mapping and sound
 // ---------------------------------------------------------------------------------------------
 

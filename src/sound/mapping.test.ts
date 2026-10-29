@@ -1,7 +1,7 @@
 import { expect, test } from 'vitest';
 import { DEFAULT_MAPPING } from '../tunables';
-import { makeGrids } from '../core';
-import type { Event } from '../core';
+import { makeGrids } from '../core/legacy';
+import type { Event } from '../core/legacy';
 import { hitFor } from './mapping';
 
 const vanilla = makeGrids({ a: 1, b: 1 });

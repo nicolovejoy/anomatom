@@ -1,6 +1,6 @@
 import { describe, expect, test } from 'vitest';
-import { buildSchedule, fixesFor, parsePattern } from '../core';
-import type { PatternInput, Schedule } from '../core';
+import { buildSchedule, fixesFor, parsePattern } from '../core/legacy';
+import type { PatternInput, Schedule } from '../core/legacy';
 import { BPM_RANGE, MAX_RATIO } from '../tunables';
 import type { PlayerView, Segment } from '../view/types';
 import {

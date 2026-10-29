@@ -2,8 +2,8 @@
 // Fix state (SPEC §4.2): while the pattern is invalid, its broken loop is drawn with the
 // colliding flights in the warning colour: in place of the strip when stopped, and as a ghost on
 // a short strip above the one that plays otherwise (board 1b), so the two can be compared.
-import type { PatternInput, ValidationError } from '../core';
-import { isVanilla } from '../core';
+import type { PatternInput, ValidationError } from '../core/legacy';
+import { isVanilla } from '../core/legacy';
 import { LADDER, LADDER_E } from '../tunables';
 import { copy } from '../ui/copy';
 import { accents } from '../view/accents';

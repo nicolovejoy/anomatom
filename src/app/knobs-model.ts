@@ -1,7 +1,7 @@
 // The knob panel's logic (SPEC §4.1, §4.2), pure: no DOM, no timers. mount-knobs.ts and
 // mount-ladder.ts turn these values into elements and pixels.
-import { isVanilla, makeGrids, parsePattern, swapSites, validate, validateAll } from '../core';
-import type { ErrorDetail, Hand, HandPattern, ParseResult, PatternInput, Ratio, Throw } from '../core';
+import { isVanilla, makeGrids, parsePattern, swapSites, validate, validateAll } from '../core/legacy';
+import type { ErrorDetail, Hand, HandPattern, ParseResult, PatternInput, Ratio, Throw } from '../core/legacy';
 import { BPM_RANGE, MAX_RATIO } from '../tunables';
 import { copy } from '../ui/copy';
 import type { PlayerView, Segment } from '../view/types';

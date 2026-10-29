@@ -1,5 +1,5 @@
 // Pulses to seconds, and which events fall in a window of time. Pure; the player owns the loop.
-import type { Event, Grid, Schedule } from '../core/types';
+import type { Event, Grid, Schedule } from '../core/legacy/types';
 
 /** Seconds per pulse: hand 1's beat length over its pulses per beat (MATH.md §7). */
 export function pulseSeconds(bpm: number, grids: readonly [Grid, Grid]): number {

@@ -6,7 +6,7 @@
 // The drawn ball at a catch is at the catching hand's throw point within one radius: that is
 // src/view/juggler.test.ts (SPEC §7.6, second half), not repeated here.
 import { expect, test, vi } from 'vitest';
-import { buildSchedule, parsePattern } from '../core';
+import { buildSchedule, parsePattern } from '../core/legacy';
 import type { DrumSound } from '../sound/drum-sound';
 import { DEFAULT_MAPPING, LOOKAHEAD_SECONDS, SCHEDULER_INTERVAL_MS } from '../tunables';
 import { createPlayer } from './player';

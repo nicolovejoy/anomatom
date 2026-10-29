@@ -1,6 +1,6 @@
 import { describe, expect, test } from 'vitest';
-import { makeGrids } from '../core';
-import type { Event } from '../core';
+import { makeGrids } from '../core/legacy';
+import type { Event } from '../core/legacy';
 import {
   DEFAULT_MAPPING,
   FILTER_FULL_CROSSINGS,

@@ -9,7 +9,7 @@
 // the filter; the filter -> the master gain -> the destination. `setFilter` (crossings to
 // filter), `setMaster` (volume) and a hand's pan and gain move those nodes' params, smoothly;
 // changing a hand's pan or gain never reloads its kit.
-import type { Hand } from '../core/types';
+import type { Hand } from '../core/legacy/types';
 import { FILTER_OPEN_HZ, PARAM_SMOOTH_SECONDS } from '../tunables';
 import type { Hit, Mapping, PadHit, PadInstrument } from './mapping';
 import { browserAudioSession } from './audio-session.browser';

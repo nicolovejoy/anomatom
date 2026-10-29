@@ -1,5 +1,5 @@
 import { expect, test, vi } from 'vitest';
-import { buildSchedule, carryOver, parsePattern } from '../core';
+import { buildSchedule, carryOver, parsePattern } from '../core/legacy';
 import { DEFAULT_MAPPING, LOOKAHEAD_SECONDS, SCHEDULER_INTERVAL_MS } from '../tunables';
 import type { DrumSound } from '../sound/drum-sound';
 import { axisPulse } from '../view/ladder';

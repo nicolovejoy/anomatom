@@ -80,7 +80,7 @@ Pulse length in seconds = 60 / (bpm₁ × pulsesPerBeat₁), where pulsesPerBeat
 | `43` | 1:1 | 3.5 | no | fractional mean |
 | `4441` | 1:1 | 3.25 | no | fractional mean |
 | `432` | 1:1 | 3 | no | landings 5, 5, 5: all three throws collide |
-| `510` | 1:1 | 2 | no | landings 6, 3, 3 → mod 3 all 0: three-way collision with a `0` |
+| `510` | 1:1 | 2 | no | the 5 and the 1 both land on pulse 2, where the `0` is: no onset there, so two `no-onset` faults (§9.3), not a collision |
 | `2` / `2` | 3:2 | 4 | yes | Nickmans' non-crossing 3:2 pattern: each hand fountains two balls on its own grid; cycle 6 |
 | `2x 2 2` / `2 2x` | 3:2 | 4 | no | hand 1's `x` leaves pulse 0 and lands at 4, between hand 2's beats 3 and 6; hand 2's `x` leaves pulse 3 and lands at 9, off hand 1's even grid |
 | `2 2x 2` / `2x 2` | 3:2 | 4 | yes | the same digits rotated: hand 1's `x` leaves pulse 2, hand 2's leaves pulse 0, both land at pulse 6, each into the slot the other vacated. The demo pattern; its period is 18 pulses |

@@ -1,15 +1,6 @@
-// The data model. Pulses are integers everywhere in this directory.
-
-/** Hand 1 is 0, hand 2 is 1. */
-export type Hand = 0 | 1;
-
-/** One throw as written: a digit, and whether it is marked `x` (crosses to the other hand). */
-export interface Throw {
-  readonly height: number;
-  readonly cross: boolean;
-}
-
-export type HandPattern = readonly Throw[];
+// The model of docs/plans/model-rethink.md: parts on one integer lattice, onsets, flights.
+// Pulses are integers everywhere in this directory. The types below are frozen by
+// docs/plans/model-waves.md ("Core types"); change them only by a governor ruling.
 
 /** Hand ratio a:b, hand 1 making a beats while hand 2 makes b. */
 export interface Ratio {
@@ -17,85 +8,84 @@ export interface Ratio {
   readonly b: number;
 }
 
+/** Index of a part (a hand). Hand 1 is part 0. */
+export type PartIndex = number;
+
+/** One beat of a part: flight length in lattice pulses (0 = no onset on this beat), a multiple of the part's `unit`, and the destination part (null = this part). Digits are notation: digit = height / unit. */
+export interface Throw {
+  readonly height: number;
+  readonly to: PartIndex | null;
+}
+
+/** How a part's flights are decided: by the default rule from its onsets and ball knob, or by hand. */
+export type PartFlights =
+  | { readonly kind: 'default'; readonly onsets: readonly boolean[]; readonly k: number }
+  | { readonly kind: 'manual'; readonly throws: readonly Throw[] };
+
 /**
- * The user's input. At 1:1 `hands` holds one vanilla siteswap (hands alternate, odd digits
- * cross). At any other ratio it holds one sequence per hand in one-hand counting.
+ * A part: one grid on the lattice (spacing in pulses, phase in pulses), its notation unit, and its
+ * flights. Period in beats = onsets.length or throws.length. `unit` is the pulses one written digit
+ * stands for: the spacing in one-hand counting and for default parts; 1 for a vanilla pair (spacing 2,
+ * phases 0 and 1), where `3` is a 3-pulse flight. Lattice refinement scales spacing, phase, unit and heights together.
  */
-export interface PatternInput {
-  readonly ratio: Ratio;
-  readonly hands: readonly HandPattern[];
+export interface Part {
+  readonly spacing: number;
+  readonly phase: number;
+  readonly unit: number;
+  readonly flights: PartFlights;
 }
 
-/** Where a hand's beats fall: every `pulsesPerBeat` pulses, starting at `offset`. */
-export interface Grid {
-  readonly pulsesPerBeat: number;
-  readonly offset: number;
-}
+/** The whole model: parts on one lattice, normalised so the gcd of every spacing, phase, unit and height is 1. */
+export type Parts = readonly Part[];
 
-/** Identifies a throw by its hand and its position in that hand's sequence. */
 export interface ThrowId {
-  readonly hand: Hand;
+  readonly part: PartIndex;
+  /** Beat index within the part's period. */
   readonly index: number;
 }
 
-/** One throw unrolled onto the pulse grid for one cycle. */
+/** One throw unrolled onto the lattice for one cycle. */
 export interface Flight {
   readonly id: ThrowId;
-  readonly from: Hand;
-  readonly to: Hand;
-  /** Beat number on the throwing hand's grid (vanilla: the shared beat). */
+  readonly from: PartIndex;
+  readonly to: PartIndex;
   readonly beat: number;
-  readonly height: number;
   readonly cross: boolean;
   readonly launch: number;
-  /** Landing pulse, not wrapped; may be at or past the cycle length. */
+  /** Not wrapped; may be at or past the cycle. */
   readonly land: number;
 }
 
-export type ValidationError =
-  | { readonly kind: 'fractional-balls'; readonly balls: number }
-  | {
-      readonly kind: 'collision';
-      readonly hand: Hand;
-      readonly pulse: number;
-      readonly throws: readonly ThrowId[];
-    }
-  | {
-      readonly kind: 'cross-off-grid';
-      readonly fromHand: Hand;
-      readonly beat: number;
-      readonly landingPulse: number;
-      readonly nearestLegal: number;
-    }
-  | { readonly kind: 'no-ball'; readonly hand: Hand; readonly beat: number };
+export type Fault =
+  | { readonly kind: 'collision'; readonly part: PartIndex; readonly pulse: number; readonly throws: readonly ThrowId[] }
+  /** A flight lands on a pulse where the catching part has no onset (today's cross-off-grid, generalised). `nearestOnset` is the catching part's first onset at or after the landing, null when it has none. */
+  | { readonly kind: 'no-onset'; readonly from: ThrowId; readonly part: PartIndex; readonly pulse: number; readonly nearestOnset: number | null }
+  /** An onset that no flight lands on. */
+  | { readonly kind: 'unfed'; readonly part: PartIndex; readonly pulse: number };
 
-/**
- * One validation error with the digits it involves, for highlighting (SPEC §4.2). Structured
- * only; the words are copy.ts's.
- */
-export interface ErrorDetail {
-  readonly error: ValidationError;
-  /**
-   * Per hand (hand 1, hand 2), the indices into that hand's sequence the error involves,
-   * ascending. Indices count throws, not characters: in `2x 2 2` index 1 is the second `2`. At
-   * 1:1 the one vanilla sequence is hand 1's, so every index is in the first list. A fractional
-   * ball count is the whole pattern's, not one digit's: both lists are empty.
-   */
-  readonly digits: readonly [readonly number[], readonly number[]];
+/** Parts joined by cross flights, judged together (design §5, §6). */
+export interface CrossGroup {
+  readonly parts: readonly PartIndex[];
+  readonly faults: readonly Fault[];
+  /** Derived ball count; null when faults is not empty. */
+  readonly balls: number | null;
 }
 
-export type Validation =
-  | { readonly ok: true; readonly balls: number }
-  | { readonly ok: false; readonly errors: readonly ValidationError[] };
+export interface Verdict {
+  readonly groups: readonly CrossGroup[];
+  /** Every group fault-free. */
+  readonly ok: boolean;
+}
 
 export type EventKind = 'throw' | 'catch';
 
 export interface Event {
   readonly kind: EventKind;
-  /** Throws fall in [0, period). A catch may fall at or past the period. */
   readonly pulse: number;
-  readonly hand: Hand;
-  readonly ball: number;
+  readonly part: PartIndex;
+  /** Stable within the period; null for parts in a group with faults. */
+  readonly ball: number | null;
+  /** The digit: flight / the part's unit. What height-to-drum reads; MAX_HEIGHT clamps it. */
   readonly height: number;
   /** Flight length in pulses. */
   readonly flight: number;
@@ -103,15 +93,12 @@ export interface Event {
 }
 
 export interface Schedule {
-  /** Pulses after which the pattern repeats: where cycle lines are drawn and knob changes land. */
   readonly cycle: number;
-  /**
-   * Pulses after which the pattern repeats with the same ball in each throw: a multiple of
-   * `cycle`. In 441 one ball takes three cycles to return to its starting throw, so the
-   * period is three cycles. Events cover one period.
-   */
   readonly period: number;
-  readonly grids: readonly [Grid, Grid];
+  /** One per part: spacing and phase. */
+  readonly grids: readonly { readonly spacing: number; readonly phase: number }[];
+  /** Sum over fault-free groups. */
   readonly balls: number;
   readonly events: readonly Event[];
+  readonly verdict: Verdict;
 }

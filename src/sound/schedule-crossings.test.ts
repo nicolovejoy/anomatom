@@ -1,6 +1,6 @@
 import { expect, test } from 'vitest';
-import { buildSchedule, countCrossings, flightsOf, parsePattern } from '../core';
-import type { PatternInput } from '../core';
+import { buildSchedule, countCrossings, flightsOf, parsePattern } from '../core/legacy';
+import type { PatternInput } from '../core/legacy';
 import { crossingsOfSchedule } from './schedule-crossings';
 
 function input(text: string[], a = 1, b = 1): PatternInput {

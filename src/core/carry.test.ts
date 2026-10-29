@@ -1,22 +1,21 @@
 import { expect, test } from 'vitest';
 import { carryOver } from './carry';
-import { parsePattern } from './parse';
+import { partsFromLines, partsFromVanilla } from './parts';
 import { buildSchedule } from './schedule';
-import type { PatternInput, Schedule } from './types';
+import type { Parts, Schedule } from './types';
 
-function pat(text: string) {
-  const r = parsePattern(text);
-  if (!r.ok) throw new Error(text);
-  return r.pattern;
+function ok(r: { ok: true; parts: Parts } | { ok: false }): Parts {
+  if (!r.ok) throw new Error('bad test pattern');
+  return r.parts;
 }
-const vanilla = (text: string): Schedule => buildSchedule({ ratio: { a: 1, b: 1 }, hands: [pat(text)] });
+const vanilla = (text: string): Schedule => buildSchedule(ok(partsFromVanilla(text)));
 const twoHands = (h1: string, h2: string, a: number, b: number): Schedule =>
-  buildSchedule({ ratio: { a, b }, hands: [pat(h1), pat(h2)] } satisfies PatternInput);
+  buildSchedule(ok(partsFromLines([h1, h2], { a, b })));
 
 /** Each new ball's first throw, as (pulse, hand). */
 function firstThrows(s: Schedule) {
-  const out = new Map<number, { pulse: number; hand: number }>();
-  for (const e of s.events) if (e.kind === 'throw' && !out.has(e.ball)) out.set(e.ball, { pulse: e.pulse, hand: e.hand });
+  const out = new Map<number | null, { pulse: number; part: number }>();
+  for (const e of s.events) if (e.kind === 'throw' && !out.has(e.ball)) out.set(e.ball, { pulse: e.pulse, part: e.part });
   return out;
 }
 
@@ -34,7 +33,7 @@ test('3 → 441 at a shared ground state: every ball carries, the one landing ex
   const atB = three.events.find((e) => e.kind === 'throw' && e.pulse === 3);
   const firstAt0 = [...firstThrows(next)].find(([, t]) => t.pulse === 0)?.[0];
   expect(carry.get(firstAt0 as number)).toBe(atB?.ball);
-  // Same as the ladder's hand-built switch (src/view/ladder.test.ts).
+  // Same as the ladder's hand-built switch (src/view/ladder.test.ts, on the legacy schedule).
   expect(carry).toEqual(
     new Map([
       [0, 0],
@@ -72,7 +71,7 @@ test('4 → 3 is one-to-one: three carried, one old ball unmatched', () => {
   expect(carry.size).toBe(3);
   expect(isOneToOne(carry)).toBe(true);
   expect([...carry.keys()].sort()).toEqual([0, 1, 2]);
-  const oldBalls = new Set(four.events.map((e) => e.ball));
+  const oldBalls = new Set(four.events.map((e) => e.ball as number));
   expect(oldBalls.size).toBe(4);
   expect([...oldBalls].filter((b) => ![...carry.values()].includes(b))).toHaveLength(1);
 });
@@ -145,4 +144,9 @@ test('441 → 3 at a later cycle uses the balls of that cycle', () => {
     .map((e) => e.ball)
     .sort();
   expect([...carry.values()].sort()).toEqual(crossing);
+});
+
+test('a group with faults carries nothing: its events have no ball ids', () => {
+  expect(carryOver(vanilla('432'), vanilla('3'), 6).size).toBe(0);
+  expect(carryOver(vanilla('3'), vanilla('432'), 6).size).toBe(0);
 });

@@ -18,8 +18,8 @@
 // Decoding trusts nothing: a payload that is not base64url JSON of an object gives null; any
 // other junk is repaired per field (unknown fields ignored, missing or mistyped ones taken from
 // the defaults, numbers clamped to their ranges, sample names checked against the kit).
-import { parsePattern } from '../core/parse';
-import type { Ratio } from '../core/types';
+import { parsePattern } from '../core/legacy/parse';
+import type { Ratio } from '../core/legacy/types';
 import { applyPreset, PAD_CHORD_IDS, PAD_INSTRUMENT_IDS, presetOf, PRESET_NAMES, type Mapping, type Sample } from '../sound/mapping';
 import {
   BPM_RANGE,

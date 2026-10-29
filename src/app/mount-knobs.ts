@@ -10,8 +10,8 @@
 // exemptions: a pattern text input, where Space types the space that separates throws at other
 // ratios than 1:1; and any control inside `[data-keeps-space]` (a select, say). Range sliders
 // do not use Space, so they need no exemption.
-import { buildSchedule, fixesFor, isVanilla, reduceRatio } from '../core';
-import type { Hand, PatternInput, Schedule } from '../core';
+import { buildSchedule, fixesFor, isVanilla, reduceRatio } from '../core/legacy';
+import type { Hand, PatternInput, Schedule } from '../core/legacy';
 import { BPM_RANGE, KNOBS, MAX_RATIO, RATIO_CHIPS, SHEET } from '../tunables';
 import { copy } from '../ui/copy';
 import type { PlayerView } from '../view/types';

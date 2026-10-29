@@ -1,5 +1,5 @@
 import { expect, test } from 'vitest';
-import { buildSchedule, parsePattern } from '../core';
+import { buildSchedule, parsePattern } from '../core/legacy';
 import { eventsBetween, pulseSeconds } from './transport';
 
 function schedule(text: string) {

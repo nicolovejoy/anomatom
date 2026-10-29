@@ -1,6 +1,6 @@
 import { describe, expect, test } from 'vitest';
-import { buildSchedule, parsePattern, validate } from '../core';
-import type { PatternInput, Schedule, ValidationError } from '../core';
+import { buildSchedule, parsePattern, validate } from '../core/legacy';
+import type { PatternInput, Schedule, ValidationError } from '../core/legacy';
 import { axisPulse, brokenFrame, ladderFrame } from './ladder';
 import type { LadderView } from './ladder';
 import type { Segment } from './types';

@@ -1,58 +1,34 @@
-import { cycleLength, isVanilla, makeGrids } from './grid';
-import type { Flight, Hand, HandPattern, PatternInput } from './types';
+import { mod } from './math';
+import { cycleOf, periodOf, throwsOf } from './parts';
+import type { Flight, Part, PartIndex, Parts } from './types';
 
-const other = (h: Hand): Hand => (h === 0 ? 1 : 0);
-
-/**
- * Every throw of one cycle, placed on the pulse grid. This is the one place notation becomes
- * pulses. Height-0 throws are included as zero-length flights landing on their own beat, which
- * keeps the landing set a permutation of the beat set (MATH.md §2).
- */
-export function flightsOf(input: PatternInput): Flight[] {
-  const cycle = cycleLength(input);
-  if (isVanilla(input.ratio)) return vanillaFlights(input.hands[0] as HandPattern, cycle);
-  const grids = makeGrids(input.ratio);
-  const flights: Flight[] = [];
-  input.hands.forEach((hand, h) => {
-    const from = h as Hand;
-    const { pulsesPerBeat } = grids[from];
-    for (let beat = 0; beat * pulsesPerBeat < cycle; beat++) {
-      const index = beat % hand.length;
-      const { height, cross } = hand[index] as HandPattern[number];
-      const launch = beat * pulsesPerBeat;
-      flights.push({
-        id: { hand: from, index },
-        from,
-        to: cross ? other(from) : from,
-        beat,
-        height,
-        cross,
-        launch,
-        land: launch + height * pulsesPerBeat,
-      });
-    }
-  });
-  return flights.sort((p, q) => p.launch - q.launch || p.from - q.from);
+/** Visit every beat of part `p` in one cycle: its pulse in [0, cycle) and its index in the period. */
+export function beatsOf(part: Part, cycle: number, visit: (beat: number, pulse: number, index: number) => void): void {
+  const n = periodOf(part);
+  const first = mod(part.phase, part.spacing);
+  for (let beat = 0; first + beat * part.spacing < cycle; beat++) {
+    const pulse = first + beat * part.spacing;
+    visit(beat, pulse, mod((pulse - part.phase) / part.spacing, n));
+  }
 }
 
-function vanillaFlights(pattern: HandPattern, cycle: number): Flight[] {
+/**
+ * Every flight of one cycle on the lattice: a manual part's throws as written, a default part's
+ * by the default rule (onset i to onset i + k, same part). Beats with height ≤ 0 are not onsets and
+ * launch nothing. Launches fall in [0, cycle); sorted by launch, then by part.
+ */
+export function flightsOf(parts: Parts): Flight[] {
+  const cycle = cycleOf(parts);
   const flights: Flight[] = [];
-  for (let beat = 0; beat < cycle; beat++) {
-    const index = beat % pattern.length;
-    const { height } = pattern[index] as HandPattern[number];
-    const from = (beat % 2) as Hand;
-    const cross = height % 2 === 1;
-    flights.push({
-      // One input sequence at 1:1, so every throw id names hand 0.
-      id: { hand: 0, index },
-      from,
-      to: cross ? other(from) : from,
-      beat,
-      height,
-      cross,
-      launch: beat,
-      land: beat + height,
+  parts.forEach((part, from: PartIndex) => {
+    const throws = throwsOf(part);
+    beatsOf(part, cycle, (beat, launch, index) => {
+      const t = throws[index] as (typeof throws)[number];
+      // A throw launches iff its height is positive, the test onsetsOf uses.
+      if (t.height <= 0) return;
+      const to = t.to ?? from;
+      flights.push({ id: { part: from, index }, from, to, beat, cross: to !== from, launch, land: launch + t.height });
     });
-  }
-  return flights;
+  });
+  return flights.sort((p, q) => p.launch - q.launch || p.from - q.from);
 }

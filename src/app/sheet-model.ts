@@ -3,8 +3,8 @@
 //
 // `AppState.sheetTab` is which tab is open, or null when the sheet is closed. On a wide screen
 // the sheet is a column that is always open, so a null there shows the last tab instead.
-import type { Ratio } from '../core/types';
-import { isVanilla } from '../core';
+import type { Ratio } from '../core/legacy/types';
+import { isVanilla } from '../core/legacy';
 import { copy } from '../ui/copy';
 import type { Analysis } from './knobs-model';
 import { hand2Bpm } from './knobs-model';
