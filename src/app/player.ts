@@ -27,8 +27,10 @@
 //   pause point, `pulse` counted from that cycle's start (clamped to 0 … cycle).
 // - `resume()` shifts every segment by the same offset so the frozen time lands
 //   `START_DELAY_SECONDS` ahead of the clock, and schedules from there. The picture holds at the
-//   frozen time until the clock catches up, so it does not jump back by the start delay. A
-//   resume before the glide ends needs no shift and continues seamlessly.
+//   frozen time until the clock catches up, so it does not jump back by the start delay.
+//   Scheduling picks up at the first whole pulse at or after the frozen time, so a scrub to a
+//   whole pulse plays that pulse's hit. A resume before the glide ends needs no shift and
+//   continues seamlessly, the picture still following the clock.
 import { carryOver } from '../core/carry';
 import type { Grid, Schedule } from '../core/types';
 import type { DrumSound } from '../sound/drum-sound';
@@ -54,6 +56,31 @@ const NO_CARRY: ReadonlyMap<number, number> = new Map();
 /** The segment that owns time `t`: the first whose end is after `t`, else the last (as the ladder reads it). */
 function segmentAt(segments: readonly Segment[], t: number): Segment {
   return segments.find((s) => s.endTime !== null && t < s.endTime) ?? (segments[segments.length - 1] as Segment);
+}
+
+/**
+ * The previous segment's crossing catches that sound in [a, b) of a segment starting at
+ * `startTime` with `pulseLen`, the boundary being the previous segment's pulse `pb`: a catch at
+ * old pulse P of a flight launched before pb, with pb ≤ P, sounds at this segment's pulse
+ * p = P − pb, at `startTime + p × pulseLen`. Worked in this segment's frame, in whole pulses, as
+ * its own events are: reading the old schedule on a shifted clock (`startTime − pb × pulseLen`)
+ * let floating point round pb up to pb + 1 and lose the catch on pulse 0. `pulse` in the result
+ * is p.
+ */
+export function crossingCatches(
+  prev: Schedule,
+  pb: number,
+  startTime: number,
+  pulseLen: number,
+  a: number,
+  b: number,
+): TimedEvent[] {
+  const pFrom = Math.max(0, Math.ceil((a - startTime) / pulseLen));
+  const pTo = Math.ceil((b - startTime) / pulseLen);
+  // Integer pulses on a unit clock from 0 are exact: the old schedule's pulses pb + pFrom … pb + pTo − 1.
+  return eventsBetween(prev, 0, 1, pb + pFrom, pb + pTo)
+    .filter((t) => t.event.kind === 'catch' && t.pulse - t.event.flight < pb)
+    .map((t) => ({ event: t.event, pulse: t.pulse - pb, time: startTime + (t.pulse - pb) * pulseLen }));
 }
 
 export function createPlayer(sound: DrumSound, options: PlayerOptions = {}) {
@@ -128,15 +155,12 @@ export function createPlayer(sound: DrumSound, options: PlayerOptions = {}) {
       for (const t of eventsBetween(seg.schedule, seg.startTime, seg.pulseLen, a, b)) {
         if (t.pulse < B) add(t, seg.schedule.grids, seg.pulseLen);
       }
-      // The previous segment's crossing flights, caught here: old pulse pb + p sounds at this
-      // segment's pulse p, so read the old schedule on a clock whose pulse pb is our pulse 0.
+      // The previous segment's crossing flights, caught here at this segment's pulse p.
       const prev = segments[i - 1];
       if (prev === undefined) return;
       const pb = boundaries[i - 1] as number;
-      for (const t of eventsBetween(prev.schedule, seg.startTime - pb * seg.pulseLen, seg.pulseLen, a, b)) {
-        if (t.event.kind === 'catch' && t.pulse >= pb && t.pulse - t.event.flight < pb) {
-          add(t, prev.schedule.grids, seg.pulseLen);
-        }
+      for (const t of crossingCatches(prev.schedule, pb, seg.startTime, seg.pulseLen, a, b)) {
+        add(t, prev.schedule.grids, seg.pulseLen);
       }
     });
     hits.sort((p, q) => p.time - q.time);
@@ -144,7 +168,8 @@ export function createPlayer(sound: DrumSound, options: PlayerOptions = {}) {
       sound.play(hit, time, pulseLen);
       options.onScheduled?.(++scheduled);
     }
-    scheduledTo = until;
+    // Never back: after a resume to a point ahead of the clock, the first windows end before it.
+    scheduledTo = Math.max(scheduledTo, until);
   }
 
   /** A change while playing or paused: lands at the next cycle boundary as a new segment. */
@@ -191,14 +216,25 @@ export function createPlayer(sound: DrumSound, options: PlayerOptions = {}) {
   function resume() {
     if (state !== 'paused') return;
     sound.resume();
-    const d = Math.max(0, sound.now() + START_DELAY_SECONDS - frozen);
+    const now = sound.now();
+    // Still gliding: the hits handed over are still sounding, so the picture keeps following
+    // the clock and nothing shifts.
+    const glide = gliding && now < frozen;
+    const d = glide ? 0 : Math.max(0, now + START_DELAY_SECONDS - frozen);
+    // Schedule from the first whole pulse at or after the frozen point, in the segment that
+    // owns it, half a pulse early so rounding cannot skip it. A glide's frozen point is where
+    // the handing-over stopped, so it rounds as eventsBetween did; a scrub's is meant to sit
+    // on the pulse it names, so a hair above it still counts as that pulse.
+    const seg = segmentAt(segments, frozen);
+    const at = (frozen - seg.startTime) / seg.pulseLen;
+    const k = Math.ceil(gliding ? at : at - 1e-9);
+    scheduledTo = seg.startTime + d + Math.max(0, k - 0.5) * seg.pulseLen;
     segments = segments.map((s) => ({
       ...s,
       startTime: s.startTime + d,
       endTime: s.endTime === null ? null : s.endTime + d,
     }));
-    scheduledTo = frozen + d;
-    hold = frozen + d;
+    hold = glide ? -Infinity : frozen + d;
     run();
   }
 

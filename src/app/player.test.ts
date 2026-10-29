@@ -3,12 +3,16 @@ import { buildSchedule, carryOver, parsePattern } from '../core';
 import { DEFAULT_MAPPING, LOOKAHEAD_SECONDS, SCHEDULER_INTERVAL_MS } from '../tunables';
 import type { DrumSound } from '../sound/drum-sound';
 import { axisPulse } from '../view/ladder';
-import { createPlayer, type Segment } from './player';
+import { createPlayer, crossingCatches, type Segment } from './player';
 
-function schedule(text: string) {
+function parse(text: string) {
   const r = parsePattern(text);
   if (!r.ok) throw new Error(text);
-  return buildSchedule({ ratio: { a: 1, b: 1 }, hands: [r.pattern] });
+  return r.pattern;
+}
+
+function schedule(text: string) {
+  return buildSchedule({ ratio: { a: 1, b: 1 }, hands: [parse(text)] });
 }
 
 function fakeSound() {
@@ -586,5 +590,115 @@ test('stop or play while paused leaves the pause behind', () => {
   expect(player.view().state).toBe('stopped');
   player.resume(); // ignored when stopped
   expect(player.view().state).toBe('stopped');
+  vi.useRealTimers();
+});
+
+// ---------------------------------------------------------------------------------------------
+// PR 16 review follow-up.
+// ---------------------------------------------------------------------------------------------
+
+test('a crossing catch is read in the new segment’s frame: the one landing on its pulse 0 is kept', () => {
+  // S − pb·L is 21.9 in floating point, and (S − 21.9) / L is 42.00000000000001: reading the old
+  // schedule on a shifted clock rounded pb up to pb + 1 and lost new pulse 0.
+  const caught = crossingCatches(schedule('3'), 42, 30.3, 0.2, 30.3, 30.4);
+  expect(caught.map((t) => [t.pulse, t.time])).toEqual([[0, 30.3]]);
+  expect(caught[0]?.event.kind).toBe('catch');
+  // Only flights launched before pb and landing at or after it: none past the first window.
+  expect(crossingCatches(schedule('3'), 42, 30.3, 0.2, 30.9, 31.5)).toEqual([]);
+});
+
+test('the 3:2 demo keeps its downbeat clap across a tempo change', () => {
+  vi.useFakeTimers();
+  const { sound, played, tick } = fakeSound();
+  const run = runner(tick);
+  const player = createPlayer(sound);
+  const demo = buildSchedule({ ratio: { a: 3, b: 2 }, hands: [parse('2 2x 2'), parse('2x 2')] });
+  player.play(demo, DEFAULT_MAPPING, 60);
+  run(0.7);
+  player.setEdit(demo, 150);
+  const S = (player.view().segments[1] as Segment).startTime;
+  expect(S).toBeCloseTo(3.05);
+  run(4);
+  expect(played.some((p) => p.sample === 'clap' && Math.abs(p.time - S) < 1e-9)).toBe(true);
+  player.stop();
+  vi.useRealTimers();
+});
+
+test.each([0, 1, 2, 3, 5, 6])('scrub to whole pulse %i then resume plays that pulse’s hit first', (k) => {
+  // Over several tempos, pause points and waits, since whether the shift rounds past the
+  // pulse depends on the floating-point values.
+  for (const bpm of [120, 100, 77]) {
+    for (const playFor of [1, 2, 2.3, 3.7]) {
+      for (const wait of [0.3, 1, ...range(0, 20).map((i) => 1.3 + i * 0.7319)]) {
+        vi.useFakeTimers();
+        const { sound, played, tick } = fakeSound();
+        const run = runner(tick);
+        const player = createPlayer(sound);
+        player.play(schedule('441'), DEFAULT_MAPPING, bpm); // a throw on every pulse
+        run(playFor);
+        player.pause();
+        player.scrub(k);
+        const v = player.view();
+        const at = Math.round(axisPulse(v.segments, v.now)); // the cycle's start pulse + k
+        tick(wait); // paused: no timer to advance
+        const n = played.length;
+        player.resume();
+        run(5); // a scrub ahead of the clock waits for it
+        const { startTime, pulseLen } = player.view().segments[0] as Segment;
+        const first = pulsesOf(played.slice(n).map((p) => p.time), startTime, pulseLen)[0];
+        expect(first, `${bpm} bpm, ${playFor} s, wait ${wait} s`).toBe(at);
+        player.stop();
+        vi.useRealTimers();
+      }
+    }
+  }
+});
+
+test('pause then resume, during the glide or after: every pulse sounds once', () => {
+  for (const bpm of [120, 100, 77]) {
+    for (const playFor of [1, 2, 2.3, 3.7]) {
+      for (const wait of [0, 0.025, 0.05, ...range(0, 12).map((i) => 0.3 + i * 0.7319)]) {
+        vi.useFakeTimers();
+        const { sound, played, tick } = fakeSound();
+        const run = runner(tick);
+        const player = createPlayer(sound);
+        player.play(schedule('441'), DEFAULT_MAPPING, bpm); // a throw on every pulse
+        const { startTime: s0, pulseLen } = player.view().segments[0] as Segment;
+        run(playFor);
+        player.pause();
+        tick(wait);
+        const n = played.length;
+        player.resume();
+        run(2);
+        const s1 = (player.view().segments[0] as Segment).startTime;
+        const ks = [
+          ...pulsesOf(played.slice(0, n).map((p) => p.time), s0, pulseLen),
+          ...pulsesOf(played.slice(n).map((p) => p.time), s1, pulseLen),
+        ];
+        expect(ks, `${bpm} bpm, ${playFor} s, wait ${wait} s`).toEqual(range(0, ks.length));
+        player.stop();
+        vi.useRealTimers();
+      }
+    }
+  }
+});
+
+test('resume during the glide: the picture never runs ahead of the clock', () => {
+  vi.useFakeTimers();
+  const { sound, played, tick } = fakeSound();
+  const run = runner(tick);
+  const player = createPlayer(sound);
+  player.play(schedule('3'), DEFAULT_MAPPING, 120);
+  run(1);
+  player.pause();
+  player.resume();
+  expect(player.view().now).toBeCloseTo(1);
+  for (let i = 0; i < 20; i++) {
+    expect(player.view().now).toBe(sound.now());
+    run(SCHEDULER_INTERVAL_MS / 1000);
+  }
+  const ks = pulsesOf(played.map((p) => p.time), 0.05, 0.25);
+  expect(ks).toEqual(range(0, ks.length));
+  player.stop();
   vi.useRealTimers();
 });
