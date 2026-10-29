@@ -100,6 +100,8 @@ export const JUGGLER = {
   dwellBeats: 0.5,
   maxDwellShare: 0.5,
   radius: 0.035,
+  /** Balls are never drawn smaller than this, however tall the pattern makes the scene. */
+  minRadiusPx: 6,
   /** The scoop dips at most this far below the hands, and at most this share of the apex. */
   scoopDepth: 0.08,
   scoopApexShare: 0.5,

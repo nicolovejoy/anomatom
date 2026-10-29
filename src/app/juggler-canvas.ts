@@ -18,12 +18,14 @@ export function drawJuggler(canvas: HTMLCanvasElement, frame: JugglerFrame) {
 
   // One scale for both axes, so a parabola keeps its shape: the scene fits whichever way is
   // tighter, centred across, standing on the bottom edge so the hands never move vertically.
+  // A margin of the smallest drawn radius keeps a ball drawn larger than the scene's whole.
   const { left, right, bottom, top } = frame.bounds;
-  const scale = Math.min(width / (right - left), height / (top - bottom));
+  const pad = JUGGLER.minRadiusPx;
+  const scale = Math.min((width - 2 * pad) / (right - left), (height - 2 * pad) / (top - bottom));
   const x0 = (width - (right - left) * scale) / 2;
   const px = (x: number) => x0 + (x - left) * scale;
-  const py = (y: number) => height - (y - bottom) * scale;
-  const r = JUGGLER.radius * scale;
+  const py = (y: number) => height - pad - (y - bottom) * scale;
+  const r = Math.max(JUGGLER.radius * scale, JUGGLER.minRadiusPx);
 
   for (const b of frame.balls) {
     const x = px(b.x);
