@@ -28,4 +28,6 @@ jobs:
           cache: npm
       - run: npm ci
       - run: npx playwright install --with-deps chromium webkit firefox
+      # Firefox on the runner has no audio device, so AudioContext.currentTime never advances. A null sink gives it a clock.
+      - run: sudo apt-get install -y pulseaudio && pulseaudio --start --exit-idle-time=-1 && pactl load-module module-null-sink sink_name=e2e
       - run: npx playwright test --project=chromium --project=webkit --project=firefox

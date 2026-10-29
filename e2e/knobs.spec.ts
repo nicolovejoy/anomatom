@@ -1,6 +1,6 @@
 // The knob panel and the fix state (SPEC §4.1, §4.2), headless. Canvas content (the warning
 // flights, the greyed strip, the accent marks) is checked by screenshot, saved to test-results.
-import { expect, test, type Page } from '@playwright/test';
+import { expect, test, type Page } from './fixtures';
 
 const shot = (page: Page, name: string) => page.screenshot({ path: `test-results/knobs-${name}.png`, fullPage: true });
 const hand1 = (page: Page) => page.locator('#hand-0');

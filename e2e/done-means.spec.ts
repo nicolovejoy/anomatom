@@ -2,8 +2,7 @@
 // sound.spec.ts, item 6 in src/app/player-timing.test.ts, item 8 in smoke.spec.ts). Audio output is not
 // observable headless, so everything is read from the page: the status line, the fix buttons,
 // `data-events-scheduled` on #app, and `data-balls` on the two canvases.
-import { expect, test, type Page } from '@playwright/test';
-import { isCdnNoise } from './cdn-noise';
+import { expect, isCdnError, test, type Page } from './fixtures';
 
 const hand = (page: Page, i: 0 | 1 = 0) => page.locator(`#hand-${i}`);
 const status = (page: Page) => page.locator('#status');
@@ -13,10 +12,10 @@ const ladder = (page: Page) => page.locator('canvas.ladder:not(.ladder-broken)')
 function watchErrors(page: Page) {
   const errors: string[] = [];
   page.on('pageerror', (e) => {
-    if (!isCdnNoise(e.message)) errors.push(e.message);
+    if (!isCdnError(e.message)) errors.push(e.message);
   });
   page.on('console', (m) => {
-    if (m.type() === 'error' && !isCdnNoise(m.text())) errors.push(m.text());
+    if (m.type() === 'error' && !isCdnError(m.text(), m)) errors.push(m.text());
   });
   return errors;
 }
@@ -90,7 +89,7 @@ test.describe('SPEC 7.2: fractional counts and collisions come with valid fixes'
 
   for (const [pattern, named] of [
     ['432', 'throws 1, 2 and 3 all land in hand 1 on beat 5'],
-    ['510', /throws? \d.* land in hand 1 on beat/],
+    ['510', 'throws 1, 2 and 3 all land in hand 1 on beat 3'],
   ] as const) {
     test(`${pattern}: the collision names the throws, and every fix is valid`, async ({ page }) => {
       await page.goto('/');
@@ -144,7 +143,7 @@ test.describe('SPEC 7.3: the 3:2 demo', () => {
     await hand(page, 0).fill('2x 2 2');
     await hand(page, 1).fill('2 2x');
     await expect(status(page)).toContainText('lands between');
-    await expect(status(page)).toContainText(/nearest pulse it could land on is \d+/);
+    await expect(status(page)).toContainText(/is 6\b[\s\S]*is 12\b|is 12\b[\s\S]*is 6\b/);
     await expect(page.locator('#play')).toBeDisabled();
   });
 });
@@ -201,9 +200,9 @@ test.describe('SPEC 7.7: the About page', () => {
     await page.goto('/#about');
     await expect(page.locator('.about')).toBeVisible();
     await expect(page.locator('ol.bibliography li').first()).toBeVisible();
-    expect(await page.locator('ol.bibliography li').count()).toBeGreaterThanOrEqual(14);
+    expect(await page.locator('ol.bibliography li').count()).toBeGreaterThanOrEqual(15);
     const hrefs = await page.locator('.about a[target="_blank"]').evaluateAll((as) => as.map((a) => a.getAttribute('href')));
-    expect(hrefs.length).toBeGreaterThan(14);
+    expect(hrefs.length).toBeGreaterThan(15);
     for (const href of hrefs) {
       expect(href, 'every external link has an href').toBeTruthy();
       const url = new URL(href as string); // throws on a malformed one

@@ -1,8 +1,7 @@
 // The sound panel and the share link (SPEC §4.3, §7.5), headless. Audio output is not
 // observable, so "nothing auto-plays" is read from `data-events-scheduled` staying at 0 and the
 // transport staying stopped.
-import { expect, test, type Page } from '@playwright/test';
-import { isCdnNoise } from './cdn-noise';
+import { expect, isCdnError, test, type Page } from './fixtures';
 
 const scheduled = async (page: Page) => Number(await page.locator('#app').getAttribute('data-events-scheduled'));
 const shot = (page: Page, name: string) => page.screenshot({ path: `test-results/sound-${name}.png`, fullPage: true });
@@ -100,23 +99,26 @@ test('SPEC §7.5: three sound fields, the link, a new tab: everything matches an
 test('Copy share link puts the current link on the clipboard and confirms in the robot’s voice', async ({
   page,
   context,
-  browserName,
 }) => {
-  // Playwright can grant clipboard-read/-write (and so read the clipboard back) only on Chromium.
-  // WebKit and Firefox run the click and the confirmation; the link's round trip is the §7.5 test.
-  const readable = browserName === 'chromium';
-  if (readable) await context.grantPermissions(['clipboard-read', 'clipboard-write']);
+  // Playwright grants clipboard permissions on Chromium only, so every browser gets the same stub:
+  // writeText records what the page asked to copy.
+  await page.addInitScript(() => {
+    const w = window as unknown as { __copied?: string };
+    Object.defineProperty(navigator, 'clipboard', {
+      configurable: true,
+      value: { writeText: async (t: string) => void (w.__copied = t) },
+    });
+  });
   await page.goto('/');
   await openPanel(page);
   await page.locator('#sp-filter-on').check();
   // Straight after the edit: the clipboard holds the live state, not a stale address.
   await page.locator('#sp-copy').click();
   await expect(page.locator('#sp-confirm')).toContainText('I copied the link');
-  if (!readable) return;
-  const copied = await page.evaluate(() => navigator.clipboard.readText());
+  const copied = await page.evaluate(() => (window as unknown as { __copied?: string }).__copied);
   expect(copied).toMatch(/#v1\./);
   const other = await context.newPage();
-  await other.goto(copied);
+  await other.goto(copied as string);
   await expect(other.locator('#sp-filter-on')).toBeChecked();
 });
 
@@ -162,7 +164,7 @@ test('a pasted link while stopped does not start anything', async ({ page }) => 
 test('a junk hash loads the defaults and the page works', async ({ page }) => {
   const errors: string[] = [];
   page.on('pageerror', (e) => {
-    if (!isCdnNoise(e.message)) errors.push(e.message);
+    if (!isCdnError(e.message)) errors.push(e.message);
   });
   for (const junk of ['#garbage', '#v1.', '#v1.!!!not-base64', '#v1.eyJwIjpbIjw8PCJdfQ']) {
     await page.goto('/' + junk);
