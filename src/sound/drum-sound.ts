@@ -1,38 +1,84 @@
-// The drums: one kit per hand so each hand has its own pan and gain. No DOM, no timers: unit
-// tested with a fake context and fake kits; `tr808.ts` supplies the real ones. Where there is
-// no Web Audio everything is silent. The factory shape is L6's piano-sound.ts: the context is
-// made at preload (no gesture needed to decode), starts suspended, and the first play, a
-// gesture, resumes it. Before a hand's kit has loaded its hits are silent; there is no
-// stand-in tone.
+// The drums and the downbeat pad: one kit per hand so each hand has its own pan and gain, one
+// pad per instrument. No DOM, no timers: unit tested with a fake context and fake kits;
+// `tr808.ts` and `pad.browser.ts` supply the real ones. Where there is no Web Audio everything
+// is silent. The factory shape is L6's piano-sound.ts: the context is made at preload (no
+// gesture needed to decode), starts suspended, and the first play, a gesture, resumes it.
+// Before a kit or pad has loaded its hits are silent; there is no stand-in tone.
+//
+// The graph: every kit and pad -> a low-pass filter -> the master gain -> the destination.
+// `setFilter` (crossings to filter) and `setMaster` (volume) move those two nodes, smoothly.
 import type { Hand } from '../core/types';
-import type { Hit, Mapping } from './mapping';
+import { FILTER_OPEN_HZ, PARAM_SMOOTH_SECONDS } from '../tunables';
+import type { Hit, Mapping, PadHit, PadInstrument } from './mapping';
+import { browserPad } from './pad.browser';
+
+export type NoteStart = { note: string; velocity: number; time: number; duration: number };
 
 export type Kit = {
   ready: Promise<void>;
-  start(event: { note: string; velocity: number; time: number; duration: number }): unknown;
+  start(event: NoteStart): unknown;
   dispose(): void;
 };
 
-export type LoadKit = (context: AudioContext, hand: Hand, pan: number, gain: number) => Promise<Kit>;
+/** A pad instrument has the shape of a kit: notes are pitches, not sample names. */
+export type Pad = Kit;
 
-export function createDrumSound(makeContext: () => AudioContext | null, loadKit: LoadKit) {
+/** `destination` is the node to play into (the filter), not the context's output. */
+export type LoadKit = (
+  context: AudioContext,
+  hand: Hand,
+  pan: number,
+  gain: number,
+  destination: AudioNode,
+) => Promise<Kit>;
+
+export type LoadPad = (context: AudioContext, instrument: PadInstrument, destination: AudioNode) => Promise<Pad>;
+
+export function createDrumSound(
+  makeContext: () => AudioContext | null,
+  loadKit: LoadKit,
+  loadPad: LoadPad = browserPad,
+) {
   let context: AudioContext | null | undefined;
+  let bus: { filter: BiquadFilterNode; master: GainNode } | null = null;
+  // The last values asked for, applied when the context is made if it is not yet.
+  let masterVolume = 1;
+  let cutoff = FILTER_OPEN_HZ;
   // Per hand: the kit once loaded, and the voice (pan/gain) most recently asked for. A kit
   // keeps playing until its replacement is in.
   const ready = new Map<Hand, Kit>();
   const loading = new Set<Kit>();
   const requested = new Map<Hand, string>();
+  // Per pad instrument: loaded once per context and kept (the cache), so switching back is instant.
+  const pads = new Map<PadInstrument, Pad>();
+  const padsRequested = new Set<PadInstrument>();
 
   function audio(): AudioContext | null {
-    if (context === undefined) context = makeContext();
+    if (context === undefined) {
+      context = makeContext();
+      if (context) {
+        const filter = context.createBiquadFilter();
+        filter.type = 'lowpass';
+        filter.frequency.value = cutoff;
+        const master = context.createGain();
+        master.gain.value = masterVolume;
+        filter.connect(master);
+        master.connect(context.destination);
+        bus = { filter, master };
+      }
+    }
     return context;
+  }
+
+  function ramp(param: AudioParam, value: number) {
+    param.setTargetAtTime(value, (context as AudioContext).currentTime, PARAM_SMOOTH_SECONDS);
   }
 
   function load(ctx: AudioContext, hand: Hand, pan: number, gain: number) {
     const key = `${pan}/${gain}`;
     if (requested.get(hand) === key) return;
     requested.set(hand, key);
-    loadKit(ctx, hand, pan, gain)
+    loadKit(ctx, hand, pan, gain, (bus as NonNullable<typeof bus>).filter)
       .then((kit) => {
         if (context !== ctx || requested.get(hand) !== key) return kit.dispose();
         loading.add(kit);
@@ -57,12 +103,41 @@ export function createDrumSound(makeContext: () => AudioContext | null, loadKit:
       });
   }
 
+  function loadPadInstrument(ctx: AudioContext, instrument: PadInstrument) {
+    if (padsRequested.has(instrument)) return;
+    padsRequested.add(instrument);
+    loadPad(ctx, instrument, (bus as NonNullable<typeof bus>).filter)
+      .then((pad) => {
+        if (context !== ctx) return pad.dispose();
+        loading.add(pad);
+        return pad.ready.then(
+          () => {
+            loading.delete(pad);
+            if (context === ctx) pads.set(instrument, pad);
+            else pad.dispose();
+          },
+          (error: unknown) => {
+            loading.delete(pad);
+            pad.dispose();
+            throw error;
+          },
+        );
+      })
+      .catch(() => {
+        if (context === ctx) padsRequested.delete(instrument);
+      });
+  }
+
   return {
-    /** Loads one kit per hand with that hand's pan and gain. Safe to call again. */
+    /**
+     * Loads one kit per hand with that hand's pan and gain, and the pad instrument if the pad is
+     * on. Safe to call again; call it whenever the mapping changes.
+     */
     preload(mapping: Mapping) {
       const ctx = audio();
       if (!ctx) return;
       mapping.hands.forEach((voice, hand) => load(ctx, hand as Hand, voice.pan, voice.gain));
+      if (mapping.pad.on) loadPadInstrument(ctx, mapping.pad.instrument);
     },
     /** Call from a user gesture: a context made before any gesture starts suspended. */
     resume() {
@@ -74,6 +149,16 @@ export function createDrumSound(makeContext: () => AudioContext | null, loadKit:
     now(): number {
       return audio()?.currentTime ?? 0;
     },
+    /** Master volume, 0 to 1. Takes effect smoothly, and at once on a context made later. */
+    setMaster(volume: number) {
+      masterVolume = Math.min(1, Math.max(0, Number.isFinite(volume) ? volume : 0));
+      if (bus) ramp(bus.master.gain, masterVolume);
+    },
+    /** The low-pass cutoff in Hz (see `filterCutoff`); FILTER_OPEN_HZ is transparent. */
+    setFilter(hz: number) {
+      cutoff = Number.isFinite(hz) ? hz : FILTER_OPEN_HZ;
+      if (bus) ramp(bus.filter.frequency, cutoff);
+    },
     play(hit: Hit, time: number, pulseLen: number) {
       ready.get(hit.hand)?.start({
         note: hit.sample,
@@ -82,11 +167,22 @@ export function createDrumSound(makeContext: () => AudioContext | null, loadKit:
         duration: hit.durationPulses * pulseLen,
       });
     },
+    /** Plays a chord (from `padHitsAt`) on the given pad instrument; silent until that pad has loaded. */
+    playPad(instrument: PadInstrument, hits: readonly PadHit[], time: number, pulseLen: number) {
+      const pad = pads.get(instrument);
+      if (!pad) return;
+      for (const hit of hits) {
+        pad.start({ note: hit.note, velocity: hit.velocity, time, duration: hit.durationPulses * pulseLen });
+      }
+    },
     close() {
-      for (const kit of [...ready.values(), ...loading]) kit.dispose();
+      for (const kit of [...ready.values(), ...pads.values(), ...loading]) kit.dispose();
       ready.clear();
+      pads.clear();
+      padsRequested.clear();
       loading.clear();
       requested.clear();
+      bus = null;
       if (context) void context.close();
       context = null;
     },
