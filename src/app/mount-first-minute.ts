@@ -58,10 +58,8 @@ export const mountFirstMinute: Mount = (root, { store, player }) => {
       const preset = FIRST_MINUTE_PRESETS.find((p) => p.id === card.dataset.id);
       if (!preset) return;
       store.set(presetPatch(preset));
-      // A running player gets the new pattern; stopped or paused, the tap starts it.
-      const schedule = scheduleFor(store.get());
-      if (schedule && player.playing()) player.setEdit(schedule, store.get().bpm);
-      else start();
+      // The knobs mount hands a changed pattern to a running player; stopped or paused, the tap starts it.
+      if (!player.playing()) start();
     }),
   );
 
