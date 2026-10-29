@@ -1,0 +1,189 @@
+// The sound panel and the share link (SPEC §4.3, §7.5), headless. Audio output is not
+// observable, so "nothing auto-plays" is read from `data-events-scheduled` staying at 0 and the
+// transport staying stopped.
+import { expect, test, type Page } from '@playwright/test';
+
+const scheduled = async (page: Page) => Number(await page.locator('#app').getAttribute('data-events-scheduled'));
+const shot = (page: Page, name: string) => page.screenshot({ path: `test-results/sound-${name}.png`, fullPage: true });
+
+/** The hash settles a moment after the last change (the debounce). */
+async function settledHref(page: Page, contains = '#v1.') {
+  await expect.poll(() => page.evaluate(() => location.href), { timeout: 5_000 }).toContain(contains);
+  await page.waitForTimeout(600);
+  return page.evaluate(() => location.href);
+}
+
+async function openPanel(page: Page) {
+  await page.locator('#sound-button').click();
+  await expect(page.locator('.sound-panel')).toBeVisible();
+}
+
+test('the drawer opens from the Sound button and closes with its button and with Escape', async ({ page }) => {
+  await page.goto('/');
+  await expect(page.locator('.sound-panel')).toBeHidden();
+  await openPanel(page);
+  await expect(page.locator('#sp-preset')).toHaveValue('height-drum');
+  await shot(page, 'drawer');
+  await page.locator('.sp-close').click();
+  await expect(page.locator('.sound-panel')).toBeHidden();
+  await expect(page.locator('#sound-button')).toHaveAttribute('aria-expanded', 'false');
+  await openPanel(page);
+  await page.keyboard.press('Escape');
+  await expect(page.locator('.sound-panel')).toBeHidden();
+});
+
+test('an edit reads as custom, and Reset to preset undoes it', async ({ page }) => {
+  await page.goto('/');
+  await openPanel(page);
+  await page.locator('#sp-height-3').selectOption('cowbell');
+  await expect(page.locator('#sp-preset')).toHaveValue('custom');
+  await page.locator('#sp-reset').click();
+  await expect(page.locator('#sp-preset')).toHaveValue('height-drum');
+  await expect(page.locator('#sp-height-3')).toHaveValue('snare');
+  await page.locator('#sp-preset').selectOption('ball-pitch');
+  await page.locator('#sp-height-1').selectOption('kick');
+  await expect(page.locator('#sp-preset')).toHaveValue('custom');
+  await page.locator('#sp-reset').click();
+  await expect(page.locator('#sp-preset')).toHaveValue('ball-pitch');
+});
+
+test('Space in the drawer is the control’s, not play and pause', async ({ page }) => {
+  await page.goto('/');
+  await openPanel(page);
+  await page.locator('#sp-pad-on').focus();
+  await page.keyboard.press('Space');
+  await expect(page.locator('#sp-pad-on')).toBeChecked();
+  await expect(page.locator('#play')).toHaveText('Play');
+  await expect(page.locator('#app')).toHaveAttribute('data-events-scheduled', '0');
+});
+
+test('SPEC §7.5: three sound fields, the link, a new tab: everything matches and nothing plays', async ({
+  page,
+  context,
+}) => {
+  await page.goto('/');
+  await page.locator('#hand-0').fill('441');
+  await page.locator('#bpm').fill('96');
+  await page.locator('#bpm').press('Enter');
+  await openPanel(page);
+  await page.locator('#sp-height-4').selectOption('cowbell');
+  await page.locator('#sp-accent').fill('33');
+  await page.locator('#sp-pad-on').check();
+  await page.locator('#sp-pad-chord').selectOption('open5');
+  await expect(page.locator('#sp-preset')).toHaveValue('custom');
+
+  const href = await settledHref(page);
+  expect(href).toMatch(/#v1\./);
+
+  const other = await context.newPage();
+  await other.goto(href);
+  await expect(other.locator('#hand-0')).toHaveValue('441');
+  await expect(other.locator('#bpm')).toHaveValue('96');
+  await expect(other.locator('#sp-preset')).toHaveValue('custom');
+  await expect(other.locator('#sp-height-4')).toHaveValue('cowbell');
+  await expect(other.locator('#sp-accent')).toHaveValue('33');
+  await expect(other.locator('#sp-pad-on')).toBeChecked();
+  await expect(other.locator('#sp-pad-chord')).toHaveValue('open5');
+  // Volume and the open drawer are not in the link.
+  await expect(other.locator('.sound-panel')).toBeHidden();
+  // Nothing auto-plays: stopped, and nothing handed to the sampler.
+  await expect(other.locator('#play')).toHaveText('Play');
+  await expect(other.locator('#stop')).toBeDisabled();
+  await other.waitForTimeout(800);
+  expect(await scheduled(other)).toBe(0);
+  await shot(other, 'restored');
+  // The page that made the link is untouched.
+  await expect(page.locator('#hand-0')).toHaveValue('441');
+});
+
+test('Copy share link puts the current link on the clipboard and confirms in the robot’s voice', async ({
+  page,
+  context,
+}) => {
+  await context.grantPermissions(['clipboard-read', 'clipboard-write']);
+  await page.goto('/');
+  await openPanel(page);
+  await page.locator('#sp-filter-on').check();
+  // Straight after the edit: the clipboard holds the live state, not a stale address.
+  await page.locator('#sp-copy').click();
+  await expect(page.locator('#sp-confirm')).toContainText('I copied the link');
+  const copied = await page.evaluate(() => navigator.clipboard.readText());
+  expect(copied).toMatch(/#v1\./);
+  const other = await context.newPage();
+  await other.goto(copied);
+  await expect(other.locator('#sp-filter-on')).toBeChecked();
+});
+
+test('a link pasted while playing lands at the next cycle: no restart, no stop', async ({ page }) => {
+  await page.goto('/');
+  await page.locator('#play').click();
+  await expect(page.locator('#play')).toHaveText('Pause');
+  await expect.poll(() => scheduled(page)).toBeGreaterThan(0);
+
+  // A link from elsewhere: another pattern and a custom Mapping.
+  const other = await page.context().newPage();
+  await other.goto('/');
+  await other.locator('#hand-0').fill('531');
+  await openPanel(other);
+  await other.locator('#sp-height-5').selectOption('clap');
+  const link = await settledHref(other);
+  await other.close();
+
+  await page.evaluate((hash) => (location.hash = hash), new URL(link).hash);
+  await expect(page.locator('#hand-0')).toHaveValue('531');
+  await expect(page.locator('#sp-height-5')).toHaveValue('clap');
+  // Still playing, and still scheduling: it was not stopped or restarted.
+  await expect(page.locator('#play')).toHaveText('Pause');
+  const n = await scheduled(page);
+  await expect.poll(() => scheduled(page), { timeout: 5_000 }).toBeGreaterThan(n + 2);
+  await expect(page.locator('#status')).toContainText('I have 3 balls');
+});
+
+test('a pasted link while stopped does not start anything', async ({ page }) => {
+  await page.goto('/');
+  const other = await page.context().newPage();
+  await other.goto('/');
+  await other.locator('#hand-0').fill('51');
+  const link = await settledHref(other);
+  await other.close();
+  await page.evaluate((hash) => (location.hash = hash), new URL(link).hash);
+  await expect(page.locator('#hand-0')).toHaveValue('51');
+  await page.waitForTimeout(600);
+  await expect(page.locator('#play')).toHaveText('Play');
+  expect(await scheduled(page)).toBe(0);
+});
+
+test('a junk hash loads the defaults and the page works', async ({ page }) => {
+  const errors: string[] = [];
+  page.on('pageerror', (e) => errors.push(e.message));
+  for (const junk of ['#garbage', '#v1.', '#v1.!!!not-base64', '#v1.eyJwIjpbIjw8PCJdfQ']) {
+    await page.goto('/' + junk);
+    await page.reload();
+    await expect(page.locator('#hand-0')).toHaveValue('3');
+    await expect(page.locator('#bpm')).toHaveValue('120');
+    await openPanel(page);
+    await expect(page.locator('#sp-preset')).toHaveValue('height-drum');
+    await expect(page.locator('#play')).toBeEnabled();
+  }
+  expect(errors).toEqual([]);
+});
+
+test('a junk hash pasted onto an open page resets to the defaults', async ({ page }) => {
+  await page.goto('/');
+  await page.locator('#hand-0').fill('441');
+  await page.evaluate(() => (location.hash = '#v1.%%%junk'));
+  await expect(page.locator('#hand-0')).toHaveValue('3');
+});
+
+test('About keeps the state: its back link returns to the pattern as it was', async ({ page }) => {
+  await page.goto('/');
+  await page.locator('#hand-0').fill('441');
+  // Straight away: inside the debounce.
+  await page.locator('.about-link').click();
+  await expect(page).toHaveURL(/#about$/);
+  await page.waitForTimeout(600);
+  await expect(page).toHaveURL(/#about$/); // the hash write leaves About alone
+  await page.locator('.region-about a', { hasText: 'Back to the pattern' }).click();
+  await expect(page.locator('#hand-0')).toHaveValue('441');
+  await expect(page).toHaveURL(/#v1\./);
+});

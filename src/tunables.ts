@@ -285,3 +285,15 @@ export const LADDER_E = {
 // ---------------------------------------------------------------------------------------------
 // F: Sound panel and share
 // ---------------------------------------------------------------------------------------------
+
+/** The sound panel's controls (SPEC §4.3): slider steps, and how long "I copied the link" stays up. */
+export const SOUND_PANEL = {
+  panStep: 0.05,
+  gainStep: 0.01,
+  accentStep: 1,
+  hzStep: 50,
+  confirmMs: 3000,
+} as const;
+
+/** The share link (SPEC §4.3). The hash follows the store this long after the last change, so a drag is one history-free write. */
+export const SHARE = { hashDebounceMs: 250 } as const;
