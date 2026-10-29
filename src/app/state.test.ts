@@ -66,3 +66,27 @@ test('unsubscribe stops a listener, including one removed during a notification'
   store.set({ volume: 1 });
   expect(late).toHaveBeenCalledTimes(1);
 });
+
+test('a deriver adds to the patch before one notification, and can be removed', () => {
+  const store = createStore();
+  const heard = vi.fn();
+  store.subscribe(heard);
+  const stop = store.derive((next, previous) => (next.bpm !== previous.bpm ? { lastStateHash: `#${next.bpm}` } : {}));
+  store.set({ bpm: 77 });
+  expect(heard).toHaveBeenCalledTimes(1);
+  expect(store.get().lastStateHash).toBe('#77');
+  store.set({ volume: 0.2 });
+  expect(store.get().lastStateHash).toBe('#77');
+  stop();
+  store.set({ bpm: 78 });
+  expect(store.get().lastStateHash).toBe('#77');
+});
+
+test('a patch that changes nothing, even after deriving, notifies no one', () => {
+  const store = createStore();
+  const heard = vi.fn();
+  store.subscribe(heard);
+  store.derive(() => ({}));
+  store.set({ bpm: store.get().bpm });
+  expect(heard).not.toHaveBeenCalled();
+});

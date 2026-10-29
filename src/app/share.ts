@@ -9,7 +9,7 @@
 // - Every change to pattern, ratio, tempo or Mapping rewrites the hash (`replaceState`, so
 //   no history entry) after `SHARE.hashDebounceMs` of quiet, except while About is showing.
 // - `lastStateHash` in the store is kept current at once (About's back link), not debounced. It
-//   rides in the same `store.set` as the change it follows (`start` wraps `store.set` for that),
+//   rides in the same `store.set` as the change it follows (a `store.derive` deriver),
 //   so listeners run once per change, not twice.
 import { decodeState, encodeState } from './hash';
 import { route } from './route';
@@ -98,21 +98,17 @@ export function createShare(deps: ShareDeps) {
   return {
     /** Restores from the hash, then follows the store. Call once. */
     start() {
-      const set = store.set.bind(store);
-      store.set = (patch) => {
-        const next = { ...store.get(), ...patch };
-        set(sharedChanged(next, store.get()) ? { ...patch, lastStateHash: encodeState(next) } : patch);
-      };
+      store.derive((next, previous) =>
+        sharedChanged(next, previous) ? { lastStateHash: encodeState(next) } : {},
+      );
       store.subscribe((state, previous) => {
         if (!sharedChanged(state, previous)) return;
-        const hash = encodeState(state);
-        // Only reached if something set the store without going through the wrapped `set`.
-        if (hash !== state.lastStateHash) store.set({ lastStateHash: hash });
         if (pending) deps.cancel(timer);
         pending = true;
         timer = deps.after(write, deps.debounceMs);
       });
       restore();
+      // The deriver only runs on a change; the first hash is set here.
       const hash = encodeState(store.get());
       if (hash !== store.get().lastStateHash) store.set({ lastStateHash: hash });
     },

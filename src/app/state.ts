@@ -50,20 +50,35 @@ export interface Store {
   set(patch: Partial<AppState>): void;
   /** Calls `fn` after every change; returns the function that stops it. */
   subscribe(fn: Listener): () => void;
+  /**
+   * Registers a deriver: on every `set` the patch is merged, then each deriver's output is merged
+   * too (each sees the state so far and the previous one), and listeners hear one change.
+   */
+  derive(fn: Deriver): () => void;
 }
+
+export type Deriver = (next: AppState, previous: AppState) => Partial<AppState>;
 
 export function createStore(initial: AppState = defaultState()): Store {
   let state = initial;
   const listeners = new Set<Listener>();
+  const derivers = new Set<Deriver>();
 
   return {
     get: () => state,
     set(patch) {
-      const keys = Object.keys(patch) as (keyof AppState)[];
-      if (keys.every((k) => patch[k] === state[k])) return;
       const previous = state;
-      state = { ...state, ...patch };
+      let next: AppState = { ...state, ...patch };
+      for (const fn of derivers) next = { ...next, ...fn(next, previous) };
+      if ((Object.keys(next) as (keyof AppState)[]).every((k) => next[k] === previous[k])) return;
+      state = next;
       for (const fn of [...listeners]) fn(state, previous);
+    },
+    derive(fn) {
+      derivers.add(fn);
+      return () => {
+        derivers.delete(fn);
+      };
     },
     subscribe(fn) {
       listeners.add(fn);
