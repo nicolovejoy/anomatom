@@ -185,10 +185,12 @@ Default preset "Voice per part"; "Height to drum" and "Height to pitch" keep rea
 
 **C · Sound per part** (Sonnet, wave 1). Owns `src/sound/*`, `tunables.ts` sound section, Sound tab model. Done means: `hitFor` on the new `Schedule`; "Voice per part" preset; fallback; the sentence about ball count in the Sound tab copy; unit tests.
 
-**E · UI rewire** (Opus, wave 2). Design §14 option (b): Play always on; faulted group drawn as today's collision in the juggler, no balls for it; juggler axis fits the longest flight; flights over `HUMAN_AIRTIME_SECONDS` dimmed with the copy "not a human throw"; Rhythm tab gains a phase stepper and a ball stepper per hand (ball stepper replaced by the derived count and "reset" on a manual group); the notice line; form 2 at 1:1 (`a / b`); "make it juggleable" fixes optional. Screenshots at 390×844.
+**E · UI rewire** (Opus, wave 2). Design §14 option (b): Play always on; faulted group drawn as today's collision in the juggler, no balls for it; juggler axis fits the longest flight; flights over `HUMAN_AIRTIME_SECONDS` dimmed with the copy "not a human throw"; Rhythm tab gains a phase stepper, a ball stepper and the Euclidean generator (`generate` action: hits over the hand's period) per hand (ball stepper replaced by the derived count and "reset" on a manual group); the notice line; form 2 at 1:1 (`a / b`); "make it juggleable" fixes optional. Screenshots at 390×844.
 
 **F · Presets** (Sonnet, wave 2). Sourcebook table into presets (onset sets, parts, voices, bpm, source), first-minute "more" control, About page sections per layer with the verified citations from D.
 
 ## Rulings
+
+- 2026-10-29 (Fable): `Event.height` is always `flight / unit`, for faulted parts too. Kotekan telu shares pulses between the hands, so the one-ball crossing test case is the hocket `2 0` / `0 2` versus `1x 0` / `0 1x`. `AppState.notice` is transient UI state, not an action result.
 
 - 2026-10-29 (Fable): for a part in a faulted group, `Event.flight` is the gap to the next onset of that part (the k = 1 value), regardless of what the manual digit said, so the sound fallback of design §7 needs no second code path. The faulted digits are still reported in the verdict for the picture.

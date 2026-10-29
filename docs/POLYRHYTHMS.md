@@ -39,9 +39,11 @@ As a preset: two hands at 1:1 on a 12-pulse grid, hand 2 a one-pulse offset of h
 
 ## Afro-Cuban and Afrobeat
 
-**Son clave, 3-2.** Five hits in a sixteen-pulse cycle. The standard grid is `x . . x . . x . . . x . x . . .` (onsets at pulses 0, 3, 6, 10, 12, counting from 0). Ethan Hein, following Toussaint, calls it maximally even (five hits cannot divide sixteen evenly, and clave spreads them as evenly as possible), with "rhythmic oddity" (no two hits sit opposite each other on the circle), and notes its first three hits imply triple meter against the 4/4 underneath, which is the polyrhythmic hook. He also notes the Ghanaian kpanlogo bell is the same rhythm. [Hein, Why is son clave so awesome](https://ethanhein.substack.com/p/why-is-son-clave-so-awesome). The grid itself is the standard one in Toussaint's *Geometry of Musical Rhythm*; Hein's diagrams are images, so the positions here are from that standard, not quoted from his page.
+**Son clave, 3-2.** Five hits in a sixteen-pulse cycle. The standard grid is `x . . x . . x . . . x . x . . .` (onsets at pulses 0, 3, 6, 10, 12, counting from 0). Ethan Hein, following Toussaint, lists it among the sixteen-step rhythms he calls "maximally even", meaning, in his words, "spaced more or less equally in time"; he credits it with "rhythmic oddity" (no two hits sit opposite each other on the circle), and notes its first three hits imply triple meter against the 4/4 underneath, which is the polyrhythmic hook. He also notes the Ghanaian kpanlogo bell is the same rhythm. [Hein, Why is son clave so awesome](https://ethanhein.substack.com/p/why-is-son-clave-so-awesome). The grid itself is the standard one in Toussaint's *Geometry of Musical Rhythm*; Hein's diagrams are images, so the positions here are from that standard, not quoted from his page.
 
-**Rumba clave** moves the third hit one pulse later: `x . . x . . . x . . x . x . . .`. **Tresillo** is the 3-side alone, `x . . x . . x .` over eight pulses, and is the 16-pulse cousin of the 12-pulse bell's first half.
+Correction (2026-10-29): in the strict sense son clave is **not** maximally even, and this document said otherwise in its first draft. Its gaps are 3, 3, 4, 2, 4: three different lengths. A maximally even (Euclidean) rhythm of k hits on n pulses has gaps of at most two lengths, ⌊n/k⌋ and ⌈n/k⌉, differing by one; for five on sixteen that is E(5,16) with gaps 3, 3, 3, 3, 4, which Toussaint's 2005 paper names "the Bossa-Nova rhythm necklace of Brazil", not the clave. Clave is *nearly* even, which is the loose sense Hein uses. The converse also fails: two gap lengths differing by one is necessary but not enough (cascara, below, has gaps of 1 and 2 and is not E(10,16)). Checked by running Bjorklund's algorithm on every grid in this file (2026-10-29).
+
+**Rumba clave** moves the third hit one pulse later: `x . . x . . . x . . x . x . . .`. **Tresillo** is the 3-side alone, `x . . x . . x .` over eight pulses, and is the 16-pulse cousin of the 12-pulse bell's first half. Tresillo is Euclidean, E(3,8), gaps 3, 3, 2; Toussaint 2005 opens with it. Rumba clave (gaps 3, 4, 3, 2, 4) is not.
 
 **Cascara** (timbale shell pattern): `x . x x . x . x x . x . x x . x` over sixteen, played with 3-2 clave underneath. Standard pattern, not quoted from a source here.
 
@@ -73,7 +75,7 @@ This is polyrhythm at the scale of tens of seconds, and in the app's terms a rat
 - Telu, polos `1 2 . 1 2 . 1 2 . 1 2 .` and sangsih `. 2 3 . 2 3 . 2 3 . 2 3`
 - Empat, polos `1 2 . 1 2 . 1 2 . 1 2 .` and sangsih `4 . 3 4 . 3 4 . 3 4 3`
 
-This is not a ratio polyrhythm; it is two hands at 1:1 whose rests interlock, a 3-pulse figure over a 4-pulse pokok, so the figure and the pokok realign every 12. In one-ball terms, polos (hits 0, 1, 3, 4, 6, 7, 9, 10) is `1 2 0 1 2 0 1 2 0 1 2 0` and sangsih (hits 1, 2, 4, 5, 7, 8, 10, 11) is `0 1 2 0 1 2 0 1 2 0 1 2`; every pulse is struck by exactly one hand. The preset should use two metallic 808 voices or, better, two pitched Soundfont voices, since kotekan is heard as melody. Nyog cag is the trivial case: `2 0` against `0 2`, the hocket.
+This is not a ratio polyrhythm; it is two hands at 1:1 whose rests interlock, a 3-pulse figure over a 4-pulse pokok, so the figure and the pokok realign every 12. In one-ball terms, polos (hits 0, 1, 3, 4, 6, 7, 9, 10) is `1 2 0 1 2 0 1 2 0 1 2 0` and sangsih (hits 1, 2, 4, 5, 7, 8, 10, 11) is `0 1 2 0 1 2 0 1 2 0 1 2`; every pulse is struck, and pulses 1, 4, 7 and 10 (the shared pitch 2) are struck by both hands. An earlier draft said "every pulse is struck by exactly one hand", which the hit lists above contradict (corrected 2026-10-29; it matters because a single ball can only visit onsets on distinct pulses, `MATH.md` §9.5). The preset should use two metallic 808 voices or, better, two pitched Soundfont voices, since kotekan is heard as melody. Nyog cag is the trivial case: `2 0` against `0 2`, the hocket.
 
 **Colotomic structure** (Javanese and Balinese): the gong cycle is nested, with the big gong once per cycle, kempul and kenong at halves and quarters, kethuk at finer points. Nested powers of two, not a polyrhythm, but the app's cycle marker and downbeat accent are exactly a two-level colotomy; worth a note on the About page, not a preset.
 
@@ -113,29 +115,29 @@ Short, because these are single-figure polyrhythms a user can type in a few seco
 
 For the code agent. Notation follows the app: `hand1 / hand2 at r1:r2`; digits are one hand's beats; `x` marks a cross. Every one-ball line sums to its period (mean 1), which the validator should confirm. Where the ratio column is 1:1 the polyrhythm is inside the digits. Kit voices name 808 sounds unless stated; "Soundfont" rows want the pitched kit when it exists and fall back to the 808 voice given. Tempo is hand 1 bpm. The first five rows are a good default card set; the rest go behind a "more" control.
 
-| Preset | Source | Ratio | Hand 1 | Hand 2 | Voices (h1 / h2) | bpm | Listen for |
-| --- | --- | --- | --- | --- | --- | --- | --- |
-| Standard bell | Ewe gankogui, 12/8 | 4:1 | `2 0 2 0 1 2 0 2 0 2 0 1` | `1` | cowbell / low tom | 120 | the bell flipping between 2-feel and 3-feel |
-| Son clave 3-2 | Afro-Cuban | 1:1 | `3 0 0 3 0 0 4 0 0 0 2 0 4 0 0 0` | `4 0 0 0 4 0 0 0 4 0 0 0 4 0 0 0` | rimshot / kick | 95 | the 3-side implying triple against the 4 |
-| Clapping Music | Reich 1972 | 1:1 | `1 1 2 0 1 2 0 2 0 1 2 0` | same, rotated k digits (k = 0..11) | clap / clap, panned apart | 160 | the resultant changing at each k; needs a rotate control |
-| Afrobeat hat and kick | Tony Allen style | 1:1 | `3 0 0 3 0 0 2 0 3 0 0 3 0 0 2 0` | `4 0 0 0 2 0 2 0 4 0 0 0 4 0 0 0` | closed hat / kick | 105 | 3+3+2 against 4 |
-| Three against two | the juggling-native one | 3:2 | `2 2x 2` | `2x 2` | tom / snare | 90 | cross marks only on the coincidence; already a card today |
-| Rumba clave | Afro-Cuban | 1:1 | `3 0 0 4 0 0 0 3 0 0 2 0 4 0 0 0` | pulse as above | rimshot / kick | 95 | one hit later than son, more tension |
-| Cascara over clave | Cuban timbales | 1:1 | `2 0 1 2 0 2 0 1 2 0 2 0 1 2 0 1` | son clave line | hat or rim / rimshot | 95 | two 16-lines interlocking; ladder shows the mesh |
-| Kotekan telu | Balinese gamelan | 1:1 | `1 2 0 1 2 0 1 2 0 1 2 0` | `0 1 2 0 1 2 0 1 2 0 1 2` | two metallic voices (Soundfont gamelan or 808 cowbell/clave) | 180 | every pulse struck by one hand, heard as one line |
-| Hocket | kotekan nyog cag | 1:1 | `2 0` | `0 2` | two voices | 200 | the simplest interlock |
-| Nadai 5:4 | Carnatic | 5:4 | `1` | `1` | clave / kick | 60 | pure ratio, konnakol practice |
-| Tihai on 16 | Hindustani/Carnatic | 1:1 | `2 0 1 2 0 2 0 1 2 0 2 0 1 3 0 0` | `4 0 0 0 4 0 0 0 4 0 0 0 4 0 0 0` | snare / kick | 100 | three equal phrases, the last landing on sam |
-| Mbira interlock | Shona | 1:1 | `3 0 0 3 0 0 3 0 0 3 0 0` | `0 3 0 0 3 0 0 3 0 0 3 0` (hand 2 one pulse late) | Soundfont kalimba, fallback cowbell / low tom | 130 | the phantom third pattern |
-| Trance arp over four | N-Trance, Aphex "On" | 3:4 | `1` | `1` | pitched pluck (pad voice) / kick | 138 | dotted-eighth feel |
-| Acid polymetre | Hawtin, Autechre | 16:3 | `1` | `1` | pluck / hat | 128 | the 3-loop walking across the bar, realigning every 3 bars |
-| Eno drift | Music for Airports | 8:7 | `1` | `1` | Mellotron voices, no drums | 12 | coincidences minutes apart; pad on both hands |
-| Blue Rondo | Brubeck | 1:1 | `2 0 2 0 2 0 3 0 0` | `3 0 0 3 0 0 3 0 0` | hat / snare | 180 | 2+2+2+3 against 3+3+3 |
-| Pyramid Song | Radiohead | 1:1 | `3 0 0 3 0 0 4 0 0 0 3 0 0 3 0 0` | `4 0 0 0 4 0 0 0 4 0 0 0 4 0 0 0` | pitched voice / kick | 80 | 3+3+4+3+3 against straight 4 |
-| Elvin triplet ride | Coltrane quartet | 3:2 | `1` | `1` | ride (hat) / kick | 200 | 3-feel over 2 |
-| Discipline | King Crimson | 5:7 | `1` | `1` | two plucks | 120 | 35-pulse cycle, interlocking guitars |
+| Preset | Source | Ratio | Hand 1 | Hand 2 | Voices (h1 / h2) | bpm | Listen for | Euclidean? (hand 1) |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| Standard bell | Ewe gankogui, 12/8 | 4:1 | `2 0 2 0 1 2 0 2 0 2 0 1` | `1` | cowbell / low tom | 120 | the bell flipping between 2-feel and 3-feel | yes: E(7,12), rotated (gaps 2 2 1 2 2 2 1) |
+| Son clave 3-2 | Afro-Cuban | 1:1 | `3 0 0 3 0 0 4 0 0 0 2 0 4 0 0 0` | `4 0 0 0 4 0 0 0 4 0 0 0 4 0 0 0` | rimshot / kick | 95 | the 3-side implying triple against the 4 | no: gaps 3 3 4 2 4 (E(5,16) is 3 3 3 3 4) |
+| Clapping Music | Reich 1972 | 1:1 | `1 1 2 0 1 2 0 2 0 1 2 0` | same, rotated k digits (k = 0..11) | clap / clap, panned apart | 160 | the resultant changing at each k; needs a rotate control | no: gaps 1 1 2 1 2 2 1 2 |
+| Afrobeat hat and kick | Tony Allen style | 1:1 | `3 0 0 3 0 0 2 0 3 0 0 3 0 0 2 0` | `4 0 0 0 2 0 2 0 4 0 0 0 4 0 0 0` | closed hat / kick | 105 | 3+3+2 against 4 | yes: hat E(6,16), rotated, which is two tresillos E(3,8); kick no |
+| Three against two | the juggling-native one | 3:2 | `2 2x 2` | `2x 2` | tom / snare | 90 | cross marks only on the coincidence; already a card today | not a line of hits; n/a |
+| Rumba clave | Afro-Cuban | 1:1 | `3 0 0 4 0 0 0 3 0 0 2 0 4 0 0 0` | pulse as above | rimshot / kick | 95 | one hit later than son, more tension | no: gaps 3 4 3 2 4 |
+| Cascara over clave | Cuban timbales | 1:1 | `2 0 1 2 0 2 0 1 2 0 2 0 1 2 0 1` | son clave line | hat or rim / rimshot | 95 | two 16-lines interlocking; ladder shows the mesh | no: two gap lengths but not E(10,16) |
+| Kotekan telu | Balinese gamelan | 1:1 | `1 2 0 1 2 0 1 2 0 1 2 0` | `0 1 2 0 1 2 0 1 2 0 1 2` | two metallic voices (Soundfont gamelan or 808 cowbell/clave) | 180 | every pulse struck, the shared pitch by both, heard as one line | yes: each part E(8,12), which is E(2,3) four times |
+| Hocket | kotekan nyog cag | 1:1 | `2 0` | `0 2` | two voices | 200 | the simplest interlock | trivially: E(1,2) each |
+| Nadai 5:4 | Carnatic | 5:4 | `1` | `1` | clave / kick | 60 | pure ratio, konnakol practice | trivially (`1`) |
+| Tihai on 16 | Hindustani/Carnatic | 1:1 | `2 0 1 2 0 2 0 1 2 0 2 0 1 3 0 0` | `4 0 0 0 4 0 0 0 4 0 0 0 4 0 0 0` | snare / kick | 100 | three equal phrases, the last landing on sam | no: gaps 2 1 2 2 1 2 2 1 3 |
+| Mbira interlock | Shona | 1:1 | `3 0 0 3 0 0 3 0 0 3 0 0` | `0 3 0 0 3 0 0 3 0 0 3 0` (hand 2 one pulse late) | Soundfont kalimba, fallback cowbell / low tom | 130 | the phantom third pattern | trivially: E(4,12), which is E(1,3) four times |
+| Trance arp over four | N-Trance, Aphex "On" | 3:4 | `1` | `1` | pitched pluck (pad voice) / kick | 138 | dotted-eighth feel | trivially (`1`) |
+| Acid polymetre | Hawtin, Autechre | 16:3 | `1` | `1` | pluck / hat | 128 | the 3-loop walking across the bar, realigning every 3 bars | trivially (`1`) |
+| Eno drift | Music for Airports | 8:7 | `1` | `1` | Mellotron voices, no drums | 12 | coincidences minutes apart; pad on both hands | trivially (`1`) |
+| Blue Rondo | Brubeck | 1:1 | `2 0 2 0 2 0 3 0 0` | `3 0 0 3 0 0 3 0 0` | hat / snare | 180 | 2+2+2+3 against 3+3+3 | yes: E(4,9) (Toussaint names Brubeck); hand 2 E(3,9) |
+| Pyramid Song | Radiohead | 1:1 | `3 0 0 3 0 0 4 0 0 0 3 0 0 3 0 0` | `4 0 0 0 4 0 0 0 4 0 0 0 4 0 0 0` | pitched voice / kick | 80 | 3+3+4+3+3 against straight 4 | yes: E(5,16), rotated (gaps 3 3 4 3 3), the bossa-nova necklace |
+| Elvin triplet ride | Coltrane quartet | 3:2 | `1` | `1` | ride (hat) / kick | 200 | 3-feel over 2 | trivially (`1`) |
+| Discipline | King Crimson | 5:7 | `1` | `1` | two plucks | 120 | 35-pulse cycle, interlocking guitars | trivially (`1`) |
 
-Validation notes for the agent: (1) cascara line above is derived from `x . x x . x . x x . x . x x . x` (hits 0, 2, 3, 5, 7, 8, 10, 12, 13, 15; gaps 2, 1, 2, 2, 1, 2, 2, 1, 2, 1), check it. (2) Clapping Music and mbira need a per-hand rotation or phase control that does not exist yet; without it, ship them with hand 2 pre-rotated to one good position (Clapping k = 3; mbira leading `0`) and note the limitation on the card. (3) Rows marked Soundfont are better served by the pitched kit in the kits wave; until then use the 808 fallback named. (4) Tempi are starting points, not sourced.
+Validation notes for the agent: (1) cascara line above is derived from `x . x x . x . x x . x . x x . x` (hits 0, 2, 3, 5, 7, 8, 10, 12, 13, 15; gaps 2, 1, 2, 2, 1, 2, 2, 1, 2, 1), check it. (2) Clapping Music and mbira need a per-hand rotation or phase control that does not exist yet; without it, ship them with hand 2 pre-rotated to one good position (Clapping k = 3; mbira leading `0`) and note the limitation on the card. (3) Rows marked Soundfont are better served by the pitched kit in the kits wave; until then use the 808 fallback named. (4) Tempi are starting points, not sourced. (5) The "Euclidean?" column (2026-10-29) was checked by running Bjorklund's algorithm for each E(k,n) and testing whether the hand 1 line is a rotation of it; "trivially" marks evenly spaced lines (`1`, or one hit repeated), which are E(k,n) with k dividing n. The yes rows are what the Euclidean generator (E(hits, pulses) plus rotation) can produce; the no rows stay presets. E(7,12), E(3,8), E(4,9) and E(5,16) agree with the patterns printed in Toussaint 2005; E(6,16) and E(8,12) are not in that paper's list because they are repetitions (of E(3,8) and E(2,3)), which it deliberately omits. (6) The kotekan empat sangsih grid above, `4 . 3 4 . 3 4 . 3 4 3`, has eleven symbols, not twelve; it is not in the preset table, but check it against the Wikipedia page before anyone uses it.
 
 ## Sound palette notes
 

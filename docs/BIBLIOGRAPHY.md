@@ -26,6 +26,21 @@ Shipped on the About page. Papers first, then practitioner sources and prior art
 
 11. sani.js, siteswap animator, MIT. https://github.com/monkape/sani.js
 12. smplr, sampled instruments for Web Audio, MIT. https://github.com/danigb/smplr
-13. Boyce, J. Juggling Lab. https://github.com/jkboyce/jugglinglab
+13. Boyce, J. Juggling Lab. https://github.com/jkboyce/jugglinglab. Its internal representation is Multi-Hand Notation, "name due to Ed Carstens": a matrix of hands and discrete event times, patterns as transitions between its elements; the source notes MHN "has no standardized string (textual) representation" (`composeApp/src/commonMain/kotlin/org/jugglinglab/notation/MhnPattern.kt`, opened 2026-10-29).
 14. Helbling, C. passist, passing siteswap assistant, GPLv3 (considered, not used). https://passist.org/
 15. L6 (nicolovejoy/l6-music), whose `piano-sound.ts` and `midi-input.ts` this project reuses. https://github.com/nicolovejoy/l6-music
+
+## Rhythm, meter and perception
+
+Added 2026-10-29 for `MATH.md` §9. Each entry says what was opened and what it confirmed.
+
+16. Toussaint, G. (2005). The Euclidean Algorithm Generates Traditional Musical Rhythms. *Renaissance Banff: Mathematics, Music, Art, Culture* (BRIDGES 2005), 47–56. https://cgm.cs.mcgill.ca/~godfried/publications/banff.pdf (proceedings page: https://archive.bridgesmathart.org/2005/bridges2005-47.html). Opened: E(k, n) by Bjorklund's algorithm; E(3,8) the tresillo, E(4,9) Brubeck's Rondo a la Turk, E(7,12) "a common West African bell pattern", E(5,16) the bossa-nova necklace; rhythm necklaces.
+17. Bjorklund, E. (2003). The theory of rep-rate pattern generation in the SNS timing system. SNS ASD Technical Note SNS-NOTE-CNTRL-99, Los Alamos National Laboratory.
+<!-- (Cited as given in 16, reference [5]; the note itself not found online, not yet opened. Check before it goes on the About page.) -->
+18. Toussaint, G. T. (2013). *The Geometry of Musical Rhythm: What Makes a "Good" Rhythm Good?* Chapman & Hall/CRC; second edition 2020. https://www.routledge.com/The-Geometry-of-Musical-Rhythm-What-Makes-a-Good-Rhythm-Good-Second/Toussaint/p/book/9780815370970. Opened: the second edition's contents, with chapters "Necklaces and Bracelets", "Dispersion Problems: Perfectly Even, Maximally Even, and Balanced Rhythms", "Euclidean Rhythms, Euclidean Strings, and Well-Formed Rhythms" and "The Isomorphism Between Rhythms and Scales"; the 2013 date from the author's page, https://cgm.cs.mcgill.ca/~godfried/cv/books.html. First-edition contents not checked.
+19. Krebs, H. (1999). *Fantasy Pieces: Metrical Dissonance in the Music of Robert Schumann*. Oxford University Press. https://academic.oup.com/book/8293. Opened: the abstract names grouping dissonance, "based on the association of incongruent metrical layers", and displacement dissonance, "based on the non-aligned presentation of congruent layers".
+20. Bregman, A. S. (1990). *Auditory Scene Analysis: The Perceptual Organization of Sound*. MIT Press. https://webpages.mcgill.ca/staff/Group2/abregm1/web/labbook.htm. Opened: the author's page on the book; chapter 1 introduces "the concept of the auditory stream".
+21. London, J. (2004). *Hearing in Time: Psychological Aspects of Musical Meter*. Oxford University Press. https://academic.oup.com/book/11161. Opened: the abstract treats meter as entrainment of attention and "allows for meters that involve uneven (i.e., non-isochronous) beats". Cited for the isochronous/non-isochronous distinction, not for a claim that meter must be isochronous.
+22. Kubik, G. (1962). The phenomenon of inherent rhythms in East and Central African instrumental music. *African Music* 3(1), 33–42. https://doi.org/10.21504/amj.v3i1.735 (opened at https://journal.ru.ac.za/index.php/africanmusic/article/view/735). Opened: the abstract only, on notes grouped by the ear into conflicting "gestalten"; the full text not read.
+23. Pressing, J. (1983). Cognitive isomorphisms between pitch and rhythm in world musics: West Africa, the Balkans and Western Tonality. *Studies in Music* 17, 38–61. Not online; confirmed second-hand: cited by 16 (reference [24]), and Hahn, *Music Theory Online* 27(2), 2021, ¶44 (https://mtosmt.org/issues/mto.21.27.2/mto.21.27.2.hahn.html) attributes to it "a cognitive isomorphism between the rhythm ME(7, 12) (2212221) and the diatonic major scale".
+<!-- (Pressing's paper itself not opened. Check before it goes on the About page.) -->
