@@ -94,6 +94,13 @@ describe('presets', () => {
 });
 
 describe('padHitsAt', () => {
+  test('a cycle shorter than one pulse (or not a number) still rings for at least one pulse', () => {
+    const on = { ...DEFAULT_MAPPING, pad: { ...DEFAULT_MAPPING.pad, on: true } };
+    for (const bad of [0, -3, 0.2]) expect(padHitsAt(0, on, bad)[0]?.durationPulses).toBe(1);
+    expect(padHitsAt(0, on, Number.NaN)[0]?.durationPulses).toBe(PAD_HOLD_PULSES);
+    expect(padHitsAt(0, on, 12)[0]?.durationPulses).toBe(12);
+  });
+
   const on = (chord: PadChord): Mapping => ({ ...DEFAULT_MAPPING, pad: { on: true, instrument: 'mellotron', chord } });
 
   test('off by default: nothing at any pulse', () => {

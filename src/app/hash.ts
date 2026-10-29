@@ -18,6 +18,7 @@
 // Decoding trusts nothing: a payload that is not base64url JSON of an object gives null; any
 // other junk is repaired per field (unknown fields ignored, missing or mistyped ones taken from
 // the defaults, numbers clamped to their ranges, sample names checked against the kit).
+import { parsePattern } from '../core/parse';
 import type { Ratio } from '../core/types';
 import { applyPreset, PAD_CHORD_IDS, PAD_INSTRUMENT_IDS, presetOf, PRESET_NAMES, type Mapping, type Sample } from '../sound/mapping';
 import {
@@ -76,8 +77,17 @@ export function decodeState(payload: string): Partial<AppState> | null {
   };
 }
 
+/**
+ * Pattern text goes through the parser before it is used: text the parser cannot read (a stray
+ * character, junk) falls back to that hand's default. Text that parses but does not validate
+ * (a collision, a fractional ball count) is kept as written: it restores into the fix state,
+ * where the reader sees what is wrong and the nearest fixes, and the player never gets it
+ * (the knobs hand the player only valid patterns). Whether it validates depends on the ratio
+ * and on both hands, so that is the knobs' check, not this module's.
+ */
 function patternsFrom(value: unknown, fallback: AppState['patterns']): AppState['patterns'] {
-  const text = (v: unknown, d: string) => (typeof v === 'string' && v.length <= MAX_PATTERN_CHARS ? v : d);
+  const text = (v: unknown, d: string) =>
+    typeof v === 'string' && v.length <= MAX_PATTERN_CHARS && parsePattern(v).ok ? v : d;
   const list = Array.isArray(value) ? value : [];
   return [text(list[0], fallback[0]), text(list[1], fallback[1])];
 }
@@ -106,12 +116,14 @@ function mappingFrom(value: unknown): Mapping {
   const perHeight = Object.fromEntries(
     Array.from({ length: MAX_HEIGHT }, (_, i) => [i + 1, sample(h[i], d.perHeight[i + 1] ?? null)]),
   );
+  // byBall: an explicit null means none; a list of known sounds is used; anything else (missing,
+  // wrong type, empty, one unknown sound) falls back to the default mapping's, silently.
   const b = value.b;
   const byBall =
-    Array.isArray(b) && b.length > 0 && b.every((s) => typeof s === 'string' && KIT_SAMPLES.includes(s))
-      ? (b as string[])
-      : b === null
-        ? null
+    b === null
+      ? null
+      : Array.isArray(b) && b.length > 0 && b.every((s) => typeof s === 'string' && KIT_SAMPLES.includes(s))
+        ? (b as string[])
         : d.byBall;
   const voice = (v: unknown, fallback: Mapping['hands'][0]) => {
     const [pan, gain] = arr(v);

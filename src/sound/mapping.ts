@@ -92,11 +92,13 @@ export interface PadHit {
 
 /**
  * The pad notes to play when a cycle starts: the chord at pulse 0 of the cycle if the pad is on,
- * nothing at any other pulse. `cyclePulses`, when the caller knows it, is how long the chord rings.
+ * nothing at any other pulse. `cyclePulses`, when the caller knows it, is how long the chord rings;
+ * it is held to at least one pulse, so a zero or negative length never makes a silent chord.
  */
 export function padHitsAt(cyclePulse: number, mapping: Mapping, cyclePulses?: number): readonly PadHit[] {
   if (!mapping.pad.on || cyclePulse !== 0) return [];
-  const durationPulses = cyclePulses ?? PAD_HOLD_PULSES;
+  const durationPulses =
+    cyclePulses === undefined || Number.isNaN(cyclePulses) ? PAD_HOLD_PULSES : Math.max(1, cyclePulses);
   return PAD_CHORDS[mapping.pad.chord].map((note) => ({ note, velocity: PAD_VELOCITY, durationPulses }));
 }
 

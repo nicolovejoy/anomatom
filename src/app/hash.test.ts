@@ -101,9 +101,9 @@ describe('round trip', () => {
     expect(presetOf(back?.mapping as Mapping)).toBe('custom');
   });
 
-  test('non-ASCII pattern text survives', () => {
+  test('non-ASCII pattern text survives the codec, then the parser turns it away', () => {
     const state: AppState = { ...defaultState(), patterns: ['3é', '→'] };
-    expect(decodeState(payloadOf(encodeState(state)))?.patterns).toEqual(['3é', '→']);
+    expect(decodeState(payloadOf(encodeState(state)))?.patterns).toEqual(defaultState().patterns);
   });
 
   test('every combination of the on/off flags', () => {
@@ -187,13 +187,13 @@ describe('junk', () => {
       b64({
         t: 9999,
         r: [0, 99],
-        p: ['x'.repeat(65), 'ok'],
+        p: ['3'.repeat(65), '4'],
         m: { v: [[-5, 5], [0.5, -1]], d: [999], f: [1, 1, 1e9] },
       }),
     ) as AppState;
     expect(s.bpm).toBe(BPM_RANGE.max);
     expect(s.ratio).toEqual({ a: 1, b: 9 });
-    expect(s.patterns).toEqual([d.patterns[0], 'ok']);
+    expect(s.patterns).toEqual([d.patterns[0], '4']);
     expect(s.mapping.hands).toEqual([
       { pan: -1, gain: 1 },
       { pan: 0.5, gain: 0 },
@@ -203,5 +203,42 @@ describe('junk', () => {
     expect(decodeState(b64({ t: 0 }))?.bpm).toBe(BPM_RANGE.min);
     expect(decodeState(b64({ t: 100.4, r: [2.6, 3.2] }))).toMatchObject({ bpm: 100, ratio: { a: 3, b: 3 } });
     expect(decodeState(b64({ t: null, r: [Number.NaN, 2] }))).toMatchObject({ bpm: d.bpm, ratio: { a: 1, b: 2 } });
+  });
+});
+
+describe('pattern text goes through the parser (C nit 2)', () => {
+  const d = defaultState();
+
+  test('text the parser cannot read falls back to that hand’s default', () => {
+    const s = decodeState(b64({ p: ['3<script>', '2?'] }));
+    expect(s?.patterns).toEqual(d.patterns);
+    expect(decodeState(b64({ p: ['', '  '] }))?.patterns).toEqual(d.patterns);
+    expect(decodeState(b64({ p: ['441', 'q'] }))?.patterns).toEqual(['441', d.patterns[1]]);
+  });
+
+  test('text that parses but does not validate is kept, for the fix state (never the player)', () => {
+    expect(decodeState(b64({ p: ['432', '2'] }))?.patterns).toEqual(['432', '2']);
+    expect(decodeState(b64({ p: ['12', '2'] }))?.patterns).toEqual(['12', '2']);
+  });
+
+  test('crossing marks and spaces still parse', () => {
+    expect(decodeState(b64({ p: ['3x 3x', '2'], r: [3, 2] }))?.patterns).toEqual(['3x 3x', '2']);
+  });
+});
+
+describe('byBall (C nit 3)', () => {
+  const fallback = DEFAULT_MAPPING.byBall;
+  const byBall = (b: unknown) => decodeState(b64({ m: { b } }))?.mapping?.byBall;
+
+  test('a bad byBall falls back to the default mapping’s, silently', () => {
+    for (const bad of [5, 'kick', {}, [], ['kick', 'banana'], ['kick', 3], [null], true]) {
+      expect(byBall(bad)).toEqual(fallback);
+    }
+    expect(decodeState(b64({ m: {} }))?.mapping?.byBall).toEqual(fallback);
+  });
+
+  test('a good list is used, and an explicit null is none', () => {
+    expect(byBall(['kick', 'clave'])).toEqual(['kick', 'clave']);
+    expect(byBall(null)).toBeNull();
   });
 });
