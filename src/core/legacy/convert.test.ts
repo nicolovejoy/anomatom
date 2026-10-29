@@ -30,6 +30,30 @@ describe('the two-hand validator and the part model agree on what is juggleable'
     expect(judge(partsOfInput(input)).ok).toBe(validate(input).ok);
   });
 
+  test('exhaustively over short inputs: every vanilla up to 3 digits, every 3:2 and 4:3 pair up to 2 throws a hand', () => {
+    const digits = ['0', '1', '2', '3', '4', '5'];
+    const seqs = (alphabet: string[], max: number): string[] => {
+      let level = [''];
+      const out: string[] = [];
+      for (let n = 1; n <= max; n++) {
+        level = level.flatMap((w) => alphabet.map((c) => (w ? `${w} ${c}` : c)));
+        out.push(...level);
+      }
+      return out;
+    };
+    expect(seqs(digits, 3)).toHaveLength(6 + 36 + 216);
+    let disagree = 0;
+    const check = (input: PatternInput) => {
+      if (judge(partsOfInput(input)).ok !== validate(input).ok) disagree++;
+    };
+    for (const w of seqs(digits, 3)) check({ ratio: { a: 1, b: 1 }, hands: [pat(w)] });
+    const hand = ['0', '1', '2', '3', '1x', '2x', '3x'];
+    for (const ratio of [{ a: 3, b: 2 }, { a: 4, b: 3 }]) {
+      for (const h1 of seqs(hand, 2)) for (const h2 of seqs(hand, 2)) check({ ratio, hands: [pat(h1), pat(h2)] });
+    }
+    expect(disagree).toBe(0);
+  });
+
   test('an x on a 1:1 siteswap means nothing', () => {
     const input = { ratio: { a: 1, b: 1 }, hands: [pat('4x41')] };
     expect(partsOfInput(input)).toEqual(partsOfInput({ ratio: { a: 1, b: 1 }, hands: [pat('441')] }));

@@ -60,6 +60,9 @@ describe('parseThrows', () => {
     ['3x4 / 3 / 3', { kind: 'bad-target', index: 1 }],
     ['3x0 / 3 / 3', { kind: 'bad-target', index: 1 }],
     ['3x1 / 3 / 3', { kind: 'bad-target', index: 1 }],
+    // A zero is no throw, so it has no destination.
+    ['3 0x / 3', { kind: 'bad-target', index: 3 }],
+    ['0x2 / 3 / 3', { kind: 'bad-target', index: 1 }],
   ])('rejects %j', (text, error) => {
     expect(parseThrows(text)).toEqual({ ok: false, error });
   });

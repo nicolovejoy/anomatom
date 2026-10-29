@@ -2,14 +2,14 @@ import { parseThrows } from '../parse';
 import type { ParseError as PartParseError } from '../parse';
 import type { HandPattern } from './types';
 
-/** The two-hand parser's errors: no letters and no destinations, so no `bad-target`. */
-export type ParseError = Exclude<PartParseError, { readonly kind: 'bad-target' }>;
+/** The two-hand parser's errors; `bad-target` only for `0x`, a zero with a destination. */
+export type ParseError = PartParseError;
 
 export type ParseResult =
   | { readonly ok: true; readonly pattern: HandPattern }
   | { readonly ok: false; readonly error: ParseError };
 
-/** Digits 0-9, each optionally followed by `x`; whitespace is ignored. One hand's box, as before. */
+/** Digits 0-9, each optionally followed by `x` (not a 0); whitespace is ignored. One hand's box. */
 export function parsePattern(text: string): ParseResult {
   for (let i = 0; i < text.length; i++) {
     if (!/[0-9x \t]/.test(text[i] as string)) return { ok: false, error: { kind: 'bad-char', index: i } };

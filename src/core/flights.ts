@@ -14,7 +14,7 @@ export function beatsOf(part: Part, cycle: number, visit: (beat: number, pulse: 
 
 /**
  * Every flight of one cycle on the lattice: a manual part's throws as written, a default part's
- * by the default rule (onset i to onset i + k, same part). Beats with height 0 are not onsets and
+ * by the default rule (onset i to onset i + k, same part). Beats with height ≤ 0 are not onsets and
  * launch nothing. Launches fall in [0, cycle); sorted by launch, then by part.
  */
 export function flightsOf(parts: Parts): Flight[] {
@@ -24,7 +24,8 @@ export function flightsOf(parts: Parts): Flight[] {
     const throws = throwsOf(part);
     beatsOf(part, cycle, (beat, launch, index) => {
       const t = throws[index] as (typeof throws)[number];
-      if (t.height === 0) return;
+      // A throw launches iff its height is positive, the test onsetsOf uses.
+      if (t.height <= 0) return;
       const to = t.to ?? from;
       flights.push({ id: { part: from, index }, from, to, beat, cross: to !== from, launch, land: launch + t.height });
     });

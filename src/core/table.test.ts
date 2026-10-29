@@ -69,11 +69,18 @@ test('432: all three throws land on the same beat', () => {
 });
 
 test('510: the 5 and the 1 land together where the 0 is, which is no onset', () => {
-  // Cycle 6: the 1 at pulse 1 and the 5 at pulse 3 both land at pulse 2, the 0 of hand 1. The 0
-  // is not a throw in the part model, so the collision names the two throws that land there.
-  const collisions = faultsOf(vanilla('510')).filter((f) => f.kind === 'collision');
-  expect(collisions[0]).toMatchObject({ kind: 'collision', part: 0, pulse: 2 });
-  expect(sites((collisions[0] as Extract<Fault, { kind: 'collision' }>).throws, 3)).toEqual([0, 1]);
+  // Cycle 6: the 1 at pulse 1 and the 5 at pulse 3 both land on pulse 2, the 0 of hand 1. The 0
+  // is not a throw in the part model and a collision is only ever on an onset, so each landing
+  // is its own no-onset fault, naming the two throws that land there.
+  type NoOnset = Extract<Fault, { kind: 'no-onset' }>;
+  const off = faultsOf(vanilla('510')).filter((f): f is NoOnset => f.kind === 'no-onset' && f.part === 0);
+  // Hand 1's onsets are pulses 0 and 4 (its 5 and its 1).
+  expect(off.map((f) => [f.pulse % 6, f.nearestOnset])).toEqual([
+    [2, 4],
+    [2, 10],
+  ]);
+  expect(sites(off.map((f) => f.from), 3)).toEqual([0, 1]);
+  expect(faultsOf(vanilla('510')).some((f) => f.kind === 'collision')).toBe(false);
 });
 
 describe('3:2, Nickmans', () => {
@@ -117,7 +124,7 @@ describe('3:2, Nickmans', () => {
 describe('worked cases of the design (model-rethink.md §4, §5)', () => {
   test.each([0, 3, 9])('Clapping Music with part 2 at phase %i: cycle 12, part 2 shifted', (p) => {
     const pattern = line('xxx.xx.x.xx.');
-    const parts = withPhase(partsFromOnsets([pattern, pattern], [1, 1]), 1, p);
+    const parts = withPhase(partsFromOnsets([pattern, pattern], [1, 1]), 1, p, 1);
     expect(cycleOf(parts)).toBe(12);
     const s = buildSchedule(parts);
     expect(s.cycle).toBe(12);
@@ -160,7 +167,7 @@ describe('worked cases of the design (model-rethink.md §4, §5)', () => {
   });
 
   test('3:2 with part 2 at phase 1: beats 0, 2, 4 and 1, 4 on a 6-lattice, coinciding at 4', () => {
-    const parts = withPhase(partsFromOnsets([line('xxx'), line('xx')], [2, 3]), 1, 1);
+    const parts = withPhase(partsFromOnsets([line('xxx'), line('xx')], [2, 3]), 1, 1, 1);
     expect(parts.map((p) => [p.spacing, p.phase])).toEqual([
       [2, 0],
       [3, 1],

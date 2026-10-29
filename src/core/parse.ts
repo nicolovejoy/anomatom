@@ -32,7 +32,8 @@ export function digitValue(c: string): number | null {
  * (and a digit after it is the next throw, so `2x22` is `2x 2 2`); with three or more parts the `x`
  * must name the destination part by number, `x3`, 1-based as written. `context` places a text
  * written for one part among the others, so one hand's box can say `2x 2 2`.
- * `x` itself is never a throw (siteswap's `x` = 33 is not typeable).
+ * `x` itself is never a throw (siteswap's `x` = 33 is not typeable), and `0x` is a `bad-target`: a
+ * zero has no destination.
  */
 export function parseThrows(text: string, context?: PartContext): ThrowsResult {
   const segments: { start: number; text: string }[] = [];
@@ -64,7 +65,8 @@ export function parseThrows(text: string, context?: PartContext): ThrowsResult {
             if (n >= 1 && n <= of && n - 1 !== self) to = n - 1;
           }
         }
-        if (to === null) return { ok: false, error: { kind: 'bad-target', index } };
+        // A zero is no throw, so it has no destination.
+        if (to === null || last.height === 0) return { ok: false, error: { kind: 'bad-target', index } };
         out[out.length - 1] = { height: last.height, to };
         continue;
       }

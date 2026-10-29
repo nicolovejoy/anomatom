@@ -37,9 +37,9 @@ export function ballCount(parts: Parts, group: readonly PartIndex[], flights: re
 /**
  * The two predicates of design §6 over all parts at once: every flight lands on an onset, and
  * every onset receives exactly one flight (flights go forward by construction: heights are
- * positive). There is no height ceiling. Faults: a flight landing alone where the catching part
- * has no onset (`no-onset`, with that part's next onset at or after it), two or more landing on
- * one pulse (`collision`, each group of throws reported once), an onset nothing lands on (`unfed`).
+ * positive). There is no height ceiling. Faults: each flight landing where the catching part has
+ * no onset (`no-onset`, with that part's next onset at or after it), two or more landing on one
+ * onset (`collision`, each group of throws reported once), an onset nothing lands on (`unfed`).
  * Each goes to the cross group of the catching part, which lists them by kind in that order (the
  * cause before the symptom), then by catching part, then in landing order.
  */
@@ -63,12 +63,14 @@ export function judge(parts: Parts): Verdict {
     const noOnset: Fault[] = [];
     const collisions: Fault[] = [];
     for (const [pulse, group] of landings) {
-      if (group.length === 1) {
-        if (isOnset.has(pulse)) continue;
-        const f = group[0] as Flight;
-        noOnset.push({ kind: 'no-onset', from: f.id, part, pulse: f.land, nearestOnset: nextOnset(mine, f.land, cycle) });
+      // Off the onsets every landing is its own fault; a collision is only ever on an onset.
+      if (!isOnset.has(pulse)) {
+        for (const f of group) {
+          noOnset.push({ kind: 'no-onset', from: f.id, part, pulse: f.land, nearestOnset: nextOnset(mine, f.land, cycle) });
+        }
         continue;
       }
+      if (group.length === 1) continue;
       const throws = group.map((f) => f.id).sort(byId);
       const key = throws.map((t) => `${t.part}:${t.index}`).join(',');
       if (seen.has(key)) continue;
@@ -88,9 +90,9 @@ export function judge(parts: Parts): Verdict {
 
 const byId = (p: ThrowId, q: ThrowId) => p.part - q.part || p.index - q.index;
 
-/** The first onset at or after `pulse` (unwrapped), or `pulse` itself when the part has none. */
-function nextOnset(onsets: readonly number[], pulse: number, cycle: number): number {
-  if (onsets.length === 0) return pulse;
+/** The first onset at or after `pulse` (unwrapped), or null when the part has none. */
+function nextOnset(onsets: readonly number[], pulse: number, cycle: number): number | null {
+  if (onsets.length === 0) return null;
   const r = mod(pulse, cycle);
   const after = onsets.find((o) => o >= r) ?? (onsets[0] as number) + cycle;
   return pulse - r + after;

@@ -33,6 +33,8 @@ test.each([
   ['x', { kind: 'bad-char', index: 0 }],
   ['2xx', { kind: 'bad-char', index: 2 }],
   ['3'.repeat(17), { kind: 'too-long', max: 16 }],
+  // A zero is no throw, so it has no destination.
+  ['20x', { kind: 'bad-target', index: 2 }],
 ])('rejects %j', (text, error) => {
   expect(parsePattern(text)).toEqual({ ok: false, error });
 });

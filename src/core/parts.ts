@@ -71,21 +71,19 @@ export function normalise(parts: Parts): Parts {
 }
 
 /**
- * Part `i` shifted to `phase` pulses of the current lattice (design §4). A phase between pulses
- * (half a pulse, a third) refines the lattice by the smallest factor that puts it on a pulse, up
+ * Part `i` shifted to `numerator / denominator` pulses of the current lattice (design §4), in
+ * integers. A phase between pulses (1/2, 1/3) refines the lattice by the reduced denominator, up
  * to MAX_PHASE_REFINEMENT; the result is normalised. The phase wraps into [0, the part's period
- * in pulses). A phase finer than the limit leaves the parts unchanged.
+ * in pulses). A finer phase, a denominator below 1 or a missing part leaves the parts unchanged.
  */
-export function withPhase(parts: Parts, i: PartIndex, phase: number): Parts {
-  let factor = 0;
-  for (let q = 1; q <= MAX_PHASE_REFINEMENT && factor === 0; q++) {
-    if (Math.abs(phase * q - Math.round(phase * q)) < 1e-9) factor = q;
-  }
-  const target = parts[i];
-  if (factor === 0 || target === undefined) return parts;
+export function withPhase(parts: Parts, i: PartIndex, numerator: number, denominator: number): Parts {
+  if (denominator < 1 || parts[i] === undefined) return parts;
+  const g = gcd(Math.abs(numerator), denominator);
+  const factor = denominator / g;
+  if (factor > MAX_PHASE_REFINEMENT) return parts;
   const fine = scale(parts, factor);
   const p = fine[i] as Part;
-  const shifted = { ...p, phase: mod(Math.round(phase * factor), p.spacing * periodOf(p)) };
+  const shifted = { ...p, phase: mod(numerator / g, p.spacing * periodOf(p)) };
   return normalise(fine.map((q, j) => (j === i ? shifted : q)));
 }
 
@@ -140,13 +138,17 @@ export function isVanillaPair(parts: Parts): boolean {
   );
 }
 
-/** The siteswap digits of a vanilla pair, at their shortest period. */
+/**
+ * The siteswap digits of a vanilla pair: 2m digits for m beats per part, halved to m only when m
+ * is odd and the halves are equal, which is how `vanillaPair` stores an odd-length siteswap. So
+ * `531`, `42` and `4242` all round-trip as written.
+ */
 export function vanillaDigits(parts: Parts): number[] {
   const [a, b] = parts.map((p) => (p.flights as { throws: readonly Throw[] }).throws) as [Throw[], Throw[]];
   const seq = a.flatMap((t, j) => [t.height, (b[j] as Throw).height]);
-  for (let p = 1; ; p++) {
-    if (seq.length % p === 0 && seq.every((d, i) => d === seq[i % p])) return seq.slice(0, p);
-  }
+  const m = a.length;
+  const halves = m % 2 === 1 && seq.every((d, i) => d === seq[(i + m) % (2 * m)]);
+  return halves ? seq.slice(0, m) : seq;
 }
 
 /**

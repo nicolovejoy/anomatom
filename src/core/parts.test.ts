@@ -55,9 +55,14 @@ describe('vanilla', () => {
     expect(textOf(three[0] as Part, three)).toBe('3');
   });
 
-  test('vanilla text reduces to its shortest period; letters are written as letters', () => {
-    const p = ok(partsFromVanilla('4141'));
-    expect(textOf(p[0] as Part, p)).toBe('41');
+  test.each(['42', '4242', '531', '51', '5151', '3', '441'])('%s round-trips as written', (text) => {
+    const p = ok(partsFromVanilla(text));
+    expect(textOf(p[0] as Part, p)).toBe(text);
+    expect(textOf(p[1] as Part, p)).toBe(text);
+  });
+
+  test('4242 keeps its 4-pulse cycle; letters are written as letters', () => {
+    expect(cycleOf(ok(partsFromVanilla('4242')))).toBe(4);
     const b = ok(partsFromVanilla('b1'));
     expect(textOf(b[0] as Part, b)).toBe('b1');
   });
@@ -171,7 +176,7 @@ describe('the lattice', () => {
 
   test('vanilla 531 as a phase: two spacing-1 parts, part 2 half a beat late, refine to spacing 2', () => {
     const lines = ok(partsFromLines(['5 3 1', '5 3 1'], { a: 1, b: 1 }));
-    const half = withPhase(lines, 1, 0.5);
+    const half = withPhase(lines, 1, 1, 2);
     expect(half.map((p) => [p.spacing, p.phase, p.unit])).toEqual([
       [2, 0, 2],
       [2, 1, 2],
@@ -181,21 +186,24 @@ describe('the lattice', () => {
 
   test('a phase on the lattice changes no spacing and wraps into the period', () => {
     const clap = partsFromOnsets([line('xxx.xx.x.xx.'), line('xxx.xx.x.xx.')], [1, 1]);
-    expect(withPhase(clap, 1, 3)[1]?.phase).toBe(3);
-    expect(withPhase(clap, 1, 15)[1]?.phase).toBe(3);
-    expect(withPhase(clap, 1, -1)[1]?.phase).toBe(11);
-    expect(cycleOf(withPhase(clap, 1, 9))).toBe(12);
+    expect(withPhase(clap, 1, 3, 1)[1]?.phase).toBe(3);
+    expect(withPhase(clap, 1, 15, 1)[1]?.phase).toBe(3);
+    expect(withPhase(clap, 1, -1, 1)[1]?.phase).toBe(11);
+    expect(cycleOf(withPhase(clap, 1, 9, 1))).toBe(12);
   });
 
   test('a third of a pulse refines three times; a phase past the limit or a missing part changes nothing', () => {
     const parts = partsFromOnsets([[X], [X]], [1, 1]);
-    const third = withPhase(parts, 0, 1 / 3);
+    const third = withPhase(parts, 0, 1, 3);
     expect(third.map((p) => [p.spacing, p.phase])).toEqual([
       [3, 1],
       [3, 0],
     ]);
-    expect(withPhase(parts, 0, Math.PI)).toBe(parts);
-    expect(withPhase(parts, 5, 1)).toBe(parts);
+    // 2/6 is 1/3: the denominator is reduced first.
+    expect(withPhase(parts, 0, 2, 6)).toEqual(third);
+    expect(withPhase(parts, 0, 1, 65)).toBe(parts);
+    expect(withPhase(parts, 0, 1, 0)).toBe(parts);
+    expect(withPhase(parts, 5, 1, 1)).toBe(parts);
   });
 
   test('an empty model has cycle 1', () => {

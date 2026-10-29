@@ -1,7 +1,7 @@
 import { describe, expect, test } from 'vitest';
 import { flightsOf } from './flights';
 import { crossGroups, judge } from './judge';
-import { partsFromLines, partsFromOnsets, partsFromVanilla } from './parts';
+import { onsetsOf, partsFromLines, partsFromOnsets, partsFromVanilla } from './parts';
 import { buildSchedule } from './schedule';
 import type { Event, Parts, Schedule } from './types';
 
@@ -92,7 +92,7 @@ describe('faulted groups still sound (design §6)', () => {
     ];
     const v = judge(parts);
     expect(v.groups[0]?.faults).toEqual([
-      { kind: 'no-onset', from: { part: 0, index: 0 }, part: 1, pulse: 2, nearestOnset: 2 },
+      { kind: 'no-onset', from: { part: 0, index: 0 }, part: 1, pulse: 2, nearestOnset: null },
       { kind: 'unfed', part: 0, pulse: 0 },
     ]);
     const s = buildSchedule(parts);
@@ -111,4 +111,31 @@ test('flightsOf: phase moves launches, which stay within the cycle, sorted by la
     { id: { part: 0, index: 0 }, from: 0, to: 0, beat: 1, cross: false, launch: 3, land: 7 },
   ]);
   expect(f.map((x) => x.launch)).toEqual([0, 1, 2, 3, 3]);
+});
+
+describe('review rulings (stream A review)', () => {
+  test('two flights landing off the onsets are two no-onset faults, never a collision: 1x 0 0 / 0 0 2', () => {
+    const v = judge(lines(['1x 0 0', '0 0 2'], 1, 1));
+    expect(v.groups).toHaveLength(1);
+    expect(v.groups[0]?.faults).toEqual([
+      { kind: 'no-onset', from: { part: 0, index: 0 }, part: 1, pulse: 1, nearestOnset: 2 },
+      { kind: 'no-onset', from: { part: 1, index: 2 }, part: 1, pulse: 4, nearestOnset: 5 },
+      { kind: 'unfed', part: 0, pulse: 0 },
+      { kind: 'unfed', part: 1, pulse: 2 },
+    ]);
+  });
+
+  test('a landing in a part with no onsets has no nearest onset: 1x 0 / 0 0', () => {
+    const v = judge(lines(['1x 0', '0 0'], 1, 1));
+    expect(v.groups[0]?.faults[0]).toEqual({ kind: 'no-onset', from: { part: 0, index: 0 }, part: 1, pulse: 1, nearestOnset: null });
+  });
+
+  test('a throw launches iff its height is positive: a non-positive manual height is no onset and no flight', () => {
+    const parts: Parts = [
+      { spacing: 1, phase: 0, unit: 1, flights: { kind: 'manual', throws: [{ height: -1, to: null }, { height: 3, to: null }] } },
+    ];
+    expect(onsetsOf(parts[0] as Parts[number])).toEqual([false, true]);
+    expect(flightsOf(parts).map((f) => [f.launch, f.land])).toEqual([[1, 4]]);
+    expect(throwsOf(buildSchedule(parts)).map((e) => e.pulse)).toEqual([1]);
+  });
 });

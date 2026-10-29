@@ -35,7 +35,7 @@ export interface Part {
   readonly flights: PartFlights;
 }
 
-/** The whole model: parts on one lattice, normalised so the gcd of every spacing and phase is 1. */
+/** The whole model: parts on one lattice, normalised so the gcd of every spacing, phase, unit and height is 1. */
 export type Parts = readonly Part[];
 
 export interface ThrowId {
@@ -58,8 +58,8 @@ export interface Flight {
 
 export type Fault =
   | { readonly kind: 'collision'; readonly part: PartIndex; readonly pulse: number; readonly throws: readonly ThrowId[] }
-  /** A flight lands on a pulse where the catching part has no onset (today's cross-off-grid, generalised). */
-  | { readonly kind: 'no-onset'; readonly from: ThrowId; readonly part: PartIndex; readonly pulse: number; readonly nearestOnset: number }
+  /** A flight lands on a pulse where the catching part has no onset (today's cross-off-grid, generalised). `nearestOnset` is the catching part's first onset at or after the landing, null when it has none. */
+  | { readonly kind: 'no-onset'; readonly from: ThrowId; readonly part: PartIndex; readonly pulse: number; readonly nearestOnset: number | null }
   /** An onset that no flight lands on. */
   | { readonly kind: 'unfed'; readonly part: PartIndex; readonly pulse: number };
 
