@@ -78,6 +78,36 @@ export const copy = {
   // C: Mapping and sound
   // -------------------------------------------------------------------------------------------
 
+  /** Labels for the sound panel's choices (SPEC §4.3); controls stay labels, not sentences. */
+  presetNames: {
+    'height-drum': 'Height to drum',
+    'height-pitch': 'Height to pitch',
+    'ball-pitch': 'Ball to pitch',
+    custom: 'Custom',
+  },
+  kitNames: { 'TR-808': 'TR-808' },
+  padInstrumentNames: { mellotron: 'Mellotron', soundfont: 'Soundfont pad' },
+  padChordNames: { Dm9: 'Dm9', Am7: 'Am7', Cmaj7: 'Cmaj7', F69: 'F6/9', open5: 'Open fifth' } as Record<string, string>,
+  /** The kit's sounds, by smplr's group name. */
+  sampleNames: {
+    clap: 'Clap',
+    clave: 'Clave',
+    'conga-hi': 'Conga, high',
+    'conga-low': 'Conga, low',
+    'conga-mid': 'Conga, mid',
+    cowbell: 'Cowbell',
+    cymbal: 'Cymbal',
+    'hihat-close': 'Hi-hat, closed',
+    'hihat-open': 'Hi-hat, open',
+    kick: 'Kick',
+    maraca: 'Maraca',
+    'mid-tom': 'Tom, mid',
+    rimshot: 'Rimshot',
+    snare: 'Snare',
+    'tom-hi': 'Tom, high',
+    'tom-low': 'Tom, low',
+  } as Record<string, string>,
+  noSample: 'None',
   // -------------------------------------------------------------------------------------------
   // D: About
   // -------------------------------------------------------------------------------------------
