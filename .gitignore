@@ -6,3 +6,5 @@ coverage/
 !.env.tpl
 .DS_Store
 .playwright-mcp/
+test-results/
+playwright-report/
