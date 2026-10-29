@@ -95,3 +95,29 @@ test('play preloads the kit again, so a load that failed at page open is retried
   player.stop();
   vi.useRealTimers();
 });
+
+test('position is the playhead in pulses, fractional, and 0 when stopped', () => {
+  vi.useFakeTimers();
+  const { sound, tick } = fakeSound();
+  const player = createPlayer(sound);
+  expect(player.position()).toBe(0);
+  player.play(schedule('3'), DEFAULT_MAPPING, 120); // 0.25 s per pulse, starts 0.05 s after now
+  tick(0.05 + 0.625);
+  expect(player.position()).toBeCloseTo(2.5);
+  player.stop();
+  expect(player.position()).toBe(0);
+  vi.useRealTimers();
+});
+
+test('the schedule being played is exposed while playing, null when stopped', () => {
+  vi.useFakeTimers();
+  const { sound } = fakeSound();
+  const player = createPlayer(sound);
+  expect(player.schedule()).toBeNull();
+  const s = schedule('441');
+  player.play(s, DEFAULT_MAPPING, 120);
+  expect(player.schedule()).toBe(s);
+  player.stop();
+  expect(player.schedule()).toBeNull();
+  vi.useRealTimers();
+});

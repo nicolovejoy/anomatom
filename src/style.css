@@ -1,0 +1,42 @@
+/* Layout only; colours and sizes that matter live in tunables. */
+body {
+  margin: 0;
+  padding: 16px;
+  font: 16px/1.4 system-ui, sans-serif;
+  background: #0e1013;
+  color: #e6e8ec;
+  max-width: 900px;
+  margin-inline: auto;
+}
+h1 {
+  margin: 0 0 4px;
+}
+#ladder {
+  display: block;
+  width: 100%;
+  border-radius: 6px;
+  margin: 12px 0;
+}
+.row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+  margin: 8px 0;
+}
+input {
+  font: inherit;
+  padding: 6px 8px;
+  width: 8em;
+}
+button {
+  font: inherit;
+  padding: 6px 12px;
+}
+.chip[aria-pressed='true'] {
+  outline: 2px solid #3a7be6;
+}
+.hint {
+  opacity: 0.7;
+  font-size: 0.9em;
+}

@@ -8,38 +8,51 @@ import { LOOKAHEAD_SECONDS, SCHEDULER_INTERVAL_MS, START_DELAY_SECONDS } from '.
 
 export function createPlayer(sound: DrumSound) {
   let timer: ReturnType<typeof setInterval> | undefined;
+  let start = 0;
+  let pulseLen = 1;
+  let current: Schedule | null = null;
 
   function stop() {
     if (timer !== undefined) clearInterval(timer);
     timer = undefined;
+    current = null;
   }
 
+  function play(schedule: Schedule, mapping: Mapping, bpm: number) {
+    stop();
+    // A gesture: resume the context, and retry any kit that failed to load at page open.
+    sound.resume();
+    sound.preload(mapping);
+    pulseLen = pulseSeconds(bpm, schedule.grids);
+    start = sound.now() + START_DELAY_SECONDS;
+    current = schedule;
+    let scheduledTo = 0;
+    const tick = () => {
+      // From wherever the last window ended, or from now if the clock has run past it (a
+      // backgrounded tab throttles timers while the audio clock keeps going): missed events
+      // are skipped, never piled onto one instant.
+      const from = Math.max(scheduledTo, sound.now());
+      const until = sound.now() + LOOKAHEAD_SECONDS;
+      for (const t of eventsBetween(schedule, start, pulseLen, from, until)) {
+        const hit = hitFor(t.event, mapping, schedule.grids);
+        if (hit) sound.play(hit, t.time, pulseLen);
+      }
+      scheduledTo = until;
+    };
+    tick();
+    timer = setInterval(tick, SCHEDULER_INTERVAL_MS);
+  }
+
+  const playing = () => timer !== undefined;
+
   return {
-    play(schedule: Schedule, mapping: Mapping, bpm: number) {
-      stop();
-      // A gesture: resume the context, and retry any kit that failed to load at page open.
-      sound.resume();
-      sound.preload(mapping);
-      const pulseLen = pulseSeconds(bpm, schedule.grids);
-      const start = sound.now() + START_DELAY_SECONDS;
-      let scheduledTo = 0;
-      const tick = () => {
-        // From wherever the last window ended, or from now if the clock has run past it (a
-        // backgrounded tab throttles timers while the audio clock keeps going): missed events
-        // are skipped, never piled onto one instant.
-        const from = Math.max(scheduledTo, sound.now());
-        const until = sound.now() + LOOKAHEAD_SECONDS;
-        for (const t of eventsBetween(schedule, start, pulseLen, from, until)) {
-          const hit = hitFor(t.event, mapping, schedule.grids);
-          if (hit) sound.play(hit, t.time, pulseLen);
-        }
-        scheduledTo = until;
-      };
-      tick();
-      timer = setInterval(tick, SCHEDULER_INTERVAL_MS);
-    },
+    play,
     stop,
-    playing: () => timer !== undefined,
+    playing,
+    /** What is sounding right now, so the picture follows the sound, not the latest edit. */
+    schedule: () => current,
+    /** The playhead in pulses since the start, fractional; 0 when stopped. */
+    position: () => (playing() ? (sound.now() - start) / pulseLen : 0),
   };
 }
 
