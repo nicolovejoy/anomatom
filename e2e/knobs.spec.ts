@@ -1,6 +1,6 @@
 // The knob panel and the fix state (SPEC §4.1, §4.2), headless. Canvas content (the warning
 // flights, the greyed strip, the accent marks) is checked by screenshot, saved to test-results.
-import { expect, test, type Page } from '@playwright/test';
+import { expect, test, type Page } from './fixtures';
 
 const shot = (page: Page, name: string) => page.screenshot({ path: `test-results/knobs-${name}.png`, fullPage: true });
 const hand1 = (page: Page) => page.locator('#hand-0');
@@ -148,7 +148,8 @@ test('Space types a space in a pattern input; Enter there plays; Space elsewhere
 test('swap by keyboard: Shift+Arrow over one throw chooses it', async ({ page }) => {
   await page.goto('/');
   await hand1(page).fill('531');
-  await hand1(page).press('Home');
+  // Home is not "start of line" on macOS WebKit and Firefox, so put the caret there directly.
+  await hand1(page).evaluate((el: HTMLInputElement) => el.setSelectionRange(0, 0));
   await hand1(page).press('Shift+ArrowRight');
   await hand1(page).press('ArrowRight');
   await hand1(page).press('Shift+ArrowRight');

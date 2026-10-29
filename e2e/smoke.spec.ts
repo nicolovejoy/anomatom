@@ -1,9 +1,9 @@
 // SPEC §7.8: load the page, press play, see the first Event fire. Audio output is not
 // observable (samples load from a CDN and stay silent until they arrive), so the page publishes
 // how many events the player has handed to the sampler in `data-events-scheduled` on #app.
-import { expect, test } from '@playwright/test';
+import { expect, test } from './fixtures';
 
-const scheduled = async (page: import('@playwright/test').Page) =>
+const scheduled = async (page: import('./fixtures').Page) =>
   Number(await page.locator('#app').getAttribute('data-events-scheduled'));
 
 test('pressing play schedules events, and they keep coming as the audio clock runs', async ({ page }) => {

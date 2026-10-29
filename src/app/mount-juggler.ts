@@ -18,7 +18,11 @@ export const mountJuggler: Mount = (root) => {
     draw(view) {
       // Before the first valid edit there is nothing to show; the canvas keeps what it had.
       if (view.segments.length === 0) return;
-      drawJuggler(canvas, jugglerFrame(view.segments, view.now, JUGGLER));
+      const frame = jugglerFrame(view.segments, view.now, JUGGLER);
+      // Test hook (SPEC §7.1): how many balls are drawn, so the browser tests can compare views.
+      const balls = String(frame.balls.length);
+      if (canvas.dataset.balls !== balls) canvas.dataset.balls = balls;
+      drawJuggler(canvas, frame);
     },
   };
 };

@@ -47,6 +47,9 @@ export const mountLadder: Mount = (root, { store }) => {
       // Before the first valid edit there is nothing to show; the canvas keeps what it had.
       if (view.segments.length === 0) return;
       const frame = ladderFrame(view.segments, view.now, LADDER);
+      // Test hook (SPEC §7.1): how many distinct balls the strip draws, to compare with the juggler.
+      const balls = String(new Set(frame.bars.map((b) => b.colour)).size);
+      if (canvas.dataset.balls !== balls) canvas.dataset.balls = balls;
       drawLadder(canvas, frame, { accents: accents(frame) });
     },
   };
