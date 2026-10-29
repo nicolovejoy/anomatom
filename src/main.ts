@@ -7,6 +7,7 @@ import type { AppContext, Mount, Mounted } from './app/mount';
 import { mountJuggler } from './app/mount-juggler';
 import { mountLadder } from './app/mount-ladder';
 import { mountKnobs } from './app/mount-knobs';
+import { mountFirstMinute } from './app/mount-first-minute';
 import { mountSoundPanel } from './app/mount-sound-panel';
 import { mountAbout } from './app/mount-about';
 import { mountShare } from './app/mount-share';
@@ -26,6 +27,7 @@ if (app) {
       <section class="region-ladder"></section>
       <section class="region-knobs"></section>
       <section class="region-sound-panel"></section>
+      <section class="region-first-minute"></section>
     </div>
     <section class="region-about" hidden></section>
   `;
@@ -47,6 +49,7 @@ if (app) {
     [mountLadder, region('ladder')],
     [mountKnobs, region('knobs')],
     [mountSoundPanel, region('sound-panel')],
+    [mountFirstMinute, region('first-minute')],
     [mountAbout, region('about')],
     [mountShare, app],
   ];

@@ -7,7 +7,7 @@ const scheduled = async (page: import('./fixtures').Page) =>
   Number(await page.locator('#app').getAttribute('data-events-scheduled'));
 
 test('pressing play schedules events, and they keep coming as the audio clock runs', async ({ page }) => {
-  await page.goto('/');
+  await page.goto('/#v1.e30');
   await expect(page.locator('#app')).toHaveAttribute('data-events-scheduled', '0');
   await expect(page.locator('#status')).toHaveText(/3/);
 

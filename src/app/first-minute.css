@@ -1,0 +1,129 @@
+/* First minute (stream B). Colours come from stream A's custom properties; the fallbacks are the mock's. */
+.region-first-minute {
+  display: flex;
+  flex-direction: column;
+  flex-grow: 1;
+  font-family: var(--font-ui, 'IBM Plex Sans', system-ui, sans-serif);
+  color: var(--text, #e6e8ec);
+}
+.region-first-minute[hidden] {
+  display: none;
+}
+.fm-line {
+  margin: 0;
+  padding: 8px 4px 12px;
+  font-size: 17px;
+  line-height: 1.35;
+  color: var(--text-2, #c9ced8);
+}
+.fm-cards {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+}
+.fm-card {
+  height: 78px; /* fixed: " · playing" may wrap the name to two lines but never moves the grid */
+  box-sizing: border-box;
+  border: 0;
+  border-radius: 16px;
+  background: var(--raised, #20242c);
+  color: var(--text, #e6e8ec);
+  padding: 12px 14px;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  justify-content: space-between;
+  text-align: left;
+  cursor: pointer;
+}
+.fm-card.fm-wide {
+  grid-column: span 2;
+  flex-direction: row;
+  align-items: center;
+}
+.fm-card.fm-playing {
+  box-shadow: inset 0 0 0 2px var(--accent, #f0c33c);
+}
+.fm-text {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  justify-content: space-between;
+  flex-grow: 1;
+  align-self: stretch;
+}
+.fm-wide .fm-text {
+  flex-grow: 0;
+  align-self: auto;
+  justify-content: flex-start;
+  gap: 6px;
+}
+.fm-pattern {
+  font-family: var(--font-mono, 'IBM Plex Mono', ui-monospace, monospace);
+  font-size: 22px;
+  line-height: 1;
+}
+.fm-wide .fm-pattern {
+  font-size: 20px;
+}
+.fm-name {
+  font-size: 13px;
+  line-height: 16px;
+  color: var(--muted, #8b93a1);
+}
+.fm-playing .fm-name {
+  color: var(--text-2, #c9ced8);
+}
+.fm-ratio {
+  font-family: var(--font-mono, 'IBM Plex Mono', ui-monospace, monospace);
+  font-size: 15px;
+  color: var(--accent, #f0c33c);
+}
+.fm-spacer {
+  flex-grow: 1;
+  min-height: 16px;
+}
+.fm-bar {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+.fm-own {
+  flex-grow: 1;
+  height: 56px;
+  border: 0;
+  border-radius: 14px;
+  background: var(--surface, #171a20);
+  color: var(--text, #e6e8ec);
+  font-size: 16px;
+  font-weight: 500;
+  box-shadow: inset 0 0 0 1px var(--rule, #2a2f38);
+  cursor: pointer;
+}
+.fm-play {
+  width: 64px;
+  height: 64px;
+  flex-shrink: 0;
+  border: 0;
+  border-radius: 32px;
+  background: var(--accent, #f0c33c);
+  color: var(--ground, #0e1013);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+}
+.fm-card:focus-visible,
+.fm-own:focus-visible,
+.fm-play:focus-visible {
+  outline: 2px solid var(--text, #e6e8ec);
+  outline-offset: 2px;
+}
+
+/* While first minute shows, the ladder and the play-view controls give way to it. */
+#app.is-first-minute .region-ladder,
+#app.is-first-minute .region-knobs,
+#app.is-first-minute .region-sound-panel,
+#app.is-first-minute header p {
+  display: none;
+}

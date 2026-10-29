@@ -9,7 +9,7 @@ interface Icon {
 }
 
 test('the manifest loads and every icon it lists returns 200', async ({ page, request }) => {
-  await page.goto('/');
+  await page.goto('/#v1.e30');
   const href = await page.locator('link[rel="manifest"]').getAttribute('href');
   expect(href).toBe('/manifest.webmanifest');
   const res = await request.get(href as string);
@@ -33,7 +33,7 @@ test('the manifest loads and every icon it lists returns 200', async ({ page, re
 });
 
 test('the touch icon and the favicon are served', async ({ page, request }) => {
-  await page.goto('/');
+  await page.goto('/#v1.e30');
   for (const sel of ['link[rel="apple-touch-icon"]', 'link[rel="icon"]']) {
     const href = await page.locator(sel).getAttribute('href');
     expect((await request.get(href as string)).status()).toBe(200);
@@ -51,7 +51,7 @@ test('og.png is served at 1200 by 630', async ({ request }) => {
 });
 
 test('the head carries the sharing tags', async ({ page }) => {
-  await page.goto('/');
+  await page.goto('/#v1.e30');
   const meta = (attr: 'name' | 'property', key: string) =>
     page.locator(`meta[${attr}="${key}"]`).getAttribute('content');
   const description = 'Type a juggling pattern. anomatom juggles it and plays it as a drum machine, from one clock.';

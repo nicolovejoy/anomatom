@@ -42,7 +42,7 @@ test.describe('SPEC 7.1: the classic patterns validate and play at 1:1', () => {
   for (const [pattern, balls] of cases) {
     test(`${pattern}: ${balls} balls, ladder and juggler agree, events schedule`, async ({ page }) => {
       const errors = watchErrors(page);
-      await page.goto('/');
+      await page.goto('/#v1.e30');
       await hand(page).fill(pattern);
       await expect(status(page)).toHaveText(`I have ${balls} balls.`);
       await expect(page.locator('.chip[aria-pressed="true"]')).toHaveText('1:1');
@@ -70,7 +70,7 @@ test.describe('SPEC 7.2: fractional counts and collisions come with valid fixes'
     ['4441', '3.25'],
   ]) {
     test(`${pattern}: ${balls} balls, and every fix is valid`, async ({ page }) => {
-      await page.goto('/');
+      await page.goto('/#v1.e30');
       await hand(page).fill(pattern);
       await expect(status(page)).toContainText(`${balls} balls`);
       await expect(page.locator('#play')).toBeDisabled();
@@ -92,7 +92,7 @@ test.describe('SPEC 7.2: fractional counts and collisions come with valid fixes'
     ['510', 'throws 1, 2 and 3 all land in hand 1 on beat 3'],
   ] as const) {
     test(`${pattern}: the collision names the throws, and every fix is valid`, async ({ page }) => {
-      await page.goto('/');
+      await page.goto('/#v1.e30');
       await hand(page).fill(pattern);
       await expect(status(page)).toContainText(named);
       await expect(page.locator('#play')).toBeDisabled();
@@ -110,7 +110,7 @@ test.describe('SPEC 7.2: fractional counts and collisions come with valid fixes'
 
 test.describe('SPEC 7.3: the 3:2 demo', () => {
   test('2 against 2 at 3:2 validates and plays; the strip draws 4 balls', async ({ page }) => {
-    await page.goto('/');
+    await page.goto('/#v1.e30');
     await page.locator('.chip', { hasText: '3:2' }).click();
     await hand(page, 0).fill('2');
     await hand(page, 1).fill('2');
@@ -124,7 +124,7 @@ test.describe('SPEC 7.3: the 3:2 demo', () => {
   });
 
   test('2 2x 2 / 2x 2 validates and plays with the accent', async ({ page }) => {
-    await page.goto('/');
+    await page.goto('/#v1.e30');
     await page.locator('.chip', { hasText: '3:2' }).click();
     await hand(page, 0).fill('2 2x 2');
     await hand(page, 1).fill('2x 2');
@@ -138,7 +138,7 @@ test.describe('SPEC 7.3: the 3:2 demo', () => {
   });
 
   test('2x 2 2 / 2 2x is rejected, naming the landing pulse', async ({ page }) => {
-    await page.goto('/');
+    await page.goto('/#v1.e30');
     await page.locator('.chip', { hasText: '3:2' }).click();
     await hand(page, 0).fill('2x 2 2');
     await hand(page, 1).fill('2 2x');
@@ -151,7 +151,7 @@ test.describe('SPEC 7.3: the 3:2 demo', () => {
 test.describe('SPEC 7.4: changes while playing land at the next cycle', () => {
   test('a pattern change: pending, then the switch, nothing restarts, nothing throws', async ({ page }) => {
     const errors = watchErrors(page);
-    await page.goto('/');
+    await page.goto('/#v1.e30');
     // Slow, so the wait for the next cycle outlasts the poll interval.
     await page.locator('#bpm').fill('40');
     await page.locator('#bpm').press('Enter');
@@ -176,7 +176,7 @@ test.describe('SPEC 7.4: changes while playing land at the next cycle', () => {
 
   test('a tempo change: pending, then the switch, still playing', async ({ page }) => {
     const errors = watchErrors(page);
-    await page.goto('/');
+    await page.goto('/#v1.e30');
     await page.locator('#bpm').fill('40');
     await page.locator('#bpm').press('Enter');
     await hand(page).fill('97531');
