@@ -114,7 +114,8 @@ if (app) {
   // sees it: a button would otherwise activate (a ratio chip clicked earlier keeps focus), and
   // an input would get a space, which the parser ignores anyway. Buttons activate on keyup in
   // some browsers, so that is suppressed too.
-  const isSpace = (e: KeyboardEvent) => e.code === 'Space' && !e.ctrlKey && !e.metaKey && !e.altKey;
+  const isSpace = (e: KeyboardEvent) =>
+    e.code === 'Space' && !e.ctrlKey && !e.metaKey && !e.altKey && !e.isComposing;
   document.addEventListener(
     'keydown',
     (e) => {
