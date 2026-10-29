@@ -2,7 +2,7 @@ import { defineConfig, devices } from '@playwright/test';
 
 // The browser smoke test (SPEC §7.8). Always headless: never --headed, --ui, --debug or PWDEBUG.
 // Locally it runs on Edge (`npm run e2e`); CI runs the bundled Chromium (`--project=chromium`).
-const port = 4173;
+const port = Number(process.env.E2E_PORT ?? 4173); // E2E_PORT: parallel worktrees need their own
 
 export default defineConfig({
   testDir: 'e2e',
