@@ -10,6 +10,7 @@ test('the defaults come from the tunables', () => {
     volume: DEFAULT_VOLUME,
     mapping: DEFAULT_MAPPING,
     lastStateHash: null,
+    soundPanelOpen: false,
   });
 });
 

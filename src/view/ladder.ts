@@ -8,6 +8,7 @@
 import { isCoincident } from '../core/grid';
 import { mod } from '../core/math';
 import type { Hand } from '../core/types';
+import { ballColours } from './colours';
 import type { Segment } from './types';
 
 export interface LadderView {
@@ -82,41 +83,12 @@ export function axisPulse(segments: readonly Segment[], t: number): number {
   return (origins(segments)[i] as number) + (t - s.startTime) / s.pulseLen;
 }
 
-/**
- * Each segment's colour for each of its balls. A ball the switch carries keeps the colour of
- * the ball it continues (and so, transitively, of the ball it first was). A ball it does not
- * carry takes the lowest colour no carried ball in that segment uses.
- */
-function colours(segments: readonly Segment[]): Map<number, number>[] {
-  const out: Map<number, number>[] = [];
-  segments.forEach((s, i) => {
-    const previous = out[i - 1];
-    const map = new Map<number, number>();
-    if (previous) {
-      for (let ball = 0; ball < s.schedule.balls; ball++) {
-        const old = s.carry.get(ball);
-        const colour = old === undefined ? undefined : previous.get(old);
-        if (colour !== undefined) map.set(ball, colour);
-      }
-    }
-    const used = new Set(map.values());
-    let next = 0;
-    for (let ball = 0; ball < s.schedule.balls; ball++) {
-      if (map.has(ball)) continue;
-      while (used.has(next)) next++;
-      map.set(ball, next++);
-    }
-    out.push(map);
-  });
-  return out;
-}
-
-export function ladderFrame(segments: readonly Segment[], now: number, view: LadderView): Frame {
-  const playhead = view.windowPulses * view.playheadFraction;
+export function ladderFrame(segments: readonly Segment[], now: number, layout: LadderView): Frame {
+  const playhead = layout.windowPulses * layout.playheadFraction;
   const start = axisPulse(segments, now) - playhead;
-  const end = start + view.windowPulses;
+  const end = start + layout.windowPulses;
   const origin = origins(segments);
-  const colour = colours(segments);
+  const colour = ballColours(segments);
 
   const bars: Bar[] = [];
   const ticks: Tick[] = [];
@@ -140,6 +112,9 @@ export function ladderFrame(segments: readonly Segment[], now: number, view: Lad
         let land = u0 + launch + e.flight;
         // Retiming: a flight crossing the boundary lands at pulse p of the next segment,
         // where B + p is its landing in this segment's count (docs/plans/v1-parallel.md).
+        // On the pulse axis nextOrigin + (launch + flight - B) equals u0 + launch + flight, so
+        // retiming does not move the bar in pulses: it is visible only through time (axisPulse),
+        // as the next segment's pulse length changes how fast the strip scrolls past it.
         if (next && launch + e.flight > B) land = nextOrigin + (launch + e.flight - B);
         bars.push({
           x0: u0 + launch - start,
@@ -170,5 +145,5 @@ export function ladderFrame(segments: readonly Segment[], now: number, view: Lad
     }
   });
 
-  return { start, windowPulses: view.windowPulses, playhead, bars, ticks, cycleLines };
+  return { start, windowPulses: layout.windowPulses, playhead, bars, ticks, cycleLines };
 }

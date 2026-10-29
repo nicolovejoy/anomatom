@@ -29,6 +29,9 @@ export const mountKnobs: Mount = (root, { store, player }) => {
       </div>
     </form>
     <p id="status" aria-live="polite"></p>
+    <dl class="glossary">
+      ${copy.glossary.map((g) => `<dt>${g.term}</dt><dd>${g.text}</dd>`).join('')}
+    </dl>
   `;
 
   const form = root.querySelector('form') as HTMLFormElement;
@@ -114,9 +117,23 @@ export const mountKnobs: Mount = (root, { store, player }) => {
     });
   }
   for (const chip of chips) {
-    chip.addEventListener('click', () => {
-      store.set({ ratio: reduceRatio({ a: Number(chip.dataset.a), b: Number(chip.dataset.b) }) });
+    chip.addEventListener('keydown', (e) => {
+      // Arrows walk the ratio chips, wrapping, and take focus with them. Space is left alone.
+      const back = e.key === 'ArrowLeft' || e.key === 'ArrowUp';
+      const forward = e.key === 'ArrowRight' || e.key === 'ArrowDown';
+      if (!(back || forward) || e.ctrlKey || e.metaKey || e.altKey) return;
+      const step = back ? -1 : 1;
+      e.preventDefault();
+      const target = chips[(chips.indexOf(chip) + step + chips.length) % chips.length] as HTMLButtonElement;
+      select(target);
+      target.focus();
     });
+    chip.addEventListener('click', () => select(chip));
+  }
+  /** Makes `chip`'s ratio the active one; the chip already active changes nothing. */
+  function select(chip: HTMLButtonElement) {
+    if (chip.getAttribute('aria-pressed') === 'true') return;
+    store.set({ ratio: reduceRatio({ a: Number(chip.dataset.a), b: Number(chip.dataset.b) }) });
   }
   form.addEventListener('submit', (e) => {
     e.preventDefault();
