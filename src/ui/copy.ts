@@ -78,9 +78,63 @@ export const copy = {
   // C: Mapping and sound
   // -------------------------------------------------------------------------------------------
 
+  /** Labels for the sound panel's choices (SPEC §4.3); controls stay labels, not sentences. */
+  presetNames: {
+    'height-drum': 'Height to drum',
+    'height-pitch': 'Height to pitch',
+    'ball-pitch': 'Ball to pitch',
+    custom: 'Custom',
+  },
+  kitNames: { 'TR-808': 'TR-808' },
+  padInstrumentNames: { mellotron: 'Mellotron', soundfont: 'Soundfont pad' },
+  padChordNames: { Dm9: 'Dm9', Am7: 'Am7', Cmaj7: 'Cmaj7', F69: 'F6/9', open5: 'Open fifth' } as Record<string, string>,
+  /** The kit's sounds, by smplr's group name. */
+  sampleNames: {
+    clap: 'Clap',
+    clave: 'Clave',
+    'conga-hi': 'Conga, high',
+    'conga-low': 'Conga, low',
+    'conga-mid': 'Conga, mid',
+    cowbell: 'Cowbell',
+    cymbal: 'Cymbal',
+    'hihat-close': 'Hi-hat, closed',
+    'hihat-open': 'Hi-hat, open',
+    kick: 'Kick',
+    maraca: 'Maraca',
+    'mid-tom': 'Tom, mid',
+    rimshot: 'Rimshot',
+    snare: 'Snare',
+    'tom-hi': 'Tom, high',
+    'tom-low': 'Tom, low',
+  } as Record<string, string>,
+  noSample: 'None',
   // -------------------------------------------------------------------------------------------
   // D: About
   // -------------------------------------------------------------------------------------------
+
+  aboutIdeaHeading: 'The idea',
+  aboutIdea: [
+    'A siteswap ladder diagram is a piano roll. Each throw is a note. It starts when a ball leaves a hand and ends when the ball lands, so the height of the throw is the length of the note.',
+    'My hands are two voices. Give each hand its own beat and I play a polyrhythm: three beats in one hand against two in the other is two grids laid over each other.',
+    'The rule that keeps two balls from landing in one hand at once is the rule that keeps two notes from ending on one beat in one voice. If I can juggle it, I can play it.',
+  ],
+  aboutSoundHeading: 'How I make sound',
+  aboutSound: [
+    'I keep one clock, the audio clock. Nothing else keeps time. The picture reads it on every frame.',
+    'From your pattern I build a list of Events: a throw or a catch, in a hand, at a whole-number pulse. I turn pulses into seconds only when I schedule a sound or draw a frame.',
+    'The Mapping decides what each Event sounds like: which drum, how long, how loud, and which side. The sound panel edits the Mapping and nothing else does.',
+  ],
+  aboutReadingHeading: 'What I read',
+  aboutReadingIntro: 'The numbers are the ones the math notes cite.',
+  aboutCreditsHeading: 'Credits',
+  aboutCredits: [
+    { name: 'sani.js', url: 'https://github.com/monkape/sani.js', note: 'whose motion model my juggler ports. MIT.' },
+    { name: 'smplr', url: 'https://github.com/danigb/smplr', note: 'which plays the sampled drums. MIT.' },
+    { name: 'L6', url: 'https://github.com/nicolovejoy/l6-music', note: 'whose audio code I reuse.' },
+  ] as const,
+  aboutRepo: 'My source is on GitHub',
+  aboutRepoUrl: 'https://github.com/nicolovejoy/anomatom',
+  aboutLicence: 'It is open source under the MIT licence.',
 
   // -------------------------------------------------------------------------------------------
   // E: Knobs

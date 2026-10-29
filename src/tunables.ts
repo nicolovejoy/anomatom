@@ -1,6 +1,6 @@
 // Every tunable lives here. Nothing else holds a magic number.
 // One section per stream of docs/plans/v1-parallel.md; each stream edits only its own section.
-import type { Mapping } from './sound/mapping';
+import type { Mapping, PadChord, Sample } from './sound/mapping';
 
 // ---------------------------------------------------------------------------------------------
 // Wave 0: shell
@@ -101,27 +101,113 @@ export const FIXES = { count: 3, budget: 20_000 } as const;
 // C: Mapping and sound
 // ---------------------------------------------------------------------------------------------
 
+/** Every sample of smplr's TR-808 (its dm.json groups), for the sound panel's dropdowns and for validating a shared link. */
+export const KIT_SAMPLES: readonly string[] = [
+  'clap',
+  'clave',
+  'conga-hi',
+  'conga-low',
+  'conga-mid',
+  'cowbell',
+  'cymbal',
+  'hihat-close',
+  'hihat-open',
+  'kick',
+  'maraca',
+  'mid-tom',
+  'rimshot',
+  'snare',
+  'tom-hi',
+  'tom-low',
+];
+
+/** The panel's ranges (SPEC §4.3). */
+export const PAN_RANGE = { min: -1, max: 1 } as const;
+export const GAIN_RANGE = { min: 0, max: 1 } as const;
+export const CROSS_BOOST_RANGE = { min: 0, max: 40 } as const;
+
+/**
+ * Crossings to filter (MATH §5, SPEC §6). The low-pass cutoff runs from `low` at no crossings to
+ * `high` at FILTER_FULL_CROSSINGS or more, on a log scale (pitch is heard in octaves, so a
+ * linear Hz ramp would seem to do nothing until the top). Monotone: more crossings, brighter.
+ */
+export const FILTER_FULL_CROSSINGS = 12;
+/** Cutoff when the filter is off: above hearing, so the filter is transparent. */
+export const FILTER_OPEN_HZ = 20000;
+/** The range the panel offers, and the default range when the filter is switched on. */
+export const FILTER_HZ_RANGE = { min: 100, max: 20000 } as const;
+export const DEFAULT_FILTER_HZ = { low: 400, high: 12000 } as const;
+/** Time constant, seconds, of the ramp to a new master volume or cutoff, so a knob never clicks. */
+export const PARAM_SMOOTH_SECONDS = 0.02;
+
+/** Downbeat pad: MIDI-style velocity, and how long a hit lasts when the caller gives no cycle length. */
+export const PAD_VELOCITY = 70;
+export const PAD_HOLD_PULSES = 8;
+/** smplr volume (0-127) of the pad: under the drums. */
+export const PAD_VOLUME = 70;
+/** smplr instrument names behind each pad choice. */
+export const PAD_INSTRUMENTS = { mellotron: 'MKII VIOLINS', soundfont: 'pad_2_warm' } as const;
+/** Chord notes, low to high. */
+export const PAD_CHORDS: Readonly<Record<PadChord, readonly string[]>> = {
+  Dm9: ['D3', 'F3', 'A3', 'C4', 'E4'],
+  Am7: ['A2', 'C3', 'E3', 'G3'],
+  Cmaj7: ['C3', 'E3', 'G3', 'B3'],
+  F69: ['F3', 'A3', 'C4', 'D4', 'G4'],
+  open5: ['D3', 'A3', 'D4'],
+};
+
+/** Sounds by ball for the ball-to-pitch preset, low to high; ball n plays entry n mod length. */
+const BALL_PITCH: readonly string[] = [
+  'kick',
+  'tom-low',
+  'conga-low',
+  'mid-tom',
+  'conga-mid',
+  'tom-hi',
+  'conga-hi',
+  'rimshot',
+  'clave',
+];
+
+function heights(names: readonly Sample[]): Record<number, Sample> {
+  return Object.fromEntries(names.map((n, i) => [i + 1, n]));
+}
+
 /** SPEC §6: the v1 mapping. Sample names are smplr's TR-808 groups. */
-export const DEFAULT_MAPPING: Mapping = {
+const HEIGHT_DRUM: Mapping = {
   kit: 'TR-808',
-  perHeight: {
-    1: 'hihat-close',
-    2: 'hihat-close',
-    3: 'snare',
-    4: 'tom-low',
-    5: 'kick',
-    6: 'kick',
-    7: 'kick',
-    8: 'kick',
-    9: 'kick',
-  },
+  perHeight: heights(['hihat-close', 'hihat-close', 'snare', 'tom-low', 'kick', 'kick', 'kick', 'kick', 'kick']),
+  byBall: null,
   hands: [
     { pan: -0.6, gain: 1 },
     { pan: 0.6, gain: 1 },
   ],
   catches: { on: false, sample: 'rimshot' },
   crossAccent: { velocity: 20, downbeat: 'clap' },
+  filter: { on: false, ...DEFAULT_FILTER_HZ },
+  pad: { on: false, instrument: 'mellotron', chord: 'Dm9' },
 };
+
+/** Height to pitch: the higher the throw, the lower the sound, nine distinct steps. */
+const HEIGHT_PITCH: Mapping = {
+  ...HEIGHT_DRUM,
+  perHeight: heights(['rimshot', 'clave', 'conga-hi', 'tom-hi', 'conga-mid', 'mid-tom', 'conga-low', 'tom-low', 'kick']),
+};
+
+/** Ball to pitch: each ball keeps one sound whatever its height, so height picks nothing. */
+const BALL_TO_PITCH: Mapping = {
+  ...HEIGHT_DRUM,
+  perHeight: heights(Array<Sample>(9).fill('conga-mid')),
+  byBall: BALL_PITCH,
+};
+
+export const PRESET_MAPPINGS = {
+  'height-drum': HEIGHT_DRUM,
+  'height-pitch': HEIGHT_PITCH,
+  'ball-pitch': BALL_TO_PITCH,
+} as const;
+
+export const DEFAULT_MAPPING: Mapping = HEIGHT_DRUM;
 
 // ---------------------------------------------------------------------------------------------
 // D: About

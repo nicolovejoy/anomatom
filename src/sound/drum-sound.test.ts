@@ -5,8 +5,32 @@ import type { Hit } from './mapping';
 
 type Started = { note: string; velocity: number; time: number; duration: number };
 
+function fakeParam() {
+  const param = { value: 0, targets: [] as [number, number, number][] };
+  return Object.assign(param, {
+    setTargetAtTime: (v: number, at: number, tc: number) => param.targets.push([v, at, tc]),
+  });
+}
+
 function fakeContext(state: AudioContextState = 'suspended') {
+  const nodes: { kind: string; connected: unknown[]; gain: ReturnType<typeof fakeParam>; frequency: ReturnType<typeof fakeParam>; type?: string }[] = [];
+  const node = (kind: string) => {
+    const n = {
+      kind,
+      connected: [] as unknown[],
+      gain: fakeParam(),
+      frequency: fakeParam(),
+      type: undefined as string | undefined,
+      connect: (to: unknown) => n.connected.push(to),
+    };
+    nodes.push(n);
+    return n;
+  };
   const ctx = {
+    nodes,
+    destination: { kind: 'destination' },
+    createGain: () => node('gain'),
+    createBiquadFilter: () => node('filter'),
     currentTime: 1.5,
     state,
     resume: vi.fn(async () => {
@@ -67,7 +91,7 @@ test('each hand gets its own kit with the mapping pan and gain', async () => {
   const sound = createDrumSound(() => fakeContext(), loadKit);
   sound.preload(DEFAULT_MAPPING);
   await settle();
-  expect(loadKit.mock.calls.map((c) => c.slice(1))).toEqual([
+  expect(loadKit.mock.calls.map((c) => c.slice(1, 4))).toEqual([
     [0, -0.6, 1],
     [1, 0.6, 1],
   ]);

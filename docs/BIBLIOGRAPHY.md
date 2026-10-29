@@ -5,7 +5,8 @@ Shipped on the About page. Papers first, then practitioner sources and prior art
 ## Papers
 
 1. Buhler, J., Eisenbud, D., Graham, R., Wright, C. (1994). Juggling Drops and Descents. *American Mathematical Monthly* 101(6), 507–519. https://www.cecm.sfu.ca/organics/papers/buhler/paper/html/node1.html
-2. Buhler, J., Graham, R. (2004). Juggling patterns, passing, and posets. In *Mathematical Adventures for Students and Amateurs*, MAA, 99–116. (Listed from citations in 4 and 6; not yet opened. Check before it goes on the About page.)
+2. Buhler, J., Graham, R. (2004). Juggling patterns, passing, and posets. In *Mathematical Adventures for Students and Amateurs*, MAA, 99–116.
+<!-- (Listed from citations in 4 and 6; not yet opened. Check before it goes on the About page.) -->
 3. Ehrenborg, R., Readdy, M. (1996). Juggling and applications to q-analogues. *Discrete Mathematics* 157, 107–125. https://www.ms.uky.edu/~jrge/papers/Juggle.pdf
 4. Chung, F., Graham, R. (2008). Primitive Juggling Sequences. *American Mathematical Monthly* 115(3), 185–194. https://fanchung.ucsd.edu/wp/pjs.pdf
 5. Polster, B. (2003). *The Mathematics of Juggling*. Springer. Survey article: https://www.qedcat.com/articles/juggling_survey.pdf
