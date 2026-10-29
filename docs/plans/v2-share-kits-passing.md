@@ -41,6 +41,6 @@ Two or more jugglers on one clock, throwing to each other. The musical hook: pas
 
 State-graph transitions between passing patterns, and pattern generation, stay in the roadmap's v2 list for after this.
 
-## 3D juggler (#7): after passing
+## 3D juggler (#7): after passing (Nico confirmed 2026-10-29)
 
-Recommendation: after. Passing changes what the stage must show (two figures, passes between them) and is the musical feature; 3D is presentation. Doing 3D first means building a single-juggler 3D scene and reworking it for N jugglers right after. P2's world-coordinate model makes 3D a renderer swap afterwards (three.js is MIT; watch bundle size and phone frame rate). The case for before: depth makes passes easier to read. P2's 2D side view should show whether that matters.
+Decided: after. Passing changes what the stage must show (two figures, passes between them) and is the musical feature; 3D is presentation. Doing 3D first means building a single-juggler 3D scene and reworking it for N jugglers right after. P2's world-coordinate model makes 3D a renderer swap afterwards (three.js is MIT; watch bundle size and phone frame rate). The case for before: depth makes passes easier to read. P2's 2D side view should show whether that matters.
