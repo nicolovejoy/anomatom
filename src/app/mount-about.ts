@@ -21,6 +21,14 @@ function external(href: string, text: string): HTMLAnchorElement {
   return a;
 }
 
+/** The host, plus the path when it is short (GitHub repos); the href stays the full URL. */
+function linkLabel(href: string): string {
+  const url = new URL(href);
+  const host = url.hostname.replace(/^www\./, '');
+  const path = url.pathname.replace(/\/$/, '');
+  return path.length > 0 && host.length + path.length < 40 ? host + path : host;
+}
+
 function section(heading: string, paragraphs: readonly string[]): HTMLElement {
   const s = el('section');
   s.append(el('h3', heading), ...paragraphs.map((p) => el('p', p)));
@@ -37,7 +45,7 @@ function bibliography(): HTMLElement {
       const item = el('li');
       item.value = entry.number;
       for (const seg of segments(entry)) {
-        if (seg.kind === 'link') item.append(external(seg.href, seg.text));
+        if (seg.kind === 'link') item.append(external(seg.href, linkLabel(seg.href)));
         else if (seg.kind === 'em') item.append(el('em', seg.text));
         else if (seg.kind === 'code') item.append(el('code', seg.text));
         else item.append(seg.text);
@@ -54,7 +62,7 @@ function credits(): HTMLElement {
   const list = el('ul');
   for (const c of copy.aboutCredits) {
     const item = el('li');
-    item.append(external(c.url, c.name), ` ${c.note}`);
+    item.append(external(c.url, c.name), `, ${c.note}`);
     list.append(item);
   }
   s.append(el('h3', copy.aboutCreditsHeading), list);

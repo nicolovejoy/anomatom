@@ -14,6 +14,7 @@ describe('parseBibliography', () => {
     const all = sections.flatMap((s) => s.entries);
     expect(all.map((e) => e.number)).toEqual(Array.from({ length: 15 }, (_, i) => i + 1));
     expect(all.filter((e) => e.url === null).map((e) => e.number)).toEqual([2]);
+    expect(all[1]?.text).not.toContain('Listed from');
     expect(all[0]?.url).toBe('https://www.cecm.sfu.ca/organics/papers/buhler/paper/html/node1.html');
     expect(all[4]?.url).toBe('https://www.qedcat.com/articles/juggling_survey.pdf');
   });
@@ -21,6 +22,14 @@ describe('parseBibliography', () => {
   it('ignores prose and blank lines outside sections and entries, and CRLF', () => {
     const s = parseBibliography('# t\n\n1. before any section https://a.b\n\r\n## S\r\n\r\nnote\n7. x https://y.z/p.\n');
     expect(s).toEqual([{ heading: 'S', entries: [{ number: 7, text: 'x https://y.z/p.', url: 'https://y.z/p' }] }]);
+  });
+
+  it('ignores HTML comments, including ones that span lines or hide an entry', () => {
+    const [s] = parseBibliography('## S\n1. a https://a.b\n<!-- note\n2. hidden https://h.i -->\n3. c <!-- inline --> d\n');
+    expect(s?.entries.map((e) => [e.number, e.text])).toEqual([
+      [1, 'a https://a.b'],
+      [3, 'c  d'],
+    ]);
   });
 
   it('keeps an entry with no URL and strips trailing text punctuation from a URL', () => {

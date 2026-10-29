@@ -33,7 +33,7 @@ function findUrl(text: string): string | null {
 
 export function parseBibliography(source: string): BibSection[] {
   const sections: { heading: string; entries: BibEntry[] }[] = [];
-  for (const line of source.split(/\r?\n/)) {
+  for (const line of source.replace(/<!--[\s\S]*?-->/g, '').split(/\r?\n/)) {
     if (line.startsWith('## ')) {
       sections.push({ heading: line.slice(3).trim(), entries: [] });
       continue;
