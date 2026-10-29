@@ -84,6 +84,7 @@ export const copy = {
 
   /** Labels for the sound panel's choices (SPEC §4.3); controls stay labels, not sentences. */
   presetNames: {
+    'voice-per-part': 'Voice per part',
     'height-drum': 'Height to drum',
     'height-pitch': 'Height to pitch',
     'ball-pitch': 'Ball to pitch',
@@ -237,9 +238,13 @@ export const copy = {
   presetLabel: 'Preset',
   perHeightHeading: 'Sound for each throw height',
   heightLabel: (height: number) => `Height ${height}`,
-  handsHeading: 'Hands',
-  panLabel: (hand: 0 | 1) => `Hand ${hand + 1} pan`,
-  gainLabel: (hand: 0 | 1) => `Hand ${hand + 1} gain`,
+  partsHeading: 'Parts',
+  /** `part` counts from 0; the reader sees it from 1. */
+  partSoundLabel: (part: number) => `Part ${part + 1} sound`,
+  panLabel: (part: number) => `Part ${part + 1} pan`,
+  gainLabel: (part: number) => `Part ${part + 1} gain`,
+  /** Design §7: the sound does not follow the ball count unless the preset reads flight length. */
+  soundBallCountNote: 'Ball count changes the picture, not the sound, unless a preset reads throw height.',
   catchesHeading: 'Catches',
   catchesOn: 'Play a sound on each catch',
   catchSoundLabel: 'Catch sound',

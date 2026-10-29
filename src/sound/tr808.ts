@@ -1,6 +1,6 @@
 // The browser side of the drums: a real AudioContext and smplr's TR-808. Not unit tested
 // (needs Web Audio); the browser smoke test exercises it.
-import type { Hand } from '../core/legacy/types';
+import type { PartIndex } from '../core/types';
 import { KIT_VOLUME } from '../tunables';
 import type { Kit } from './drum-sound';
 
@@ -22,16 +22,16 @@ function importSmplr() {
   }));
 }
 
-// One sample loader per context, shared by both hands' machines: the TR-808 is fetched and
-// decoded once. Pan and gain live on the hand's nodes in drum-sound.ts, not on the machine.
+// One sample loader per context, shared by every part's machines: the TR-808 is fetched and
+// decoded once. Pan and gain live on the part's nodes in drum-sound.ts, not on the machine.
 // The loader caches a sample once it has arrived, so a machine made while another is still
 // fetching would fetch again: each context's machines are made one after another.
 const loaders = new WeakMap<AudioContext, import('smplr').SampleLoader>();
 const lastLoad = new WeakMap<AudioContext, Promise<unknown>>();
 
-export async function tr808(context: AudioContext, _hand: Hand, destination: AudioNode): Promise<Kit> {
+export async function tr808(context: AudioContext, _part: PartIndex, destination: AudioNode): Promise<Kit> {
   const smplr = await importSmplr();
-  // Join the queue synchronously, so the second hand waits for the first hand's samples.
+  // Join the queue synchronously, so the next part waits for the previous part's samples.
   const turn = (lastLoad.get(context) ?? Promise.resolve()).catch(() => undefined);
   let finish!: () => void;
   lastLoad.set(context, new Promise<void>((resolve) => (finish = resolve)));

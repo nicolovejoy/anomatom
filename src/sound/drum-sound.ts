@@ -1,15 +1,15 @@
-// The drums and the downbeat pad: one kit per hand, each through its own gain and stereo panner
-// (the hand's voice), one pad per instrument. No DOM, no timers: unit tested with a fake context and fake kits;
+// The drums and the downbeat pad: one kit per part, each through its own gain and stereo panner
+// (the part's voice), one pad per instrument. No DOM, no timers: unit tested with a fake context and fake kits;
 // `tr808.ts` and `pad.browser.ts` supply the real ones. Where there is no Web Audio everything
 // is silent. The factory shape is L6's piano-sound.ts: the context is made at preload (no
 // gesture needed to decode), starts suspended, and the first play, a gesture, resumes it.
 // Before a kit or pad has loaded its hits are silent; there is no stand-in tone.
 //
-// The graph: each hand's kit -> its gain -> its panner -> the low-pass filter, and every pad ->
+// The graph: each part's kit -> its gain -> its panner -> the low-pass filter, and every pad ->
 // the filter; the filter -> the master gain -> the destination. `setFilter` (crossings to
-// filter), `setMaster` (volume) and a hand's pan and gain move those nodes' params, smoothly;
-// changing a hand's pan or gain never reloads its kit.
-import type { Hand } from '../core/legacy/types';
+// filter), `setMaster` (volume) and a part's pan and gain move those nodes' params, smoothly;
+// changing a part's pan or gain never reloads its kit.
+import type { PartIndex } from '../core/types';
 import { FILTER_OPEN_HZ, PARAM_SMOOTH_SECONDS } from '../tunables';
 import type { Hit, Mapping, PadHit, PadInstrument } from './mapping';
 import { browserAudioSession } from './audio-session.browser';
@@ -26,8 +26,8 @@ export type Kit = {
 /** A pad instrument has the shape of a kit: notes are pitches, not sample names. */
 export type Pad = Kit;
 
-/** `destination` is the node to play into (the hand's gain), not the context's output. */
-export type LoadKit = (context: AudioContext, hand: Hand, destination: AudioNode) => Promise<Kit>;
+/** `destination` is the node to play into (the part's gain), not the context's output. */
+export type LoadKit = (context: AudioContext, part: PartIndex, destination: AudioNode) => Promise<Kit>;
 
 /** What the reader sees of the samples: nothing asked for yet, fetching, all in, or a fetch failed. */
 export type SoundStatus = 'idle' | 'loading' | 'ready' | 'failed';
@@ -48,20 +48,20 @@ export function createDrumSound(
   // The last values asked for, applied when the context is made if it is not yet.
   let masterVolume = 1;
   let cutoff = FILTER_OPEN_HZ;
-  // Per hand: the kit once loaded, and the voice (pan/gain) most recently asked for. A kit
+  // Per part: the kit once loaded, and the voice (pan/gain) most recently asked for. A kit
   // keeps playing until its replacement is in.
-  const ready = new Map<Hand, Kit>();
+  const ready = new Map<PartIndex, Kit>();
   const loading = new Set<Kit>();
-  const requested = new Set<Hand>();
-  // Per hand: its gain and panner, made with the first load and kept for the context's life.
-  const voices = new Map<Hand, { gain: GainNode; panner: StereoPannerNode; last: string }>();
+  const requested = new Set<PartIndex>();
+  // Per part: its gain and panner, made with the first load and kept for the context's life.
+  const voices = new Map<PartIndex, { gain: GainNode; panner: StereoPannerNode; last: string }>();
   // Per pad instrument: loaded once per context and kept (the cache), so switching back is instant.
   const pads = new Map<PadInstrument, Pad>();
   const padsRequested = new Set<PadInstrument>();
   // The status: loads in flight, whether one failed, and who to tell. `epoch` moves on close so a
   // load from a closed context cannot touch the count.
   let inFlight = 0;
-  const failedHands = new Set<Hand>();
+  const failedParts = new Set<PartIndex>();
   const failedPads = new Set<PadInstrument>();
   let epoch = 0;
   let lastMapping: Mapping | null = null;
@@ -69,7 +69,7 @@ export function createDrumSound(
 
   function status(): SoundStatus {
     if (inFlight > 0) return 'loading';
-    if (failedHands.size + failedPads.size > 0) return 'failed';
+    if (failedParts.size + failedPads.size > 0) return 'failed';
     return ready.size > 0 || pads.size > 0 ? 'ready' : 'idle';
   }
 
@@ -119,8 +119,8 @@ export function createDrumSound(
     param.setTargetAtTime(value, (context as AudioContext).currentTime, PARAM_SMOOTH_SECONDS);
   }
 
-  function voice(ctx: AudioContext, hand: Hand, pan: number, gain: number) {
-    let v = voices.get(hand);
+  function voice(ctx: AudioContext, part: PartIndex, pan: number, gain: number) {
+    let v = voices.get(part);
     if (!v) {
       const g = ctx.createGain();
       const panner = ctx.createStereoPanner();
@@ -129,7 +129,7 @@ export function createDrumSound(
       g.connect(panner);
       panner.connect((bus as NonNullable<typeof bus>).filter);
       v = { gain: g, panner, last: `${pan}/${gain}` };
-      voices.set(hand, v);
+      voices.set(part, v);
     } else if (v.last !== `${pan}/${gain}`) {
       v.last = `${pan}/${gain}`;
       ramp(v.gain.gain, gain);
@@ -138,20 +138,20 @@ export function createDrumSound(
     return v;
   }
 
-  function load(ctx: AudioContext, hand: Hand, pan: number, gain: number) {
-    const v = voice(ctx, hand, pan, gain);
-    if (requested.has(hand)) return;
-    requested.add(hand);
-    failedHands.delete(hand);
+  function load(ctx: AudioContext, part: PartIndex, pan: number, gain: number) {
+    const v = voice(ctx, part, pan, gain);
+    if (requested.has(part)) return;
+    requested.add(part);
+    failedParts.delete(part);
     const end = begin();
-    loadKit(ctx, hand, v.gain)
+    loadKit(ctx, part, v.gain)
       .then((kit) => {
         if (context !== ctx) return kit.dispose();
         loading.add(kit);
         return kit.ready.then(
           () => {
             loading.delete(kit);
-            if (context === ctx) ready.set(hand, kit);
+            if (context === ctx) ready.set(part, kit);
             else kit.dispose();
           },
           (error: unknown) => {
@@ -164,8 +164,8 @@ export function createDrumSound(
       .catch(() => {
         // The next preload tries again.
         if (context === ctx) {
-          requested.delete(hand);
-          failedHands.add(hand);
+          requested.delete(part);
+          failedParts.add(part);
         }
       })
       .finally(end);
@@ -206,7 +206,7 @@ export function createDrumSound(
     lastMapping = mapping;
     const ctx = audio();
     if (!ctx) return;
-    mapping.hands.forEach((voice, hand) => load(ctx, hand as Hand, voice.pan, voice.gain));
+    mapping.parts.forEach((voice, part) => load(ctx, part, voice.pan, voice.gain));
     if (mapping.pad.on) loadPadInstrument(ctx, mapping.pad.instrument);
     // A pad that failed and is no longer wanted (off, or another instrument) is not a failure.
     const dropped = [...failedPads].filter((i) => !mapping.pad.on || i !== mapping.pad.instrument);
@@ -218,7 +218,7 @@ export function createDrumSound(
 
   return {
     /**
-     * Loads one kit per hand (once) and sets that hand's pan and gain on its nodes, and loads the
+     * Loads one kit per part (once) and sets that part's pan and gain on its nodes, and loads the
      * pad instrument if the pad is on. Safe to call again; call it whenever the mapping changes:
      * a new pan or gain moves the node params and reloads nothing.
      */
@@ -256,7 +256,7 @@ export function createDrumSound(
       if (bus) ramp(bus.filter.frequency, cutoff);
     },
     play(hit: Hit, time: number, pulseLen: number) {
-      ready.get(hit.hand)?.start({
+      ready.get(hit.part)?.start({
         note: hit.sample,
         velocity: hit.velocity,
         time,
@@ -281,7 +281,7 @@ export function createDrumSound(
       voices.clear();
       epoch++;
       inFlight = 0;
-      failedHands.clear();
+      failedParts.clear();
       failedPads.clear();
       notify();
       bus = null;

@@ -4,34 +4,15 @@
 // Scheme v1: `#v1.` + base64url (no padding) of the UTF-8 JSON of
 //   { p: [pattern1, pattern2], r: [a, b], t: bpm, m: mapping }
 // Only pattern text, ratio, bpm and mapping travel; never volume, lastStateHash or UI state.
-// The mapping `m` is the preset's name (a string) when it equals one of the three presets,
-// which is the common case and keeps the link short; otherwise it is an object of short keys:
-//   h  nine samples for heights 1-9 (string or null)
-//   b  the ball-to-pitch list, or null
-//   v  [[pan, gain], [pan, gain]] for hand 1, hand 2
-//   c  [catches on (0|1), catch sample]
-//   d  [cross accent velocity, downbeat sample]
-//   f  [filter on (0|1), low Hz, high Hz]
-//   a  [pad on (0|1), instrument, chord]
-// (The kit has one entry in v1 and is not encoded.)
+// The mapping `m` is encoded by src/sound/mapping-hash.ts (a preset name, or an object of short keys).
 //
 // Decoding trusts nothing: a payload that is not base64url JSON of an object gives null; any
 // other junk is repaired per field (unknown fields ignored, missing or mistyped ones taken from
 // the defaults, numbers clamped to their ranges, sample names checked against the kit).
 import { parsePattern } from '../core/legacy/parse';
 import type { Ratio } from '../core/legacy/types';
-import { applyPreset, PAD_CHORD_IDS, PAD_INSTRUMENT_IDS, presetOf, PRESET_NAMES, type Mapping, type Sample } from '../sound/mapping';
-import {
-  BPM_RANGE,
-  CROSS_BOOST_RANGE,
-  DEFAULT_MAPPING,
-  FILTER_HZ_RANGE,
-  GAIN_RANGE,
-  KIT_SAMPLES,
-  MAX_HEIGHT,
-  MAX_RATIO,
-  PAN_RANGE,
-} from '../tunables';
+import { decodeMapping, encodeMapping } from '../sound/mapping-hash';
+import { BPM_RANGE, MAX_RATIO } from '../tunables';
 import { defaultState, type AppState } from './state';
 
 const PREFIX = '#v1.';
@@ -39,20 +20,7 @@ const PREFIX = '#v1.';
 const MAX_PATTERN_CHARS = 64;
 
 export function encodeState(state: AppState): string {
-  const m = state.mapping;
-  const mapping =
-    presetOf(m) !== 'custom'
-      ? presetOf(m)
-      : {
-          h: Array.from({ length: MAX_HEIGHT }, (_, i) => m.perHeight[i + 1] ?? null),
-          b: m.byBall,
-          v: m.hands.map((v) => [v.pan, v.gain]),
-          c: [m.catches.on ? 1 : 0, m.catches.sample],
-          d: [m.crossAccent.velocity, m.crossAccent.downbeat],
-          f: [m.filter.on ? 1 : 0, m.filter.low, m.filter.high],
-          a: [m.pad.on ? 1 : 0, m.pad.instrument, m.pad.chord],
-        };
-  const json = JSON.stringify({ p: state.patterns, r: [state.ratio.a, state.ratio.b], t: state.bpm, m: mapping });
+  const json = JSON.stringify({ p: state.patterns, r: [state.ratio.a, state.ratio.b], t: state.bpm, m: encodeMapping(state.mapping) });
   return PREFIX + toBase64Url(json);
 }
 
@@ -73,7 +41,7 @@ export function decodeState(payload: string): Partial<AppState> | null {
     patterns: patternsFrom(raw.p, defaults.patterns),
     ratio: ratioFrom(raw.r, defaults.ratio),
     bpm: numberIn(raw.t, BPM_RANGE.min, BPM_RANGE.max, defaults.bpm, true),
-    mapping: mappingFrom(raw.m),
+    mapping: decodeMapping(raw.m),
   };
 }
 
@@ -96,68 +64,6 @@ function ratioFrom(value: unknown, fallback: Ratio): Ratio {
   const part = (v: unknown, d: number) => numberIn(v, 1, MAX_RATIO, d, true);
   const list = Array.isArray(value) ? value : [];
   return { a: part(list[0], fallback.a), b: part(list[1], fallback.b) };
-}
-
-function mappingFrom(value: unknown): Mapping {
-  if (typeof value === 'string') {
-    const name = PRESET_NAMES.find((n) => n === value);
-    return name ? applyPreset(name) : DEFAULT_MAPPING;
-  }
-  if (!isRecord(value)) return DEFAULT_MAPPING;
-  const d = DEFAULT_MAPPING;
-  const sample = (v: unknown, fallback: Sample): Sample =>
-    v === null ? null : typeof v === 'string' && KIT_SAMPLES.includes(v) ? v : fallback;
-  const bool = (v: unknown, fallback: boolean) => (v === 1 || v === 0 ? v === 1 : fallback);
-  const arr = (v: unknown): unknown[] => (Array.isArray(v) ? v : []);
-  const pick = <T extends string>(v: unknown, ids: readonly T[], fallback: T): T =>
-    ids.find((id) => id === v) ?? fallback;
-
-  const h = arr(value.h);
-  const perHeight = Object.fromEntries(
-    Array.from({ length: MAX_HEIGHT }, (_, i) => [i + 1, sample(h[i], d.perHeight[i + 1] ?? null)]),
-  );
-  // byBall: an explicit null means none; a list of known sounds is used; anything else (missing,
-  // wrong type, empty, one unknown sound) falls back to the default mapping's, silently.
-  const b = value.b;
-  const byBall =
-    b === null
-      ? null
-      : Array.isArray(b) && b.length > 0 && b.every((s) => typeof s === 'string' && KIT_SAMPLES.includes(s))
-        ? (b as string[])
-        : d.byBall;
-  const voice = (v: unknown, fallback: Mapping['hands'][0]) => {
-    const [pan, gain] = arr(v);
-    return {
-      pan: numberIn(pan, PAN_RANGE.min, PAN_RANGE.max, fallback.pan),
-      gain: numberIn(gain, GAIN_RANGE.min, GAIN_RANGE.max, fallback.gain),
-    };
-  };
-  const hands = arr(value.v);
-  const [catchOn, catchSample] = arr(value.c);
-  const [velocity, downbeat] = arr(value.d);
-  const [filterOn, low, high] = arr(value.f);
-  const [padOn, instrument, chord] = arr(value.a);
-  return {
-    kit: 'TR-808',
-    perHeight,
-    byBall,
-    hands: [voice(hands[0], d.hands[0]), voice(hands[1], d.hands[1])],
-    catches: { on: bool(catchOn, d.catches.on), sample: sample(catchSample, d.catches.sample) },
-    crossAccent: {
-      velocity: numberIn(velocity, CROSS_BOOST_RANGE.min, CROSS_BOOST_RANGE.max, d.crossAccent.velocity),
-      downbeat: sample(downbeat, d.crossAccent.downbeat),
-    },
-    filter: {
-      on: bool(filterOn, d.filter.on),
-      low: numberIn(low, FILTER_HZ_RANGE.min, FILTER_HZ_RANGE.max, d.filter.low),
-      high: numberIn(high, FILTER_HZ_RANGE.min, FILTER_HZ_RANGE.max, d.filter.high),
-    },
-    pad: {
-      on: bool(padOn, d.pad.on),
-      instrument: pick(instrument, PAD_INSTRUMENT_IDS, d.pad.instrument),
-      chord: pick(chord, PAD_CHORD_IDS, d.pad.chord),
-    },
-  };
 }
 
 /** `value` if it is a finite number, clamped to [min, max] (and rounded if asked); else the fallback. */

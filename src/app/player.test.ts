@@ -1,6 +1,10 @@
 import { expect, test, vi } from 'vitest';
 import { buildSchedule, carryOver, parsePattern } from '../core/legacy';
-import { DEFAULT_MAPPING, LOOKAHEAD_SECONDS, SCHEDULER_INTERVAL_MS } from '../tunables';
+import { applyPreset } from '../sound/mapping';
+import { LOOKAHEAD_SECONDS, SCHEDULER_INTERVAL_MS } from '../tunables';
+
+/** These tests hear the sound by throw height; the default preset now plays one voice per part. */
+const DEFAULT_MAPPING = applyPreset('height-drum');
 import type { DrumSound } from '../sound/drum-sound';
 import { axisPulse } from '../view/ladder';
 import { createPlayer, crossingCatches, type Segment } from './player';

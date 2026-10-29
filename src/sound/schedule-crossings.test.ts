@@ -1,17 +1,12 @@
 import { expect, test } from 'vitest';
-import { buildSchedule, countCrossings, flightsOf, parsePattern } from '../core/legacy';
-import type { PatternInput } from '../core/legacy';
+import { buildSchedule, countCrossings, flightsOf, partsFromLines, partsFromVanilla } from '../core';
+import type { Parts } from '../core';
 import { crossingsOfSchedule } from './schedule-crossings';
 
-function input(text: string[], a = 1, b = 1): PatternInput {
-  return {
-    ratio: { a, b },
-    hands: text.map((t) => {
-      const r = parsePattern(t);
-      if (!r.ok) throw new Error(t);
-      return r.pattern;
-    }),
-  };
+function input(text: string[], a = 1, b = 1): Parts {
+  const r = a === 1 && b === 1 ? partsFromVanilla(text[0] as string) : partsFromLines(text, { a, b });
+  if (!r.ok) throw new Error(text.join('/'));
+  return r.parts;
 }
 
 test.each([

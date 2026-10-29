@@ -5,8 +5,7 @@
 // mapping on every look-ahead tick and an edit is heard from the next window (about
 // LOOKAHEAD_SECONDS), not at the next cycle boundary. Events already handed to the sampler
 // keep the sound they were given.
-import { isCoincident } from '../core/legacy/grid';
-import type { Event, Grid, Hand } from '../core/legacy/types';
+import type { Event, PartIndex, Schedule } from '../core/types';
 import {
   BASE_VELOCITY,
   FILTER_FULL_CROSSINGS,
@@ -29,12 +28,14 @@ export const PAD_INSTRUMENT_IDS: readonly PadInstrument[] = ['mellotron', 'sound
 export const PAD_CHORD_IDS: readonly PadChord[] = ['Dm9', 'Am7', 'Cmaj7', 'F69', 'open5'];
 
 export interface Mapping {
-  readonly kit: 'TR-808';
+  /** One voice per part, in part order; a part past the end borrows voice `part mod length`. */
+  readonly parts: readonly PartVoice[];
+  /** True when the preset reads flight length (the digit): then `perHeight` picks the sound; false: the part's own `sample`. */
+  readonly byHeight: boolean;
   /** Which sample each throw height 1-9 plays. */
   readonly perHeight: Readonly<Record<number, Sample>>;
   /** When set, a throw plays entry `ball mod length` instead of its height's sample (ball to pitch). */
   readonly byBall: readonly string[] | null;
-  readonly hands: readonly [HandVoice, HandVoice];
   readonly catches: { readonly on: boolean; readonly sample: Sample };
   /** Velocity added to a cross throw, and the sound of a cross caught on the downbeat. */
   readonly crossAccent: { readonly velocity: number; readonly downbeat: Sample };
@@ -44,14 +45,17 @@ export interface Mapping {
   readonly pad: { readonly on: boolean; readonly instrument: PadInstrument; readonly chord: PadChord };
 }
 
-export interface HandVoice {
+/** What a part sounds like: its kit, its voice for the voice-per-part preset, and where and how loud it sits. */
+export interface PartVoice {
+  readonly kit: string;
+  readonly sample: Sample;
   readonly pan: number;
   readonly gain: number;
 }
 
 export interface Hit {
   readonly sample: string;
-  readonly hand: Hand;
+  readonly part: PartIndex;
   readonly velocity: number;
   readonly pan: number;
   readonly gain: number;
@@ -118,14 +122,24 @@ export function filterCutoff(crossings: number, mapping: Mapping): number {
   return lo * (hi / lo) ** t;
 }
 
-export function hitFor(event: Event, mapping: Mapping, grids: readonly [Grid, Grid]): Hit | null {
-  const sample = sampleFor(event, mapping, grids);
+/** True when every part has a beat on this pulse: the only place a cross can land on a shared beat. */
+function isCoincident(schedule: Schedule, pulse: number): boolean {
+  return schedule.grids.every((g) => (((pulse - g.phase) % g.spacing) + g.spacing) % g.spacing === 0);
+}
+
+/** The voice of a part; a mapping with fewer voices than the schedule has parts repeats them. */
+function voiceOf(mapping: Mapping, part: PartIndex): PartVoice {
+  return mapping.parts[part % mapping.parts.length] as PartVoice;
+}
+
+export function hitFor(event: Event, mapping: Mapping, schedule: Schedule): Hit | null {
+  const voice = voiceOf(mapping, event.part);
+  const sample = sampleFor(event, mapping, schedule, voice);
   if (sample === null) return null;
   const accent = event.cross ? mapping.crossAccent.velocity : 0;
-  const voice = mapping.hands[event.hand];
   return {
     sample,
-    hand: event.hand,
+    part: event.part,
     velocity: Math.min(MAX_VELOCITY, BASE_VELOCITY + accent),
     pan: voice.pan,
     gain: voice.gain,
@@ -133,14 +147,18 @@ export function hitFor(event: Event, mapping: Mapping, grids: readonly [Grid, Gr
   };
 }
 
-function sampleFor(event: Event, mapping: Mapping, grids: readonly [Grid, Grid]): Sample {
+function sampleFor(event: Event, mapping: Mapping, schedule: Schedule, voice: PartVoice): Sample {
   if (event.kind === 'throw') {
     if (event.height === 0) return null;
+    if (!mapping.byHeight) return voice.sample;
+    // `ball` is null for a part in a faulted group: no ball-to-pitch there, so the height's sound.
+    // Height is still event.height, which core sets to the gap to the part's next onset over its
+    // unit for such a part (model-waves.md ruling), so the fallback of design §7 needs no path of its own.
     const byBall = mapping.byBall;
-    if (byBall !== null && byBall.length > 0) return byBall[event.ball % byBall.length] ?? null;
+    if (byBall !== null && byBall.length > 0 && event.ball !== null) return byBall[event.ball % byBall.length] ?? null;
     return mapping.perHeight[Math.min(event.height, MAX_HEIGHT)] ?? null;
   }
-  if (event.cross && isCoincident(grids, event.pulse) && mapping.crossAccent.downbeat !== null) {
+  if (event.cross && isCoincident(schedule, event.pulse) && mapping.crossAccent.downbeat !== null) {
     return mapping.crossAccent.downbeat;
   }
   return mapping.catches.on ? mapping.catches.sample : null;

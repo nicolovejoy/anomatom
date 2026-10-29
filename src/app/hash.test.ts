@@ -9,12 +9,12 @@ const b64 = (value: unknown) =>
   btoa(JSON.stringify(value)).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
 
 const custom: Mapping = {
-  kit: 'TR-808',
+  byHeight: true,
   perHeight: { 1: 'clap', 2: null, 3: 'snare', 4: 'cowbell', 5: 'kick', 6: 'kick', 7: 'maraca', 8: 'cymbal', 9: 'tom-hi' },
   byBall: ['kick', 'clave'],
-  hands: [
-    { pan: -0.25, gain: 0.5 },
-    { pan: 1, gain: 0 },
+  parts: [
+    { kit: 'TR-808', sample: 'conga-hi', pan: -0.25, gain: 0.5 },
+    { kit: 'TR-808', sample: null, pan: 1, gain: 0 },
   ],
   catches: { on: true, sample: 'rimshot' },
   crossAccent: { velocity: 33, downbeat: null },
@@ -159,7 +159,7 @@ describe('junk', () => {
         p: [3, null],
         r: ['a', {}],
         t: 'fast',
-        m: { h: 'x', b: 5, v: [[null, 'x'], 7], c: ['y', 4], d: [{}, 9], f: [2, 'lo', null], a: [true, 'organ', 'C#'] },
+        m: { h: 'x', b: 5, p: [[1, 2, null, 'x'], 7], y: 'yes', v: [[null, 'x'], 7], c: ['y', 4], d: [{}, 9], f: [2, 'lo', null], a: [true, 'organ', 'C#'] },
       }),
     );
     expect(junk).toEqual(defaults);
@@ -188,15 +188,15 @@ describe('junk', () => {
         t: 9999,
         r: [0, 99],
         p: ['3'.repeat(65), '4'],
-        m: { v: [[-5, 5], [0.5, -1]], d: [999], f: [1, 1, 1e9] },
+        m: { p: [['TR-808', 'kick', -5, 5], ['TR-808', 'snare', 0.5, -1]], d: [999], f: [1, 1, 1e9] },
       }),
     ) as AppState;
     expect(s.bpm).toBe(BPM_RANGE.max);
     expect(s.ratio).toEqual({ a: 1, b: 9 });
     expect(s.patterns).toEqual([d.patterns[0], '4']);
-    expect(s.mapping.hands).toEqual([
-      { pan: -1, gain: 1 },
-      { pan: 0.5, gain: 0 },
+    expect(s.mapping.parts).toEqual([
+      { kit: 'TR-808', sample: 'kick', pan: -1, gain: 1 },
+      { kit: 'TR-808', sample: 'snare', pan: 0.5, gain: 0 },
     ]);
     expect(s.mapping.crossAccent.velocity).toBe(40);
     expect(s.mapping.filter).toMatchObject({ low: 100, high: 20000 });

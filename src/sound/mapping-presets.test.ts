@@ -1,6 +1,6 @@
 import { describe, expect, test } from 'vitest';
-import { makeGrids } from '../core/legacy';
-import type { Event } from '../core/legacy';
+import { buildSchedule, partsFromVanilla } from '../core';
+import type { Event, Parts } from '../core';
 import {
   DEFAULT_MAPPING,
   FILTER_FULL_CROSSINGS,
@@ -23,10 +23,11 @@ import {
   type PadChord,
 } from './mapping';
 
-const vanilla = makeGrids({ a: 1, b: 1 });
+const voice = (i: number) => DEFAULT_MAPPING.parts[i] as Mapping['parts'][0];
+const vanilla = buildSchedule((partsFromVanilla('3') as { parts: Parts }).parts);
 
 function throwEvent(height: number, ball = 0): Event {
-  return { kind: 'throw', pulse: 0, hand: 0, ball, height, flight: height * 2, cross: false };
+  return { kind: 'throw', pulse: 0, part: 0, ball, height, flight: height * 2, cross: false };
 }
 
 const withFilter = (on: boolean, low: number, high: number): Mapping => ({
@@ -35,20 +36,27 @@ const withFilter = (on: boolean, low: number, high: number): Mapping => ({
 });
 
 describe('presets', () => {
-  test('the default is the height-to-drum preset, and each preset is itself', () => {
+  test('the default is the height-to-drum preset until stream B flips it, and each preset is itself', () => {
     expect(presetOf(DEFAULT_MAPPING)).toBe('height-drum');
+    expect(DEFAULT_MAPPING.byHeight).toBe(true);
+    expect(DEFAULT_MAPPING.parts.map((v) => [v.kit, v.pan])).toEqual([['TR-808', -0.6], ['TR-808', 0.6]]);
+    expect(PRESET_NAMES.filter((n) => applyPreset(n).byHeight)).toEqual(['height-drum', 'height-pitch', 'ball-pitch']);
     for (const name of PRESET_NAMES) expect(presetOf(applyPreset(name))).toBe(name);
-    expect(PRESET_NAMES).toEqual(['height-drum', 'height-pitch', 'ball-pitch']);
+    expect(PRESET_NAMES).toEqual(['voice-per-part', 'height-drum', 'height-pitch', 'ball-pitch']);
   });
 
-  test('the three presets differ', () => {
-    expect(new Set(PRESET_NAMES.map((n) => JSON.stringify(applyPreset(n)))).size).toBe(3);
+  test('the presets differ', () => {
+    expect(new Set(PRESET_NAMES.map((n) => JSON.stringify(applyPreset(n)))).size).toBe(4);
   });
 
   test('any edit, however small or nested, is custom; editing back is the preset again', () => {
     const edits: Mapping[] = [
       { ...DEFAULT_MAPPING, perHeight: { ...DEFAULT_MAPPING.perHeight, 3: 'clap' } },
-      { ...DEFAULT_MAPPING, hands: [{ pan: -0.5, gain: 1 }, DEFAULT_MAPPING.hands[1]] },
+      { ...DEFAULT_MAPPING, parts: [{ ...voice(0), pan: -0.5 }, voice(1)] },
+      { ...DEFAULT_MAPPING, parts: [{ ...voice(0), sample: 'clap' }, voice(1)] },
+      { ...DEFAULT_MAPPING, parts: [{ ...voice(0), kit: 'other' }, voice(1)] },
+      { ...DEFAULT_MAPPING, parts: [voice(0)] },
+      { ...DEFAULT_MAPPING, byHeight: false, perHeight: { ...DEFAULT_MAPPING.perHeight, 1: 'kick' } },
       { ...DEFAULT_MAPPING, catches: { on: true, sample: 'rimshot' } },
       { ...DEFAULT_MAPPING, crossAccent: { velocity: 21, downbeat: 'clap' } },
       { ...DEFAULT_MAPPING, filter: { ...DEFAULT_MAPPING.filter, on: true } },
@@ -61,7 +69,7 @@ describe('presets', () => {
     const back = { ...DEFAULT_MAPPING, perHeight: { ...DEFAULT_MAPPING.perHeight, 3: 'snare' } };
     expect(presetOf(back)).toBe('height-drum');
     // Arrays against objects are never equal.
-    expect(presetOf({ ...DEFAULT_MAPPING, hands: { 0: DEFAULT_MAPPING.hands[0], 1: DEFAULT_MAPPING.hands[1], length: 2 } as unknown as Mapping['hands'] })).toBe('custom');
+    expect(presetOf({ ...DEFAULT_MAPPING, parts: { 0: voice(0), 1: voice(1), length: 2 } as unknown as Mapping['parts'] })).toBe('custom');
   });
 
   test('height to pitch gives nine distinct sounds, the highest throw the lowest', () => {
@@ -86,7 +94,7 @@ describe('presets', () => {
   test('every preset sample exists in the kit', () => {
     for (const name of PRESET_NAMES) {
       const m = applyPreset(name);
-      for (const s of [...Object.values(m.perHeight), ...(m.byBall ?? []), m.catches.sample, m.crossAccent.downbeat]) {
+      for (const s of [...Object.values(m.perHeight), ...(m.byBall ?? []), ...m.parts.map((v) => v.sample), m.catches.sample, m.crossAccent.downbeat]) {
         if (s !== null) expect(KIT_SAMPLES).toContain(s);
       }
     }

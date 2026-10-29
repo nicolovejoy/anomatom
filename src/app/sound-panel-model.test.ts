@@ -53,15 +53,34 @@ describe('each control edits its one field', () => {
     expect(edit(m, { kind: 'downbeat', sample: '../x' })).toBe(m);
   });
 
-  test('pan and gain are per hand, and clamped', () => {
-    const a = edit(m, { kind: 'pan', hand: 1, value: 0.25 });
-    expect(a.hands[1]).toEqual({ ...m.hands[1], pan: 0.25 });
-    expect(a.hands[0]).toBe(m.hands[0]);
-    expect(edit(m, { kind: 'pan', hand: 0, value: -7 }).hands[0].pan).toBe(-1);
-    expect(edit(m, { kind: 'gain', hand: 0, value: 0.4 }).hands[0].gain).toBe(0.4);
-    expect(edit(m, { kind: 'gain', hand: 1, value: 9 }).hands[1].gain).toBe(1);
-    expect(edit(m, { kind: 'gain', hand: 1, value: Number.NaN })).toBe(m);
-    expect(edit(m, { kind: 'pan', hand: 1, value: Infinity })).toBe(m);
+  test('pan and gain are per part, and clamped', () => {
+    const a = edit(m, { kind: 'pan', part: 1, value: 0.25 });
+    expect(a.parts[1]).toEqual({ ...m.parts[1], pan: 0.25 });
+    expect(a.parts[0]).toBe(m.parts[0]);
+    expect(edit(m, { kind: 'pan', part: 0, value: -7 }).parts[0]?.pan).toBe(-1);
+    expect(edit(m, { kind: 'gain', part: 0, value: 0.4 }).parts[0]?.gain).toBe(0.4);
+    expect(edit(m, { kind: 'gain', part: 1, value: 9 }).parts[1]?.gain).toBe(1);
+    expect(edit(m, { kind: 'gain', part: 1, value: Number.NaN })).toBe(m);
+    expect(edit(m, { kind: 'pan', part: 1, value: Infinity })).toBe(m);
+    expect(edit(m, { kind: 'pan', part: 2, value: 0.5 })).toBe(m);
+  });
+
+  test('a part’s sound is its own, and only a mapping that ignores height and ball hears it', () => {
+    const hd = applyPreset('ball-pitch');
+    const next = edit(hd, { kind: 'partSample', part: 1, sample: 'clave' });
+    expect(next.parts[1]?.sample).toBe('clave');
+    expect(next.parts[0]).toBe(hd.parts[0]);
+    expect(next.byHeight).toBe(false);
+    expect(next.byBall).toBeNull();
+    expect(edit(m, { kind: 'partSample', part: 0, sample: null }).parts[0]?.sample).toBeNull();
+    expect(edit(m, { kind: 'partSample', part: 0, sample: 'tuba' })).toBe(m);
+    expect(edit(m, { kind: 'partSample', part: 5, sample: 'kick' })).toBe(m);
+  });
+
+  test('choosing a height’s sound makes the mapping read height', () => {
+    const vpp = applyPreset('voice-per-part');
+    expect(vpp.byHeight).toBe(false);
+    expect(edit(vpp, { kind: 'height', height: 3, sample: 'cowbell' }).byHeight).toBe(true);
   });
 
   test('catches', () => {
@@ -98,7 +117,9 @@ test('an edit that changes nothing returns the very same mapping (the store hear
   expect(edit(m, { kind: 'accent', velocity: m.crossAccent.velocity })).toBe(m);
   expect(edit(m, { kind: 'padOn', on: m.pad.on })).toBe(m);
   expect(edit(m, { kind: 'preset', name: 'height-drum' })).toBe(m);
-  expect(edit(m, { kind: 'height', height: 1, sample: m.perHeight[1] as string })).toBe(m);
+  const hd = applyPreset('height-drum');
+  expect(edit(hd, { kind: 'height', height: 1, sample: hd.perHeight[1] as string })).toBe(hd);
+  expect(edit(hd, { kind: 'partSample', part: 0, sample: hd.parts[0]?.sample as string })).not.toBe(hd);
 });
 
 test('every sound in the kit can be chosen for a height', () => {

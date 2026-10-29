@@ -1,18 +1,18 @@
 import { expect, test } from 'vitest';
-import { buildSchedule, parsePattern } from '../core/legacy';
+import { buildSchedule, partsFromVanilla } from '../core';
 import { eventsBetween, pulseSeconds } from './transport';
 
 function schedule(text: string) {
-  const r = parsePattern(text);
+  const r = partsFromVanilla(text);
   if (!r.ok) throw new Error(text);
-  return buildSchedule({ ratio: { a: 1, b: 1 }, hands: [r.pattern] });
+  return buildSchedule(r.parts);
 }
 
-test('a pulse is a hand beat over its pulses per beat', () => {
+test('a pulse is part 0’s beat over its spacing', () => {
   // Vanilla: a hand beats every 2 pulses; at 120 bpm a beat is 0.5 s, a pulse 0.25 s.
-  expect(pulseSeconds(120, [{ pulsesPerBeat: 2, offset: 0 }, { pulsesPerBeat: 2, offset: 1 }])).toBe(0.25);
+  expect(pulseSeconds(120, [{ spacing: 2, phase: 0 }, { spacing: 2, phase: 1 }])).toBe(0.25);
   // 3:2: hand 1 on 2-pulse beats at 90 bpm: a beat is 2/3 s, a pulse 1/3 s.
-  expect(pulseSeconds(90, [{ pulsesPerBeat: 2, offset: 0 }, { pulsesPerBeat: 3, offset: 0 }])).toBeCloseTo(1 / 3);
+  expect(pulseSeconds(90, [{ spacing: 2, phase: 0 }, { spacing: 3, phase: 0 }])).toBeCloseTo(1 / 3);
 });
 
 test('events in a window, with the period repeating', () => {

@@ -37,7 +37,9 @@
 //   whole pulse plays that pulse's hit. A resume before the glide ends needs no shift and
 //   continues seamlessly, the picture still following the clock.
 import { carryOver } from '../core/legacy/carry';
-import type { Grid, Schedule } from '../core/legacy/types';
+import { toPartSchedule } from '../core/legacy/schedule';
+import type { Schedule } from '../core/legacy/types';
+import type { Schedule as PartSchedule } from '../core/types';
 import type { DrumSound } from '../sound/drum-sound';
 import { filterCutoff, hitFor, padHitsAt, type Hit, type Mapping } from '../sound/mapping';
 import { crossingsOfSchedule } from '../sound/schedule-crossings';
@@ -84,7 +86,7 @@ export function crossingCatches(
   const pFrom = Math.max(0, Math.ceil((a - startTime) / pulseLen));
   const pTo = Math.ceil((b - startTime) / pulseLen);
   // Integer pulses on a unit clock from 0 are exact: the old schedule's pulses pb + pFrom … pb + pTo − 1.
-  return eventsBetween(prev, 0, 1, pb + pFrom, pb + pTo)
+  return eventsBetween(toPartSchedule(prev), 0, 1, pb + pFrom, pb + pTo)
     .filter((t) => t.event.kind === 'catch' && t.pulse - t.event.flight < pb)
     .map((t) => ({ event: t.event, pulse: t.pulse - pb, time: startTime + (t.pulse - pb) * pulseLen }));
 }
@@ -132,7 +134,7 @@ export function createPlayer(sound: DrumSound, options: PlayerOptions = {}) {
     sound.preload(newMapping);
     mapping = newMapping;
     const startTime = sound.now() + START_DELAY_SECONDS;
-    segments = [{ schedule, startTime, pulseLen: pulseSeconds(bpm, schedule.grids), endTime: null, carry: NO_CARRY }];
+    segments = [{ schedule, startTime, pulseLen: pulseSeconds(bpm, toPartSchedule(schedule).grids), endTime: null, carry: NO_CARRY }];
     scheduledTo = 0;
     run();
   }
@@ -151,15 +153,15 @@ export function createPlayer(sound: DrumSound, options: PlayerOptions = {}) {
     const from = Math.max(scheduledTo, now);
     const until = now + LOOKAHEAD_SECONDS;
     // The filter follows the crossings of the segment sounding now; only a change is sent.
-    const wanted = filterCutoff(crossingsOfSchedule(segmentAt(segments, now).schedule), mapping);
+    const wanted = filterCutoff(crossingsOfSchedule(toPartSchedule(segmentAt(segments, now).schedule)), mapping);
     if (wanted !== cutoff) {
       cutoff = wanted;
       sound.setFilter(wanted);
     }
     const hits: { hit: Hit; time: number; pulseLen: number }[] = [];
     const pads: { time: number; pulseLen: number; cycle: number }[] = [];
-    const add = (t: TimedEvent, grids: readonly [Grid, Grid], pulseLen: number) => {
-      const hit = hitFor(t.event, mapping, grids);
+    const add = (t: TimedEvent, shape: PartSchedule, pulseLen: number) => {
+      const hit = hitFor(t.event, mapping, shape);
       if (hit) hits.push({ hit, time: t.time, pulseLen });
     };
     segments.forEach((seg, i) => {
@@ -175,8 +177,8 @@ export function createPlayer(sound: DrumSound, options: PlayerOptions = {}) {
       for (let p = Math.ceil(pFrom / cycle) * cycle; mapping.pad.on && p < pTo; p += cycle) {
         pads.push({ time: seg.startTime + p * seg.pulseLen, pulseLen: seg.pulseLen, cycle });
       }
-      for (const t of eventsBetween(seg.schedule, seg.startTime, seg.pulseLen, a, b)) {
-        if (t.pulse < B) add(t, seg.schedule.grids, seg.pulseLen);
+      for (const t of eventsBetween(toPartSchedule(seg.schedule), seg.startTime, seg.pulseLen, a, b)) {
+        if (t.pulse < B) add(t, toPartSchedule(seg.schedule), seg.pulseLen);
       }
       // The previous segment's crossing flights, caught here at this segment's pulse p.
       const prev = segments[i - 1];
@@ -185,7 +187,7 @@ export function createPlayer(sound: DrumSound, options: PlayerOptions = {}) {
       // Below this segment's boundary too: a window ending at endTime can round up to p = B,
       // the next segment's start, and a flight is not followed across a second switch.
       for (const t of crossingCatches(prev.schedule, pb, seg.startTime, seg.pulseLen, a, b)) {
-        if (t.pulse < B) add(t, prev.schedule.grids, seg.pulseLen);
+        if (t.pulse < B) add(t, toPartSchedule(prev.schedule), seg.pulseLen);
       }
     });
     hits.sort((p, q) => p.time - q.time);
@@ -203,7 +205,7 @@ export function createPlayer(sound: DrumSound, options: PlayerOptions = {}) {
 
   /** A change while playing or paused: lands at the next cycle boundary as a new segment. */
   function queue(schedule: Schedule, bpm: number) {
-    const pulseLen = pulseSeconds(bpm, schedule.grids);
+    const pulseLen = pulseSeconds(bpm, toPartSchedule(schedule).grids);
     // Nothing at or after the horizon has been handed to the sampler (paused: nothing will be
     // until resume schedules from the frozen time).
     const horizon = state === 'paused' ? frozen : scheduledTo;
@@ -340,7 +342,7 @@ export function createPlayer(sound: DrumSound, options: PlayerOptions = {}) {
             {
               schedule: edit.schedule,
               startTime: now,
-              pulseLen: pulseSeconds(edit.bpm, edit.schedule.grids),
+              pulseLen: pulseSeconds(edit.bpm, toPartSchedule(edit.schedule).grids),
               endTime: null,
               carry: NO_CARRY,
             },
