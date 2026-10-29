@@ -10,6 +10,10 @@ const coveredModules = [
   'src/core/swap.ts',
   'src/core/crossings.ts',
   'src/core/schedule.ts',
+  'src/sound/transport.ts',
+  'src/sound/mapping.ts',
+  'src/sound/drum-sound.ts',
+  'src/app/player.ts',
 ];
 
 export default defineConfig({

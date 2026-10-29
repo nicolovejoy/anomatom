@@ -1,4 +1,4 @@
-import { gcd, lcm } from './math';
+import { gcd, lcm, mod } from './math';
 import type { Grid, HandPattern, PatternInput, Ratio } from './types';
 
 export function reduceRatio(ratio: Ratio): Ratio {
@@ -45,4 +45,9 @@ export function cycleLength(input: PatternInput): number {
     (acc, hand, h) => lcm(acc, hand.length * (grids[h] as Grid).pulsesPerBeat),
     1,
   );
+}
+
+/** True when both hands have a beat on this pulse: the only place a cross may land. */
+export function isCoincident(grids: readonly [Grid, Grid], pulse: number): boolean {
+  return grids.every((g) => mod(pulse - g.offset, g.pulsesPerBeat) === 0);
 }

@@ -1,0 +1,10 @@
+- main [ref=e2]:
+  - heading "jugglebeat" [level=1] [ref=e3]
+  - paragraph [ref=e4]: A siteswap pattern as polyrhythm. Type a pattern, press play, hear it on a TR-808. The picture comes next.
+  - generic [ref=e5]:
+    - generic [ref=e6]:
+      - text: Siteswap
+      - textbox "Siteswap" [ref=e7]: "3"
+    - button "Play" [active] [ref=e8]
+    - button "Stop" [ref=e9]
+  - paragraph [ref=e10]: 3 balls
