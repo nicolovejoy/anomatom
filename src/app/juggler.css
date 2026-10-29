@@ -1,1 +1,8 @@
-/* The juggler region. Empty until stream A draws it. */
+/* The juggler region. Colours and sizes that matter live in tunables; the height is set from
+   JUGGLER.heightPx by the mount. */
+.juggler {
+  display: block;
+  width: 100%;
+  border-radius: 6px;
+  margin: 12px 0 0;
+}
