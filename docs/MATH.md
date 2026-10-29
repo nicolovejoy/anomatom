@@ -1,4 +1,4 @@
-# jugglebeat — the math
+# anomatom — the math
 
 What the app rests on, in the order the code needs it. Each section ends with what the app does with the result. Citations are to `BIBLIOGRAPHY.md`.
 

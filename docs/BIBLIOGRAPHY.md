@@ -1,4 +1,4 @@
-# jugglebeat — bibliography
+# anomatom — bibliography
 
 Shipped on the About page. Papers first, then practitioner sources and prior art. Numbers are the ones `MATH.md` cites.
 

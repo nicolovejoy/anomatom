@@ -1,4 +1,4 @@
-# jugglebeat — specification
+# anomatom — specification
 
 Status: v1 spec, 2026-10-28. Owner: Nico. This file says what the app does and how we know it is done. How it is built is for the PRs; `CLAUDE.md` holds the conventions.
 
