@@ -236,6 +236,25 @@ export const copy = {
   copyLink: 'Copy share link',
   linkCopied: 'I copied the link. It holds my pattern, ratio, tempo and sound, and it never starts me playing.',
   linkNotCopied: 'I could not copy the link. Copy the address from the bar instead.',
+
+  // -------------------------------------------------------------------------------------------
+  // Phone sheet, stream B: first minute
+  // -------------------------------------------------------------------------------------------
+
+  firstMinute: {
+    line: 'I juggle a pattern and play every throw as a drum. Pick one.',
+    names: {
+      cascade: 'Cascade',
+      pause: 'Three balls, a pause',
+      classic: 'High, middle, low',
+      ramp: 'Five balls, a ramp',
+      polyrhythm: 'Two hands, 3 against 2',
+    } as Record<string, string>,
+    playingSuffix: ' · playing',
+    makeYourOwn: 'Make your own',
+    pause: 'Pause',
+    cardLabel: (pattern: string, name: string, playing: boolean) => `${pattern}, ${name}${playing ? ', playing' : ''}`,
+  },
 };
 
 /**

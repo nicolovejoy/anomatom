@@ -19,7 +19,7 @@ async function openPanel(page: Page) {
 }
 
 test('the drawer opens from the Sound button and closes with its button and with Escape', async ({ page }) => {
-  await page.goto('/');
+  await page.goto('/#v1.e30');
   await expect(page.locator('.sound-panel')).toBeHidden();
   await openPanel(page);
   await expect(page.locator('#sp-preset')).toHaveValue('height-drum');
@@ -33,7 +33,7 @@ test('the drawer opens from the Sound button and closes with its button and with
 });
 
 test('an edit reads as custom, and Reset to preset undoes it', async ({ page }) => {
-  await page.goto('/');
+  await page.goto('/#v1.e30');
   await openPanel(page);
   await page.locator('#sp-height-3').selectOption('cowbell');
   await expect(page.locator('#sp-preset')).toHaveValue('custom');
@@ -48,7 +48,7 @@ test('an edit reads as custom, and Reset to preset undoes it', async ({ page }) 
 });
 
 test('Space in the drawer is the control’s, not play and pause', async ({ page }) => {
-  await page.goto('/');
+  await page.goto('/#v1.e30');
   await openPanel(page);
   await page.locator('#sp-pad-on').focus();
   await page.keyboard.press('Space');
@@ -61,7 +61,7 @@ test('SPEC §7.5: three sound fields, the link, a new tab: everything matches an
   page,
   context,
 }) => {
-  await page.goto('/');
+  await page.goto('/#v1.e30');
   await page.locator('#hand-0').fill('441');
   await page.locator('#bpm').fill('96');
   await page.locator('#bpm').press('Enter');
@@ -109,7 +109,7 @@ test('Copy share link puts the current link on the clipboard and confirms in the
       value: { writeText: async (t: string) => void (w.__copied = t) },
     });
   });
-  await page.goto('/');
+  await page.goto('/#v1.e30');
   await openPanel(page);
   await page.locator('#sp-filter-on').check();
   // Straight after the edit: the clipboard holds the live state, not a stale address.
@@ -123,14 +123,14 @@ test('Copy share link puts the current link on the clipboard and confirms in the
 });
 
 test('a link pasted while playing lands at the next cycle: no restart, no stop', async ({ page }) => {
-  await page.goto('/');
+  await page.goto('/#v1.e30');
   await page.locator('#play').click();
   await expect(page.locator('#play')).toHaveText('Pause');
   await expect.poll(() => scheduled(page)).toBeGreaterThan(0);
 
   // A link from elsewhere: another pattern and a custom Mapping.
   const other = await page.context().newPage();
-  await other.goto('/');
+  await other.goto('/#v1.e30');
   await other.locator('#hand-0').fill('531');
   await openPanel(other);
   await other.locator('#sp-height-5').selectOption('clap');
@@ -148,9 +148,9 @@ test('a link pasted while playing lands at the next cycle: no restart, no stop',
 });
 
 test('a pasted link while stopped does not start anything', async ({ page }) => {
-  await page.goto('/');
+  await page.goto('/#v1.e30');
   const other = await page.context().newPage();
-  await other.goto('/');
+  await other.goto('/#v1.e30');
   await other.locator('#hand-0').fill('51');
   const link = await settledHref(other);
   await other.close();
@@ -179,14 +179,14 @@ test('a junk hash loads the defaults and the page works', async ({ page }) => {
 });
 
 test('a junk hash pasted onto an open page resets to the defaults', async ({ page }) => {
-  await page.goto('/');
+  await page.goto('/#v1.e30');
   await page.locator('#hand-0').fill('441');
   await page.evaluate(() => (location.hash = '#v1.%%%junk'));
   await expect(page.locator('#hand-0')).toHaveValue('3');
 });
 
 test('About keeps the state: its back link returns to the pattern as it was', async ({ page }) => {
-  await page.goto('/');
+  await page.goto('/#v1.e30');
   await page.locator('#hand-0').fill('441');
   // Straight away: inside the debounce.
   await page.locator('.about-link').click();
