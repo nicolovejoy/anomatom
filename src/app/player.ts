@@ -172,7 +172,7 @@ export function createPlayer(sound: DrumSound, options: PlayerOptions = {}) {
       const { cycle } = seg.schedule;
       const pFrom = Math.max(0, Math.ceil((a - seg.startTime) / seg.pulseLen));
       const pTo = Math.min(B, Math.ceil((b - seg.startTime) / seg.pulseLen));
-      for (let p = Math.ceil(pFrom / cycle) * cycle; p < pTo; p += cycle) {
+      for (let p = Math.ceil(pFrom / cycle) * cycle; mapping.pad.on && p < pTo; p += cycle) {
         pads.push({ time: seg.startTime + p * seg.pulseLen, pulseLen: seg.pulseLen, cycle });
       }
       for (const t of eventsBetween(seg.schedule, seg.startTime, seg.pulseLen, a, b)) {

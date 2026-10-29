@@ -43,6 +43,20 @@ export function changedFields(current: AppState, target: Shared): Partial<AppSta
 const sharedChanged = (a: AppState, b: AppState) =>
   a.patterns !== b.patterns || a.ratio !== b.ratio || a.bpm !== b.bpm || a.mapping !== b.mapping;
 
+/**
+ * `replace` that never throws: Safari raises SecurityError past 100 `replaceState` calls in 30
+ * seconds. The store is fine; the hash just misses this write, and the next quiet period tries again.
+ */
+export function quietly(replace: (hash: string) => void): (hash: string) => void {
+  return (hash) => {
+    try {
+      replace(hash);
+    } catch {
+      // see above
+    }
+  };
+}
+
 /** The link to the current state: this page's address with the live hash, never a stale one. */
 export function shareUrl(href: string, state: AppState): string {
   const at = href.indexOf('#');

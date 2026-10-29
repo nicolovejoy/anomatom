@@ -2,7 +2,7 @@ import { describe, expect, test, vi } from 'vitest';
 import { applyPreset } from '../sound/mapping';
 import { DEFAULT_MAPPING } from '../tunables';
 import { encodeState } from './hash';
-import { changedFields, createShare, shareUrl } from './share';
+import { changedFields, createShare, quietly, shareUrl } from './share';
 import { createStore, defaultState, type AppState } from './state';
 
 const DEBOUNCE = 250;
@@ -268,5 +268,17 @@ describe('shareUrl', () => {
     expect(shareUrl('https://anomatom.com/', linked)).toBe('https://anomatom.com/' + hash);
     expect(shareUrl('https://anomatom.com/?x=1#v1.old', linked)).toBe('https://anomatom.com/?x=1' + hash);
     expect(shareUrl('https://anomatom.com/#about', linked)).toBe('https://anomatom.com/' + hash);
+  });
+});
+
+describe('quietly', () => {
+  test('passes the hash on, and a throwing replaceState (Safari’s rate limit) does not escape', () => {
+    const calls: string[] = [];
+    quietly((h) => calls.push(h))('#a');
+    expect(calls).toEqual(['#a']);
+    const boom = quietly(() => {
+      throw new DOMException('rate limited', 'SecurityError');
+    });
+    expect(() => boom('#b')).not.toThrow();
   });
 });

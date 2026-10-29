@@ -220,7 +220,7 @@ export const copy = {
   accentLabel: 'Accent',
   downbeatLabel: 'Cross landing on a shared beat',
   filterHeading: 'Crossings to filter',
-  filterOn: 'Open my filter as the crossings grow',
+  filterOn: 'Open the filter as crossings grow',
   filterLowLabel: 'Lowest cutoff (Hz)',
   filterHighLabel: 'Highest cutoff (Hz)',
   padHeading: 'Pad on the downbeat',

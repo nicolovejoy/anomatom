@@ -14,7 +14,7 @@ import {
   type PresetName,
   type Sample,
 } from '../sound/mapping';
-import { CROSS_BOOST_RANGE, FILTER_HZ_RANGE, GAIN_RANGE, KIT_SAMPLES, MAX_HEIGHT, PAN_RANGE } from '../tunables';
+import { CROSS_BOOST_RANGE, FILTER_HZ_RANGE, GAIN_RANGE, KIT_SAMPLES, MAX_HEIGHT, PAN_RANGE, SOUND_PANEL } from '../tunables';
 
 export type MappingEdit =
   | { readonly kind: 'preset'; readonly name: PresetName }
@@ -101,7 +101,7 @@ export const sampleFromValue = (value: string): Sample => (value === '' ? null :
 
 /** Sounds the downbeat dropdown offers (SPEC §4.3: clap, cowbell, none), plus the one a link may have set. */
 export function downbeatChoices(current: Sample): readonly Sample[] {
-  const base: Sample[] = ['clap', 'cowbell', null];
+  const base = SOUND_PANEL.downbeatChoices;
   return base.includes(current) ? base : [...base, current];
 }
 

@@ -5,13 +5,13 @@
 // only the state.
 import { SHARE } from '../tunables';
 import type { Mount } from './mount';
-import { createShare } from './share';
+import { createShare, quietly } from './share';
 
 export const mountShare: Mount = (_root, { store }) => {
   const share = createShare({
     store,
     hash: () => location.hash,
-    replaceHash: (hash) => history.replaceState(history.state, '', hash),
+    replaceHash: quietly((hash) => history.replaceState(history.state, '', hash)),
     after: (fn, ms) => setTimeout(fn, ms),
     cancel: (handle) => clearTimeout(handle as ReturnType<typeof setTimeout>),
     debounceMs: SHARE.hashDebounceMs,

@@ -41,7 +41,7 @@ export const mountSoundPanel: Mount = (root, { store, player }) => {
   const allSamples: readonly Sample[] = [null, ...KIT_SAMPLES];
 
   root.innerHTML = `
-    <aside class="sound-panel" role="dialog" aria-labelledby="sound-panel-title" data-keeps-space hidden>
+    <aside id="sound-panel" class="sound-panel" role="dialog" aria-labelledby="sound-panel-title" data-keeps-space hidden>
       <div class="sp-head">
         <h2 id="sound-panel-title">${copy.soundPanelTitle}</h2>
         <button type="button" class="sp-close">${copy.soundPanelClose}</button>
@@ -152,14 +152,14 @@ export const mountSoundPanel: Mount = (root, { store, player }) => {
     preset.value = name;
     heights.forEach((h, i) => ((heightSelects[i] as HTMLSelectElement).value = sampleValue(m.perHeight[h] ?? null)));
     HANDS.forEach((h) => {
-      (pan[h] as HTMLInputElement).value = String(m.hands[h].pan);
-      (gain[h] as HTMLInputElement).value = String(m.hands[h].gain);
+      setIfIdle(pan[h] as HTMLInputElement, String(m.hands[h].pan));
+      setIfIdle(gain[h] as HTMLInputElement, String(m.hands[h].gain));
       $<HTMLOutputElement>(`#sp-pan-out-${h}`).value = String(m.hands[h].pan);
       $<HTMLOutputElement>(`#sp-gain-out-${h}`).value = String(m.hands[h].gain);
     });
     catchesOn.checked = m.catches.on;
     catchSample.value = sampleValue(m.catches.sample);
-    accent.value = String(m.crossAccent.velocity);
+    setIfIdle(accent, String(m.crossAccent.velocity));
     $<HTMLOutputElement>('#sp-accent-out').value = String(m.crossAccent.velocity);
     const choices = downbeatChoices(m.crossAccent.downbeat);
     const key = choices.map(sampleValue).join('|');
