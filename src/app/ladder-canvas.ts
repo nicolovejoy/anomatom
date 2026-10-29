@@ -1,6 +1,6 @@
 // Draws a ladder Frame on a canvas. Reads nothing but the frame and the tunables.
 import type { Frame } from '../view/ladder';
-import { LADDER } from '../tunables';
+import { BALL_COLOURS, LADDER } from '../tunables';
 
 export function drawLadder(canvas: HTMLCanvasElement, frame: Frame) {
   const ctx = canvas.getContext('2d');
@@ -19,7 +19,7 @@ export function drawLadder(canvas: HTMLCanvasElement, frame: Frame) {
   // go down from its line, hand 2's go up, so the two hands grow towards each other.
   const rowY = (hand: 0 | 1, ball: number) => {
     const step = LADDER.barPx + LADDER.rowGapPx;
-    const row = (ball % LADDER.palette.length) * step + LADDER.barPx / 2 + LADDER.rowGapPx;
+    const row = (ball % BALL_COLOURS.length) * step + LADDER.barPx / 2 + LADDER.rowGapPx;
     return hand === 0 ? (laneY[0] as number) + row : (laneY[1] as number) - row;
   };
 
@@ -57,11 +57,11 @@ export function drawLadder(canvas: HTMLCanvasElement, frame: Frame) {
   }
 
   for (const b of frame.bars) {
-    const colour = LADDER.palette[b.ball % LADDER.palette.length] as string;
+    const colour = BALL_COLOURS[b.colour % BALL_COLOURS.length] as string;
     const x0 = px(b.x0);
     const x1 = Math.max(px(b.x1), x0 + LADDER.minBarPx);
-    const y0 = rowY(b.from, b.ball);
-    const y1 = rowY(b.to, b.ball);
+    const y0 = rowY(b.from, b.colour);
+    const y1 = rowY(b.to, b.colour);
     if (b.cross) {
       ctx.strokeStyle = colour;
       ctx.lineWidth = LADDER.crossLinePx;

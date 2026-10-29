@@ -5,17 +5,31 @@ import type { DrumSound } from '../sound/drum-sound';
 import { hitFor, type Mapping } from '../sound/mapping';
 import { eventsBetween, pulseSeconds } from '../sound/transport';
 import { LOOKAHEAD_SECONDS, SCHEDULER_INTERVAL_MS, START_DELAY_SECONDS } from '../tunables';
+import type { PlayerView, Segment } from '../view/types';
 
-export function createPlayer(sound: DrumSound) {
+export type { PlayerView, Segment } from '../view/types';
+
+export interface PlayerOptions {
+  /**
+   * Called with the running total each time an event is handed to the sampler. Audio output is
+   * not observable (samples come from a CDN and stay silent until loaded), so the page
+   * publishes this count for the browser smoke test (SPEC §7.8).
+   */
+  readonly onScheduled?: (total: number) => void;
+}
+
+const NO_CARRY: ReadonlyMap<number, number> = new Map();
+
+export function createPlayer(sound: DrumSound, options: PlayerOptions = {}) {
   let timer: ReturnType<typeof setInterval> | undefined;
-  let start = 0;
-  let pulseLen = 1;
-  let current: Schedule | null = null;
+  let playingSegment: Segment | null = null;
+  let edit: { schedule: Schedule; bpm: number } | null = null;
+  let scheduled = 0;
 
   function stop() {
     if (timer !== undefined) clearInterval(timer);
     timer = undefined;
-    current = null;
+    playingSegment = null;
   }
 
   function play(schedule: Schedule, mapping: Mapping, bpm: number) {
@@ -23,9 +37,9 @@ export function createPlayer(sound: DrumSound) {
     // A gesture: resume the context, and retry any kit that failed to load at page open.
     sound.resume();
     sound.preload(mapping);
-    pulseLen = pulseSeconds(bpm, schedule.grids);
-    start = sound.now() + START_DELAY_SECONDS;
-    current = schedule;
+    const pulseLen = pulseSeconds(bpm, schedule.grids);
+    const start = sound.now() + START_DELAY_SECONDS;
+    playingSegment = { schedule, startTime: start, pulseLen, endTime: null, carry: NO_CARRY };
     let scheduledTo = 0;
     const tick = () => {
       // From wherever the last window ended, or from now if the clock has run past it (a
@@ -35,7 +49,9 @@ export function createPlayer(sound: DrumSound) {
       const until = sound.now() + LOOKAHEAD_SECONDS;
       for (const t of eventsBetween(schedule, start, pulseLen, from, until)) {
         const hit = hitFor(t.event, mapping, schedule.grids);
-        if (hit) sound.play(hit, t.time, pulseLen);
+        if (!hit) continue;
+        sound.play(hit, t.time, pulseLen);
+        options.onScheduled?.(++scheduled);
       }
       scheduledTo = until;
     };
@@ -49,10 +65,31 @@ export function createPlayer(sound: DrumSound) {
     play,
     stop,
     playing,
-    /** What is sounding right now, so the picture follows the sound, not the latest edit. */
-    schedule: () => current,
-    /** The playhead in pulses since the start, fractional; 0 when stopped. */
-    position: () => (playing() ? (sound.now() - start) / pulseLen : 0),
+    /** The latest valid edit, shown while stopped. Does not change what is playing. */
+    setEdit(schedule: Schedule, bpm: number) {
+      edit = { schedule, bpm };
+    },
+    /**
+     * What the picture shows this frame. Playing: the schedule that sounds, so the picture
+     * follows the sound, not the latest edit. Stopped: the latest valid edit with `now` at its
+     * pulse 0, or no segment before the first edit.
+     */
+    view(): PlayerView {
+      const now = sound.now();
+      if (playingSegment) return { now, state: 'playing', segments: [playingSegment], pending: false };
+      const segments: Segment[] = edit
+        ? [
+            {
+              schedule: edit.schedule,
+              startTime: now,
+              pulseLen: pulseSeconds(edit.bpm, edit.schedule.grids),
+              endTime: null,
+              carry: NO_CARRY,
+            },
+          ]
+        : [];
+      return { now, state: 'stopped', segments, pending: false };
+    },
   };
 }
 

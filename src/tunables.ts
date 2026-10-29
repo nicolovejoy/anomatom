@@ -1,5 +1,10 @@
 // Every tunable lives here. Nothing else holds a magic number.
+// One section per stream of docs/plans/v1-parallel.md; each stream edits only its own section.
 import type { Mapping } from './sound/mapping';
+
+// ---------------------------------------------------------------------------------------------
+// Wave 0: shell
+// ---------------------------------------------------------------------------------------------
 
 /** Largest value on either side of the hand ratio (SPEC §4.1, up to 9:8). */
 export const MAX_RATIO = 9;
@@ -9,6 +14,9 @@ export const MAX_PERIOD = 16;
 /** Tempo of hand 1's beats. */
 export const DEFAULT_BPM = 120;
 export const BPM_RANGE = { min: 40, max: 240 } as const;
+
+/** Master volume when the page opens, 0 to 1. */
+export const DEFAULT_VOLUME = 1;
 
 /** How far ahead of the audio clock events are handed to the sampler, and how often. */
 export const LOOKAHEAD_SECONDS = 0.1;
@@ -36,6 +44,19 @@ export const RATIO_CHIPS: readonly (readonly [number, number])[] = [
   [5, 4],
 ];
 
+/** Stable colours by ball, shared by the ladder and the juggler; repeats past the end. */
+export const BALL_COLOURS: readonly string[] = [
+  '#e6553a',
+  '#3a7be6',
+  '#f0c33c',
+  '#4fb477',
+  '#b05ce6',
+  '#e67e3a',
+  '#3ac0e6',
+  '#e63a9a',
+  '#8fb43a',
+];
+
 /** The ladder strip. */
 export const LADDER = {
   /** Pulses visible across the strip, and where the playhead sits. */
@@ -51,8 +72,6 @@ export const LADDER = {
   tickPx: { coincident: 14, beat: 7 },
   tickWidthPx: { coincident: 2, beat: 1 },
   playheadWidthPx: 2,
-  /** Stable colours by ball id; repeats past the end. */
-  palette: ['#e6553a', '#3a7be6', '#f0c33c', '#4fb477', '#b05ce6', '#e67e3a', '#3ac0e6', '#e63a9a', '#8fb43a'],
   background: '#14161a',
   lane: '#2a2e36',
   tick: '#4a505c',
@@ -62,6 +81,18 @@ export const LADDER = {
   /** Pulses per screen width is fixed; bars shorter than this many pixels are still drawn. */
   minBarPx: 2,
 } as const;
+
+// ---------------------------------------------------------------------------------------------
+// A: Juggler
+// ---------------------------------------------------------------------------------------------
+
+// ---------------------------------------------------------------------------------------------
+// B: Player and fixes
+// ---------------------------------------------------------------------------------------------
+
+// ---------------------------------------------------------------------------------------------
+// C: Mapping and sound
+// ---------------------------------------------------------------------------------------------
 
 /** SPEC §6: the v1 mapping. Sample names are smplr's TR-808 groups. */
 export const DEFAULT_MAPPING: Mapping = {
@@ -84,3 +115,15 @@ export const DEFAULT_MAPPING: Mapping = {
   catches: { on: false, sample: 'rimshot' },
   crossAccent: { velocity: 20, downbeat: 'clap' },
 };
+
+// ---------------------------------------------------------------------------------------------
+// D: About
+// ---------------------------------------------------------------------------------------------
+
+// ---------------------------------------------------------------------------------------------
+// E: Knobs
+// ---------------------------------------------------------------------------------------------
+
+// ---------------------------------------------------------------------------------------------
+// F: Sound panel and share
+// ---------------------------------------------------------------------------------------------
