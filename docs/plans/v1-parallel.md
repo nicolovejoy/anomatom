@@ -248,3 +248,4 @@ Dated 2026-10-29.
 - D's bibliography parser lives at `src/view/bibliography.ts` (pure, covered by the `src/view/**` glob).
 - Wave 1 per-task review is replaced by one review per stream at its end, to save tokens (Nico, 2026-10-29).
 - E: Left/Right arrow keys move across the ratio chips (shipped in the wave 0 follow-up; E keeps it when rebuilding the panel). Labels read "Pattern", with a two-entry glossary under the panel; E keeps both.
+- 2026-10-29, C: `Mapping.byBall` (per-ball sample list, used by the ball-to-pitch preset) is accepted beyond SPEC §4.3; the preset name is derived by `presetOf`, never stored. F wires: `sound.preload(mapping)` on every mapping change, `sound.setMaster(volume)` and `sound.setFilter(filterCutoff(crossings, mapping))` on change, and `sound.playPad(mapping.pad.instrument, padHitsAt(cyclePulse, mapping, cyclePulses), time, pulseLen)` at each cycle start. Pad voices and `FILTER_FULL_CROSSINGS` await Nico's ear.

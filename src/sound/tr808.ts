@@ -22,9 +22,20 @@ function importSmplr() {
   }));
 }
 
-export async function tr808(context: AudioContext, _hand: Hand, pan: number, gain: number): Promise<Kit> {
+export async function tr808(
+  context: AudioContext,
+  _hand: Hand,
+  pan: number,
+  gain: number,
+  destination: AudioNode,
+): Promise<Kit> {
   const smplr = await importSmplr();
-  const machine = smplr.DrumMachine(context, { instrument: 'TR-808', pan, volume: Math.round(gain * KIT_VOLUME) });
+  const machine = smplr.DrumMachine(context, {
+    instrument: 'TR-808',
+    pan,
+    volume: Math.round(gain * KIT_VOLUME),
+    destination,
+  });
   return {
     ready: machine.load.then(() => undefined),
     start: (event) => machine.start(event),
