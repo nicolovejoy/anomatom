@@ -2,7 +2,7 @@ import { buildSchedule, isVanilla, parsePattern, validate } from './core';
 import { createDrumSound } from './sound/drum-sound';
 import { browserContext, tr808 } from './sound/tr808';
 import { createPlayer } from './app/player';
-import { DEFAULT_BPM, DEFAULT_MAPPING } from './tunables';
+import { DEFAULT_BPM, DEFAULT_MAPPING, DEFAULT_PATTERN } from './tunables';
 import { copy } from './ui/copy';
 
 const app = document.getElementById('app');
@@ -11,7 +11,7 @@ if (app) {
     <h1>${copy.title}</h1>
     <p>${copy.placeholder}</p>
     <form id="form">
-      <label>${copy.patternLabel} <input id="pattern" value="3" autocomplete="off" inputmode="numeric" /></label>
+      <label>${copy.patternLabel} <input id="pattern" value="${DEFAULT_PATTERN}" autocomplete="off" inputmode="numeric" /></label>
       <button id="play" type="submit">${copy.play}</button>
       <button id="stop" type="button" disabled>${copy.stop}</button>
     </form>

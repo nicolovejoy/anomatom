@@ -16,8 +16,16 @@ export const SCHEDULER_INTERVAL_MS = 25;
 /** Delay between pressing play and the first pulse, so the first window has room. */
 export const START_DELAY_SECONDS = 0.05;
 
-/** MIDI-style velocity of an unaccented throw. */
+/** The pattern in the box when the page opens. */
+export const DEFAULT_PATTERN = '3';
+
+/** MIDI-style velocity of an unaccented throw, and the ceiling. */
 export const BASE_VELOCITY = 100;
+export const MAX_VELOCITY = 127;
+/** Heights above this share the top drum of the mapping. */
+export const MAX_HEIGHT = 9;
+/** smplr volume (0-127) of a hand at gain 1. 75 is what L6 settled on; smplr's 100 is loud. */
+export const KIT_VOLUME = 75;
 
 /** SPEC §6: the v1 mapping. Sample names are smplr's TR-808 groups. */
 export const DEFAULT_MAPPING: Mapping = {

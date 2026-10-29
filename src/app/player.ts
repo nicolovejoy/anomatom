@@ -17,13 +17,19 @@ export function createPlayer(sound: DrumSound) {
   return {
     play(schedule: Schedule, mapping: Mapping, bpm: number) {
       stop();
+      // A gesture: resume the context, and retry any kit that failed to load at page open.
       sound.resume();
+      sound.preload(mapping);
       const pulseLen = pulseSeconds(bpm, schedule.grids);
       const start = sound.now() + START_DELAY_SECONDS;
       let scheduledTo = 0;
       const tick = () => {
+        // From wherever the last window ended, or from now if the clock has run past it (a
+        // backgrounded tab throttles timers while the audio clock keeps going): missed events
+        // are skipped, never piled onto one instant.
+        const from = Math.max(scheduledTo, sound.now());
         const until = sound.now() + LOOKAHEAD_SECONDS;
-        for (const t of eventsBetween(schedule, start, pulseLen, scheduledTo, until)) {
+        for (const t of eventsBetween(schedule, start, pulseLen, from, until)) {
           const hit = hitFor(t.event, mapping, schedule.grids);
           if (hit) sound.play(hit, t.time, pulseLen);
         }

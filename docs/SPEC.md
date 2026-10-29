@@ -101,7 +101,7 @@ Static page. Three short sections: the idea (ladder diagram = piano roll; polyrh
 | --- | --- | --- |
 | `kind = throw` | a hit | every throw sounds; catches silent |
 | `hand` | voice and pan | hand 1: low voices, pan -0.6; hand 2: high voices, pan +0.6 |
-| `height` | which drum and duration | 1-2 closed hat; 3 snare or rim; 4 low tom; 5+ kick. Duration = height × pulse length |
+| `height` | which drum and duration | 1-2 closed hat; 3 snare or rim; 4 low tom; 5+ kick. Duration = the flight: height × that hand's pulses per beat × pulse length (`MATH.md` §7) |
 | `cross` | accent | +20 velocity; on a coincident pulse a clap |
 | `ball` | a small variation | each ball a fixed sample variant or detune within its drum |
 | crossings count (per pattern) | one global parameter | low-pass cutoff: more crossings, brighter (off by default) |

@@ -139,9 +139,11 @@ test('a new mapping disposes the loaded kit; a kit arriving for a superseded req
   await settle();
   sound.play(hit(0), 1, 0.25);
   expect(kits[0]?.started).toHaveLength(1);
-  // Hand 1's voice changes: its loaded kit goes, hand 0's stays.
+  // Hand 2's voice changes: its loaded kit keeps playing until the replacement is in.
   sound.preload({ ...DEFAULT_MAPPING, hands: [DEFAULT_MAPPING.hands[0], { pan: 0, gain: 0.5 }] });
-  expect(kits[1]?.disposed).toBe(true);
+  expect(kits[1]?.disposed).toBe(false);
+  sound.play(hit(1), 1, 0.25);
+  expect(kits[1]?.started).toHaveLength(1);
   expect(kits[0]?.disposed).toBe(false);
   expect(loadKit).toHaveBeenCalledTimes(3);
   // Before that kit arrives the voice changes again: the late kit is dropped unloaded.
@@ -151,8 +153,20 @@ test('a new mapping disposes the loaded kit; a kit arriving for a superseded req
   expect(loadKit).toHaveBeenCalledTimes(4);
   kits[3]?.resolve();
   await settle();
+  expect(kits[1]?.disposed).toBe(true);
   sound.play(hit(1), 1, 0.25);
   expect(kits[3]?.started).toHaveLength(1);
+  expect(kits[1]?.started).toHaveLength(1);
+});
+
+test('an interrupted context (iOS) is resumed too', () => {
+  const ctx = fakeContext('interrupted' as AudioContextState);
+  const sound = createDrumSound(() => ctx, async () => fakeKit() as Kit);
+  sound.resume();
+  expect(ctx.resume).toHaveBeenCalled();
+  const running = fakeContext('running');
+  createDrumSound(() => running, async () => fakeKit() as Kit).resume();
+  expect(running.resume).not.toHaveBeenCalled();
 });
 
 test('a kit that finishes loading after its voice changed is dropped', async () => {
