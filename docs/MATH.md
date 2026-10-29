@@ -63,7 +63,7 @@ App: this is the data model (one siteswap per hand, a ratio, cross throws on the
 
 ## 7. From pulses to seconds and pixels
 
-Pulse length in seconds = 60 / (bpm₁ × pulsesPerBeat₁), where pulsesPerBeat₁ = ratio₂ / gcd(ratio₁, ratio₂). Hand 2's bpm follows. A flight of height h on a hand with k pulses per beat lasts h × k pulses; its apex height is proportional to (h × k)², as a parabola under gravity gives. Pulses stay integers in the Schedule; multiplication by the pulse length happens only when an audio event is scheduled or a frame is drawn.
+Pulse length in seconds = 60 / (bpm₁ × pulsesPerBeat₁), where pulsesPerBeat₁ = ratio₂ / gcd(ratio₁, ratio₂). Hand 2's bpm follows. A flight of height h on a hand with k pulses per beat lasts h × k pulses; a ball's apex height is proportional to the square of its air time, as a parabola under gravity gives; the air time is the flight less the dwell in the catching hand, so roughly (h × k)². Pulses stay integers in the Schedule; multiplication by the pulse length happens only when an audio event is scheduled or a frame is drawn.
 
 ## 8. Worked cases for tests
 
