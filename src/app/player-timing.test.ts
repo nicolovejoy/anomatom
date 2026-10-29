@@ -6,7 +6,7 @@
 // The drawn ball at a catch is at the catching hand's throw point within one radius: that is
 // src/view/juggler.test.ts (SPEC §7.6, second half), not repeated here.
 import { expect, test, vi } from 'vitest';
-import { buildSchedule, parsePattern } from '../core/legacy';
+import { scheduleOf } from '../test/schedules';
 import type { DrumSound } from '../sound/drum-sound';
 import { applyPreset } from '../sound/mapping';
 import { LOOKAHEAD_SECONDS, SCHEDULER_INTERVAL_MS } from '../tunables';
@@ -18,11 +18,6 @@ import { createPlayer } from './player';
 /** SPEC §7.6: 2 ms. */
 const TIMING_TOLERANCE_SECONDS = 0.002;
 
-function parse(text: string) {
-  const r = parsePattern(text);
-  if (!r.ok) throw new Error(text);
-  return r.pattern;
-}
 
 function fakeSound() {
   const played: { time: number; handedAt: number }[] = [];
@@ -64,7 +59,7 @@ for (const c of cases) {
     vi.useFakeTimers();
     const { sound, played, run } = fakeSound();
     const player = createPlayer(sound);
-    const schedule = buildSchedule({ ratio: c.ratio, hands: c.hands.map(parse) });
+    const schedule = scheduleOf(c.hands, c.ratio);
     player.play(schedule, DEFAULT_MAPPING, c.bpm);
     run(20);
     const seg = player.view().segments[0]!;
@@ -90,7 +85,7 @@ test('across a tempo change at the next cycle, events sit on the old grid, then 
   vi.useFakeTimers();
   const { sound, played, run } = fakeSound();
   const player = createPlayer(sound);
-  const schedule = buildSchedule({ ratio: { a: 1, b: 1 }, hands: [parse('441')] });
+  const schedule = scheduleOf('441');
   player.play(schedule, DEFAULT_MAPPING, 120);
   run(1);
   player.setEdit(schedule, 75);

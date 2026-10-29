@@ -1,5 +1,6 @@
 import { describe, expect, test, vi } from 'vitest';
 import { applyPreset } from '../sound/mapping';
+import { lineParts, vanillaParts } from '../test/schedules';
 import { DEFAULT_MAPPING } from '../tunables';
 import { encodeState } from './hash';
 import { changedFields, createShare, quietly, shareUrl } from './share';
@@ -48,7 +49,7 @@ function setup(initialHash = '', initial: AppState = defaultState()) {
 
 const linked: AppState = {
   ...defaultState(),
-  patterns: ['441', '2'],
+  parts: lineParts(['441', '2'], { a: 3, b: 2 }),
   ratio: { a: 3, b: 2 },
   bpm: 90,
   mapping: { ...DEFAULT_MAPPING, crossAccent: { velocity: 33, downbeat: null }, pad: { ...DEFAULT_MAPPING.pad, on: true } },
@@ -59,7 +60,7 @@ describe('restoring on load', () => {
     const t = setup(encodeState(linked));
     t.share.start();
     const s = t.store.get();
-    expect(s.patterns).toEqual(linked.patterns);
+    expect(s.parts).toEqual(linked.parts);
     expect(s.ratio).toEqual(linked.ratio);
     expect(s.bpm).toBe(90);
     expect(s.mapping).toEqual(linked.mapping);
@@ -102,7 +103,7 @@ describe('restoring on load', () => {
     for (const h of ['', '#', '#about']) {
       const t = setup(h, linked);
       t.share.start();
-      expect(t.store.get().patterns).toEqual(linked.patterns);
+      expect(t.store.get().parts).toEqual(linked.parts);
       expect(t.waiting()).toBe(false);
       expect(t.replaced).toEqual([]);
     }
@@ -113,24 +114,25 @@ describe('restoring on load', () => {
       const t = setup(h);
       expect(() => t.share.start()).not.toThrow();
       const s = t.store.get();
-      expect(s.patterns).toEqual(defaultState().patterns);
+      expect(s.parts).toEqual(defaultState().parts);
       expect(s.mapping).toBe(DEFAULT_MAPPING);
       expect(t.replaced).toEqual([]);
     }
   });
 
   test('a link with an unreadable pattern restores the rest and keeps the default pattern', () => {
-    const payload = encodeState({ ...linked, patterns: ['9<9', '2'] });
-    const t = setup(payload);
+    const v1 = btoa(JSON.stringify({ p: ['9<9', '2'], r: [3, 2], t: 90 })).replace(/=+$/, '');
+    const t = setup('#v1.' + v1);
     t.share.start();
-    expect(t.store.get().patterns).toEqual(['3', '2']);
+    expect(t.store.get().parts).toEqual(lineParts(['3', '2'], { a: 3, b: 2 }));
     expect(t.store.get().bpm).toBe(90);
   });
 
   test('a link whose pattern does not validate restores into the store: the knobs show the fix state', () => {
-    const t = setup(encodeState({ ...defaultState(), patterns: ['432', '2'] }));
+    const t = setup(encodeState({ ...defaultState(), parts: vanillaParts('432') }));
     t.share.start();
-    expect(t.store.get().patterns).toEqual(['432', '2']);
+    expect(t.store.get().parts).toEqual(vanillaParts('432'));
+    expect(t.store.get().drafts).toEqual([null, null]);
   });
 });
 
@@ -151,7 +153,7 @@ describe('writing the hash', () => {
     const t = setup();
     t.share.start();
     t.store.set({ bpm: 100 });
-    t.store.set({ patterns: ['441', '2'] });
+    t.store.dispatch({ type: 'editDraft', part: 0, text: '441' });
     expect(t.cancel).toHaveBeenCalledTimes(1);
   });
 
@@ -212,14 +214,14 @@ describe('a pasted link on an open page', () => {
     const before = t.store.get();
     const seen: string[][] = [];
     t.store.subscribe((s, p) => seen.push(Object.keys(s).filter((k) => s[k as keyof AppState] !== p[k as keyof AppState])));
-    t.setHash(encodeState({ ...defaultState(), bpm: 150, patterns: ['531', '2'] }));
+    t.setHash(encodeState({ ...defaultState(), bpm: 150, parts: vanillaParts('531') }));
     t.share.onHashChange();
     expect(t.store.get().bpm).toBe(150);
-    expect(t.store.get().patterns).toEqual(['531', '2']);
+    expect(t.store.get().parts).toEqual(vanillaParts('531'));
     expect(t.store.get().ratio).toBe(before.ratio);
     expect(t.store.get().mapping).toBe(before.mapping);
     const changes = seen.flat();
-    expect(changes).toEqual(expect.arrayContaining(['bpm', 'patterns']));
+    expect(changes).toEqual(expect.arrayContaining(['bpm', 'parts']));
     expect(changes).not.toContain('mapping');
     expect(changes).not.toContain('ratio');
   });
@@ -236,7 +238,7 @@ describe('a pasted link on an open page', () => {
     t.setHash(settled.lastStateHash as string);
     t.share.onHashChange();
     expect(heard).not.toHaveBeenCalled();
-    expect(t.store.get().patterns).toBe(settled.patterns);
+    expect(t.store.get().parts).toBe(settled.parts);
   });
 
   test('a junk hash resets the four shared fields to the defaults and leaves volume and the panel', () => {
@@ -246,7 +248,7 @@ describe('a pasted link on an open page', () => {
     t.setHash('#v1.%%%');
     t.share.onHashChange();
     const s = t.store.get();
-    expect(s.patterns).toEqual(defaultState().patterns);
+    expect(s.parts).toEqual(defaultState().parts);
     expect(s.ratio).toEqual({ a: 1, b: 1 });
     expect(s.bpm).toBe(defaultState().bpm);
     expect(s.mapping).toEqual(DEFAULT_MAPPING);
@@ -260,7 +262,7 @@ describe('a pasted link on an open page', () => {
     for (const h of ['', '#', '#about']) {
       t.setHash(h);
       t.share.onHashChange();
-      expect(t.store.get().patterns).toEqual(linked.patterns);
+      expect(t.store.get().parts).toEqual(linked.parts);
     }
   });
 });
@@ -269,14 +271,14 @@ describe('changedFields', () => {
   const d = defaultState();
   test('equal values by content are not changes', () => {
     expect(
-      changedFields(d, { patterns: [...d.patterns], ratio: { ...d.ratio }, bpm: d.bpm, mapping: applyPreset('height-drum') }),
+      changedFields(d, { parts: vanillaParts('3'), ratio: { ...d.ratio }, bpm: d.bpm, mapping: applyPreset('voice-per-part') }),
     ).toEqual({});
   });
 
   test('each differing field is reported alone', () => {
-    const same = { patterns: d.patterns, ratio: d.ratio, bpm: d.bpm, mapping: d.mapping };
-    expect(Object.keys(changedFields(d, { ...same, patterns: ['3', '5'] }))).toEqual(['patterns']);
-    expect(Object.keys(changedFields(d, { ...same, patterns: ['4', '2'] }))).toEqual(['patterns']);
+    const same = { parts: d.parts, ratio: d.ratio, bpm: d.bpm, mapping: d.mapping };
+    // New parts bring fresh drafts, so the inputs show them.
+    expect(changedFields(d, { ...same, parts: vanillaParts('4') })).toEqual({ parts: vanillaParts('4'), drafts: [null, null] });
     expect(Object.keys(changedFields(d, { ...same, ratio: { a: 3, b: 2 } }))).toEqual(['ratio']);
     expect(Object.keys(changedFields(d, { ...same, ratio: { a: 1, b: 2 } }))).toEqual(['ratio']);
     expect(Object.keys(changedFields(d, { ...same, bpm: 99 }))).toEqual(['bpm']);

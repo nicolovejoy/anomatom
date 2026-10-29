@@ -33,7 +33,7 @@ test('3 → 441 at a shared ground state: every ball carries, the one landing ex
   const atB = three.events.find((e) => e.kind === 'throw' && e.pulse === 3);
   const firstAt0 = [...firstThrows(next)].find(([, t]) => t.pulse === 0)?.[0];
   expect(carry.get(firstAt0 as number)).toBe(atB?.ball);
-  // Same as the ladder's hand-built switch (src/view/ladder.test.ts, on the legacy schedule).
+  // Same as the ladder's hand-built switch (src/view/ladder.test.ts).
   expect(carry).toEqual(
     new Map([
       [0, 0],

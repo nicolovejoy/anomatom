@@ -1,5 +1,6 @@
 import { expect, test, vi } from 'vitest';
-import { buildSchedule, carryOver, parsePattern } from '../core/legacy';
+import { carryOver } from '../core';
+import { scheduleOf } from '../test/schedules';
 import { applyPreset } from '../sound/mapping';
 import { LOOKAHEAD_SECONDS, SCHEDULER_INTERVAL_MS } from '../tunables';
 
@@ -9,14 +10,8 @@ import type { DrumSound } from '../sound/drum-sound';
 import { axisPulse } from '../view/ladder';
 import { createPlayer, crossingCatches, type Segment } from './player';
 
-function parse(text: string) {
-  const r = parsePattern(text);
-  if (!r.ok) throw new Error(text);
-  return r.pattern;
-}
-
 function schedule(text: string) {
-  return buildSchedule({ ratio: { a: 1, b: 1 }, hands: [parse(text)] });
+  return scheduleOf(text);
 }
 
 function fakeSound() {
@@ -618,7 +613,7 @@ test('the 3:2 demo keeps its downbeat clap across a tempo change', () => {
   const { sound, played, tick } = fakeSound();
   const run = runner(tick);
   const player = createPlayer(sound);
-  const demo = buildSchedule({ ratio: { a: 3, b: 2 }, hands: [parse('2 2x 2'), parse('2x 2')] });
+  const demo = scheduleOf(['2 2x 2', '2x 2'], { a: 3, b: 2 });
   player.play(demo, DEFAULT_MAPPING, 60);
   run(0.7);
   player.setEdit(demo, 150);

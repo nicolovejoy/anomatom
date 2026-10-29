@@ -153,6 +153,15 @@ export const FIXES = { count: 3, budget: 300_000 } as const;
 export const MAX_PHASE_REFINEMENT = 64;
 
 // ---------------------------------------------------------------------------------------------
+// Model B: app model, actions and hash (docs/plans/model-waves.md)
+// ---------------------------------------------------------------------------------------------
+
+/** Most parts a share link may carry; a link with more falls back to the default pattern. */
+export const MAX_PARTS = 8;
+/** Longest cycle, in pulses, a share link may ask for; a longer one falls back to the default pattern. */
+export const MAX_LINK_CYCLE = 4096;
+
+// ---------------------------------------------------------------------------------------------
 // C: Mapping and sound
 // ---------------------------------------------------------------------------------------------
 
@@ -271,8 +280,9 @@ export const PRESET_MAPPINGS = {
   'ball-pitch': BALL_TO_PITCH,
 } as const;
 
-// Stays HEIGHT_DRUM so the first-minute cards sound as before; stream B flips it to VOICE_PER_PART once each card carries its preset.
-export const DEFAULT_MAPPING: Mapping = HEIGHT_DRUM;
+// A fresh state takes voice per part (design §7); each first-minute card carries its own preset
+// (FIRST_MINUTE_PRESETS `mapping`), and an old link carries its mapping, so nothing that played changes its sound.
+export const DEFAULT_MAPPING: Mapping = VOICE_PER_PART;
 
 // ---------------------------------------------------------------------------------------------
 // D: About
@@ -355,12 +365,14 @@ export const FIRST_MINUTE_PRESETS: readonly {
   readonly patterns: readonly [string, string];
   readonly ratio: { readonly a: number; readonly b: number };
   readonly wide: boolean;
+  /** The mapping preset the card plays with (design §7: the juggling cards keep height to drum). A key of PRESET_MAPPINGS. */
+  readonly mapping: keyof typeof PRESET_MAPPINGS;
 }[] = [
-  { id: 'cascade', patterns: ['3', DEFAULT_PATTERN_HAND2], ratio: { a: 1, b: 1 }, wide: false },
-  { id: 'pause', patterns: ['441', DEFAULT_PATTERN_HAND2], ratio: { a: 1, b: 1 }, wide: false },
-  { id: 'classic', patterns: ['531', DEFAULT_PATTERN_HAND2], ratio: { a: 1, b: 1 }, wide: false },
-  { id: 'ramp', patterns: ['97531', DEFAULT_PATTERN_HAND2], ratio: { a: 1, b: 1 }, wide: false },
-  { id: 'polyrhythm', patterns: ['2 2x 2', '2x 2'], ratio: { a: 3, b: 2 }, wide: true },
+  { id: 'cascade', patterns: ['3', DEFAULT_PATTERN_HAND2], ratio: { a: 1, b: 1 }, wide: false, mapping: 'height-drum' },
+  { id: 'pause', patterns: ['441', DEFAULT_PATTERN_HAND2], ratio: { a: 1, b: 1 }, wide: false, mapping: 'height-drum' },
+  { id: 'classic', patterns: ['531', DEFAULT_PATTERN_HAND2], ratio: { a: 1, b: 1 }, wide: false, mapping: 'height-drum' },
+  { id: 'ramp', patterns: ['97531', DEFAULT_PATTERN_HAND2], ratio: { a: 1, b: 1 }, wide: false, mapping: 'height-drum' },
+  { id: 'polyrhythm', patterns: ['2 2x 2', '2x 2'], ratio: { a: 3, b: 2 }, wide: true, mapping: 'height-drum' },
 ];
 
 // ---------------------------------------------------------------------------------------------

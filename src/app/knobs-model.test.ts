@@ -1,117 +1,152 @@
 import { describe, expect, test } from 'vitest';
-import { buildSchedule, fixesFor, parsePattern } from '../core/legacy';
-import type { PatternInput, Schedule } from '../core/legacy';
+import { scheduleOf, typed } from '../test/schedules';
 import { BPM_RANGE, MAX_RATIO } from '../tunables';
 import type { PlayerView, Segment } from '../view/types';
+import { reduce } from './actions';
+import { derived } from './derived';
 import {
   analyse,
   badChar,
   clampBpm,
   cyclePosition,
   editText,
+  fixActions,
   fixLabel,
-  fixTexts,
   hand2Bpm,
   handState,
-  patternText,
+  inputText,
   pieces,
+  reduceRatio,
   siteCovering,
   statusLines,
   stepRatio,
-  swapText,
+  swapAction,
   toggleSite,
   warnSites,
 } from './knobs-model';
+import { defaultState } from './state';
 
 const one = { a: 1, b: 1 };
 const threeTwo = { a: 3, b: 2 };
-function pat(text: string) {
-  const r = parsePattern(text);
-  if (!r.ok) throw new Error(text);
-  return r.pattern;
-}
 
 describe('analyse and the fix state', () => {
-  test('a valid pattern: ball count, both indicators ok (hand 2 hidden at 1:1), no warnings', () => {
-    const a = analyse(['3', '2'], one);
+  test('a juggleable pattern: ball count, the indicator ok (hand 2 hidden at 1:1), no warnings', () => {
+    const a = analyse(typed(['3']));
     expect(a.balls).toBe(3);
-    expect(a.details).toEqual([]);
+    expect(a.fixable).toBe(false);
     expect(handState(a, 0)).toBe('ok');
     expect(handState(a, 1)).toBe('hidden');
     expect(statusLines(a)).toEqual(['I have 3 balls.']);
     expect(warnSites(a, 0).size).toBe(0);
+    expect(warnSites(a, 1).size).toBe(0);
     expect(badChar(a, 0)).toBeNull();
     expect(badChar(a, 1)).toBeNull();
   });
 
+  test('what each input shows: its draft, else its part’s text; at 1:1 the parts with a slash', () => {
+    const s = typed(['22']);
+    expect(inputText(s, derived(s), 0)).toBe('22');
+    const d = defaultState();
+    expect(inputText(d, derived(d), 0)).toBe('3');
+    const form2 = { ...typed(['3 / 2']), drafts: [null, null] };
+    expect(inputText(form2, derived(form2), 0)).toBe('3 / 2');
+    const r = { ...typed(['2 2x 2', '2x 2'], threeTwo), drafts: [null, null] };
+    expect([0, 1, 2].map((i) => inputText(r, derived(r), i))).toEqual(['2 2x 2', '2x 2', '']);
+  });
+
   test('432: one message naming all three throws, every digit in the warning colour', () => {
-    const a = analyse(['432', ''], one);
+    const a = analyse(typed(['432']));
     expect(a.balls).toBeNull();
+    expect(a.fixable).toBe(true);
     expect([...warnSites(a, 0)].sort()).toEqual([0, 1, 2]);
     expect(handState(a, 0)).toBe('bad');
-    const lines = statusLines(a);
-    expect(lines).toEqual([
+    expect(statusLines(a)).toEqual([
       'I can’t catch that: throws 1, 2 and 3 all land in hand 1 on beat 5.',
       'I have no ball in hand 1 to throw on beats 1 and 3.',
       'I have no ball in hand 2 to throw on beats 4 and 6.',
     ]);
   });
 
+  test('510: a flight onto a 0 lands where the hand has nothing to throw', () => {
+    const a = analyse(typed(['510']));
+    expect(statusLines(a)).toContain('I can’t catch that: throw 1 lands in hand 2 on beat 6, where I have nothing to throw.');
+    // At a ratio the catching hand's own beat is named.
+    const r = analyse(typed(['1 0', '2'], threeTwo));
+    expect(statusLines(r)).toContain('I can’t catch that: hand 1’s throw 1 lands on hand 1’s beat 2, where I have nothing to throw.');
+  });
+
   test('a two-throw collision says both; at 3:2 the beat is the catching hand’s own', () => {
-    // `1 3 2` on hand 1 at 3:2 collides on hand 1's own grid (validate.test.ts).
-    const a = analyse(['1 3 2', '2'], threeTwo);
+    const a = analyse(typed(['1 3 2', '2'], threeTwo));
     expect(statusLines(a)).toEqual([
       'I can’t catch that: hand 1’s throws 1, 2 and 3 all land on its beat 2.',
       'I have no ball in hand 1 to throw on beats 1 and 3.',
     ]);
-    // A cross into the other hand names that hand's beat; two throws say both.
-    const b = analyse(['1 1', '3x'], threeTwo);
+    const b = analyse(typed(['1 1', '3x'], threeTwo));
     expect(statusLines(b)).toContain('I can’t catch that: hand 1’s throw 2 and hand 2’s throw 1 both land on hand 1’s beat 1.');
-    expect(statusLines(b)).toContain('I have no ball in hand 2 to throw on beats 1, 2, 3 and 4.');
     // Hand 2 is not named by any digit, but the pattern fails: neutral.
     expect(handState(a, 1)).toBe('neutral');
     expect(handState(a, 0)).toBe('bad');
   });
 
-  test('12: a fractional ball count marks every input bad and offers 22 first', () => {
-    const a = analyse(['12', ''], one);
+  test('12: a fractional mean comes first and marks every input bad; 22 is the first fix', () => {
+    const s = typed(['12']);
+    const a = analyse(s);
     expect(handState(a, 0)).toBe('bad');
-    expect(statusLines(a)[0]).toMatch(/1\.5 balls/);
-    const fixes = fixesFor(a.input as PatternInput, a.details.map((d) => d.error));
-    expect(fixLabel(fixes[0] as PatternInput)).toBe('22');
+    expect(a.fractional).toBe(true);
+    expect(statusLines(a)[0]).toBe('That makes 1.5 balls. I can only juggle a whole number.');
+    const texts = derived(s).fixTexts[0] as string[];
+    expect(fixLabel(texts)).toBe('22');
+    expect(fixActions(s, texts)).toEqual([{ type: 'editDraft', part: 0, text: '22' }]);
+    const fixed = fixActions(s, texts).reduce(reduce, s);
+    expect(analyse(fixed).balls).toBe(2);
+    expect(fixActions({ ratio: threeTwo }, ['2', '2x'])).toEqual([
+      { type: 'editDraft', part: 0, text: '2' },
+      { type: 'editDraft', part: 1, text: '2x' },
+    ]);
+    expect(fixLabel(['2 2x 2', '2x 2'])).toBe('2 2x 2 / 2x 2');
   });
 
-  test('parse errors: no input, the bad character found, hand named at other ratios', () => {
-    const v = analyse(['4a1', ''], one);
-    expect(v.input).toBeNull();
+  test('parse errors: the bad character found, the hand named at other ratios', () => {
+    const v = analyse(typed(['4#1']));
     expect(badChar(v, 0)).toBe(1);
     expect(handState(v, 0)).toBe('bad');
+    expect(v.balls).toBeNull();
     expect(statusLines(v)).toEqual(['I only read digits and x; character 2 isn’t one.']);
 
-    const r = analyse(['2', ''], threeTwo);
+    const r = analyse(typed(['2', ''], threeTwo));
     expect(handState(r, 0)).toBe('neutral');
     expect(handState(r, 1)).toBe('bad');
     expect(badChar(r, 1)).toBeNull();
     expect(statusLines(r)).toEqual(['Hand 2 pattern: I need a pattern.']);
   });
 
-  test('other errors use the shared wording: 2x 2 2 / 2 2x is rejected', () => {
-    const a = analyse(['2x 2 2', '2 2x'], threeTwo);
+  test('a cross between the catching hand’s beats names the next pulse it could land on', () => {
+    const a = analyse(typed(['2x 2 2', '2 2x'], threeTwo));
     expect(a.balls).toBeNull();
-    expect(statusLines(a).length).toBe(a.details.length);
-    expect(statusLines(a).some((l) => l.includes('lands between'))).toBe(true);
+    const lines = statusLines(a);
+    expect(lines).toContain('I can’t catch that: the cross from hand 1 on beat 1 lands between hand 2’s beats. The nearest pulse it could land on is 6.');
+    expect(lines).toContain('I can’t catch that: the cross from hand 2 on beat 2 lands between hand 1’s beats. The nearest pulse it could land on is 12.');
+    expect([...warnSites(a, 0)]).toContain(0);
+    expect([...warnSites(a, 1)]).toContain(1);
+  });
+
+  test('at 1:1 `a / b` numbers its sites across the slash', () => {
+    const a = analyse(typed(['3 / 2 1']));
+    expect(a.balls).toBeNull();
+    expect([...warnSites(a, 0)].sort()).toEqual([1, 2]);
+  });
+
+  test('the last action’s notice follows the status', () => {
+    const s = reduce(typed(['531']), { type: 'toggleOnset', part: 0, beat: 0 });
+    expect(statusLines(analyse(s)).at(-1)).toBe('I reset hands 1 and 2 to 1 ball each.');
+    const bad = { ...typed(['4#']), notice: 'n' };
+    expect(statusLines(analyse(bad)).at(-1)).toBe('n');
+    const broken = { ...typed(['432']), notice: 'n' };
+    expect(statusLines(analyse(broken)).at(-1)).toBe('n');
   });
 });
 
 describe('pattern text', () => {
-  test('patternText: run together at 1:1, spaced otherwise; fixTexts keeps the unused hand 2', () => {
-    expect(patternText(pat('4 4 1'), true)).toBe('441');
-    expect(patternText(pat('22x2'), false)).toBe('2 2x 2');
-    expect(fixTexts({ ratio: one, hands: [pat('423')] }, ['432', '2'])).toEqual(['423', '2']);
-    expect(fixTexts({ ratio: threeTwo, hands: [pat('2'), pat('2')] }, ['x', 'y'])).toEqual(['2', '2']);
-    expect(fixLabel({ ratio: threeTwo, hands: [pat('22x2'), pat('2x2')] })).toBe('2 2x 2 / 2x 2');
-  });
-
   test('pieces: each character with its throw, x and whitespace as the parser reads them', () => {
     const p = pieces('2x 3', new Set([1]), new Set([0]), null);
     expect(p).toEqual([
@@ -162,16 +197,28 @@ describe('swap', () => {
     expect(toggleSite({ hand: 0, sites: [1] }, 0, 1)).toBeNull();
   });
 
-  test('swapText: 531 sites 0 and 1 is 441 (MATH §3); impossible or unreadable is null', () => {
-    expect(swapText('531', 1, 2, true)).toBe('522');
-    expect(swapText('441', 0, 1, true)).toBe('531');
-    expect(swapText('2 2', 0, 1, false)).toBe('3 1');
-    expect(swapText('03', 0, 1, true)).toBeNull();
-    expect(swapText('4a', 0, 1, true)).toBeNull();
+
+  test('swapAction: the sites of one input as the swap action, or null across a slash', () => {
+    expect(swapAction(typed(['531']), 0, 1, 2)).toEqual({ type: 'swapSites', part: 0, i: 1, j: 2 });
+    expect(swapAction(typed(['2 2', '2'], threeTwo), 1, 0, 1)).toEqual({ type: 'swapSites', part: 1, i: 0, j: 1 });
+    const form2 = typed(['2 2 / 3 3']);
+    expect(swapAction(form2, 0, 2, 3)).toEqual({ type: 'swapSites', part: 1, i: 0, j: 1 });
+    expect(swapAction(form2, 0, 0, 1)).toEqual({ type: 'swapSites', part: 0, i: 0, j: 1 });
+    expect(swapAction(form2, 0, 1, 2)).toBeNull();
+  });
+
+  test('pieces: letters are throws (10-35); a slash separates parts and is no throw', () => {
+    expect(pieces('a / 3x', new Set(), new Set(), null).map((q) => q.site)).toEqual([0, null, null, null, 1, 1]);
+    expect(pieces('3/', new Set(), new Set(), 1).map((q) => q.warn)).toEqual([false, true]);
   });
 });
 
 describe('ratio, tempo and time', () => {
+  test('reduceRatio: a chip’s 2:2 is 1:1', () => {
+    expect(reduceRatio({ a: 2, b: 2 })).toEqual(one);
+    expect(reduceRatio({ a: 6, b: 4 })).toEqual(threeTwo);
+  });
+
   test('stepRatio clamps and stays unreduced', () => {
     expect(stepRatio(threeTwo, 0, 1)).toEqual({ a: 4, b: 2 });
     expect(stepRatio(threeTwo, 1, -1)).toEqual({ a: 3, b: 1 });
@@ -190,7 +237,7 @@ describe('ratio, tempo and time', () => {
   });
 
   test('cyclePosition: within the owning segment’s cycle; null with none', () => {
-    const s: Schedule = buildSchedule({ ratio: one, hands: [pat('441')] });
+    const s = scheduleOf('441');
     const seg = (startTime: number, endTime: number | null, schedule = s): Segment => ({
       schedule,
       startTime,
@@ -205,7 +252,7 @@ describe('ratio, tempo and time', () => {
     // Before the start delay: 0.
     expect(cyclePosition(view(-1, [seg(0, null)]))).toEqual({ pulse: 0, cycle: 6 });
     // Owned by the first of two segments.
-    const three = buildSchedule({ ratio: one, hands: [pat('3')] });
+    const three = scheduleOf('3');
     expect(cyclePosition(view(1, [seg(0, 3), seg(3, null, three)]))).toEqual({ pulse: 2, cycle: 6 });
     expect(cyclePosition(view(3.5, [seg(0, 3), seg(3, null, three)]))).toEqual({ pulse: 1, cycle: 2 });
   });

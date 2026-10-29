@@ -10,26 +10,29 @@
 // exemptions: a pattern text input, where Space types the space that separates throws at other
 // ratios than 1:1; and any control inside `[data-keeps-space]` (a select, say). Range sliders
 // do not use Space, so they need no exemption.
-import { buildSchedule, fixesFor, isVanilla, reduceRatio } from '../core/legacy';
-import type { Hand, PatternInput, Schedule } from '../core/legacy';
+import type { Schedule } from '../core';
 import { BPM_RANGE, KNOBS, MAX_RATIO, RATIO_CHIPS, SHEET } from '../tunables';
 import { copy } from '../ui/copy';
 import type { PlayerView } from '../view/types';
+import { oneInput } from './actions';
+import { derived } from './derived';
 import {
   analyse,
   badChar,
   clampBpm,
   cyclePosition,
   editText,
+  fixActions,
   fixLabel,
-  fixTexts,
   hand2Bpm,
   handState,
+  inputText,
   pieces,
+  reduceRatio,
   siteCovering,
   statusLines,
   stepRatio,
-  swapText,
+  swapAction,
   toggleSite,
   warnSites,
   type Analysis,
@@ -42,6 +45,7 @@ import type { AppState } from './state';
 import './knobs.css';
 
 const HANDS = [0, 1] as const;
+type Hand = (typeof HANDS)[number];
 /** The pad in the order it is laid out, four to a row. */
 const PAD_KEYS = ['1', '2', '3', 'backspace', '4', '5', '6', 'x', '7', '8', '9', '0'];
 
@@ -188,11 +192,13 @@ export const mountKnobs: Mount = (root, { store, player, sound }) => {
   const fill = (slider: HTMLInputElement) =>
     slider.style.setProperty('--fill', `${fillPercent(Number(slider.value), Number(slider.min), Number(slider.max))}%`);
 
-  let analysis: Analysis = analyse(store.get().patterns, store.get().ratio);
-  /** The latest valid pattern's schedule; null while the pattern is invalid. */
-  let schedule: Schedule | null = null;
+  let analysis: Analysis = analyse(store.get());
+  /** The store's schedule: there always is one, juggleable or not (design §6). */
+  let schedule: Schedule = store.derived().schedule;
   let selection: SiteSelection | null = null;
   let swapFailed = false;
+  /** Whether the player has been handed an edit yet. */
+  let previousEdit = false;
   /** The player state the transport controls show. */
   let shownState: PlayerView['state'] = 'stopped';
   /** Where the digit pad types: the last focused input, and each input's caret (null: the end). */
@@ -204,12 +210,12 @@ export const mountKnobs: Mount = (root, { store, player, sound }) => {
   // -------------------------------------------------------------------------------------------
 
   /** Each input's text drawn behind it, coloured: warnings, the unreadable character, chosen swap sites. */
-  function renderMirrors(state: AppState) {
+  function renderMirrors() {
     HANDS.forEach((h) => {
       const chosen = new Set(selection?.hand === h ? selection.sites : []);
       const mirror = mirrors[h] as HTMLSpanElement;
       mirror.replaceChildren(
-        ...pieces(state.patterns[h], warnSites(analysis, h), chosen, badChar(analysis, h)).map((p) => {
+        ...pieces(analysis.inputs[h] ?? '', warnSites(analysis, h), chosen, badChar(analysis, h)).map((p) => {
           const span = document.createElement('span');
           span.textContent = p.text;
           if (p.site !== null) span.dataset.site = String(p.site);
@@ -231,33 +237,33 @@ export const mountKnobs: Mount = (root, { store, player, sound }) => {
    * Fix suggestions can take tens of ms, so they are worked out after typing pauses
    * (`KNOBS.fixDebounceMs`), and a result for text since changed is dropped.
    */
-  function scheduleFixes(a: Analysis) {
+  function scheduleFixes(a: Analysis, state: AppState) {
     const token = ++fixToken;
     clearTimeout(fixTimer);
     fixesRow.hidden = true;
     fixButtons.replaceChildren();
-    const input = a.input;
-    if (input === null || a.balls !== null) return;
+    if (!a.fixable) return;
     fixTimer = setTimeout(() => {
       if (token !== fixToken) return;
-      const fixes = fixesFor(input, a.details.map((d) => d.error));
+      // The search runs on first read of `fixTexts`, here, off the keystroke.
+      const fixes = derived(state).fixTexts;
       if (token !== fixToken) return;
       showFixes(fixes);
     }, KNOBS.fixDebounceMs);
   }
 
-  function showFixes(fixes: readonly PatternInput[]) {
+  function showFixes(fixes: readonly (readonly string[])[]) {
     fixesRow.hidden = false;
     fixesLabel.textContent = fixes.length > 0 ? copy.fixesLabel : copy.fixesNone;
     fixButtons.replaceChildren(
-      ...fixes.map((fix) => {
+      ...fixes.map((texts) => {
         const b = document.createElement('button');
         b.type = 'button';
         b.className = 'fix';
-        b.textContent = fixLabel(fix);
+        b.textContent = fixLabel(texts);
         // Never applied on its own: only this click changes the pattern.
         b.addEventListener('click', () => {
-          store.set({ patterns: fixTexts(fix, store.get().patterns) });
+          for (const action of fixActions(store.get(), texts)) store.dispatch(action);
           // The button is gone with the next check; focus returns to the pattern.
           (inputs[0] as HTMLInputElement).focus();
         });
@@ -266,9 +272,9 @@ export const mountKnobs: Mount = (root, { store, player, sound }) => {
     );
   }
 
-  /** Validates, writes the indicators and status, and hands a valid edit to the player. */
+  /** Judges, writes the indicators and status, and hands the edit to the player, juggleable or not. */
   function check(state: AppState) {
-    analysis = analyse(state.patterns, state.ratio);
+    analysis = analyse(state);
     HANDS.forEach((h) => {
       const s = handState(analysis, h);
       const indicator = indicators[h] as HTMLSpanElement;
@@ -286,11 +292,14 @@ export const mountKnobs: Mount = (root, { store, player, sound }) => {
       }),
     );
     status.classList.toggle('invalid', analysis.balls === null);
-    rows.forEach((row, h) => row.classList.toggle('bad', handState(analysis, h as Hand) === 'bad'));
-    schedule = analysis.balls !== null && analysis.input ? buildSchedule(analysis.input) : null;
-    if (schedule) player.setEdit(schedule, state.bpm);
-    scheduleFixes(analysis);
-    renderMirrors(state);
+    rows.forEach((row, h) => row.classList.toggle('bad', handState(analysis, h) === 'bad'));
+    const next = derived(state).schedule;
+    // A draft that does not read leaves the parts, and so the schedule, as they were.
+    if (next !== schedule || !previousEdit) player.setEdit(next, state.bpm);
+    schedule = next;
+    previousEdit = true;
+    scheduleFixes(analysis, state);
+    renderMirrors();
     sync();
   }
 
@@ -299,8 +308,15 @@ export const mountKnobs: Mount = (root, { store, player, sound }) => {
   // -------------------------------------------------------------------------------------------
 
   function render(state: AppState, previous: AppState | null) {
-    const patternsChanged = !previous || state.patterns !== previous.patterns || state.ratio !== previous.ratio;
-    state.patterns.forEach((text, h) => {
+    const patternsChanged =
+      !previous ||
+      state.parts !== previous.parts ||
+      state.drafts !== previous.drafts ||
+      state.ratio !== previous.ratio ||
+      state.notice !== previous.notice;
+    const vanilla = oneInput(state.ratio);
+    HANDS.forEach((h) => {
+      const text = vanilla && h > 0 ? '' : inputText(state, derived(state), h);
       const input = inputs[h] as HTMLInputElement;
       // Only when they differ, so typing keeps its caret.
       if (input.value !== text) {
@@ -308,7 +324,6 @@ export const mountKnobs: Mount = (root, { store, player, sound }) => {
         carets[h] = null;
       }
     });
-    const vanilla = isVanilla(state.ratio);
     patternForm.classList.toggle('two-hands', !vanilla);
     (rows[1] as HTMLDivElement).hidden = vanilla;
     hint.hidden = vanilla;
@@ -345,10 +360,10 @@ export const mountKnobs: Mount = (root, { store, player, sound }) => {
         swapFailed = false;
       }
       check(state);
-    } else if (state.bpm !== previous?.bpm && schedule) {
+    } else if (state.bpm !== previous?.bpm) {
       player.setEdit(schedule, state.bpm);
     }
-    const sum = summary(analysis, state.patterns, state.bpm, SHEET.longSummaryChars);
+    const sum = summary(analysis, state.bpm, SHEET.longSummaryChars);
     summaryText.textContent = sum.text;
     summaryMeta.textContent = sum.meta;
     summaryButton.classList.toggle('long', sum.long);
@@ -360,12 +375,11 @@ export const mountKnobs: Mount = (root, { store, player, sound }) => {
   // Play, pause, stop, the time slider
   // -------------------------------------------------------------------------------------------
 
-  /** Brings the transport controls in line with the player. Play is disabled while invalid (SPEC §4.2). */
+  /** Brings the transport controls in line with the player. Play is never disabled: a pattern I can't juggle still sounds (design §6). */
   function sync(state: PlayerView['state'] = player.view().state) {
     const playing = state === 'playing';
     playLabel.textContent = playing ? copy.pause : copy.play;
     playButton.dataset.state = state;
-    playButton.disabled = !playing && schedule === null;
     stopButton.disabled = state === 'stopped';
     scrub.disabled = state !== 'paused';
     // Stop and the time slider are for a paused cycle; playing, the sheet stays as small as it can.
@@ -385,9 +399,8 @@ export const mountKnobs: Mount = (root, { store, player, sound }) => {
   soundRetry.addEventListener('click', () => sound.retry());
   showSoundStatus();
 
-  /** Starts from stopped, or resumes from paused; nothing while the pattern is invalid. */
+  /** Starts from stopped, or resumes from paused. */
   function start() {
-    if (schedule === null) return;
     if (player.view().state === 'paused') player.resume();
     else if (!player.playing()) {
       const { mapping, bpm } = store.get();
@@ -427,11 +440,7 @@ export const mountKnobs: Mount = (root, { store, player, sound }) => {
   // Pattern inputs, the digit pad, swap
   // -------------------------------------------------------------------------------------------
 
-  const setPattern = (hand: Hand, text: string) => {
-    const patterns = [...store.get().patterns] as [string, string];
-    patterns[hand] = text;
-    store.set({ patterns });
-  };
+  const setPattern = (hand: Hand, text: string) => store.dispatch({ type: 'editDraft', part: hand, text });
 
   HANDS.forEach((h) => {
     const input = inputs[h] as HTMLInputElement;
@@ -455,7 +464,7 @@ export const mountKnobs: Mount = (root, { store, player, sound }) => {
       chosenRange = range;
       selection = toggleSite(selection, h, site);
       swapFailed = false;
-      renderMirrors(store.get());
+      renderMirrors();
     };
     input.addEventListener('focus', () => (activeHand = h));
     for (const type of ['select', 'keyup', 'pointerup', 'scroll']) input.addEventListener(type, remember);
@@ -480,14 +489,14 @@ export const mountKnobs: Mount = (root, { store, player, sound }) => {
       if (!hit) return;
       selection = toggleSite(selection, h, Number(hit.dataset.site));
       swapFailed = false;
-      renderMirrors(store.get());
+      renderMirrors();
     });
   });
 
   for (const key of root.querySelectorAll<HTMLButtonElement>('.digit-pad .key')) {
     key.addEventListener('click', () => {
       const h = activeHand;
-      const text = store.get().patterns[h];
+      const text = inputText(store.get(), store.derived(), h);
       const end = text.length;
       const edited = editText(text, carets[h] ?? { start: end, end }, key.dataset.key as string);
       setPattern(h, edited.text);
@@ -499,13 +508,13 @@ export const mountKnobs: Mount = (root, { store, player, sound }) => {
     if (selection?.sites.length !== 2) return;
     const { hand, sites } = selection;
     const state = store.get();
-    const swapped = swapText(state.patterns[hand], sites[0] as number, sites[1] as number, isVanilla(state.ratio));
-    if (swapped === null) {
+    const action = swapAction(state, hand, sites[0] as number, sites[1] as number);
+    if (action !== null) store.dispatch(action);
+    // A swap that cannot be made changes nothing.
+    if (store.get().parts === state.parts) {
       swapFailed = true;
-      renderMirrors(state);
-      return;
+      renderMirrors();
     }
-    setPattern(hand, swapped);
   });
 
   // -------------------------------------------------------------------------------------------
@@ -528,11 +537,13 @@ export const mountKnobs: Mount = (root, { store, player, sound }) => {
   }
   /** Makes `chip`'s ratio the active one, exactly as written (so 2:2 → 1:1 works). */
   function select(chip: HTMLButtonElement) {
-    store.set({ ratio: reduceRatio({ a: Number(chip.dataset.a), b: Number(chip.dataset.b) }) });
+    store.dispatch({ type: 'setRatio', ratio: reduceRatio({ a: Number(chip.dataset.a), b: Number(chip.dataset.b) }) });
   }
   HANDS.forEach((h) => {
     for (const b of (steppers[h] as HTMLSpanElement).querySelectorAll<HTMLButtonElement>('button')) {
-      b.addEventListener('click', () => store.set({ ratio: stepRatio(store.get().ratio, h, Number(b.dataset.delta)) }));
+      b.addEventListener('click', () =>
+        store.dispatch({ type: 'setRatio', ratio: stepRatio(store.get().ratio, h, Number(b.dataset.delta)) }),
+      );
     }
   });
 
@@ -541,11 +552,11 @@ export const mountKnobs: Mount = (root, { store, player, sound }) => {
     render(store.get(), store.get());
   });
 
-  tempo.addEventListener('input', () => store.set({ bpm: Number(tempo.value) }));
+  tempo.addEventListener('input', () => store.dispatch({ type: 'setBpm', bpm: Number(tempo.value) }));
   /** The tempo box commits on change and on Enter, and always shows the tempo in force after. */
   const commitBpm = () => {
     const bpm = clampBpm(bpmInput.valueAsNumber);
-    if (bpm !== null) store.set({ bpm });
+    if (bpm !== null) store.dispatch({ type: 'setBpm', bpm });
     bpmInput.value = String(store.get().bpm);
   };
   bpmInput.addEventListener('change', commitBpm);

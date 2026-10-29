@@ -7,8 +7,13 @@
 // 3. Numbers and hand names stay precise. Hand 1 is the left hand on screen, hand 2 the right.
 // 4. Labels on controls stay labels: a button says "Play", not "I play".
 // 5. Beats count from 1 at 1:1 and within a hand; pulses count from 0.
-import type { ParseError } from '../core/legacy/parse';
-import type { ThrowId, ValidationError } from '../core/legacy/types';
+import type { ParseError } from '../core/parse';
+
+/** A throw as the reader counts it: in hand `hand` (0 = hand 1), the `index`-th digit (0 = the first). */
+export interface ThrowRef {
+  readonly hand: number;
+  readonly index: number;
+}
 
 export const copy = {
   // -------------------------------------------------------------------------------------------
@@ -45,24 +50,27 @@ export const copy = {
       case 'too-long':
         return `I read at most ${error.max} throws per hand.`;
       case 'bad-target':
-        return `A 0 is no throw, so it can’t cross; character ${error.index + 1} is an x after a 0.`;
+        return `I can’t send the x at character ${error.index + 1} anywhere: it follows a 0, or there is no other hand for it.`;
     }
   },
-  /** `vanilla`: at 1:1 a pulse is a shared beat, so it is named as such and counted from 1. */
-  validationError(error: ValidationError, vanilla: boolean): string {
-    switch (error.kind) {
-      case 'fractional-balls':
-        return `That makes ${Number(error.balls.toFixed(2))} balls. I can only juggle a whole number.`;
-      case 'collision': {
-        const where = vanilla ? `beat ${error.pulse + 1}` : `pulse ${error.pulse}`;
-        return `I can’t catch that: ${throwList(error.throws, vanilla)} land in hand ${error.hand + 1} on ${where}.`;
-      }
-      case 'cross-off-grid':
-        return `I can’t catch that: the cross from hand ${error.fromHand + 1} on beat ${error.beat + 1} lands between hand ${2 - error.fromHand}’s beats. The nearest pulse it could land on is ${error.nearestLegal}.`;
-      case 'no-ball':
-        return `I have no ball in hand ${error.hand + 1} to throw on beat ${error.beat + 1}.`;
-    }
+  /** A fractional mean (MATH.md §9.4), the cheaper of two presentations of one fault. */
+  fractional: (balls: number) => `That makes ${Number(balls.toFixed(2))} balls. I can only juggle a whole number.`,
+  /** A cross that lands between the catching hand's beats; `nearest` is the first pulse at or after it where it could land. */
+  crossBetween: (fromHand: number, beat: number, toHand: number, nearest: number) =>
+    `I can’t catch that: the cross from hand ${fromHand + 1} on beat ${beat} lands between hand ${toHand + 1}’s beats. The nearest pulse it could land on is ${nearest}.`,
+  /**
+   * A flight that lands on a beat where the catching hand has no throw (a 0). `beat` counts from
+   * 1: the shared beat at 1:1, the catching hand's own beat otherwise.
+   */
+  noThrowThere: (throwRef: ThrowRef, toHand: number, beat: number, vanilla: boolean) => {
+    const where = vanilla ? `in hand ${toHand + 1} on beat ${beat}` : `on hand ${toHand + 1}’s beat ${beat}`;
+    return `I can’t catch that: ${throwList([throwRef], vanilla)} lands ${where}, where I have nothing to throw.`;
   },
+  /** Design §5: a manual group re-derived because its onsets changed. */
+  resetNotice: (hands: readonly number[]) =>
+    hands.length === 1
+      ? `I reset hand ${(hands[0] as number) + 1} to 1 ball.`
+      : `I reset hands ${andList(hands.map((h) => String(h + 1)))} to 1 ball each.`,
   /** The About placeholder, until stream D writes the page. */
   aboutTitle: 'About',
   aboutBack: 'Back to the pattern',
@@ -185,22 +193,20 @@ export const copy = {
   soundFailed: 'I could not fetch my drum sounds, so I am silent.',
   soundRetry: 'Try again',
   /** A parse error at other ratios than 1:1 names the input it is in. */
-  handParseError: (hand: 0 | 1, message: string) => `Hand ${hand + 1} pattern: ${message}`,
+  handParseError: (hand: number, message: string) => `Hand ${hand + 1} pattern: ${message}`,
   /**
    * SPEC §4.2: a collision names every throw in the group, "both" for two and "all" for more.
    * `beat` counts from 1: the shared beat at 1:1, the catching hand's own beat otherwise.
    */
-  collision: (throws: readonly ThrowId[], hand: 0 | 1, beat: number, vanilla: boolean) => {
+  collision: (throws: readonly ThrowRef[], hand: number, beat: number, vanilla: boolean) => {
     const quantifier = throws.length === 2 ? 'both' : 'all';
     const own = throws.every((t) => t.hand === hand);
     const where = vanilla ? `in hand ${hand + 1} on beat ${beat}` : own ? `on its beat ${beat}` : `on hand ${hand + 1}’s beat ${beat}`;
     return `I can’t catch that: ${throwList(throws, vanilla)} ${quantifier} land ${where}.`;
   },
   /** Every beat on which one hand has nothing to throw, in one sentence. Beats count from 1. */
-  noBall: (hand: 0 | 1, beats: readonly number[]) => {
-    const names = beats.map(String);
-    const last = names.pop() as string;
-    const list = names.length === 0 ? `beat ${last}` : `beats ${names.join(', ')} and ${last}`;
+  noBall: (hand: number, beats: readonly number[]) => {
+    const list = beats.length === 1 ? `beat ${beats[0]}` : `beats ${andList(beats.map(String))}`;
     return `I have no ball in hand ${hand + 1} to throw on ${list}.`;
   },
 
@@ -227,8 +233,6 @@ export const copy = {
   tempoHand: (hand: 0 | 1, bpm: number) => `Hand ${hand + 1} · ${bpm} bpm`,
   tempoEach: (bpm: number) => `Each hand · ${bpm} bpm`,
   tempoShared: (bpm: number) => `Shared beat · ${bpm} bpm`,
-  /** Over the ghost of a broken pattern while the last good one plays. */
-  ghostLabel: (pattern: string) => `${pattern} · not playing`,
 
   // -------------------------------------------------------------------------------------------
   // F: Sound panel and share
@@ -288,12 +292,17 @@ export const copy = {
  * "throws 1 and 2". At 1:1 the one input names every throw; at other ratios each hand counts
  * its own throws, so the hand is named too.
  */
-function throwList(throws: readonly ThrowId[], vanilla: boolean): string {
+function throwList(throws: readonly ThrowRef[], vanilla: boolean): string {
   const oneHand = throws.every((t) => t.hand === throws[0]?.hand);
-  const names = throws.map((t) => (vanilla || oneHand ? '' : `hand ${t.hand + 1}’s throw `) + String(t.index + 1));
-  const last = names.pop() as string;
-  const list = names.length === 0 ? last : `${names.join(', ')} and ${last}`;
+  const list = andList(throws.map((t) => (vanilla || oneHand ? '' : `hand ${t.hand + 1}’s throw `) + String(t.index + 1)));
   if (!vanilla && !oneHand) return list;
-  const noun = names.length === 0 ? 'throw' : 'throws';
+  const noun = throws.length === 1 ? 'throw' : 'throws';
   return vanilla ? `${noun} ${list}` : `hand ${(throws[0]?.hand ?? 0) + 1}’s ${noun} ${list}`;
+}
+
+/** "1", "1 and 2", "1, 2 and 3". */
+function andList(names: readonly string[]): string {
+  const init = names.slice(0, -1);
+  const last = names[names.length - 1] as string;
+  return init.length === 0 ? last : `${init.join(', ')} and ${last}`;
 }

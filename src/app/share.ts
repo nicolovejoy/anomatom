@@ -6,7 +6,7 @@
 //   any knob change: only the fields that differ are set, so the knobs queue them for the next
 //   cycle and nothing restarts or plays. A hash that carries no state is ignored when empty or
 //   `#about`, and is junk otherwise: junk loads the defaults (never throws).
-// - Every change to pattern, ratio, tempo or Mapping rewrites the hash (`replaceState`, so
+// - Every change to the parts, ratio, tempo or Mapping rewrites the hash (`replaceState`, so
 //   no history entry) after `SHARE.hashDebounceMs` of quiet, except while About is showing.
 // - `lastStateHash` in the store is kept current at once (About's back link), not debounced. It
 //   rides in the same `store.set` as the change it follows (a `store.derive` deriver),
@@ -27,15 +27,24 @@ export interface ShareDeps {
 }
 
 /** The fields the link carries. */
-type Shared = Pick<AppState, 'patterns' | 'ratio' | 'bpm' | 'mapping'>;
+type Shared = Pick<AppState, 'parts' | 'ratio' | 'bpm' | 'mapping'>;
 
 const sameMapping = (a: AppState['mapping'], b: AppState['mapping']) =>
   a === b || encodeState({ ...defaultState(), mapping: a }) === encodeState({ ...defaultState(), mapping: b });
 
-/** What of `target` differs from `current`; the unchanged fields are left out, so no listener hears of them. */
+const sameParts = (a: AppState['parts'], b: AppState['parts']) =>
+  a === b || encodeState({ ...defaultState(), parts: a }) === encodeState({ ...defaultState(), parts: b });
+
+/**
+ * What of `target` differs from `current`; the unchanged fields are left out, so no listener
+ * hears of them. New parts come with fresh drafts, so the inputs show what the link holds.
+ */
 export function changedFields(current: AppState, target: Shared): Partial<AppState> {
   const patch: { -readonly [K in keyof AppState]?: AppState[K] } = {};
-  if (target.patterns.some((t, i) => t !== current.patterns[i])) patch.patterns = target.patterns;
+  if (!sameParts(target.parts, current.parts)) {
+    patch.parts = target.parts;
+    patch.drafts = target.parts.map(() => null);
+  }
   if (target.ratio.a !== current.ratio.a || target.ratio.b !== current.ratio.b) patch.ratio = target.ratio;
   if (target.bpm !== current.bpm) patch.bpm = target.bpm;
   if (!sameMapping(target.mapping, current.mapping)) patch.mapping = target.mapping;
@@ -43,7 +52,7 @@ export function changedFields(current: AppState, target: Shared): Partial<AppSta
 }
 
 const sharedChanged = (a: AppState, b: AppState) =>
-  a.patterns !== b.patterns || a.ratio !== b.ratio || a.bpm !== b.bpm || a.mapping !== b.mapping;
+  a.parts !== b.parts || a.ratio !== b.ratio || a.bpm !== b.bpm || a.mapping !== b.mapping;
 
 /**
  * `replace` that never throws: Safari raises SecurityError past 100 `replaceState` calls in 30
@@ -81,12 +90,12 @@ export function createShare(deps: ShareDeps) {
 
   function restore() {
     const hash = deps.hash();
-    const { view, state } = route(hash);
+    const { view, state, version } = route(hash);
     if (view === 'about' || hash === '' || hash === '#') return;
-    const decoded = state === null ? null : decodeState(state);
+    const decoded = state === null ? null : decodeState(state, version ?? 2);
     const d = defaultState();
     const target: Shared = {
-      patterns: decoded?.patterns ?? d.patterns,
+      parts: decoded?.parts ?? d.parts,
       ratio: decoded?.ratio ?? d.ratio,
       bpm: decoded?.bpm ?? d.bpm,
       mapping: decoded?.mapping ?? d.mapping,

@@ -1,6 +1,6 @@
 import { describe, expect, test } from 'vitest';
-import { buildSchedule, parsePattern } from '../core/legacy';
-import type { Event, PatternInput, Schedule } from '../core/legacy';
+import type { Event, Schedule } from '../core';
+import { scheduleOf } from '../test/schedules';
 import { JUGGLER } from '../tunables';
 import { jugglerFrame } from './juggler';
 import type { JugglerBall, JugglerLayout } from './juggler';
@@ -9,14 +9,8 @@ import type { Segment } from './types';
 const layout: JugglerLayout = JUGGLER;
 const R = layout.radius;
 
-function pat(text: string) {
-  const r = parsePattern(text);
-  if (!r.ok) throw new Error(text);
-  return r.pattern;
-}
-const vanilla = (text: string): Schedule => buildSchedule({ ratio: { a: 1, b: 1 }, hands: [pat(text)] });
-const ratio = (a: number, b: number, h1: string, h2: string): Schedule =>
-  buildSchedule({ ratio: { a, b }, hands: [pat(h1), pat(h2)] } satisfies PatternInput);
+const vanilla = (text: string): Schedule => scheduleOf(text);
+const ratio = (a: number, b: number, h1: string, h2: string): Schedule => scheduleOf([h1, h2], { a, b });
 
 const START = 3.7;
 const LEN = 0.25;
@@ -34,8 +28,8 @@ const throwsOf = (s: Schedule) => s.events.filter((e) => e.kind === 'throw');
 const catchesOf = (s: Schedule) => s.events.filter((e) => e.kind === 'catch');
 /** Pulses in the catching hand at the end of the flight of throw or catch `e`. */
 const dwell = (s: Schedule, e: Event) => {
-  const to = e.kind === 'catch' || !e.cross ? e.hand : 1 - e.hand;
-  return Math.min(layout.dwellBeats * s.grids[to as 0 | 1].pulsesPerBeat, layout.maxDwellShare * e.flight);
+  const to = e.kind === 'catch' || !e.cross ? (e.part as 0 | 1) : 1 - (e.part as 0 | 1);
+  return Math.min(layout.dwellBeats * (s.grids[to] as { spacing: number }).spacing, layout.maxDwellShare * e.flight);
 };
 const dist = (a: { x: number; y: number }, b: { x: number; y: number }) => Math.hypot(a.x - b.x, a.y - b.y);
 
@@ -80,11 +74,11 @@ describe('one segment', () => {
       // Two periods on, so every catch follows a real throw.
       for (const c of catchesOf(s)) {
         const pulse = c.pulse + s.period;
-        const ball = byColour(frame([seg], at(seg, pulse)).balls).get(c.ball) as JugglerBall;
+        const ball = byColour(frame([seg], at(seg, pulse)).balls).get(c.ball as number) as JugglerBall;
         // At the throw instant itself the ball is leaving the hand: held or just airborne.
-        expect(dist(ball, { x: layout.throwX[c.hand], y: 0 })).toBeLessThan(R);
-        const landing = byColour(frame([seg], at(seg, pulse - dwell(s, c))).balls).get(c.ball) as JugglerBall;
-        expect(dist(landing, { x: layout.catchX[c.hand], y: 0 })).toBeLessThan(R);
+        expect(dist(ball, { x: layout.throwX[(c.part as 0 | 1)], y: 0 })).toBeLessThan(R);
+        const landing = byColour(frame([seg], at(seg, pulse - dwell(s, c))).balls).get(c.ball as number) as JugglerBall;
+        expect(dist(landing, { x: layout.catchX[(c.part as 0 | 1)], y: 0 })).toBeLessThan(R);
       }
     },
   );
@@ -94,11 +88,11 @@ describe('one segment', () => {
     for (const e of throwsOf(s)) {
       const air = (e.flight - dwell(s, e)) * LEN;
       const t = at(seg, e.pulse + s.period) + air / 2;
-      const ball = byColour(frame([seg], t).balls).get(e.ball) as JugglerBall;
+      const ball = byColour(frame([seg], t).balls).get((e.ball as number)) as JugglerBall;
       expect(ball.held).toBeNull();
       expect(ball.y).toBeCloseTo((layout.g * air * air) / 8, 9);
       // Just either side is lower: it is the top.
-      const near = (dt: number) => (byColour(frame([seg], t + dt).balls).get(e.ball) as JugglerBall).y;
+      const near = (dt: number) => (byColour(frame([seg], t + dt).balls).get((e.ball as number)) as JugglerBall).y;
       expect(near(-1e-3)).toBeLessThan(ball.y);
       expect(near(1e-3)).toBeLessThan(ball.y);
     }
@@ -108,11 +102,11 @@ describe('one segment', () => {
     const s = PATTERNS['441'] as Schedule;
     const seg = single(s);
     for (const e of throwsOf(s)) {
-      const to = e.cross ? 1 - e.hand : e.hand;
+      const to = e.cross ? 1 - (e.part as 0 | 1) : (e.part as 0 | 1);
       const landing = at(seg, e.pulse + s.period + e.flight - dwell(s, e));
-      const ball = byColour(frame([seg], landing - 1e-9).balls).get(e.ball) as JugglerBall;
+      const ball = byColour(frame([seg], landing - 1e-9).balls).get((e.ball as number)) as JugglerBall;
       expect(ball.x).toBeCloseTo(layout.catchX[to as 0 | 1], 6);
-      if (e.cross) expect(Math.sign(ball.x - 0.45)).not.toBe(Math.sign(layout.throwX[e.hand] - 0.45));
+      if (e.cross) expect(Math.sign(ball.x - 0.45)).not.toBe(Math.sign(layout.throwX[(e.part as 0 | 1)] - 0.45));
     }
   });
 
@@ -145,29 +139,29 @@ describe('one segment', () => {
     for (const s of Object.values(PATTERNS)) {
       const seg = single(s);
       const firsts = new Map<number, Event>();
-      for (const e of throwsOf(s)) if (!firsts.has(e.ball)) firsts.set(e.ball, e);
+      for (const e of throwsOf(s)) if (!firsts.has((e.ball as number))) firsts.set((e.ball as number), e);
       // Long before: every ball waits at its hand's catch point.
       const early = frame([seg], START - 5).balls;
       expect(early).toHaveLength(s.balls);
       for (const b of early) {
         const first = firsts.get(b.ball) as Event;
-        expect(b).toMatchObject({ x: layout.catchX[first.hand], held: first.hand, progress: 0, flash: 0 });
+        expect(b).toMatchObject({ x: layout.catchX[(first.part as 0 | 1)], held: (first.part as 0 | 1), progress: 0, flash: 0 });
         expect(b.y).toBeCloseTo(0, 12);
       }
       // Just before the start: held, between its hand's catch and throw points; the first to
       // throw is at its throw point.
       for (const b of frame([seg], START - 1e-9).balls) {
         const first = firsts.get(b.ball) as Event;
-        expect(b).toMatchObject({ held: first.hand, progress: 0, flash: 0 });
-        const [lo, hi] = [layout.catchX[first.hand], layout.throwX[first.hand]].sort((p, q) => p - q);
+        expect(b).toMatchObject({ held: (first.part as 0 | 1), progress: 0, flash: 0 });
+        const [lo, hi] = [layout.catchX[(first.part as 0 | 1)], layout.throwX[(first.part as 0 | 1)]].sort((p, q) => p - q);
         expect(b.x).toBeGreaterThanOrEqual(lo as number);
         expect(b.x).toBeLessThanOrEqual(hi as number);
-        if (first.pulse === 0) expect(dist(b, { x: layout.throwX[first.hand], y: 0 })).toBeLessThan(R);
+        if (first.pulse === 0) expect(dist(b, { x: layout.throwX[(first.part as 0 | 1)], y: 0 })).toBeLessThan(R);
       }
       // A ball whose first throw is later is still waiting a little after the start.
       const late = [...firsts.values()].filter((e) => e.pulse > 0);
       const balls = byColour(frame([seg], at(seg, 0.5)).balls);
-      for (const e of late) expect((balls.get(e.ball) as JugglerBall).held).toBe(e.hand);
+      for (const e of late) expect((balls.get((e.ball as number)) as JugglerBall).held).toBe((e.part as 0 | 1));
       // And no ball jumps from waiting into its first throw.
       expectContinuous([seg], START - 1, at(seg, s.period), 1e-3, 0.03);
     }
@@ -240,16 +234,16 @@ function carryFor(old: Schedule, fresh: Schedule, b: number): Map<number, number
   for (const e of throwsOf(old)) {
     const launch = e.pulse + Math.floor((b - 1 - e.pulse) / old.period) * old.period;
     if (launch >= 0 && launch + e.flight >= b) {
-      landing.set(`${launch + e.flight - b}:${e.cross ? 1 - e.hand : e.hand}`, e.ball);
+      landing.set(`${launch + e.flight - b}:${e.cross ? 1 - (e.part as 0 | 1) : (e.part as 0 | 1)}`, (e.ball as number));
     }
   }
   const carry = new Map<number, number>();
   const seen = new Set<number>();
   for (const e of throwsOf(fresh)) {
-    if (seen.has(e.ball)) continue;
-    seen.add(e.ball);
-    const old = landing.get(`${e.pulse}:${e.hand}`);
-    if (old !== undefined) carry.set(e.ball, old);
+    if (seen.has((e.ball as number))) continue;
+    seen.add((e.ball as number));
+    const old = landing.get(`${e.pulse}:${(e.part as 0 | 1)}`);
+    if (old !== undefined) carry.set((e.ball as number), old);
   }
   return carry;
 }
@@ -415,4 +409,15 @@ describe('switches', () => {
       top: R,
     });
   });
+});
+
+test('a faulted group sounds but draws no ball; the other group keeps its balls', () => {
+  // 432 cannot be juggled: every event has no ball.
+  const broken = vanilla('432');
+  expect(broken.events.every((e) => e.ball === null)).toBe(true);
+  expect(frame([single(broken)], START + 1).balls).toEqual([]);
+  // At 3:2 hand 1 alone is broken (1 3 2 collides); hand 2's 2 is a fountain of two.
+  const half = ratio(3, 2, '1 3 2', '2');
+  expect(half.balls).toBe(2);
+  expect(frame([single(half)], START + 1).balls.length).toBe(2);
 });
