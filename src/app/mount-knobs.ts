@@ -115,6 +115,7 @@ export const mountKnobs: Mount = (root, { store, player }) => {
   }
   for (const chip of chips) {
     chip.addEventListener('click', () => {
+      if (chip.getAttribute('aria-pressed') === 'true') return;
       store.set({ ratio: reduceRatio({ a: Number(chip.dataset.a), b: Number(chip.dataset.b) }) });
     });
   }
