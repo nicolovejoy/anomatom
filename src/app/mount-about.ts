@@ -23,7 +23,12 @@ function external(href: string, text: string): HTMLAnchorElement {
 
 /** The host, plus the path when it is short (GitHub repos); the href stays the full URL. */
 function linkLabel(href: string): string {
-  const url = new URL(href);
+  let url: URL;
+  try {
+    url = new URL(href);
+  } catch {
+    return href;
+  }
   const host = url.hostname.replace(/^www\./, '');
   const path = url.pathname.replace(/\/$/, '');
   return path.length > 0 && host.length + path.length < 40 ? host + path : host;

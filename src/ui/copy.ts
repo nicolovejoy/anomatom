@@ -86,7 +86,7 @@ export const copy = {
   aboutIdea: [
     'A siteswap ladder diagram is a piano roll. Each throw is a note. It starts when a ball leaves a hand and ends when the ball lands, so the height of the throw is the length of the note.',
     'My hands are two voices. Give each hand its own beat and I play a polyrhythm: three beats in one hand against two in the other is two grids laid over each other.',
-    'The rule that keeps two balls from landing in one hand at once is the rule that keeps two notes from sounding on one beat. If I can juggle it, I can play it.',
+    'The rule that keeps two balls from landing in one hand at once is the rule that keeps two notes from ending on one beat in one voice. If I can juggle it, I can play it.',
   ],
   aboutSoundHeading: 'How I make sound',
   aboutSound: [
@@ -105,7 +105,6 @@ export const copy = {
   aboutRepo: 'My source is on GitHub',
   aboutRepoUrl: 'https://github.com/nicolovejoy/anomatom',
   aboutLicence: 'It is open source under the MIT licence.',
-
 
   // -------------------------------------------------------------------------------------------
   // E: Knobs

@@ -12,7 +12,7 @@ Full treatment, with citations and worked cases, in `docs/MATH.md`.
 
 - **Siteswap.** A pattern is a sequence of non-negative integers. The throw on beat i lands on beat i + t. Odd throws cross to the other hand, even throws stay; 0 is an empty hand, 2 is a hold.
 - **The validity test.** A sequence is a pattern iff the landing beats (i + t mod n) are all distinct. Two equal landings are a collision: two balls arriving in one hand at once.
-- **Ball count.** The number of balls is the mean of the digits, so a sequence whose mean is not a whole number is invalid. `441` has 3 balls, `12` has 1.5 and is rejected.
+- **Ball count.** The number of balls is the mean of the digits at 1:1, and the per-hand means summed at other ratios; a count that is not a whole number is invalid. `441` has 3 balls, `12` has 1.5 and is rejected.
 - **Hand ratio.** Each hand runs its own evenly spaced grid. At 3:2, hand 1 makes 3 beats while hand 2 makes 2, and they coincide once per span. A throw is legal iff it lands on a beat of the catching hand; a cross is legal only where both grids coincide, and that pulse is the downbeat.
 - **Pulses and the cycle.** Everything is an integer number of pulses, the common grid of the two hands. The cycle is the least common multiple of each hand's period times its pulses per beat. Seconds appear only when a sound is scheduled or a frame drawn.
 
