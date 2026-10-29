@@ -30,7 +30,7 @@ App: the Swap knob. Not a fix for a collision.
 
 At any beat the juggler's state is the set of future beats that already have a ball due to land: a bit vector of length max height, with b ones for b balls. A throw of height h from a state is legal iff bit h is empty; it moves to the next state by shifting and setting bit h. Patterns are cycles in this graph. Two patterns can be chained without a drop only through a state they share. The ground state (balls landing on the next b beats) is shared by every pattern that passes through it; `3`, `441`, `531` all do. Chung and Graham call a cycle that visits its base state once *primitive*; longer cycles are concatenations of primitive ones.
 
-App: v1 uses the ground state as the common start and changes pattern only at a cycle boundary that returns to it. v2 uses the graph for transitions between arbitrary patterns and for generating patterns from a state.
+App: v1 changes pattern at any cycle boundary, without transition throws. Balls the two patterns share at the boundary carry over; when both pass through the same state (`3`, `441`, `531` share the ground state) all of them do. Otherwise the leftover balls drop into the hands or appear from them, as for a change of ball count. Some patterns v1 must play never reach the ground state: `51` is excited, so `3` → `51` cannot carry every ball. v2 uses the graph for real transitions between arbitrary patterns and for generating patterns from a state.
 
 ## 5. Crossings (Ehrenborg and Readdy 1996 [3])
 

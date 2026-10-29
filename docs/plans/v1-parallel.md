@@ -47,7 +47,15 @@ interface PlayerView {
 
 When stopped, `player.view()` returns one segment of the latest valid edit placed so that `now` is pulse 0 (or the scrub position). Wave 0 implements this with the current single-schedule player and converts `ladderFrame` to take `(segments, now)`, including several segments: each segment's throws are drawn from its start until its `endTime`, flights to their landing, colours through `carry`. Wave 0 tests that with hand-built two-segment views (a tempo change and a pattern change). B adds queued switches and tempo changes behind the same shape.
 
-**Carry-over rule** (`carryOver(old, new, boundary)`, pure, in `src/core`, owned by B; A and the ladder read only `carry`). An old flight still in the air at the boundary that lands at (pulse, hand) where the new schedule throws is the same ball: the new ball id maps to the old one and keeps its colour. When both patterns pass through the same state at the boundary (MATH §4: `3`, `441`, `531` all share the ground state) every ball carries, and the juggler shows the right count throughout. Unmatched old flights land and vanish into the hand; unmatched new balls appear held at their first throw point. Only a change of ball count or of state leaves unmatched balls.
+**Carry-over rule** (`carryOver(old, new, boundary)`, pure, in `src/core`, owned by B; A and the ladder read only `carry`). Let B be the boundary in the old segment's pulses.
+
+- The crossing flights are the old flights with launch < B ≤ land, including one that lands exactly at B.
+- A crossing flight landing at (B + p, hand) is matched only to the new ball whose *first* throw is at (p, hand) in the new segment. That makes the map one-to-one: each new ball has one first throw, and each (pulse, hand) one throw.
+- The new ball id maps to the old one and keeps its colour.
+- When both patterns pass through the same state at B, every ball carries (`3` → `441`). Otherwise, or when the ball count changes, the rest go unmatched (MATH §4; `3` → `51` cannot carry all three, since `51` is excited).
+- An unmatched old flight lands and vanishes into the hand. An unmatched new ball appears held at its first throw point at `startTime`.
+
+**Retiming across a tempo or ratio change.** A crossing flight is drawn from its launch, in old time, to its landing, in new time: `startTime + p × new.pulseLen`. It is one parabola over that span, so a carried ball lands exactly when its new throw sounds. Old throws at or after `endTime` are never played; the new segment owns them.
 
 **App state and store.** `src/app/state.ts`, pure, 100% lines. It holds:
 - pattern text per hand
@@ -55,6 +63,7 @@ When stopped, `player.view()` returns one segment of the latest valid edit place
 - bpm
 - volume
 - Mapping
+- the last play-view state hash, for About's back link (written by F's `mountShare`)
 - the copy voice (see "Copy voice" below), if it turns into a setting
 
 The store has `get`, `set(patch)` and `subscribe`.
@@ -121,7 +130,7 @@ Tests:
 - A cross ends at the other hand.
 - Positions are continuous across the period wrap and at large `now`.
 - Before the first throw, balls are held.
-- In a two-segment switch with a full `carry` (`3` → `441`), the ball count on screen stays 3 and no ball jumps; with a ball-count change (`3` → `4`), the count never exceeds the larger of the two.
+- In a two-segment switch with a full `carry` (`3` → `441`, and `3` → `3` at a new tempo), the ball count on screen stays 3 and no ball jumps: a carried ball's position is continuous across `startTime`. With a ball-count change (`3` → `4`, `4` → `3`), the count never exceeds the larger of the two.
 - `2 2x 2` / `2x 2` at 3:2 flashes at 6 − ε and 6 + ε.
 - `2` / `2` at 3:2 never flashes, and neither do `3`, `441` and `97531`.
 
@@ -141,7 +150,7 @@ Check for Nico: `3`, `441` and `2 2x 2` / `2x 2` at 3:2 juggle in time with the 
 Tests:
 - `432` and `510` name the right colliding throws; `2x 2 2` / `2 2x` names its off-grid landing pulses (SPEC §7.3).
 - `12`, `21`, `43` and `4441` get a valid one-digit fix (SPEC §7.2), `12` → `22`.
-- `carryOver`: `3` → `441` carries every ball; `3` → `4` carries three.
+- `carryOver`: `3` → `441` carries every ball (including the flight landing exactly at the boundary); `4` → `3` is one-to-one, three carried and one unmatched; `3` → `51` leaves balls unmatched without error; a tempo change between two `3`s carries every ball.
 - Every offered fix validates.
 - A two-segment switch keeps `now` continuous across a tempo change.
 
