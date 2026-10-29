@@ -10,7 +10,6 @@ import './juggler.css';
 export const mountJuggler: Mount = (root) => {
   const canvas = document.createElement('canvas');
   canvas.className = 'juggler';
-  canvas.style.height = `${JUGGLER.heightPx}px`;
   canvas.setAttribute('role', 'img');
   canvas.setAttribute('aria-label', copy.jugglerLabel);
   root.append(canvas);

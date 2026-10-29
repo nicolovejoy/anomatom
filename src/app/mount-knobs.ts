@@ -1,7 +1,10 @@
-// The knob panel (SPEC §4.1) and the fix state (SPEC §4.2). The knobs write to the store; the
-// store is the one source of truth for pattern text, ratio, tempo, volume and whether the sound
-// panel is open, and this panel re-reads it on every change (an edit here, or a restored share
-// link). The logic is in knobs-model.ts; this file is elements and events.
+// The knob panel (SPEC §4.1) and the fix state (SPEC §4.2), laid out in the sheet
+// (docs/plans/phone-sheet.md): the sheet's head (the summary that opens the Pattern tab, Play,
+// and Stop with the time slider while paused), the Pattern tab and the Rhythm tab. Its root is
+// the sheet; it fills the slots main.ts lays out. The knobs write to the store; the store is the
+// one source of truth for pattern text, ratio, tempo and volume, and this panel re-reads it on
+// every change (an edit here, or a restored share link). The logic is in knobs-model.ts and
+// sheet-model.ts; this file is elements and events.
 //
 // Space toggles play from anywhere (one capturing handler, at the bottom), with two
 // exemptions: a pattern text input, where Space types the space that separates throws at other
@@ -9,7 +12,7 @@
 // do not use Space, so they need no exemption.
 import { buildSchedule, fixesFor, isVanilla, reduceRatio } from '../core';
 import type { Hand, PatternInput, Schedule } from '../core';
-import { BPM_RANGE, KNOBS, MAX_RATIO, RATIO_CHIPS } from '../tunables';
+import { BPM_RANGE, KNOBS, MAX_RATIO, RATIO_CHIPS, SHEET } from '../tunables';
 import { copy } from '../ui/copy';
 import type { PlayerView } from '../view/types';
 import {
@@ -34,100 +37,120 @@ import {
   type SiteSelection,
 } from './knobs-model';
 import type { Mount } from './mount';
+import { fillPercent, hasChip, summary, tempoLines } from './sheet-model';
 import type { AppState } from './state';
 import './knobs.css';
 
 const HANDS = [0, 1] as const;
-const PAD_KEYS = ['1', '2', '3', '4', '5', '6', '7', '8', '9', '0'];
+/** The pad in the order it is laid out, four to a row. */
+const PAD_KEYS = ['1', '2', '3', 'backspace', '4', '5', '6', 'x', '7', '8', '9', '0'];
 
 export const mountKnobs: Mount = (root, { store, player, sound }) => {
-  root.style.setProperty('--warning', KNOBS.warning);
-  root.style.setProperty('--ok', KNOBS.ok);
+  const slot = <T extends Element>(selector: string) => root.querySelector(selector) as T;
   root.style.setProperty('--selected', KNOBS.selected);
-  root.innerHTML = `
-    <div class="knobs-transport">
-      <div class="row transport">
-        <button id="play" type="button">${copy.play}</button>
-        <button id="stop" type="button" disabled>${copy.stop}</button>
-        <span id="pending" class="pending" hidden>${copy.nextCycle}</span>
-        <input id="scrub" type="range" min="0" max="${KNOBS.scrubSteps}" step="1" value="0" disabled aria-label="${copy.scrubLabel}" />
-      </div>
-      <div class="row sound-status">
-        <span class="sound-status-text" role="status"></span>
-        <button id="sound-retry" type="button" hidden>${copy.soundRetry}</button>
-      </div>
+  slot<HTMLDivElement>('.sheet-head').innerHTML = `
+    <div class="head-row">
+      <button type="button" class="summary" aria-controls="panel-pattern">
+        <span class="summary-text"></span>
+        <span class="summary-side">
+          <span class="summary-meta"></span>
+          <span id="pending" class="pending" hidden>${copy.nextCycle}</span>
+        </span>
+      </button>
+      <button id="play" type="button" class="play">
+        <svg class="icon-play" aria-hidden="true" width="24" height="24" viewBox="0 0 24 24"><path d="M7 4l13 8-13 8z" fill="currentColor"/></svg>
+        <svg class="icon-pause" aria-hidden="true" width="22" height="22" viewBox="0 0 24 24"><rect x="5" y="4" width="5" height="16" fill="currentColor"/><rect x="14" y="4" width="5" height="16" fill="currentColor"/></svg>
+        <span class="sr-only play-label">${copy.play}</span>
+      </button>
     </div>
-    <button type="button" class="knobs-toggle" aria-expanded="false" aria-controls="knobs-body" hidden>${copy.knobsOpen}</button>
-    <div id="knobs-body">
-      <form class="knobs">
-        <div class="group patterns">
-          ${HANDS.map(
-            (h) => `
-          <div class="pattern-row" data-hand="${h}">
-            <label for="hand-${h}">${copy.patternLabel}</label>
-            <span class="pattern-field">
-              <span class="mirror" aria-hidden="true"></span>
-              <input id="hand-${h}" autocomplete="off" autocapitalize="off" autocorrect="off" spellcheck="false" />
-            </span>
-            <span class="indicator" role="img"></span>
-          </div>`,
-          ).join('')}
-          <p class="hint one-hand-hint" hidden>${copy.oneHandHint}</p>
-          <div class="row digit-pad" role="group" aria-label="${copy.digitPadLabel}">
-            ${PAD_KEYS.map((k) => `<button type="button" class="key" data-key="${k}">${k}</button>`).join('')}
-            <button type="button" class="key" data-key="x" aria-label="${copy.crossKeyLabel}">${copy.crossKey}</button>
-            <button type="button" class="key" data-key="backspace" aria-label="${copy.backspaceKeyLabel}">${copy.backspaceKey}</button>
-          </div>
-          <div id="status" aria-live="polite"></div>
-          <div class="row fixes" hidden>
-            <span>${copy.fixesLabel}</span>
-            <span class="fix-buttons"></span>
-          </div>
-        </div>
-        <div class="row ratio">
-          <span class="knob-label">${copy.ratioLabel}</span>
-          ${RATIO_CHIPS.map(([a, b]) => `<button type="button" class="chip" data-a="${a}" data-b="${b}">${copy.ratioChip(a, b)}</button>`).join('')}
-          <span class="steppers">
-            ${HANDS.map(
-              (h) => `<span class="stepper" data-hand="${h}">
-                <button type="button" data-delta="-1" aria-label="${copy.ratioStepLabel(h, false)}">${copy.stepDown}</button>
-                <output></output>
-                <button type="button" data-delta="1" aria-label="${copy.ratioStepLabel(h, true)}">${copy.stepUp}</button>
-              </span>`,
-            ).join('<span class="colon">:</span>')}
+    <div class="row paused-row" hidden>
+      <button id="stop" type="button" disabled>${copy.stop}</button>
+      <input id="scrub" class="slider" type="range" min="0" max="${KNOBS.scrubSteps}" step="1" value="0" disabled aria-label="${copy.scrubLabel}" />
+    </div>
+    <div class="row sound-status">
+      <span class="sound-status-text" role="status"></span>
+      <button id="sound-retry" type="button" hidden>${copy.soundRetry}</button>
+    </div>
+  `;
+  slot<HTMLDivElement>('#panel-pattern').innerHTML = `
+    <form class="knobs knobs-pattern">
+      ${HANDS.map(
+        (h) => `
+      <div class="pattern-row" data-hand="${h}">
+        <label class="section-label" for="hand-${h}">${copy.patternLabel}</label>
+        <div class="pattern-box">
+          <span class="pattern-field">
+            <span class="mirror" aria-hidden="true"></span>
+            <input id="hand-${h}" autocomplete="off" autocapitalize="off" autocorrect="off" spellcheck="false" />
           </span>
+          <span class="indicator" role="img"></span>
         </div>
-        <div class="row tempo">
-          <label class="knob-label" for="tempo">${copy.tempoLabel}</label>
-          <input id="tempo" type="range" min="${BPM_RANGE.min}" max="${BPM_RANGE.max}" step="1" />
-          <input id="bpm" type="number" min="${BPM_RANGE.min}" max="${BPM_RANGE.max}" step="1" aria-label="${copy.tempoLabel}" />
-          <span>${copy.bpmUnit}</span>
-          <span class="hint tempo-both"></span>
-        </div>
-        <div class="row swap">
-          <button id="swap" type="button" disabled>${copy.swap}</button>
-          <span class="hint swap-note">${copy.swapHint}</span>
-        </div>
-        <p class="hint">${copy.spacePlayPause}</p>
-        <div class="row">
-          <label class="knob-label" for="volume">${copy.volumeLabel}</label>
-          <input id="volume" type="range" min="0" max="1" step="${KNOBS.volumeStep}" />
-        </div>
-        <div class="row">
-          <button id="sound-button" type="button" aria-expanded="false">${copy.soundPanelButton}</button>
-          <a href="#about" class="about-link">${copy.aboutLink}</a>
-        </div>
-      </form>
+      </div>`,
+      ).join('')}
+      <p class="hint one-hand-hint" hidden>${copy.oneHandHint}</p>
+      <div id="status" aria-live="polite"></div>
+      <div class="fixes" hidden>
+        <p class="fixes-label"></p>
+        <div class="fix-buttons"></div>
+      </div>
+      <div class="digit-pad" role="group" aria-label="${copy.digitPadLabel}">
+        ${PAD_KEYS.map((k) => {
+          if (k === 'x') return `<button type="button" class="key key-op" data-key="x" aria-label="${copy.crossKeyLabel}">${copy.crossKey}</button>`;
+          if (k === 'backspace')
+            return `<button type="button" class="key key-op" data-key="backspace" aria-label="${copy.backspaceKeyLabel}">${copy.backspaceKey}</button>`;
+          return `<button type="button" class="key" data-key="${k}">${k}</button>`;
+        }).join('')}
+      </div>
+      <div class="row swap">
+        <button id="swap" type="button" disabled>${copy.swap}</button>
+        <span class="hint swap-note">${copy.swapHint}</span>
+      </div>
+      <p class="hint space-hint">${copy.spacePlayPause}</p>
       <dl class="glossary">
         ${copy.glossary.map((g) => `<dt>${g.term}</dt><dd>${g.text}</dd>`).join('')}
       </dl>
-    </div>
+    </form>
+  `;
+  slot<HTMLDivElement>('#panel-rhythm').innerHTML = `
+    <form class="knobs knobs-rhythm">
+      <div class="group">
+        <div class="section-label" id="ratio-label">${copy.handsHeadingRhythm}</div>
+        <div class="ratio-chips" role="group" aria-labelledby="ratio-label">
+          ${RATIO_CHIPS.map(([a, b]) => `<button type="button" class="chip" data-a="${a}" data-b="${b}">${copy.ratioChip(a, b)}</button>`).join('')}
+          <button type="button" class="chip-more" aria-expanded="false" aria-controls="ratio-steppers" aria-label="${copy.ratioMoreLabel}">${copy.ratioMore}</button>
+        </div>
+        <div class="steppers" id="ratio-steppers" hidden>
+          ${HANDS.map(
+            (h) => `<span class="stepper" data-hand="${h}">
+              <button type="button" data-delta="-1" aria-label="${copy.ratioStepLabel(h, false)}">${copy.stepDown}</button>
+              <output></output>
+              <button type="button" data-delta="1" aria-label="${copy.ratioStepLabel(h, true)}">${copy.stepUp}</button>
+            </span>`,
+          ).join('<span class="colon">:</span>')}
+        </div>
+      </div>
+      <div class="group tempo">
+        <div class="tempo-head">
+          <label class="section-label" for="bpm">${copy.tempoLabel}</label>
+          <span class="bpm-readout"><input id="bpm" type="number" inputmode="numeric" min="${BPM_RANGE.min}" max="${BPM_RANGE.max}" step="1" /><span class="unit">${copy.bpmUnit}</span></span>
+        </div>
+        <input id="tempo" class="slider" type="range" min="${BPM_RANGE.min}" max="${BPM_RANGE.max}" step="1" aria-label="${copy.tempoLabel}" />
+        <div class="tempo-hands" aria-hidden="true"><span></span><span></span></div>
+        <p class="sr-only tempo-both"></p>
+      </div>
+      <div class="group">
+        <label class="section-label" for="volume">${copy.volumeLabel}</label>
+        <input id="volume" class="slider" type="range" min="0" max="1" step="${KNOBS.volumeStep}" />
+      </div>
+    </form>
   `;
 
   const $ = <T extends Element>(selector: string) => root.querySelector(selector) as T;
-  const form = $<HTMLFormElement>('form');
-  const body = $<HTMLDivElement>('#knobs-body');
-  const foldButton = $<HTMLButtonElement>('.knobs-toggle');
+  const forms = Array.from(root.querySelectorAll<HTMLFormElement>('form.knobs'));
+  const patternForm = $<HTMLFormElement>('.knobs-pattern');
+  const summaryButton = $<HTMLButtonElement>('.summary');
+  const summaryText = $<HTMLSpanElement>('.summary-text');
+  const summaryMeta = $<HTMLSpanElement>('.summary-meta');
   const rows = HANDS.map((h) => $<HTMLDivElement>(`.pattern-row[data-hand="${h}"]`));
   const labels = rows.map((r) => r.querySelector('label') as HTMLLabelElement);
   const inputs = rows.map((r) => r.querySelector('input') as HTMLInputElement);
@@ -136,23 +159,34 @@ export const mountKnobs: Mount = (root, { store, player, sound }) => {
   const hint = $<HTMLParagraphElement>('.one-hand-hint');
   const status = $<HTMLDivElement>('#status');
   const fixesRow = $<HTMLDivElement>('.fixes');
-  const fixButtons = $<HTMLSpanElement>('.fix-buttons');
+  const fixesLabel = $<HTMLParagraphElement>('.fixes-label');
+  const fixButtons = $<HTMLDivElement>('.fix-buttons');
   const chips = Array.from(root.querySelectorAll<HTMLButtonElement>('.chip'));
+  const moreButton = $<HTMLButtonElement>('.chip-more');
+  const steppersBox = $<HTMLDivElement>('#ratio-steppers');
   const steppers = HANDS.map((h) => $<HTMLSpanElement>(`.stepper[data-hand="${h}"]`));
   const tempo = $<HTMLInputElement>('#tempo');
   const bpmInput = $<HTMLInputElement>('#bpm');
-  const tempoBoth = $<HTMLSpanElement>('.tempo-both');
+  const tempoHands = Array.from(root.querySelectorAll<HTMLSpanElement>('.tempo-hands span'));
+  const tempoBoth = $<HTMLParagraphElement>('.tempo-both');
   const swapButton = $<HTMLButtonElement>('#swap');
   const swapNote = $<HTMLSpanElement>('.swap-note');
   const playButton = $<HTMLButtonElement>('#play');
+  const playLabel = $<HTMLSpanElement>('.play-label');
   const stopButton = $<HTMLButtonElement>('#stop');
+  const pausedRow = $<HTMLDivElement>('.paused-row');
   const pending = $<HTMLSpanElement>('#pending');
   const scrub = $<HTMLInputElement>('#scrub');
   const volume = $<HTMLInputElement>('#volume');
-  const soundButton = $<HTMLButtonElement>('#sound-button');
   const soundStatus = $<HTMLDivElement>('.sound-status');
   const soundStatusText = $<HTMLSpanElement>('.sound-status-text');
   const soundRetry = $<HTMLButtonElement>('#sound-retry');
+  /** Steppers stay open once More is pressed, and show on their own for a ratio with no chip. */
+  let moreOpen = false;
+
+  /** The filled part of a slider's track (style.css draws it from --fill). */
+  const fill = (slider: HTMLInputElement) =>
+    slider.style.setProperty('--fill', `${fillPercent(Number(slider.value), Number(slider.min), Number(slider.max))}%`);
 
   let analysis: Analysis = analyse(store.get().patterns, store.get().ratio);
   /** The latest valid pattern's schedule; null while the pattern is invalid. */
@@ -214,7 +248,7 @@ export const mountKnobs: Mount = (root, { store, player, sound }) => {
 
   function showFixes(fixes: readonly PatternInput[]) {
     fixesRow.hidden = false;
-    (fixesRow.firstElementChild as HTMLSpanElement).textContent = fixes.length > 0 ? copy.fixesLabel : copy.fixesNone;
+    fixesLabel.textContent = fixes.length > 0 ? copy.fixesLabel : copy.fixesNone;
     fixButtons.replaceChildren(
       ...fixes.map((fix) => {
         const b = document.createElement('button');
@@ -252,6 +286,7 @@ export const mountKnobs: Mount = (root, { store, player, sound }) => {
       }),
     );
     status.classList.toggle('invalid', analysis.balls === null);
+    rows.forEach((row, h) => row.classList.toggle('bad', handState(analysis, h as Hand) === 'bad'));
     schedule = analysis.balls !== null && analysis.input ? buildSchedule(analysis.input) : null;
     if (schedule) player.setEdit(schedule, state.bpm);
     scheduleFixes(analysis);
@@ -274,6 +309,7 @@ export const mountKnobs: Mount = (root, { store, player, sound }) => {
       }
     });
     const vanilla = isVanilla(state.ratio);
+    patternForm.classList.toggle('two-hands', !vanilla);
     (rows[1] as HTMLDivElement).hidden = vanilla;
     hint.hidden = vanilla;
     if (vanilla) activeHand = 0;
@@ -284,6 +320,9 @@ export const mountKnobs: Mount = (root, { store, player, sound }) => {
       const on = Number(chip.dataset.a) === state.ratio.a && Number(chip.dataset.b) === state.ratio.b;
       chip.setAttribute('aria-pressed', String(on));
     }
+    const steppersShown = moreOpen || !hasChip(state.ratio, RATIO_CHIPS);
+    steppersBox.hidden = !steppersShown;
+    moreButton.setAttribute('aria-expanded', String(steppersShown));
     HANDS.forEach((h) => {
       const stepper = steppers[h] as HTMLSpanElement;
       const value = h === 0 ? state.ratio.a : state.ratio.b;
@@ -292,10 +331,12 @@ export const mountKnobs: Mount = (root, { store, player, sound }) => {
       (stepper.querySelector('[data-delta="1"]') as HTMLButtonElement).disabled = value >= MAX_RATIO;
     });
     tempo.value = String(state.bpm);
+    fill(tempo);
     if (document.activeElement !== bpmInput) bpmInput.value = String(state.bpm);
     tempoBoth.textContent = copy.tempoBoth(state.bpm, hand2Bpm(state.bpm, state.ratio), vanilla);
+    tempoLines(state.bpm, state.ratio).forEach((line, i) => ((tempoHands[i] as HTMLSpanElement).textContent = line));
     volume.value = String(state.volume);
-    soundButton.setAttribute('aria-expanded', String(state.soundPanelOpen));
+    fill(volume);
 
     if (patternsChanged) {
       // Sites index the old text; a new text starts the choice over.
@@ -307,6 +348,11 @@ export const mountKnobs: Mount = (root, { store, player, sound }) => {
     } else if (state.bpm !== previous?.bpm && schedule) {
       player.setEdit(schedule, state.bpm);
     }
+    const sum = summary(analysis, state.patterns, state.bpm, SHEET.longSummaryChars);
+    summaryText.textContent = sum.text;
+    summaryMeta.textContent = sum.meta;
+    summaryButton.classList.toggle('long', sum.long);
+    summaryButton.classList.toggle('invalid', !sum.valid);
     if (state.volume !== previous?.volume) sound.setMaster(state.volume);
   }
 
@@ -317,10 +363,13 @@ export const mountKnobs: Mount = (root, { store, player, sound }) => {
   /** Brings the transport controls in line with the player. Play is disabled while invalid (SPEC §4.2). */
   function sync(state: PlayerView['state'] = player.view().state) {
     const playing = state === 'playing';
-    playButton.textContent = playing ? copy.pause : copy.play;
+    playLabel.textContent = playing ? copy.pause : copy.play;
+    playButton.dataset.state = state;
     playButton.disabled = !playing && schedule === null;
     stopButton.disabled = state === 'stopped';
     scrub.disabled = state !== 'paused';
+    // Stop and the time slider are for a paused cycle; playing, the sheet stays as small as it can.
+    pausedRow.hidden = state !== 'paused';
     shownState = state;
   }
 
@@ -363,6 +412,7 @@ export const mountKnobs: Mount = (root, { store, player, sound }) => {
   scrub.addEventListener('pointerdown', () => (scrubbing = true));
   window.addEventListener('pointerup', () => (scrubbing = false));
   scrub.addEventListener('input', () => {
+    fill(scrub);
     const pos = player.scrubPosition();
     if (pos) player.scrub((Number(scrub.value) / KNOBS.scrubSteps) * pos.cycle);
   });
@@ -370,7 +420,8 @@ export const mountKnobs: Mount = (root, { store, player, sound }) => {
   playButton.addEventListener('click', toggle);
   stopButton.addEventListener('click', stop);
   // Enter never submits the form (there is no submit button); a pattern input handles it below.
-  form.addEventListener('submit', (e) => e.preventDefault());
+  for (const form of forms) form.addEventListener('submit', (e) => e.preventDefault());
+  summaryButton.addEventListener('click', () => store.set({ sheetTab: 'pattern' }));
 
   // -------------------------------------------------------------------------------------------
   // Pattern inputs, the digit pad, swap
@@ -458,7 +509,7 @@ export const mountKnobs: Mount = (root, { store, player, sound }) => {
   });
 
   // -------------------------------------------------------------------------------------------
-  // Ratio, tempo, volume, sound panel, phone fold
+  // Ratio, tempo, volume
   // -------------------------------------------------------------------------------------------
 
   for (const chip of chips) {
@@ -485,30 +536,25 @@ export const mountKnobs: Mount = (root, { store, player, sound }) => {
     }
   });
 
+  moreButton.addEventListener('click', () => {
+    moreOpen = !moreOpen;
+    render(store.get(), store.get());
+  });
+
   tempo.addEventListener('input', () => store.set({ bpm: Number(tempo.value) }));
-  bpmInput.addEventListener('change', () => {
+  /** The tempo box commits on change and on Enter, and always shows the tempo in force after. */
+  const commitBpm = () => {
     const bpm = clampBpm(bpmInput.valueAsNumber);
     if (bpm !== null) store.set({ bpm });
     bpmInput.value = String(store.get().bpm);
+  };
+  bpmInput.addEventListener('change', commitBpm);
+  bpmInput.addEventListener('keydown', (e) => {
+    if (e.key !== 'Enter' || e.isComposing) return;
+    e.preventDefault();
+    commitBpm();
   });
   volume.addEventListener('input', () => store.set({ volume: Number(volume.value) }));
-  soundButton.addEventListener('click', () => store.set({ soundPanelOpen: !store.get().soundPanelOpen }));
-
-  // On a phone the panel folds under a button; the juggler and the ladder stay.
-  const phone = window.matchMedia(`(max-width: ${KNOBS.phoneMaxWidthPx}px)`);
-  let unfolded = false;
-  function fold() {
-    foldButton.hidden = !phone.matches;
-    body.hidden = phone.matches && !unfolded;
-    foldButton.setAttribute('aria-expanded', String(!body.hidden));
-    foldButton.textContent = unfolded ? copy.knobsClose : copy.knobsOpen;
-  }
-  foldButton.addEventListener('click', () => {
-    unfolded = !unfolded;
-    fold();
-  });
-  phone.addEventListener('change', fold);
-  fold();
 
   // -------------------------------------------------------------------------------------------
   // Space
@@ -553,7 +599,10 @@ export const mountKnobs: Mount = (root, { store, player, sound }) => {
       if (scrubbing && view.state === 'paused') return;
       const pos = view.state === 'paused' ? player.scrubPosition() : view.state === 'playing' ? cyclePosition(view) : null;
       const value = pos ? Math.round((pos.pulse / pos.cycle) * KNOBS.scrubSteps) : 0;
-      if (scrub.value !== String(value)) scrub.value = String(value);
+      if (scrub.value !== String(value)) {
+        scrub.value = String(value);
+        fill(scrub);
+      }
     },
   };
 };

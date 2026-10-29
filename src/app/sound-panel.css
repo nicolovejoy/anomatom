@@ -1,69 +1,80 @@
-/* The sound panel drawer (SPEC §4.3): fixed to the right edge over the play view. */
+/* The sound panel (SPEC 4.3): the sheet's Sound tab. Colours and fonts are style.css's custom
+   properties. */
 .sound-panel {
-  position: fixed;
-  top: 0;
-  right: 0;
-  bottom: 0;
-  z-index: 10;
-  box-sizing: border-box;
-  width: min(26rem, 100vw);
-  padding: 12px 16px 24px;
-  overflow-y: auto;
-  background: #1b1e24;
-  color: #e6e8ec;
-  border-left: 1px solid #3a404c;
-  box-shadow: -8px 0 24px rgba(0, 0, 0, 0.45);
-}
-.sound-panel[hidden] {
-  display: none;
-}
-.sound-panel .sp-head {
   display: flex;
-  align-items: center;
-  justify-content: space-between;
-}
-.sound-panel h2 {
-  margin: 0;
-  font-size: 1.15em;
+  flex-direction: column;
+  gap: 12px;
+  padding-bottom: 8px;
+  font-size: 15px;
 }
 .sound-panel fieldset {
-  margin: 12px 0;
-  padding: 4px 10px 8px;
-  border: 1px solid #3a404c;
-  border-radius: 4px;
+  margin: 0;
+  padding: 4px 12px 10px;
+  border: 1px solid var(--rule);
+  border-radius: 12px;
 }
 .sound-panel legend {
   padding: 0 6px;
-  opacity: 0.8;
+  font-size: 13px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--muted);
 }
 .sound-panel .sp-row {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
-  gap: 8px;
+  gap: 8px 12px;
   margin: 6px 0;
 }
 .sound-panel .sp-row > label:first-child:not(:only-child) {
-  flex: 0 0 10em;
+  flex: 0 0 9em;
+  color: var(--text-2);
 }
-.sound-panel .sp-row input[type='range'] {
+.sound-panel select,
+.sound-panel input[type='number'] {
+  min-width: 0;
+  height: 44px;
+  padding: 0 10px;
+  border: 0;
+  border-radius: 10px;
+  background: var(--raised);
+}
+.sound-panel select {
   flex: 1 1 8em;
+}
+.sound-panel input[type='number'] {
+  width: 7em;
+  font-family: var(--font-mono);
+}
+.sound-panel input[type='checkbox'] {
+  width: 20px;
+  height: 20px;
+  vertical-align: -4px;
+  margin: 0 8px 0 0;
+}
+.sound-panel .sp-row > label:only-child {
+  min-height: 44px;
+  display: flex;
+  align-items: center;
 }
 .sound-panel .sp-row output {
   min-width: 3em;
   text-align: right;
-  font-variant-numeric: tabular-nums;
-}
-.sound-panel input[type='number'] {
-  width: 6em;
+  font: 14px var(--font-mono);
+  color: var(--muted);
 }
 .sound-panel button {
-  padding: 6px 12px;
+  height: 44px;
+  padding: 0 18px;
+  border: 0;
+  border-radius: 22px;
+  background: var(--raised);
 }
 .sound-panel .sp-confirm {
   min-height: 1.4em;
-  margin: 4px 0 0;
-  opacity: 0.85;
+  margin: 0;
+  color: var(--text-2);
 }
 /* Range rows keep label, slider and readout on one line, even at 390 px. */
 .sound-panel .sp-row:has(input[type='range']) {
@@ -73,5 +84,7 @@
   flex: 0 0 7em;
 }
 .sound-panel .sp-row input[type='range'] {
+  flex: 1 1 8em;
   min-width: 0;
+  height: 44px;
 }

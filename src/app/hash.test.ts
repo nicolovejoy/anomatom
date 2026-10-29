@@ -39,7 +39,7 @@ describe('encodeState', () => {
 
   test('never carries volume, the last hash or UI state', () => {
     const state: AppState = { ...defaultState(), volume: 0.123, lastStateHash: '#v1.secret' };
-    const withUi = { ...state, soundPanelOpen: true } as AppState;
+    const withUi: AppState = { ...state, sheetTab: 'sound' };
     expect(encodeState(state)).toBe(encodeState(defaultState()));
     expect(encodeState(withUi)).toBe(encodeState(defaultState()));
   });

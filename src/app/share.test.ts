@@ -64,7 +64,7 @@ describe('restoring on load', () => {
     expect(s.bpm).toBe(90);
     expect(s.mapping).toEqual(linked.mapping);
     expect(s.volume).toBe(defaultState().volume);
-    expect(s.soundPanelOpen).toBe(false);
+    expect(s.sheetTab).toBeNull();
   });
 
   test('the last state hash is set from the start, so About’s back link works at once', () => {
@@ -159,7 +159,7 @@ describe('writing the hash', () => {
     const t = setup();
     t.share.start();
     t.store.set({ volume: 0.2 });
-    t.store.set({ soundPanelOpen: true });
+    t.store.set({ sheetTab: 'sound' });
     expect(t.waiting()).toBe(false);
   });
 
@@ -242,7 +242,7 @@ describe('a pasted link on an open page', () => {
   test('a junk hash resets the four shared fields to the defaults and leaves volume and the panel', () => {
     const t = setup('', linked);
     t.share.start();
-    t.store.set({ volume: 0.4, soundPanelOpen: true });
+    t.store.set({ volume: 0.4, sheetTab: 'sound' });
     t.setHash('#v1.%%%');
     t.share.onHashChange();
     const s = t.store.get();
@@ -251,7 +251,7 @@ describe('a pasted link on an open page', () => {
     expect(s.bpm).toBe(defaultState().bpm);
     expect(s.mapping).toEqual(DEFAULT_MAPPING);
     expect(s.volume).toBe(0.4);
-    expect(s.soundPanelOpen).toBe(true);
+    expect(s.sheetTab).toBe('sound');
   });
 
   test('an emptied hash or #about does not reset anything', () => {

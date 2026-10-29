@@ -153,7 +153,7 @@ export const copy = {
   /** The validity indicator beside each input: a mark, and what it says to a screen reader. */
   indicator: {
     ok: { mark: '✓', label: 'I can juggle this.' },
-    bad: { mark: '!', label: 'I can’t juggle this yet.' },
+    bad: { mark: 'can’t juggle', label: 'I can’t juggle this yet.' },
     neutral: { mark: '·', label: 'This part looks fine.' },
   },
   ratioStepLabel: (hand: 0 | 1, up: boolean) => `${up ? 'More' : 'Fewer'} hand ${hand + 1} beats`,
@@ -172,8 +172,6 @@ export const copy = {
   swapImpossible: 'I can’t swap those: the earlier throw would have to land before it is thrown.',
   scrubLabel: 'Time in the cycle',
   volumeLabel: 'Volume',
-  soundPanelButton: 'Sound',
-  aboutLink: 'About',
   nextCycle: 'Next cycle',
   fixesLabel: 'Nearest patterns I can juggle:',
   fixesNone: 'I found no pattern nearby that I can juggle.',
@@ -183,8 +181,6 @@ export const copy = {
   soundReady: 'My drum sounds are ready.',
   soundFailed: 'I could not fetch my drum sounds, so I am silent.',
   soundRetry: 'Try again',
-  knobsOpen: 'Knobs',
-  knobsClose: 'Hide knobs',
   /** A parse error at other ratios than 1:1 names the input it is in. */
   handParseError: (hand: 0 | 1, message: string) => `Hand ${hand + 1} pattern: ${message}`,
   /**
@@ -206,11 +202,35 @@ export const copy = {
   },
 
   // -------------------------------------------------------------------------------------------
+  // Phone sheet (docs/plans/phone-sheet.md, stream A)
+  // -------------------------------------------------------------------------------------------
+
+  aboutButtonLabel: 'About',
+  /** The sheet's tabs, in order. */
+  tabNames: { pattern: 'Pattern', rhythm: 'Rhythm', sound: 'Sound' },
+  sheetLabel: 'Knobs',
+  sheetGrabOpen: 'Open the knobs',
+  sheetGrabClose: 'Close the knobs',
+  /** The closed sheet's summary: the pattern, then what it is. Opens the Pattern tab. */
+  summaryOpen: 'Edit the pattern',
+  summaryMeta: (balls: number, bpm: number) => `${balls} ball${balls === 1 ? '' : 's'} · ${bpm} bpm`,
+  summaryBalls: (balls: number) => `${balls} ball${balls === 1 ? '' : 's'}`,
+  summaryCantJuggle: 'can’t juggle',
+  summaryEmpty: '–',
+  /** Rhythm tab. */
+  handsHeadingRhythm: 'Hands',
+  ratioMore: 'More',
+  ratioMoreLabel: 'Other ratios',
+  tempoHand: (hand: 0 | 1, bpm: number) => `Hand ${hand + 1} · ${bpm} bpm`,
+  tempoEach: (bpm: number) => `Each hand · ${bpm} bpm`,
+  tempoShared: (bpm: number) => `Shared beat · ${bpm} bpm`,
+  /** Over the ghost of a broken pattern while the last good one plays. */
+  ghostLabel: (pattern: string) => `${pattern} · not playing`,
+
+  // -------------------------------------------------------------------------------------------
   // F: Sound panel and share
   // -------------------------------------------------------------------------------------------
 
-  soundPanelTitle: 'My sound',
-  soundPanelClose: 'Close',
   kitLabel: 'Kit',
   presetLabel: 'Preset',
   perHeightHeading: 'Sound for each throw height',

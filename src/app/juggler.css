@@ -1,8 +1,9 @@
-/* The juggler region. Colours and sizes that matter live in tunables; the height is set from
-   JUGGLER.heightPx by the mount. */
+/* The juggler region. It fills its region: on a phone, whatever height the sheet leaves; on a
+   wide screen, at least JUGGLER.heightPx (style.css). The canvas draws at its laid-out size. */
 .juggler {
+  position: absolute;
+  inset: 0;
   display: block;
   width: 100%;
-  border-radius: 6px;
-  margin: 12px 0 0;
+  height: 100%;
 }

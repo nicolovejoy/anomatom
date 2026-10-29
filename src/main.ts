@@ -9,6 +9,7 @@ import { mountLadder } from './app/mount-ladder';
 import { mountKnobs } from './app/mount-knobs';
 import { mountFirstMinute } from './app/mount-first-minute';
 import { mountSoundPanel } from './app/mount-sound-panel';
+import { mountSheet } from './app/mount-sheet';
 import { mountAbout } from './app/mount-about';
 import { mountShare } from './app/mount-share';
 import { createDrumSound } from './sound/drum-sound';
@@ -18,16 +19,26 @@ import { copy } from './ui/copy';
 const app = document.getElementById('app');
 if (app) {
   app.innerHTML = `
-    <header>
-      <h1>${copy.title}</h1>
-      <p>${copy.placeholder}</p>
+    <header class="topbar">
+      <h1 class="wordmark">${copy.title}</h1>
+      <a href="#about" class="about-link" aria-label="${copy.aboutButtonLabel}">?</a>
     </header>
     <div class="play-view">
-      <section class="region-juggler"></section>
-      <section class="region-ladder"></section>
-      <section class="region-knobs"></section>
-      <section class="region-sound-panel"></section>
+      <div class="stage">
+        <section class="region-juggler"></section>
+        <section class="region-ladder"></section>
+      </div>
       <section class="region-first-minute"></section>
+      <section class="region-sheet sheet" aria-label="${copy.sheetLabel}">
+        <button type="button" class="sheet-grab" aria-expanded="false" aria-controls="sheet-panels"><span></span></button>
+        <div class="sheet-head"></div>
+        <div class="sheet-tabs" role="tablist" aria-label="${copy.sheetLabel}"></div>
+        <div class="sheet-panels" id="sheet-panels">
+          <div class="sheet-panel" id="panel-pattern" role="tabpanel" aria-labelledby="tab-pattern" hidden></div>
+          <div class="sheet-panel" id="panel-rhythm" role="tabpanel" aria-labelledby="tab-rhythm" hidden></div>
+          <div class="sheet-panel region-sound-panel" id="panel-sound" role="tabpanel" aria-labelledby="tab-sound" hidden></div>
+        </div>
+      </section>
     </div>
     <section class="region-about" hidden></section>
   `;
@@ -47,8 +58,9 @@ if (app) {
   const mounts: [Mount, HTMLElement][] = [
     [mountJuggler, region('juggler')],
     [mountLadder, region('ladder')],
-    [mountKnobs, region('knobs')],
+    [mountKnobs, region('sheet')],
     [mountSoundPanel, region('sound-panel')],
+    [mountSheet, region('sheet')],
     [mountFirstMinute, region('first-minute')],
     [mountAbout, region('about')],
     [mountShare, app],

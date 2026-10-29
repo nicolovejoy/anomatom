@@ -1,4 +1,5 @@
-// The sound panel (SPEC §4.3), a drawer over the play view. One control per Mapping field, in
+// The sound panel (SPEC §4.3): the sheet's Sound tab (docs/plans/phone-sheet.md). mount-sheet.ts
+// shows and hides the tab; this fills it. One control per Mapping field, in
 // SPEC order; every edit goes through `applyEdit` and is written to `store.mapping`, and this
 // panel is the only thing that writes it. The logic is in sound-panel-model.ts.
 //
@@ -6,8 +7,8 @@
 // preloads what the new mapping needs and is read on the next look-ahead tick), so a
 // Mapping restored from a share link reaches the sound the same way a panel edit does.
 //
-// Everything inside the drawer is `[data-keeps-space]`: Space belongs to the focused select,
-// checkbox or button there, not to play and pause. Escape closes.
+// Everything inside the panel is `[data-keeps-space]`: Space belongs to the focused select,
+// checkbox or button there, not to play and pause.
 import {
   PAD_CHORD_IDS,
   PAD_INSTRUMENT_IDS,
@@ -41,11 +42,7 @@ export const mountSoundPanel: Mount = (root, { store, player }) => {
   const allSamples: readonly Sample[] = [null, ...KIT_SAMPLES];
 
   root.innerHTML = `
-    <aside id="sound-panel" class="sound-panel" role="dialog" aria-labelledby="sound-panel-title" data-keeps-space hidden>
-      <div class="sp-head">
-        <h2 id="sound-panel-title">${copy.soundPanelTitle}</h2>
-        <button type="button" class="sp-close">${copy.soundPanelClose}</button>
-      </div>
+    <div id="sound-panel" class="sound-panel" data-keeps-space>
       <div class="sp-row">
         <label for="sp-kit">${copy.kitLabel}</label>
         <select id="sp-kit">${['TR-808'].map((k) => `<option value="${k}">${copy.kitNames[k as 'TR-808']}</option>`).join('')}</select>
@@ -112,12 +109,10 @@ export const mountSoundPanel: Mount = (root, { store, player }) => {
         <button type="button" id="sp-copy">${copy.copyLink}</button>
       </div>
       <p id="sp-confirm" class="sp-confirm" role="status" aria-live="polite"></p>
-    </aside>
+    </div>
   `;
 
   const $ = <T extends Element>(selector: string) => root.querySelector(selector) as T;
-  const drawer = $<HTMLElement>('.sound-panel');
-  const closeButton = $<HTMLButtonElement>('.sp-close');
   const preset = $<HTMLSelectElement>('#sp-preset');
   const heightSelects = heights.map((h) => $<HTMLSelectElement>(`#sp-height-${h}`));
   const pan = HANDS.map((h) => $<HTMLInputElement>(`#sp-pan-${h}`));
@@ -174,12 +169,6 @@ export const mountSoundPanel: Mount = (root, { store, player }) => {
     padOn.checked = m.pad.on;
     padInstrument.value = m.pad.instrument;
     padChord.value = m.pad.chord;
-    // Open / closed.
-    const open = state.soundPanelOpen;
-    if (drawer.hidden === open) {
-      drawer.hidden = !open;
-      if (open) closeButton.focus();
-    }
   }
 
   // Controls -> edits.
@@ -232,17 +221,6 @@ export const mountSoundPanel: Mount = (root, { store, player }) => {
       () => say(copy.linkCopied),
       () => say(copy.linkNotCopied),
     );
-  });
-
-  // Close: the button, or Escape. Focus goes back to the Sound button that opened it.
-  const close = () => {
-    const hadFocus = drawer.contains(document.activeElement);
-    store.set({ soundPanelOpen: false });
-    if (hadFocus) document.getElementById('sound-button')?.focus();
-  };
-  closeButton.addEventListener('click', close);
-  document.addEventListener('keydown', (e) => {
-    if (e.key === 'Escape' && store.get().soundPanelOpen) close();
   });
 
   store.subscribe((state, previous) => {
