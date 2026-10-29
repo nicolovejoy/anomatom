@@ -86,6 +86,36 @@ export const LADDER = {
 // A: Juggler
 // ---------------------------------------------------------------------------------------------
 
+/**
+ * The juggler (SPEC §4.1), in metres and seconds: front view, hand 1 on the left. The canvas
+ * scales the scene to fit its region, so only the proportions show.
+ */
+export const JUGGLER = {
+  /** Each hand's outer point, where it catches, and inner point, where it throws. */
+  catchX: [0, 0.9],
+  throwX: [0.25, 0.65],
+  /** Gravity: a ball's apex is g·air²/8 (MATH §7). */
+  g: 9.81,
+  /** Time in the catching hand, in that hand's beats, at most this share of the flight. */
+  dwellBeats: 0.5,
+  maxDwellShare: 0.5,
+  radius: 0.035,
+  /** The scoop dips at most this far below the hands, and at most this share of the apex. */
+  scoopDepth: 0.08,
+  scoopApexShare: 0.5,
+  /** A cross landing on a coincident pulse flashes from its catch until this many pulses after. */
+  flashPulses: 1,
+  /** Seconds over which the scale follows a pattern switch. */
+  boundsEaseSeconds: 0.75,
+  /** The region's height on the page. */
+  heightPx: 260,
+  background: '#14161a',
+  /** The flash: a ring this many radii out, in this colour, as wide as `flashRingPx`. */
+  flashRing: '#ffffff',
+  flashRingRadii: 1.6,
+  flashRingPx: 3,
+} as const;
+
 // ---------------------------------------------------------------------------------------------
 // B: Player and fixes
 // ---------------------------------------------------------------------------------------------
