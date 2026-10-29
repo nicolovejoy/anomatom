@@ -2,7 +2,9 @@
    mount in src/app. Colours and sizes that matter live in tunables. */
 body {
   margin: 0;
-  padding: 16px;
+  /* viewport-fit=cover (standalone on iPhone): keep content clear of the notch and home bar. */
+  padding: max(16px, env(safe-area-inset-top)) max(16px, env(safe-area-inset-right)) max(16px, env(safe-area-inset-bottom))
+    max(16px, env(safe-area-inset-left));
   font: 16px/1.4 system-ui, sans-serif;
   background: #0e1013;
   color: #e6e8ec;

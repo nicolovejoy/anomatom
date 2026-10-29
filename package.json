@@ -10,7 +10,8 @@
     "typecheck": "tsc --noEmit",
     "test": "vitest run --coverage",
     "test:watch": "vitest",
-    "e2e": "playwright test --project=edge"
+    "e2e": "playwright test --project=edge",
+    "og": "node scripts/og/make.mjs"
   },
   "devDependencies": {
     "@playwright/test": "^1.64.1",
