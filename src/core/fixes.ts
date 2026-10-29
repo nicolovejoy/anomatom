@@ -1,6 +1,6 @@
 import { FIXES, MAX_PERIOD } from '../tunables';
-import { activeHands, isVanilla } from './grid';
-import { validate } from './validate';
+import { activeHands, cycleLength, isVanilla } from './grid';
+import { ballCount, validate } from './validate';
 import type { Hand, PatternInput, Throw, ValidationError } from './types';
 
 /** Digits run 0-9 in the notation (parse.ts). */
@@ -42,7 +42,10 @@ interface Position {
  * 4. Two digits substituted, smallest total height change first, then positions, then as in 1.
  * Insertions and deletions are not combined at distance 2: it keeps the search small.
  *
- * At most `budget` candidates are validated; past it the search stops with what it has.
+ * `budget` bounds the work, not the number of candidates: a candidate whose ball count is whole
+ * costs its cycle length in pulses (validating it walks every flight of the cycle), and one
+ * whose count is fractional costs its digit count (it stops at the count). A candidate that
+ * would take the work past `budget` is not validated: the search stops with what it has.
  * Duplicates (an insertion at two places giving one pattern) are offered once.
  */
 export function fixesFor(
@@ -50,27 +53,43 @@ export function fixesFor(
   errors: readonly ValidationError[],
   limits: FixLimits = FIXES,
 ): PatternInput[] {
-  if (errors.length === 0) return [];
+  return searchFixes(input, errors, limits).fixes;
+}
+
+/** `fixesFor`, with the work it spent (never more than `limits.budget`). */
+export function searchFixes(
+  input: PatternInput,
+  errors: readonly ValidationError[],
+  limits: FixLimits = FIXES,
+): { fixes: PatternInput[]; work: number } {
+  const found: PatternInput[] = [];
+  let work = 0;
+  if (errors.length === 0) return { fixes: found, work };
   const vanilla = isVanilla(input.ratio);
   const hands = activeHands(input).map((h) => [...h]);
   const crosses = (t: Throw) => (vanilla ? [t.cross] : [t.cross, !t.cross]);
 
-  const found: PatternInput[] = [];
   const seen = new Set<string>([textOf(hands)]);
-  let budget = limits.budget;
-  const done = () => found.length >= limits.count || budget <= 0;
   /** Validates one candidate, keeping it if it is new and valid. True when the search is over. */
   const offer = (candidate: Throw[][]): boolean => {
-    const text = textOf(candidate);
-    if (seen.has(text)) return false;
-    seen.add(text);
-    budget--;
     const next: PatternInput = {
       ratio: input.ratio,
       hands: vanilla ? [candidate[0] as Throw[], ...input.hands.slice(1)] : candidate,
     };
+    // A fractional count is never valid: the count is all there is to check, and nothing to remember.
+    const whole = Number.isInteger(ballCount(next));
+    let text = '';
+    if (whole) {
+      text = textOf(candidate);
+      if (seen.has(text)) return false;
+    }
+    const cost = whole ? cycleLength(next) : candidate.reduce((n, h) => n + h.length, 0);
+    if (work + cost > limits.budget) return true;
+    work += cost;
+    if (!whole) return false;
+    seen.add(text);
     if (validate(next).ok) found.push(next);
-    return done();
+    return found.length >= limits.count;
   };
   const edited = (edits: readonly (readonly [Position, Throw])[]) => {
     const out = hands.map((h) => [...h]);
@@ -96,7 +115,7 @@ export function fixesFor(
   const ones = positions
     .flatMap((p, i) => (subs[i] as Sub[]).map((s) => ({ p, i, s })))
     .sort((a, b) => a.s.cost - b.s.cost || a.i - b.i || a.s.order - b.s.order);
-  for (const { p, s } of ones) if (offer(edited([[p, s.to]]))) return found;
+  for (const { p, s } of ones) if (offer(edited([[p, s.to]]))) return { fixes: found, work };
 
   // 2. One deletion.
   for (const { hand, index } of positions) {
@@ -104,7 +123,7 @@ export function fixesFor(
     if (h.length === 1) continue;
     const out = hands.map((x) => [...x]);
     out[hand] = h.filter((_, i) => i !== index);
-    if (offer(out)) return found;
+    if (offer(out)) return { fixes: found, work };
   }
 
   // 3. One insertion.
@@ -116,7 +135,7 @@ export function fixesFor(
         for (const cross of vanilla ? [false] : [false, true]) {
           const out = hands.map((x) => [...x]);
           out[hand] = [...h.slice(0, index), { height, cross }, ...h.slice(index)];
-          if (offer(out)) return found;
+          if (offer(out)) return { fixes: found, work };
         }
       }
     }
@@ -133,13 +152,13 @@ export function fixesFor(
             if (b.cost < total - a.cost) continue;
             const pi = positions[i] as Position;
             const pj = positions[j] as Position;
-            if (offer(edited([[pi, a.to], [pj, b.to]]))) return found;
+            if (offer(edited([[pi, a.to], [pj, b.to]]))) return { fixes: found, work };
           }
         }
       }
     }
   }
-  return found;
+  return { fixes: found, work };
 }
 
 const textOf = (hands: readonly (readonly Throw[])[]) =>

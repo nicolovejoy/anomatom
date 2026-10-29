@@ -1,5 +1,6 @@
 import { describe, expect, test } from 'vitest';
-import { fixesFor } from './fixes';
+import { FIXES } from '../tunables';
+import { fixesFor, searchFixes } from './fixes';
 import { parsePattern } from './parse';
 import { validate } from './validate';
 import type { HandPattern, PatternInput, ValidationError } from './types';
@@ -107,12 +108,12 @@ test('at 1:1 the second box is passed through untouched', () => {
 });
 
 test('the budget stops the search with what it has', () => {
-  // 432 has no valid one-digit substitution; one candidate is not enough to find anything.
-  expect(fixesFor(vanilla('432'), errorsOf(vanilla('432')), { count: 3, budget: 1 })).toEqual([]);
+  // 432 has no valid one-digit substitution; one candidate's work is not enough to find anything.
+  expect(fixesFor(vanilla('432'), errorsOf(vanilla('432')), { count: 3, budget: 3 })).toEqual([]);
   // A budget that runs out during the two-digit search keeps the deletion found before it.
-  // 432's one-digit search (substitutions, deletions, insertions) is under 60 candidates; the
-  // two-digit search would find 522 and 342 next, but the budget ends first.
-  const few = fixesFor(vanilla('432'), errorsOf(vanilla('432')), { count: 3, budget: 60 });
+  // 432's search finds 42 after 106 pulses of work and the next fix after 273, so 200 ends
+  // between them.
+  const few = fixesFor(vanilla('432'), errorsOf(vanilla('432')), { count: 3, budget: 200 });
   expect(few.map((f) => text(f.hands[0]!))).toEqual(['42']);
 });
 
@@ -132,4 +133,31 @@ test('a single digit is never deleted, and a full-length pattern is never length
   }
   const long = vanilla('4444444444444443'); // 16 digits, the most a hand takes
   for (const f of fixes(long)) expect(f.hands[0]!.length).toBeLessThanOrEqual(16);
+});
+
+describe('the budget is work, not candidates (PR 16 review)', () => {
+  // 9:8, two 16-digit hands with crosses: the typeable worst case. Its cycle is 1152 pulses, a
+  // deletion's up to 17,280, and no fix is near, so a budget of candidates ran for most of a second.
+  const worst = twoHands('7x 5 6 5 9 3 3 2 9 5x 0 8 5 2 5 4x', '9 5 1 7 7 5 3 2 0 1 3 2 6 7 0 8x', 9, 8);
+
+  test('the worst case stops within the budget, and whatever it offers validates', () => {
+    const { fixes: offered, work } = searchFixes(worst, errorsOf(worst));
+    expect(work).toBeGreaterThan(0);
+    expect(work).toBeLessThanOrEqual(FIXES.budget);
+    for (const f of offered) expect(validate(f).ok).toBe(true);
+  });
+
+  test('a whole-count candidate costs its cycle; a fractional one its digits', () => {
+    // 12: the first candidate, 22, has a whole count; at 1:1 its cycle is 2 pulses.
+    expect(searchFixes(vanilla('12'), errorsOf(vanilla('12')), { count: 1, budget: 1e6 }).work).toBe(2);
+    // 432: its first candidate, 433, is fractional: three digits.
+    expect(searchFixes(vanilla('432'), errorsOf(vanilla('432')), { count: 3, budget: 3 }).work).toBe(3);
+  });
+
+  test('a candidate that would overrun the budget is not validated', () => {
+    expect(searchFixes(vanilla('12'), errorsOf(vanilla('12')), { count: 1, budget: 1 })).toEqual({
+      fixes: [],
+      work: 0,
+    });
+  });
 });
