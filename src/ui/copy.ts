@@ -203,6 +203,34 @@ export const copy = {
   // -------------------------------------------------------------------------------------------
   // F: Sound panel and share
   // -------------------------------------------------------------------------------------------
+
+  soundPanelTitle: 'My sound',
+  soundPanelClose: 'Close',
+  kitLabel: 'Kit',
+  presetLabel: 'Preset',
+  perHeightHeading: 'Sound for each throw height',
+  heightLabel: (height: number) => `Height ${height}`,
+  handsHeading: 'Hands',
+  panLabel: (hand: 0 | 1) => `Hand ${hand + 1} pan`,
+  gainLabel: (hand: 0 | 1) => `Hand ${hand + 1} gain`,
+  catchesHeading: 'Catches',
+  catchesOn: 'Play a sound on each catch',
+  catchSoundLabel: 'Catch sound',
+  accentHeading: 'Cross throws',
+  accentLabel: 'Accent',
+  downbeatLabel: 'Cross landing on a shared beat',
+  filterHeading: 'Crossings to filter',
+  filterOn: 'Open the filter as crossings grow',
+  filterLowLabel: 'Lowest cutoff (Hz)',
+  filterHighLabel: 'Highest cutoff (Hz)',
+  padHeading: 'Pad on the downbeat',
+  padOn: 'Play a chord at the start of each cycle',
+  padInstrumentLabel: 'Pad instrument',
+  padChordLabel: 'Chord',
+  resetToPreset: 'Reset to preset',
+  copyLink: 'Copy share link',
+  linkCopied: 'I copied the link. It holds my pattern, ratio, tempo and sound, and it never starts me playing.',
+  linkNotCopied: 'I could not copy the link. Copy the address from the bar instead.',
 };
 
 /**

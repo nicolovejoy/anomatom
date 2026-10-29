@@ -17,6 +17,11 @@
 // `startTime + p × pulseLen` of the new segment (Retiming). Catches of flights longer than the
 // next segment are not followed across a second switch (ruling, v1).
 //
+// The Mapping (SPEC §4.3) is read on every tick, so an edit is heard from the next look-ahead
+// window, not the next cycle (`setMapping`; events already handed over keep their sound). Each
+// tick also sets the filter cutoff from the crossings of the segment sounding now, and plays
+// the pad chord at every cycle start (pulse 0 of each cycle of each segment) in the window.
+//
 // Pause, resume and scrub, against the one clock (`sound.now()`):
 // - `pause()` stops the loop. Events are handed to the sampler up to `LOOKAHEAD_SECONDS` ahead
 //   and DrumSound cannot take a hit back, so instead of muting them the pause point is the end
@@ -34,7 +39,8 @@
 import { carryOver } from '../core/carry';
 import type { Grid, Schedule } from '../core/types';
 import type { DrumSound } from '../sound/drum-sound';
-import { hitFor, type Hit, type Mapping } from '../sound/mapping';
+import { filterCutoff, hitFor, padHitsAt, type Hit, type Mapping } from '../sound/mapping';
+import { crossingsOfSchedule } from '../sound/schedule-crossings';
 import { eventsBetween, pulseSeconds, type TimedEvent } from '../sound/transport';
 import { DEFAULT_MAPPING, LOOKAHEAD_SECONDS, SCHEDULER_INTERVAL_MS, START_DELAY_SECONDS } from '../tunables';
 import type { PlayerView, Segment } from '../view/types';
@@ -91,6 +97,8 @@ export function createPlayer(sound: DrumSound, options: PlayerOptions = {}) {
   /** `boundaries[i]`: segment i's `endTime` in its own pulses; one per segment but the last. */
   let boundaries: readonly number[] = [];
   let mapping: Mapping = DEFAULT_MAPPING;
+  /** The cutoff last handed to the sampler; NaN until one has been. */
+  let cutoff = Number.NaN;
   let edit: { schedule: Schedule; bpm: number } | null = null;
   let scheduled = 0;
   /** Audio time up to which events have been handed to the sampler. */
@@ -111,6 +119,7 @@ export function createPlayer(sound: DrumSound, options: PlayerOptions = {}) {
   function stop() {
     stopTimer();
     state = 'stopped';
+    cutoff = Number.NaN;
     segments = [];
     boundaries = [];
     hold = -Infinity;
@@ -141,7 +150,14 @@ export function createPlayer(sound: DrumSound, options: PlayerOptions = {}) {
     const now = sound.now();
     const from = Math.max(scheduledTo, now);
     const until = now + LOOKAHEAD_SECONDS;
+    // The filter follows the crossings of the segment sounding now; only a change is sent.
+    const wanted = filterCutoff(crossingsOfSchedule(segmentAt(segments, now).schedule), mapping);
+    if (wanted !== cutoff) {
+      cutoff = wanted;
+      sound.setFilter(wanted);
+    }
     const hits: { hit: Hit; time: number; pulseLen: number }[] = [];
+    const pads: { time: number; pulseLen: number; cycle: number }[] = [];
     const add = (t: TimedEvent, grids: readonly [Grid, Grid], pulseLen: number) => {
       const hit = hitFor(t.event, mapping, grids);
       if (hit) hits.push({ hit, time: t.time, pulseLen });
@@ -152,6 +168,13 @@ export function createPlayer(sound: DrumSound, options: PlayerOptions = {}) {
       if (a >= b) return;
       // Its own events below its boundary, in whole pulses: the next segment owns B onward.
       const B = boundaries[i] ?? Infinity;
+      // The pad: a chord at each cycle start, by the same whole-pulse rounding as the events.
+      const { cycle } = seg.schedule;
+      const pFrom = Math.max(0, Math.ceil((a - seg.startTime) / seg.pulseLen));
+      const pTo = Math.min(B, Math.ceil((b - seg.startTime) / seg.pulseLen));
+      for (let p = Math.ceil(pFrom / cycle) * cycle; mapping.pad.on && p < pTo; p += cycle) {
+        pads.push({ time: seg.startTime + p * seg.pulseLen, pulseLen: seg.pulseLen, cycle });
+      }
       for (const t of eventsBetween(seg.schedule, seg.startTime, seg.pulseLen, a, b)) {
         if (t.pulse < B) add(t, seg.schedule.grids, seg.pulseLen);
       }
@@ -169,6 +192,10 @@ export function createPlayer(sound: DrumSound, options: PlayerOptions = {}) {
     for (const { hit, time, pulseLen } of hits) {
       sound.play(hit, time, pulseLen);
       options.onScheduled?.(++scheduled);
+    }
+    for (const { time, pulseLen, cycle } of pads) {
+      const chord = padHitsAt(0, mapping, cycle);
+      if (chord.length > 0) sound.playPad(mapping.pad.instrument, chord, time, pulseLen);
     }
     // Never back: after a resume to a point ahead of the clock, the first windows end before it.
     scheduledTo = Math.max(scheduledTo, until);
@@ -253,6 +280,15 @@ export function createPlayer(sound: DrumSound, options: PlayerOptions = {}) {
 
   return {
     play,
+    /**
+     * A Mapping edit (the sound panel, or a restored link): loads what it needs and is read by
+     * the next look-ahead tick, so it is heard within about LOOKAHEAD_SECONDS.
+     */
+    setMapping(next: Mapping) {
+      if (next === mapping) return;
+      mapping = next;
+      sound.preload(next);
+    },
     stop,
     pause,
     resume,
