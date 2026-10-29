@@ -69,6 +69,21 @@ export type ValidationError =
     }
   | { readonly kind: 'no-ball'; readonly hand: Hand; readonly beat: number };
 
+/**
+ * One validation error with the digits it involves, for highlighting (SPEC §4.2). Structured
+ * only; the words are copy.ts's.
+ */
+export interface ErrorDetail {
+  readonly error: ValidationError;
+  /**
+   * Per hand (hand 1, hand 2), the indices into that hand's sequence the error involves,
+   * ascending. Indices count throws, not characters: in `2x 2 2` index 1 is the second `2`. At
+   * 1:1 the one vanilla sequence is hand 1's, so every index is in the first list. A fractional
+   * ball count is the whole pattern's, not one digit's: both lists are empty.
+   */
+  readonly digits: readonly [readonly number[], readonly number[]];
+}
+
 export type Validation =
   | { readonly ok: true; readonly balls: number }
   | { readonly ok: false; readonly errors: readonly ValidationError[] };
