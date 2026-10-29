@@ -6,6 +6,7 @@
 // 2. Short sentences. No exclamation marks, no joke that wears thin: the twentieth message must still read fine.
 // 3. Numbers and hand names stay precise. Hand 1 is the left hand on screen, hand 2 the right.
 // 4. Labels on controls stay labels: a button says "Play", not "I play".
+// 5. Beats count from 1 at 1:1 and within a hand; pulses count from 0.
 import type { ParseError } from '../core/parse';
 import type { ThrowId, ValidationError } from '../core/types';
 
@@ -15,16 +16,27 @@ export const copy = {
   // -------------------------------------------------------------------------------------------
 
   title: 'anomatom',
-  placeholder: 'I am anomatom, a juggling robot. Type a siteswap and press Play: I juggle it and play every throw on a TR-808.',
-  patternLabel: 'Siteswap',
-  handLabel: (hand: 0 | 1) => `Hand ${hand + 1}`,
+  placeholder: 'I am anomatom, a juggling robot. Type a pattern and press Play: I juggle it and play every throw on a TR-808.',
+  patternLabel: 'Pattern',
+  handLabel: (hand: 0 | 1) => `Hand ${hand + 1} pattern`,
   ratioLabel: 'Ratio',
   ratioChip: (a: number, b: number) => `${a}:${b}`,
   spaceHint: 'Space starts and stops me.',
   play: 'Play',
   stop: 'Stop',
   valid: (balls: number) => `I have ${balls} ball${balls === 1 ? '' : 's'}.`,
-  oneHandHint: 'Each hand counts its own beats when the ratio isn’t 1:1, so 2 is my two-ball fountain, not a hold.',
+  oneHandHint: 'When the ratio isn’t 1:1, a digit counts that hand’s own beats, so 2 is my two-ball fountain, not a hold.',
+  /** Two plain definitions under the knobs, for a reader who has never met siteswap. */
+  glossary: [
+    {
+      term: 'Pattern',
+      text: 'I read siteswap, the jugglers’ notation. Each digit is one throw, and the number says how many beats it stays in the air. 3 is the three-ball cascade; 441 and 531 are classics.',
+    },
+    {
+      term: 'Ratio',
+      text: 'How fast my two hands beat against each other. At 1:1 they alternate. At 3:2, hand 1 takes three beats while hand 2 takes two, and each hand reads its own pattern.',
+    },
+  ],
   parseError(error: ParseError): string {
     switch (error.kind) {
       case 'empty':
@@ -32,14 +44,14 @@ export const copy = {
       case 'bad-char':
         return `I only read digits and x; character ${error.index + 1} isn’t one.`;
       case 'too-long':
-        return `I can hold at most ${error.max} throws.`;
+        return `I read at most ${error.max} throws per hand.`;
     }
   },
   /** `vanilla`: at 1:1 a pulse is a shared beat, so it is named as such and counted from 1. */
   validationError(error: ValidationError, vanilla: boolean): string {
     switch (error.kind) {
       case 'fractional-balls':
-        return `These digits average ${Number(error.balls.toFixed(2))} balls. I can only juggle a whole number.`;
+        return `That makes ${Number(error.balls.toFixed(2))} balls. I can only juggle a whole number.`;
       case 'collision': {
         const where = vanilla ? `beat ${error.pulse + 1}` : `pulse ${error.pulse}`;
         return `I can’t catch that: ${throwList(error.throws, vanilla)} land in hand ${error.hand + 1} on ${where}.`;
