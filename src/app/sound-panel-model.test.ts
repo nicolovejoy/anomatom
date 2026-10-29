@@ -78,8 +78,9 @@ describe('each control edits its one field', () => {
   });
 
   test('choosing a height’s sound makes the mapping read height', () => {
-    expect(m.byHeight).toBe(false);
-    expect(edit(m, { kind: 'height', height: 3, sample: 'cowbell' }).byHeight).toBe(true);
+    const vpp = applyPreset('voice-per-part');
+    expect(vpp.byHeight).toBe(false);
+    expect(edit(vpp, { kind: 'height', height: 3, sample: 'cowbell' }).byHeight).toBe(true);
   });
 
   test('catches', () => {
@@ -115,7 +116,7 @@ describe('each control edits its one field', () => {
 test('an edit that changes nothing returns the very same mapping (the store hears nothing)', () => {
   expect(edit(m, { kind: 'accent', velocity: m.crossAccent.velocity })).toBe(m);
   expect(edit(m, { kind: 'padOn', on: m.pad.on })).toBe(m);
-  expect(edit(m, { kind: 'preset', name: 'voice-per-part' })).toBe(m);
+  expect(edit(m, { kind: 'preset', name: 'height-drum' })).toBe(m);
   const hd = applyPreset('height-drum');
   expect(edit(hd, { kind: 'height', height: 1, sample: hd.perHeight[1] as string })).toBe(hd);
   expect(edit(hd, { kind: 'partSample', part: 0, sample: hd.parts[0]?.sample as string })).not.toBe(hd);

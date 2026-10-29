@@ -137,7 +137,7 @@ export const mountSoundPanel: Mount = (root, { store, player }) => {
   /** The only write to the Mapping. */
   const edit = (e: MappingEdit) => store.set({ mapping: applyEdit(store.get().mapping, e) });
 
-  let lastPreset: PresetName = 'voice-per-part';
+  let lastPreset: PresetName = 'height-drum';
   let partCount = -1;
   let offeredDownbeat = '';
 

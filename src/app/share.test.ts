@@ -269,7 +269,7 @@ describe('changedFields', () => {
   const d = defaultState();
   test('equal values by content are not changes', () => {
     expect(
-      changedFields(d, { patterns: [...d.patterns], ratio: { ...d.ratio }, bpm: d.bpm, mapping: applyPreset('voice-per-part') }),
+      changedFields(d, { patterns: [...d.patterns], ratio: { ...d.ratio }, bpm: d.bpm, mapping: applyPreset('height-drum') }),
     ).toEqual({});
   });
 

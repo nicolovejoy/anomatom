@@ -36,9 +36,9 @@ const withFilter = (on: boolean, low: number, high: number): Mapping => ({
 });
 
 describe('presets', () => {
-  test('the default is the voice-per-part preset, and each preset is itself', () => {
-    expect(presetOf(DEFAULT_MAPPING)).toBe('voice-per-part');
-    expect(DEFAULT_MAPPING.byHeight).toBe(false);
+  test('the default is the height-to-drum preset until stream B flips it, and each preset is itself', () => {
+    expect(presetOf(DEFAULT_MAPPING)).toBe('height-drum');
+    expect(DEFAULT_MAPPING.byHeight).toBe(true);
     expect(DEFAULT_MAPPING.parts.map((v) => [v.kit, v.pan])).toEqual([['TR-808', -0.6], ['TR-808', 0.6]]);
     expect(PRESET_NAMES.filter((n) => applyPreset(n).byHeight)).toEqual(['height-drum', 'height-pitch', 'ball-pitch']);
     for (const name of PRESET_NAMES) expect(presetOf(applyPreset(name))).toBe(name);
@@ -56,7 +56,7 @@ describe('presets', () => {
       { ...DEFAULT_MAPPING, parts: [{ ...voice(0), sample: 'clap' }, voice(1)] },
       { ...DEFAULT_MAPPING, parts: [{ ...voice(0), kit: 'other' }, voice(1)] },
       { ...DEFAULT_MAPPING, parts: [voice(0)] },
-      { ...DEFAULT_MAPPING, byHeight: true, perHeight: { ...DEFAULT_MAPPING.perHeight, 1: 'kick' } },
+      { ...DEFAULT_MAPPING, byHeight: false, perHeight: { ...DEFAULT_MAPPING.perHeight, 1: 'kick' } },
       { ...DEFAULT_MAPPING, catches: { on: true, sample: 'rimshot' } },
       { ...DEFAULT_MAPPING, crossAccent: { velocity: 21, downbeat: 'clap' } },
       { ...DEFAULT_MAPPING, filter: { ...DEFAULT_MAPPING.filter, on: true } },
@@ -67,7 +67,7 @@ describe('presets', () => {
     ];
     for (const m of edits) expect(presetOf(m)).toBe('custom');
     const back = { ...DEFAULT_MAPPING, perHeight: { ...DEFAULT_MAPPING.perHeight, 3: 'snare' } };
-    expect(presetOf(back)).toBe('voice-per-part');
+    expect(presetOf(back)).toBe('height-drum');
     // Arrays against objects are never equal.
     expect(presetOf({ ...DEFAULT_MAPPING, parts: { 0: voice(0), 1: voice(1), length: 2 } as unknown as Mapping['parts'] })).toBe('custom');
   });

@@ -28,7 +28,7 @@ describe('encodeState', () => {
   test('the default state encodes to a stable string', () => {
     // A change here breaks every shared link: bump the scheme version instead.
     expect(encodeState(defaultState())).toBe(
-      '#v1.eyJwIjpbIjMiLCIyIl0sInIiOlsxLDFdLCJ0IjoxMjAsIm0iOiJ2b2ljZS1wZXItcGFydCJ9',
+      '#v1.eyJwIjpbIjMiLCIyIl0sInIiOlsxLDFdLCJ0IjoxMjAsIm0iOiJoZWlnaHQtZHJ1bSJ9',
     );
   });
 

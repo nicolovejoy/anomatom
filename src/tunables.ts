@@ -271,7 +271,8 @@ export const PRESET_MAPPINGS = {
   'ball-pitch': BALL_TO_PITCH,
 } as const;
 
-export const DEFAULT_MAPPING: Mapping = VOICE_PER_PART;
+// Stays HEIGHT_DRUM so the first-minute cards sound as before; stream B flips it to VOICE_PER_PART once each card carries its preset.
+export const DEFAULT_MAPPING: Mapping = HEIGHT_DRUM;
 
 // ---------------------------------------------------------------------------------------------
 // D: About
