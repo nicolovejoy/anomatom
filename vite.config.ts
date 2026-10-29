@@ -1,6 +1,4 @@
-import { defineConfig, loadEnv } from 'vite';
+import { defineConfig } from 'vite';
 
-// GitHub Pages serves the project under /jugglebeat/ until a custom domain is set (step 7).
-export default defineConfig(({ mode }) => ({
-  base: loadEnv(mode, process.cwd(), 'BASE_PATH').BASE_PATH ?? '/',
-}));
+// Served at the root of anomatom.com.
+export default defineConfig({});
