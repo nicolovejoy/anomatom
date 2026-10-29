@@ -210,3 +210,117 @@ test('a kit that finishes loading after its voice changed is dropped', async () 
   sound.play(hit(0), 1, 0.25);
   expect(kits[0]?.started).toEqual([]);
 });
+
+test('resume asks iOS for the playback audio session, before resuming; a browser without one is fine', async () => {
+  const order: string[] = [];
+  const session = {
+    _type: 'auto',
+    get type() {
+      return this._type;
+    },
+    set type(v: string) {
+      order.push(`type=${v}`);
+      this._type = v;
+    },
+  };
+  const ctx = fakeContext();
+  ctx.resume.mockImplementation(async () => {
+    order.push('resume');
+  });
+  const sound = createDrumSound(() => ctx, async () => fakeKit() as Kit, undefined, () => session);
+  sound.resume();
+  sound.resume();
+  expect(order).toEqual(['type=playback', 'resume', 'resume']);
+  expect(session.type).toBe('playback');
+  const bare = createDrumSound(() => fakeContext(), async () => fakeKit() as Kit, undefined, () => null);
+  bare.resume();
+});
+
+test('status: idle, loading, ready; subscribers hear each change and can stop', async () => {
+  const kits: ReturnType<typeof fakeKit>[] = [];
+  const sound = createDrumSound(() => fakeContext(), async () => {
+    const k = fakeKit();
+    kits.push(k);
+    return k as Kit;
+  });
+  const heard: string[] = [];
+  const stop = sound.subscribe(() => heard.push(sound.status()));
+  expect(sound.status()).toBe('idle');
+  sound.preload(DEFAULT_MAPPING);
+  expect(sound.status()).toBe('loading');
+  await settle();
+  kits.forEach((k) => k.resolve());
+  await settle();
+  expect(sound.status()).toBe('ready');
+  expect(heard.at(-1)).toBe('ready');
+  stop();
+  const count = heard.length;
+  sound.preload({ ...DEFAULT_MAPPING, hands: [{ pan: 0, gain: 0.5 }, { pan: 0, gain: 0.5 }] });
+  expect(heard).toHaveLength(count);
+});
+
+test('status: a failed load shows failed; retry loads again and reaches ready', async () => {
+  const kits: ReturnType<typeof fakeKit>[] = [];
+  const loadKit = vi.fn(async () => {
+    const k = fakeKit();
+    kits.push(k);
+    return k as Kit;
+  });
+  const sound = createDrumSound(() => fakeContext(), loadKit);
+  sound.retry(); // nothing asked for yet: nothing to retry
+  expect(loadKit).not.toHaveBeenCalled();
+  sound.preload(DEFAULT_MAPPING);
+  await settle();
+  kits.forEach((k) => k.reject(new Error('429')));
+  await settle();
+  expect(sound.status()).toBe('failed');
+  sound.retry();
+  expect(sound.status()).toBe('loading');
+  await settle();
+  kits.slice(2).forEach((k) => k.resolve());
+  await settle();
+  expect(sound.status()).toBe('ready');
+});
+
+test('status: a pad that fails to load is failed too; close resets and stale loads are ignored', async () => {
+  const pad = fakeKit();
+  const kit = fakeKit();
+  const sound = createDrumSound(() => fakeContext(), async () => kit as Kit, async () => pad as Kit);
+  sound.preload({ ...DEFAULT_MAPPING, pad: { ...DEFAULT_MAPPING.pad, on: true } });
+  await settle();
+  kit.resolve();
+  pad.reject(new Error('offline'));
+  await settle();
+  expect(sound.status()).toBe('failed');
+  sound.preload({ ...DEFAULT_MAPPING, pad: { ...DEFAULT_MAPPING.pad, on: true } });
+  expect(sound.status()).toBe('loading');
+  sound.close();
+  expect(sound.status()).toBe('idle');
+  await settle();
+  expect(sound.status()).toBe('idle');
+});
+
+test('status: a failed pad that is turned off is no longer a failure', async () => {
+  const pad = fakeKit();
+  const kit = fakeKit();
+  const sound = createDrumSound(() => fakeContext(), async () => kit as Kit, async () => pad as Kit);
+  const on = { ...DEFAULT_MAPPING, pad: { ...DEFAULT_MAPPING.pad, on: true } };
+  sound.preload(on);
+  await settle();
+  kit.resolve();
+  pad.reject(new Error('offline'));
+  await settle();
+  expect(sound.status()).toBe('failed');
+  const heard: string[] = [];
+  sound.subscribe(() => heard.push(sound.status()));
+  sound.preload({ ...DEFAULT_MAPPING, pad: { ...DEFAULT_MAPPING.pad, on: false } });
+  expect(sound.status()).toBe('ready');
+  expect(heard).toEqual(['ready']);
+});
+
+test('the playback audio session is also set when the context is made', () => {
+  const session = { type: 'auto' };
+  const sound = createDrumSound(() => fakeContext(), async () => fakeKit() as Kit, undefined, () => session);
+  sound.preload(DEFAULT_MAPPING);
+  expect(session.type).toBe('playback');
+});

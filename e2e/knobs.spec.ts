@@ -67,6 +67,7 @@ test('swap two sites: 531 → 441 by choosing throws 1 and 2', async ({ page }) 
   await expect(page.locator('#swap')).toBeDisabled();
   const site = (i: number) => page.locator(`.pattern-row[data-hand="0"] .mirror [data-site="${i}"]`);
   for (const i of [0, 1]) {
+    await site(i).scrollIntoViewIfNeeded();
     const box = (await site(i).boundingBox()) as { x: number; y: number; width: number; height: number };
     await page.mouse.click(box.x + box.width / 2, box.y + box.height / 2);
   }

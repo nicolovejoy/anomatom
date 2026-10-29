@@ -45,6 +45,18 @@ export const mountKnobs: Mount = (root, { store, player, sound }) => {
   root.style.setProperty('--ok', KNOBS.ok);
   root.style.setProperty('--selected', KNOBS.selected);
   root.innerHTML = `
+    <div class="knobs-transport">
+      <div class="row transport">
+        <button id="play" type="button">${copy.play}</button>
+        <button id="stop" type="button" disabled>${copy.stop}</button>
+        <span id="pending" class="pending" hidden>${copy.nextCycle}</span>
+        <input id="scrub" type="range" min="0" max="${KNOBS.scrubSteps}" step="1" value="0" disabled aria-label="${copy.scrubLabel}" />
+      </div>
+      <div class="row sound-status">
+        <span class="sound-status-text" role="status"></span>
+        <button id="sound-retry" type="button" hidden>${copy.soundRetry}</button>
+      </div>
+    </div>
     <button type="button" class="knobs-toggle" aria-expanded="false" aria-controls="knobs-body" hidden>${copy.knobsOpen}</button>
     <div id="knobs-body">
       <form class="knobs">
@@ -96,12 +108,6 @@ export const mountKnobs: Mount = (root, { store, player, sound }) => {
           <button id="swap" type="button" disabled>${copy.swap}</button>
           <span class="hint swap-note">${copy.swapHint}</span>
         </div>
-        <div class="row transport">
-          <button id="play" type="button">${copy.play}</button>
-          <button id="stop" type="button" disabled>${copy.stop}</button>
-          <span id="pending" class="pending" hidden>${copy.nextCycle}</span>
-          <input id="scrub" type="range" min="0" max="${KNOBS.scrubSteps}" step="1" value="0" disabled aria-label="${copy.scrubLabel}" />
-        </div>
         <p class="hint">${copy.spacePlayPause}</p>
         <div class="row">
           <label class="knob-label" for="volume">${copy.volumeLabel}</label>
@@ -144,6 +150,9 @@ export const mountKnobs: Mount = (root, { store, player, sound }) => {
   const scrub = $<HTMLInputElement>('#scrub');
   const volume = $<HTMLInputElement>('#volume');
   const soundButton = $<HTMLButtonElement>('#sound-button');
+  const soundStatus = $<HTMLDivElement>('.sound-status');
+  const soundStatusText = $<HTMLSpanElement>('.sound-status-text');
+  const soundRetry = $<HTMLButtonElement>('#sound-retry');
 
   let analysis: Analysis = analyse(store.get().patterns, store.get().ratio);
   /** The latest valid pattern's schedule; null while the pattern is invalid. */
@@ -314,6 +323,18 @@ export const mountKnobs: Mount = (root, { store, player, sound }) => {
     scrub.disabled = state !== 'paused';
     shownState = state;
   }
+
+  /** Shows whether the samples are loading, in or failed, beside Play; Retry only when failed. */
+  function showSoundStatus() {
+    const status = sound.status();
+    soundStatus.dataset.state = status;
+    soundStatusText.textContent =
+      status === 'loading' ? copy.soundLoading : status === 'failed' ? copy.soundFailed : status === 'ready' ? copy.soundReady : '';
+    soundRetry.hidden = status !== 'failed';
+  }
+  sound.subscribe(showSoundStatus);
+  soundRetry.addEventListener('click', () => sound.retry());
+  showSoundStatus();
 
   /** Starts from stopped, or resumes from paused; nothing while the pattern is invalid. */
   function start() {

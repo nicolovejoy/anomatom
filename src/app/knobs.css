@@ -1,20 +1,43 @@
 /* The knob panel. Colours that matter live in tunables (KNOBS) and arrive as custom properties
    set by mount-knobs.ts: --warning, --ok, --selected. */
-.knobs .row {
+.knobs .row,
+.knobs-transport .row {
   display: flex;
   flex-wrap: wrap;
   gap: 8px;
   align-items: center;
   margin: 8px 0;
 }
-.knobs .row[hidden] {
+.knobs .row[hidden],
+.knobs-transport .row[hidden] {
   display: none;
 }
-.knobs button {
+/* Play, Stop and the sound status sit outside the phone fold. */
+.sound-status {
+  /* Room for the retry button, so the status changing never moves what is below it. */
+  min-height: 44px;
+}
+.sound-status-text {
+  font-size: 0.9em;
+}
+.sound-status[data-state='failed'] .sound-status-text {
+  color: var(--warning);
+}
+.knobs button,
+.knobs-transport button {
   padding: 6px 12px;
 }
-.knobs button:disabled {
+.knobs button:disabled,
+.knobs-transport button:disabled {
   opacity: 0.45;
+}
+/* Play is the phone's main control: a touch target of at least 44px. */
+.knobs-transport button {
+  min-height: 44px;
+  padding: 8px 16px;
+}
+#scrub {
+  min-height: 44px;
 }
 .knobs .chip[aria-pressed='true'] {
   outline: 2px solid var(--selected);
