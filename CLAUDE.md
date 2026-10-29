@@ -4,7 +4,7 @@ Read `docs/SPEC.md` before building anything; it is the contract. `docs/MATH.md`
 
 ## Conventions
 
-- One PR per roadmap step; merge on green CI after a subagent review of the whole branch. Discuss the approach with Nico before each step.
+- One PR per stream, as listed in the active plan under `docs/plans/` (a roadmap step, or part of one). Each PR names what a person can check at its end. Merge on green CI after a subagent review of the whole branch; the coordinating session merges without asking. Discuss the approach with Nico before each wave (`docs/plans/`).
 - Logic modules (`src/core`, `src/sound`) are plain TypeScript: no React, no DOM, no timers. They are unit tested with fakes, as L6's `piano-sound.ts` is. `vitest.config.ts` lists the modules held at 100% lines; add, never lower.
 - Pulses are integers until audio scheduling or drawing. No floating-point time in the Schedule.
 - One clock: `AudioContext.currentTime`. Nothing else keeps time.

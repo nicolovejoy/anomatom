@@ -22,13 +22,15 @@ App: the validator. A failure names every throw in a colliding group; when sever
 
 Swapping the landing beats of two throws gives another valid pattern with the same ball count. If throws at positions i and j have heights a and b, the new heights are b + (j − i) at i and a − (j − i) at j. 51 ↔ 24; 441 ↔ 531 (swap positions 1 and 2; positions 2 and 3 give 423). When a throw is marked `x`, the mark belongs to the landing and moves with it. This is where the name "siteswap" comes from.
 
-App: the Swap knob, and the first suggested fix for a collision (swap the colliding pair, which moves one landing off the other).
+Because a swap only exchanges two landings, the set of landing beats is unchanged: a swap keeps a valid pattern valid and an invalid one invalid. It cannot repair a collision.
+
+App: the Swap knob. Not a fix for a collision.
 
 ## 4. States and the state graph (Polster [5]; Chung and Graham 2008 [4])
 
 At any beat the juggler's state is the set of future beats that already have a ball due to land: a bit vector of length max height, with b ones for b balls. A throw of height h from a state is legal iff bit h is empty; it moves to the next state by shifting and setting bit h. Patterns are cycles in this graph. Two patterns can be chained without a drop only through a state they share. The ground state (balls landing on the next b beats) is shared by every pattern that passes through it; `3`, `441`, `531` all do. Chung and Graham call a cycle that visits its base state once *primitive*; longer cycles are concatenations of primitive ones.
 
-App: v1 uses the ground state as the common start and changes pattern only at a cycle boundary that returns to it. v2 uses the graph for transitions between arbitrary patterns and for generating patterns from a state.
+App: v1 changes pattern at any cycle boundary, without transition throws. Balls the two patterns share at the boundary carry over; when both pass through the same state (`3`, `441`, `531` share the ground state) all of them do. Otherwise the leftover balls drop into the hands or appear from them, as for a change of ball count. Some patterns v1 must play never reach the ground state: `51` is excited, so `3` → `51` cannot carry every ball. v2 uses the graph for real transitions between arbitrary patterns and for generating patterns from a state.
 
 ## 5. Crossings (Ehrenborg and Readdy 1996 [3])
 
@@ -63,7 +65,7 @@ App: this is the data model (one siteswap per hand, a ratio, cross throws on the
 
 ## 7. From pulses to seconds and pixels
 
-Pulse length in seconds = 60 / (bpm₁ × pulsesPerBeat₁), where pulsesPerBeat₁ = ratio₂ / gcd(ratio₁, ratio₂). Hand 2's bpm follows. A flight of height h on a hand with k pulses per beat lasts h × k pulses; its apex height is proportional to (h × k)², as a parabola under gravity gives. Pulses stay integers in the Schedule; multiplication by the pulse length happens only when an audio event is scheduled or a frame is drawn.
+Pulse length in seconds = 60 / (bpm₁ × pulsesPerBeat₁), where pulsesPerBeat₁ = ratio₂ / gcd(ratio₁, ratio₂). Hand 2's bpm follows. A flight of height h on a hand with k pulses per beat lasts h × k pulses; a ball's apex height is proportional to the square of its air time, as a parabola under gravity gives; the air time is the flight less the dwell in the catching hand, so roughly (h × k)². Pulses stay integers in the Schedule; multiplication by the pulse length happens only when an audio event is scheduled or a frame is drawn.
 
 ## 8. Worked cases for tests
 
