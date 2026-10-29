@@ -126,9 +126,10 @@ export const JUGGLER = {
  * Fix suggestions for an invalid pattern (SPEC §4.2). `count`: how many are offered. `budget`:
  * the most work per call, in pulses: a candidate with a whole ball count costs its cycle length
  * (validating it walks the cycle), a fractional one its digit count. Past it, fewer fixes are
- * offered. 300,000 keeps the worst typeable input (9:8, two 16-digit hands with crosses, no
- * near fix) to about 25 ms in Node on a first call, under 10 ms warm: short, but still too long
- * to run on every keystroke, so the caller should debounce it or run it off the keystroke.
+ * offered. The real cost of a pulse is the flights in it (1/a + 1/b per pulse), so a pulse at
+ * 3:2 or 2:1 costs more than one at 9:8; 300,000 keeps the worst typeable inputs (long hands
+ * with crosses and no near fix) to about 25-30 ms in Node across ratios. Still too long for
+ * every keystroke: the caller should debounce it or run it off the keystroke.
  */
 export const FIXES = { count: 3, budget: 300_000 } as const;
 

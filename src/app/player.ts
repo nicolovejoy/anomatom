@@ -159,8 +159,10 @@ export function createPlayer(sound: DrumSound, options: PlayerOptions = {}) {
       const prev = segments[i - 1];
       if (prev === undefined) return;
       const pb = boundaries[i - 1] as number;
+      // Below this segment's boundary too: a window ending at endTime can round up to p = B,
+      // the next segment's start, and a flight is not followed across a second switch.
       for (const t of crossingCatches(prev.schedule, pb, seg.startTime, seg.pulseLen, a, b)) {
-        add(t, prev.schedule.grids, seg.pulseLen);
+        if (t.pulse < B) add(t, prev.schedule.grids, seg.pulseLen);
       }
     });
     hits.sort((p, q) => p.time - q.time);
@@ -234,14 +236,18 @@ export function createPlayer(sound: DrumSound, options: PlayerOptions = {}) {
       startTime: s.startTime + d,
       endTime: s.endTime === null ? null : s.endTime + d,
     }));
-    hold = glide ? -Infinity : frozen + d;
+    // A glide resume keeps the hold it had: in the past as a rule, but after a scrub ahead of
+    // the clock, a resume and a pause in the wait, it is the scrubbed point the audio resumes at.
+    hold = glide ? hold : frozen + d;
     run();
   }
 
   /** The time the picture shows, while playing or paused. */
   function shownTime(): number {
     const clock = Math.max(sound.now(), hold);
-    if (state === 'paused') return gliding ? Math.min(clock, frozen) : frozen;
+    // Gliding: never short of a hold still ahead (a scrub ahead of the clock, resumed and
+    // paused again: its frozen time is half a pulse before the scrubbed point).
+    if (state === 'paused') return gliding ? Math.min(clock, Math.max(frozen, hold)) : frozen;
     return clock;
   }
 

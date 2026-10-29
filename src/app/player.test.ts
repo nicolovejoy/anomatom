@@ -702,3 +702,85 @@ test('resume during the glide: the picture never runs ahead of the clock', () =>
   player.stop();
   vi.useRealTimers();
 });
+
+// ---------------------------------------------------------------------------------------------
+// PR 17 review follow-up.
+// ---------------------------------------------------------------------------------------------
+
+test('crossingCatches can round up to the segment’s own boundary; the caller drops it', () => {
+  // endTime 1.506 + 2·0.25 is 2.0060000000000002, and (endTime − S) / L is 2.000000000000001:
+  // the window to the end returns p = 2, the next segment's pulse 0. tick() keeps p < B only.
+  const endTime = 1.506 + 2 * 0.25;
+  expect(crossingCatches(schedule('5'), 10, 1.506, 0.25, 1.906, endTime).map((t) => t.pulse)).toEqual([2]);
+});
+
+test('a flight longer than the middle segment is not followed across the second switch', () => {
+  const catches = { ...DEFAULT_MAPPING, catches: { on: true, sample: 'rimshot' as const } };
+  const tempos: [number, number, number][] = [
+    [112, 50, 53],
+    [120, 60, 90],
+    [100, 77, 140],
+    [90, 45, 61],
+    [150, 70, 80],
+    [133, 41, 97],
+    [77, 55, 66],
+    [200, 88, 49],
+  ];
+  // Whether the boundary rounds up depends on the float values, so over several clock origins.
+  const origins = [0, 0.137, 1.29, 3.71, 10.003];
+  for (const [b0, b1, b2, origin] of tempos.flatMap((t) => origins.map((o) => [...t, o] as const))) {
+    vi.useFakeTimers();
+    const { sound, played, tick } = fakeSound();
+    const run = runner(tick);
+    const player = createPlayer(sound);
+    tick(origin);
+    player.play(schedule('5'), catches, b0);
+    run(2); // long enough that flights from before the first boundary land on every pulse after it
+    player.setEdit(schedule('0'), b1);
+    const S1 = (player.view().segments[1] as Segment).startTime;
+    while (sound.now() < S1) run(SCHEDULER_INTERVAL_MS / 1000); // the middle segment has begun to sound
+    player.setEdit(schedule('3'), b2);
+    const seg2 = player.view().segments[2] as Segment;
+    expect(seg2, `${b0}/${b1}/${b2}`).toBeDefined();
+    run(seg2.startTime - sound.now() + 3 * seg2.pulseLen);
+    // `0` has no events and `3` no catch before its pulse 3, so anything here but 3's own
+    // throws (snare) is segment 0's catch: a rimshot, or a clap at 1:1 where an odd throw
+    // crosses and every pulse is a downbeat.
+    const ghost = played.filter(
+      (p) => p.sample !== 'snare' && p.time >= seg2.startTime - 1e-9 && p.time < seg2.startTime + 2.5 * seg2.pulseLen,
+    );
+    expect(ghost, `${b0}/${b1}/${b2}`).toEqual([]);
+    player.stop();
+    vi.useRealTimers();
+  }
+});
+
+test('scrub ahead, resume, pause in the wait, resume: the picture stays on the scrubbed pulse', () => {
+  vi.useFakeTimers();
+  const { sound, played, tick } = fakeSound();
+  const run = runner(tick);
+  const player = createPlayer(sound);
+  player.play(schedule('441'), DEFAULT_MAPPING, 120); // pulse 0.25 s from 0.05
+  run(0.3);
+  player.pause(); // frozen 0.4
+  player.scrub(5); // 1.3, a second ahead of the clock
+  player.resume();
+  expect(player.view().now).toBeCloseTo(1.3);
+  run(0.3); // clock 0.6
+  player.pause();
+  expect(player.scrubPosition()?.pulse).toBeCloseTo(5);
+  expect(player.view().now).toBeCloseTo(1.3);
+  run(0.3); // clock 0.9
+  const n = played.length;
+  player.resume();
+  while (sound.now() < 1.3 - 1e-9) {
+    expect(player.view().now).toBeCloseTo(1.3);
+    run(SCHEDULER_INTERVAL_MS / 1000);
+  }
+  run(0.5);
+  const after = pulsesOf(played.slice(n).map((p) => p.time), 0.05, 0.25);
+  expect(after[0]).toBe(5);
+  expect(after).toEqual(range(5, 5 + after.length));
+  player.stop();
+  vi.useRealTimers();
+});
