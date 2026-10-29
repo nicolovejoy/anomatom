@@ -24,8 +24,37 @@ export const BASE_VELOCITY = 100;
 export const MAX_VELOCITY = 127;
 /** Heights above this share the top drum of the mapping. */
 export const MAX_HEIGHT = 9;
-/** smplr volume (0-127) of a hand at gain 1. 75 is what L6 settled on; smplr's 100 is loud. */
-export const KIT_VOLUME = 75;
+/** smplr volume (0-127) of a hand at gain 1. 75 was too quiet next to a metronome (Nico, 2026-10-28). */
+export const KIT_VOLUME = 100;
+
+/** Ratio chips offered on the page (SPEC §4.1); steppers for the rest come with step 5. */
+export const RATIO_CHIPS: readonly (readonly [number, number])[] = [
+  [1, 1],
+  [3, 2],
+  [4, 3],
+  [5, 4],
+];
+
+/** The ladder strip. */
+export const LADDER = {
+  /** Pulses visible across the strip, and where the playhead sits. */
+  windowPulses: 24,
+  playheadFraction: 0.3,
+  heightPx: 220,
+  lanePaddingPx: 18,
+  barPx: 8,
+  rowGapPx: 2,
+  /** Stable colours by ball id; repeats past the end. */
+  palette: ['#e6553a', '#3a7be6', '#f0c33c', '#4fb477', '#b05ce6', '#e67e3a', '#3ac0e6', '#e63a9a', '#8fb43a'],
+  background: '#14161a',
+  lane: '#2a2e36',
+  tick: '#4a505c',
+  tickCoincident: '#c8ccd4',
+  cycleLine: '#5a6070',
+  playhead: '#ffffff',
+  /** Pulses per screen width is fixed; bars shorter than this many pixels are still drawn. */
+  minBarPx: 2,
+} as const;
 
 /** SPEC §6: the v1 mapping. Sample names are smplr's TR-808 groups. */
 export const DEFAULT_MAPPING: Mapping = {

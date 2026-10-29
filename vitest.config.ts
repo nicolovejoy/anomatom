@@ -14,6 +14,7 @@ const coveredModules = [
   'src/sound/mapping.ts',
   'src/sound/drum-sound.ts',
   'src/app/player.ts',
+  'src/view/ladder.ts',
 ];
 
 export default defineConfig({

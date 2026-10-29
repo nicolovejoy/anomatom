@@ -4,8 +4,12 @@ import type { ThrowId, ValidationError } from '../core/types';
 
 export const copy = {
   title: 'jugglebeat',
-  placeholder: 'A siteswap pattern as polyrhythm. Type a pattern, press play, hear it on a TR-808. The picture comes next.',
+  placeholder: 'A siteswap pattern as polyrhythm. Type a pattern, press play, hear it on a TR-808 and watch it scroll.',
   patternLabel: 'Siteswap',
+  handLabel: (hand: 0 | 1) => `Hand ${hand + 1}`,
+  ratioLabel: 'Ratio',
+  ratioChip: (a: number, b: number) => `${a}:${b}`,
+  spaceHint: 'Space plays and stops.',
   play: 'Play',
   stop: 'Stop',
   valid: (balls: number) => `${balls} ball${balls === 1 ? '' : 's'}`,
