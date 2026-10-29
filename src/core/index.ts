@@ -8,3 +8,4 @@ export { ballCount, errorDigits, validate, validateAll } from './validate';
 export { swapSites } from './swap';
 export { countCrossings } from './crossings';
 export { buildSchedule } from './schedule';
+export { carryOver } from './carry';
