@@ -141,25 +141,50 @@ describe('one segment', () => {
     }
   });
 
-  test('before the first throw every ball is held at its first throw point', () => {
+  test('before the first throw every ball is held in its hand, riding the scoop in to its throw', () => {
     for (const s of Object.values(PATTERNS)) {
       const seg = single(s);
       const firsts = new Map<number, Event>();
       for (const e of throwsOf(s)) if (!firsts.has(e.ball)) firsts.set(e.ball, e);
-      for (const now of [START - 5, START - 1e-6, START]) {
-        const balls = frame([seg], now).balls;
-        expect(balls).toHaveLength(s.balls);
-        for (const b of balls) {
-          const first = firsts.get(b.ball) as Event;
-          if (now === START && first.pulse === 0) continue; // already thrown, at progress 0
-          expect(b).toMatchObject({ x: layout.throwX[first.hand], y: 0, held: first.hand, progress: 0, flash: 0 });
-        }
+      // Long before: every ball waits at its hand's catch point.
+      const early = frame([seg], START - 5).balls;
+      expect(early).toHaveLength(s.balls);
+      for (const b of early) {
+        const first = firsts.get(b.ball) as Event;
+        expect(b).toMatchObject({ x: layout.catchX[first.hand], held: first.hand, progress: 0, flash: 0 });
+        expect(b.y).toBeCloseTo(0, 12);
+      }
+      // Just before the start: held, between its hand's catch and throw points; the first to
+      // throw is at its throw point.
+      for (const b of frame([seg], START - 1e-9).balls) {
+        const first = firsts.get(b.ball) as Event;
+        expect(b).toMatchObject({ held: first.hand, progress: 0, flash: 0 });
+        const [lo, hi] = [layout.catchX[first.hand], layout.throwX[first.hand]].sort((p, q) => p - q);
+        expect(b.x).toBeGreaterThanOrEqual(lo as number);
+        expect(b.x).toBeLessThanOrEqual(hi as number);
+        if (first.pulse === 0) expect(dist(b, { x: layout.throwX[first.hand], y: 0 })).toBeLessThan(R);
       }
       // A ball whose first throw is later is still waiting a little after the start.
       const late = [...firsts.values()].filter((e) => e.pulse > 0);
       const balls = byColour(frame([seg], at(seg, 0.5)).balls);
       for (const e of late) expect((balls.get(e.ball) as JugglerBall).held).toBe(e.hand);
+      // And no ball jumps from waiting into its first throw.
+      expectContinuous([seg], START - 1, at(seg, s.period), 1e-3, 0.03);
     }
+  });
+
+  test('stopped 3: two balls waiting in one hand are at distinct places', () => {
+    const balls = frame([single(PATTERNS['3'] as Schedule)], START).balls; // stopped: now is pulse 0
+    expect(balls).toHaveLength(3);
+    for (const a of balls) for (const b of balls) if (a !== b) expect(dist(a, b)).toBeGreaterThan(2 * R);
+    // Hand 1 throws at pulses 0 and 2: one ball leaves its throw point, the other waits at its catch point.
+    expect(balls.some((b) => b.x === layout.catchX[0] && b.held === 0)).toBe(true);
+    expect(balls.some((b) => dist(b, { x: layout.throwX[0], y: 0 }) < 1e-9)).toBe(true);
+  });
+
+  test('with no dwell a waiting ball sits at its throw point', () => {
+    const balls = jugglerFrame([single(PATTERNS['3'] as Schedule)], START - 1, { ...layout, dwellBeats: 0 }).balls;
+    for (const b of balls) expect(b.x === layout.throwX[0] || b.x === layout.throwX[1]).toBe(true);
   });
 
   test('progress runs 0 → 1 over the throw, air then dwell', () => {
@@ -307,14 +332,15 @@ describe('switches', () => {
     expectContinuous(segments, t - 3, t + 3, 1e-3, 0.03);
   });
 
-  test('3 → 4: the unmatched new ball appears held at its first throw point at startTime', () => {
+  test('3 → 4: the unmatched new ball appears held in its hand at startTime', () => {
     const segments = switchOf(vanilla('3'), LEN, vanilla('4'), LEN);
     const [, next] = segments;
     expect(frame(segments, next.startTime - 1e-9).balls).toHaveLength(3);
     const balls = frame(segments, next.startTime).balls;
     expect(balls).toHaveLength(4);
     const waiting = balls.filter((b) => b.held !== null && b.progress === 0 && b.y === 0);
-    expect(waiting.some((b) => b.x === layout.throwX[1])).toBe(true);
+    // Its first throw is from hand 2, three pulses on: it waits at hand 2's catch point.
+    expect(waiting.some((b) => b.x === layout.catchX[1] && b.held === 1)).toBe(true);
   });
 
   test('4 → 3: the unmatched old ball vanishes into the hand at its catch', () => {

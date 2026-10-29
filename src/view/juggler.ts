@@ -8,6 +8,9 @@
 //   g·air²/8 (sani's `throwHeight = motion.s(0, g, airTime / 2)`);
 // - during the dwell the ball rides a scoop in the catching hand from the catch point to the
 //   throw point, dipping along a cubic spline through sani's five catch points.
+// Deviation (ruling 2026-10-29): before its first throw a ball waits at its hand's catch point
+// and rides the scoop in over the dwell before that throw, not at the throw point, so two balls
+// waiting in one hand never overlap.
 // What is not ported: sani's rAF delta clock (`Ball.update` accumulates elapsed time and steps
 // through an animation list), its `siteswap.js` dependency and its multiplex handling. Here a
 // position is a function of `now` and the integer pulses of the Schedule, so there is nothing
@@ -254,11 +257,30 @@ function along(e: Event, d: number, tLaunch: number, tEnd: number, now: number, 
 // ---------------------------------------------------------------------------------------------
 
 /**
+ * A ball waiting for its first throw `first`: at the hand's catch point, then over the dwell
+ * before the throw (dwellBeats of that hand's beats) along the scoop to the throw point, as if
+ * it had just been caught. A hand's throws are a beat apart, so the next ball to go is never
+ * where the one after it waits. Deviates from the plan's "held at its throw point" (ruling
+ * 2026-10-29), which overlapped two balls waiting in one hand.
+ */
+function waiting(seg: Segment, first: Event, now: number, layout: JugglerLayout): Place {
+  const hand = first.hand;
+  const dwell = layout.dwellBeats * seg.schedule.grids[hand].pulsesPerBeat * seg.pulseLen;
+  const tThrow = seg.startTime + first.pulse * seg.pulseLen;
+  const f = dwell > 0 ? clamp01(1 - (tThrow - now) / dwell) : 1;
+  const air = (first.flight - dwellPulses(seg.schedule, first, layout)) * seg.pulseLen;
+  const depth = Math.min(layout.scoopDepth, layout.scoopApexShare * apex(air, layout));
+  const x = layout.catchX[hand] + (layout.throwX[hand] - layout.catchX[hand]) * f;
+  return { x, y: -depth * scoop(f), held: hand, progress: 0 };
+}
+
+/**
  * Every ball on screen at `now`, one entry each, with the scene bounds.
  *
- * - Before a ball's first throw at or after pulse 0 it waits at that throw point, held, as the
- *   ladder draws nothing before 0 (SPEC §7.1). In a later segment only a ball the switch did
- *   not carry waits, from the segment's `startTime`; a carried one is still in its old flight.
+ * - Before a ball's first throw at or after pulse 0 it waits in that hand, as the ladder draws
+ *   nothing before 0 (SPEC §7.1): at the catch point, riding the scoop to the throw point over
+ *   the dwell before its first throw (see `waiting`). In a later segment only a ball the switch
+ *   did not carry waits, from the segment's `startTime`; a carried one is still in its old flight.
  * - A flight that crosses a segment's boundary B (launch < B ≤ land) is drawn from its launch,
  *   in old time, to its landing at `next.startTime + (land − B) × next.pulseLen` (Retiming). If
  *   the next segment carries its ball, the ball is handed over at that instant, when the new
@@ -289,9 +311,8 @@ export function jugglerFrame(segments: readonly Segment[], now: number, layout: 
       const own = owner(schedule, ball, p);
       if (!own) {
         if (ended || seg.carry.has(ball)) continue;
-        const hand = (index.first[ball] as Event).hand;
-        const x = layout.throwX[hand];
-        balls.push({ ball: colour.get(ball) as number, x, y: 0, held: hand, progress: 0, flash: 0 });
+        const place = waiting(seg, index.first[ball] as Event, now, layout);
+        balls.push({ ball: colour.get(ball) as number, ...place, flash: 0 });
         continue;
       }
 
