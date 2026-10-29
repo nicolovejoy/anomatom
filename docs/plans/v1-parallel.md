@@ -118,7 +118,7 @@ Motion:
 - `d = min(dwell × catching hand's pulsesPerBeat, maxDwellShare × flight)`.
 - The catching hand is `cross ? 1 − hand : hand`, the same as the catch event's `hand`.
 - Apex = `g·air²/8` (SPEC §4.1, MATH §7).
-- Before a ball's first throw at or after pulse 0, it sits held at that throw point. The ladder draws nothing before 0, and the two views must agree (SPEC §7.1).
+- Before a ball's first throw at or after pulse 0, it waits in its hand (superseded 2026-10-29 by the governor's A ruling below: at the hand's catch point, riding the scoop in over the dwell before the throw, so waiting balls never stack). The ladder draws nothing before 0, and the two views must agree (SPEC §7.1).
 
 Switches follow the carry-over rule above: a carried ball moves without a jump from its old flight into its new throw; an unmatched old ball lands and vanishes; an unmatched new ball appears held. Scene bounds fit the larger of the old and new segments across a switch, so the scale doesn't jump.
 

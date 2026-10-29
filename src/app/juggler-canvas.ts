@@ -8,6 +8,8 @@ export function drawJuggler(canvas: HTMLCanvasElement, frame: JugglerFrame) {
   const dpr = window.devicePixelRatio || 1;
   const width = canvas.clientWidth;
   const height = JUGGLER.heightPx;
+  // Hidden (About showing) or not laid out yet: nothing to draw, and a negative scale would draw garbage.
+  if (width <= 2 * JUGGLER.minRadiusPx) return;
   if (canvas.width !== Math.round(width * dpr) || canvas.height !== Math.round(height * dpr)) {
     canvas.width = Math.round(width * dpr);
     canvas.height = Math.round(height * dpr);
