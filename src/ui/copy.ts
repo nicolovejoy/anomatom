@@ -143,6 +143,63 @@ export const copy = {
   // E: Knobs
   // -------------------------------------------------------------------------------------------
 
+  pause: 'Pause',
+  /** The digit pad beside the pattern inputs. */
+  digitPadLabel: 'Type a throw',
+  crossKey: 'x',
+  crossKeyLabel: 'Mark the throw before the cursor as crossing',
+  backspaceKey: '⌫',
+  backspaceKeyLabel: 'Backspace',
+  /** The validity indicator beside each input: a mark, and what it says to a screen reader. */
+  indicator: {
+    ok: { mark: '✓', label: 'I can juggle this.' },
+    bad: { mark: '!', label: 'I can’t juggle this yet.' },
+    neutral: { mark: '·', label: 'This part looks fine.' },
+  },
+  ratioStepLabel: (hand: 0 | 1, up: boolean) => `${up ? 'More' : 'Fewer'} hand ${hand + 1} beats`,
+  stepDown: '−',
+  stepUp: '+',
+  tempoLabel: 'Tempo',
+  bpmUnit: 'bpm',
+  /** Both hands' tempos (SPEC §4.1). At 1:1 the hands alternate, so the shared beat runs twice as fast. */
+  tempoBoth: (bpm1: number, bpm2: number, vanilla: boolean) =>
+    vanilla
+      ? `Each hand beats at ${bpm1} bpm, so my shared beat runs at ${bpm1 * 2}.`
+      : `Hand 1 beats at ${bpm1} bpm, hand 2 at ${bpm2}.`,
+  swap: 'Swap',
+  swapHint: 'Tap two throws in one pattern, then Swap.',
+  swapChosen: (count: number) => (count === 1 ? 'One throw chosen; tap one more.' : 'Two throws chosen.'),
+  swapImpossible: 'I can’t swap those: the earlier throw would have to land before it is thrown.',
+  scrubLabel: 'Time in the cycle',
+  volumeLabel: 'Volume',
+  soundPanelButton: 'Sound',
+  aboutLink: 'About',
+  nextCycle: 'Next cycle',
+  fixesLabel: 'Nearest patterns I can juggle:',
+  fixesNone: 'I found no pattern nearby that I can juggle.',
+  fixLabel: (texts: readonly string[]) => texts.join(' / '),
+  knobsOpen: 'Knobs',
+  knobsClose: 'Hide knobs',
+  /** A parse error at other ratios than 1:1 names the input it is in. */
+  handParseError: (hand: 0 | 1, message: string) => `Hand ${hand + 1} pattern: ${message}`,
+  /**
+   * SPEC §4.2: a collision names every throw in the group, "both" for two and "all" for more.
+   * `beat` counts from 1: the shared beat at 1:1, the catching hand's own beat otherwise.
+   */
+  collision: (throws: readonly ThrowId[], hand: 0 | 1, beat: number, vanilla: boolean) => {
+    const quantifier = throws.length === 2 ? 'both' : 'all';
+    const own = throws.every((t) => t.hand === hand);
+    const where = vanilla ? `in hand ${hand + 1} on beat ${beat}` : own ? `on its beat ${beat}` : `on hand ${hand + 1}’s beat ${beat}`;
+    return `I can’t catch that: ${throwList(throws, vanilla)} ${quantifier} land ${where}.`;
+  },
+  /** Every beat on which one hand has nothing to throw, in one sentence. Beats count from 1. */
+  noBall: (hand: 0 | 1, beats: readonly number[]) => {
+    const names = beats.map(String);
+    const last = names.pop() as string;
+    const list = names.length === 0 ? `beat ${last}` : `beats ${names.join(', ')} and ${last}`;
+    return `I have no ball in hand ${hand + 1} to throw on ${list}.`;
+  },
+
   // -------------------------------------------------------------------------------------------
   // F: Sound panel and share
   // -------------------------------------------------------------------------------------------
