@@ -76,6 +76,28 @@ describe('restoring on load', () => {
     expect(u.store.get().lastStateHash).toBe(encodeState(linked));
   });
 
+  test('a shared change is one store.set: listeners hear it once, with the new lastStateHash', () => {
+    const t = setup();
+    t.share.start();
+    const heard: (string | null)[] = [];
+    t.store.subscribe((s) => heard.push(s.lastStateHash));
+    t.store.set({ bpm: 111 });
+    expect(heard).toEqual([encodeState({ ...defaultState(), bpm: 111 })]);
+    t.store.set({ volume: 0.3 });
+    expect(heard).toHaveLength(2);
+    expect(t.store.get().lastStateHash).toBe(encodeState({ ...defaultState(), bpm: 111 }));
+  });
+
+  test('a pasted link is also one change', () => {
+    const t = setup();
+    t.share.start();
+    const heard: unknown[] = [];
+    t.store.subscribe((s) => heard.push(s.lastStateHash));
+    t.setHash(encodeState(linked));
+    t.share.onHashChange();
+    expect(heard).toEqual([encodeState(linked)]);
+  });
+
   test('no hash, `#` and `#about` change nothing and write nothing', () => {
     for (const h of ['', '#', '#about']) {
       const t = setup(h, linked);

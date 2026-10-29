@@ -1,12 +1,14 @@
-// The drums and the downbeat pad: one kit per hand so each hand has its own pan and gain, one
-// pad per instrument. No DOM, no timers: unit tested with a fake context and fake kits;
+// The drums and the downbeat pad: one kit per hand, each through its own gain and stereo panner
+// (the hand's voice), one pad per instrument. No DOM, no timers: unit tested with a fake context and fake kits;
 // `tr808.ts` and `pad.browser.ts` supply the real ones. Where there is no Web Audio everything
 // is silent. The factory shape is L6's piano-sound.ts: the context is made at preload (no
 // gesture needed to decode), starts suspended, and the first play, a gesture, resumes it.
 // Before a kit or pad has loaded its hits are silent; there is no stand-in tone.
 //
-// The graph: every kit and pad -> a low-pass filter -> the master gain -> the destination.
-// `setFilter` (crossings to filter) and `setMaster` (volume) move those two nodes, smoothly.
+// The graph: each hand's kit -> its gain -> its panner -> the low-pass filter, and every pad ->
+// the filter; the filter -> the master gain -> the destination. `setFilter` (crossings to
+// filter), `setMaster` (volume) and a hand's pan and gain move those nodes' params, smoothly;
+// changing a hand's pan or gain never reloads its kit.
 import type { Hand } from '../core/types';
 import { FILTER_OPEN_HZ, PARAM_SMOOTH_SECONDS } from '../tunables';
 import type { Hit, Mapping, PadHit, PadInstrument } from './mapping';
@@ -24,14 +26,8 @@ export type Kit = {
 /** A pad instrument has the shape of a kit: notes are pitches, not sample names. */
 export type Pad = Kit;
 
-/** `destination` is the node to play into (the filter), not the context's output. */
-export type LoadKit = (
-  context: AudioContext,
-  hand: Hand,
-  pan: number,
-  gain: number,
-  destination: AudioNode,
-) => Promise<Kit>;
+/** `destination` is the node to play into (the hand's gain), not the context's output. */
+export type LoadKit = (context: AudioContext, hand: Hand, destination: AudioNode) => Promise<Kit>;
 
 /** What the reader sees of the samples: nothing asked for yet, fetching, all in, or a fetch failed. */
 export type SoundStatus = 'idle' | 'loading' | 'ready' | 'failed';
@@ -56,7 +52,9 @@ export function createDrumSound(
   // keeps playing until its replacement is in.
   const ready = new Map<Hand, Kit>();
   const loading = new Set<Kit>();
-  const requested = new Map<Hand, string>();
+  const requested = new Set<Hand>();
+  // Per hand: its gain and panner, made with the first load and kept for the context's life.
+  const voices = new Map<Hand, { gain: GainNode; panner: StereoPannerNode; last: string }>();
   // Per pad instrument: loaded once per context and kept (the cache), so switching back is instant.
   const pads = new Map<PadInstrument, Pad>();
   const padsRequested = new Set<PadInstrument>();
@@ -121,23 +119,40 @@ export function createDrumSound(
     param.setTargetAtTime(value, (context as AudioContext).currentTime, PARAM_SMOOTH_SECONDS);
   }
 
+  function voice(ctx: AudioContext, hand: Hand, pan: number, gain: number) {
+    let v = voices.get(hand);
+    if (!v) {
+      const g = ctx.createGain();
+      const panner = ctx.createStereoPanner();
+      g.gain.value = gain;
+      panner.pan.value = pan;
+      g.connect(panner);
+      panner.connect((bus as NonNullable<typeof bus>).filter);
+      v = { gain: g, panner, last: `${pan}/${gain}` };
+      voices.set(hand, v);
+    } else if (v.last !== `${pan}/${gain}`) {
+      v.last = `${pan}/${gain}`;
+      ramp(v.gain.gain, gain);
+      ramp(v.panner.pan, pan);
+    }
+    return v;
+  }
+
   function load(ctx: AudioContext, hand: Hand, pan: number, gain: number) {
-    const key = `${pan}/${gain}`;
-    if (requested.get(hand) === key) return;
-    requested.set(hand, key);
+    const v = voice(ctx, hand, pan, gain);
+    if (requested.has(hand)) return;
+    requested.add(hand);
     failedHands.delete(hand);
     const end = begin();
-    loadKit(ctx, hand, pan, gain, (bus as NonNullable<typeof bus>).filter)
+    loadKit(ctx, hand, v.gain)
       .then((kit) => {
-        if (context !== ctx || requested.get(hand) !== key) return kit.dispose();
+        if (context !== ctx) return kit.dispose();
         loading.add(kit);
         return kit.ready.then(
           () => {
             loading.delete(kit);
-            if (context === ctx && requested.get(hand) === key) {
-              ready.get(hand)?.dispose();
-              ready.set(hand, kit);
-            } else kit.dispose();
+            if (context === ctx) ready.set(hand, kit);
+            else kit.dispose();
           },
           (error: unknown) => {
             loading.delete(kit);
@@ -148,7 +163,7 @@ export function createDrumSound(
       })
       .catch(() => {
         // The next preload tries again.
-        if (context === ctx && requested.get(hand) === key) {
+        if (context === ctx) {
           requested.delete(hand);
           failedHands.add(hand);
         }
@@ -203,8 +218,9 @@ export function createDrumSound(
 
   return {
     /**
-     * Loads one kit per hand with that hand's pan and gain, and the pad instrument if the pad is
-     * on. Safe to call again; call it whenever the mapping changes.
+     * Loads one kit per hand (once) and sets that hand's pan and gain on its nodes, and loads the
+     * pad instrument if the pad is on. Safe to call again; call it whenever the mapping changes:
+     * a new pan or gain moves the node params and reloads nothing.
      */
     preload,
     /** Call from a user gesture: a context made before any gesture starts suspended. */
@@ -262,6 +278,7 @@ export function createDrumSound(
       padsRequested.clear();
       loading.clear();
       requested.clear();
+      voices.clear();
       epoch++;
       inFlight = 0;
       failedHands.clear();

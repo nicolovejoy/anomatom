@@ -22,19 +22,22 @@ function importSmplr() {
   }));
 }
 
-export async function tr808(
-  context: AudioContext,
-  _hand: Hand,
-  pan: number,
-  gain: number,
-  destination: AudioNode,
-): Promise<Kit> {
+// One sample loader per context, shared by both hands' machines: the TR-808 is fetched and
+// decoded once. Pan and gain live on the hand's nodes in drum-sound.ts, not on the machine.
+const loaders = new WeakMap<AudioContext, import('smplr').SampleLoader>();
+
+export async function tr808(context: AudioContext, _hand: Hand, destination: AudioNode): Promise<Kit> {
   const smplr = await importSmplr();
+  let loader = loaders.get(context);
+  if (!loader) {
+    loader = smplr.SampleLoader(context);
+    loaders.set(context, loader);
+  }
   const machine = smplr.DrumMachine(context, {
     instrument: 'TR-808',
-    pan,
-    volume: Math.round(gain * KIT_VOLUME),
+    volume: KIT_VOLUME,
     destination,
+    loader,
   });
   return {
     ready: machine.load.then(() => undefined),

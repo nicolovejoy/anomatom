@@ -8,7 +8,9 @@
 //   `#about`, and is junk otherwise: junk loads the defaults (never throws).
 // - Every change to pattern, ratio, tempo or Mapping rewrites the hash (`replaceState`, so
 //   no history entry) after `SHARE.hashDebounceMs` of quiet, except while About is showing.
-// - `lastStateHash` in the store is kept current at once (About's back link), not debounced.
+// - `lastStateHash` in the store is kept current at once (About's back link), not debounced. It
+//   rides in the same `store.set` as the change it follows (`start` wraps `store.set` for that),
+//   so listeners run once per change, not twice.
 import { decodeState, encodeState } from './hash';
 import { route } from './route';
 import { defaultState, type AppState, type Store } from './state';
@@ -96,9 +98,15 @@ export function createShare(deps: ShareDeps) {
   return {
     /** Restores from the hash, then follows the store. Call once. */
     start() {
+      const set = store.set.bind(store);
+      store.set = (patch) => {
+        const next = { ...store.get(), ...patch };
+        set(sharedChanged(next, store.get()) ? { ...patch, lastStateHash: encodeState(next) } : patch);
+      };
       store.subscribe((state, previous) => {
         if (!sharedChanged(state, previous)) return;
         const hash = encodeState(state);
+        // Only reached if something set the store without going through the wrapped `set`.
         if (hash !== state.lastStateHash) store.set({ lastStateHash: hash });
         if (pending) deps.cancel(timer);
         pending = true;

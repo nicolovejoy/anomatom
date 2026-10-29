@@ -5,7 +5,7 @@ import type { Mapping, PadHit } from './mapping';
 
 type Started = { note: string; velocity: number; time: number; duration: number };
 type Param = { value: number; targets: [number, number, number][]; setTargetAtTime(v: number, at: number, tc: number): unknown };
-type Node = { kind: string; connected: unknown[]; gain: Param; frequency: Param; type?: string };
+type Node = { kind: string; connected: unknown[]; gain: Param; frequency: Param; pan: Param; type?: string };
 
 function param(): Param {
   const p: Param = { value: 0, targets: [], setTargetAtTime: (v, at, tc) => p.targets.push([v, at, tc]) };
@@ -15,7 +15,7 @@ function param(): Param {
 function fakeContext() {
   const nodes: Node[] = [];
   const node = (kind: string): Node => {
-    const n: Node = { kind, connected: [], gain: param(), frequency: param(), connect: undefined as never } as never;
+    const n: Node = { kind, connected: [], gain: param(), frequency: param(), pan: param(), connect: undefined as never } as never;
     (n as unknown as { connect: (to: unknown) => number }).connect = (to) => n.connected.push(to);
     nodes.push(n);
     return n;
@@ -25,6 +25,7 @@ function fakeContext() {
     destination: { kind: 'destination' },
     createGain: () => node('gain'),
     createBiquadFilter: () => node('filter'),
+    createStereoPanner: () => node('panner'),
     currentTime: 3,
     state: 'running',
     resume: vi.fn(async () => {}),
@@ -65,10 +66,10 @@ const chord: PadHit[] = [
 ];
 const settle = () => new Promise((r) => setTimeout(r, 0));
 
-test('the graph is kit -> filter -> master -> destination', async () => {
+test('the graph is kit -> gain -> panner -> filter -> master -> destination', async () => {
   const ctx = fakeContext();
   const destinations: unknown[] = [];
-  const sound = createDrumSound(() => ctx, async (_c, _h, _p, _g, destination) => {
+  const sound = createDrumSound(() => ctx, async (_c, _h, destination) => {
     destinations.push(destination);
     return fakePad() as Kit;
   }, async () => fakePad() as Kit);
@@ -80,7 +81,11 @@ test('the graph is kit -> filter -> master -> destination', async () => {
   expect(master?.gain.value).toBe(1);
   expect(filter?.connected).toEqual([master]);
   expect(master?.connected).toEqual([ctx.destination]);
-  expect(destinations).toEqual([filter, filter]);
+  const voiceGains = ctx.nodes.filter((n) => n.kind === 'gain').slice(1);
+  const panners = ctx.nodes.filter((n) => n.kind === 'panner');
+  expect(destinations).toEqual(voiceGains);
+  expect(voiceGains.map((g) => g.connected)).toEqual(panners.map((p) => [p]));
+  expect(panners.map((p) => p.connected)).toEqual([[filter], [filter]]);
 });
 
 test('setMaster and setFilter ramp the live nodes; values set earlier apply when the context is made', () => {
