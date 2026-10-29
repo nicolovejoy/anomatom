@@ -94,7 +94,7 @@ The store has `get`, `set(patch)` and `subscribe`.
 - `player.ts` is edited by wave 0, then B (wave 1), then F (wave 2), never by two streams at once.
 - `tunables.ts` and `copy.ts` get one section per stream; each stream edits only its own section. `DEFAULT_MAPPING` belongs to C.
 
-**Copy voice.** Nico chooses among three voices (2026-10-29): plain, the robot in the first person, or short labels with "?" and "why?" detail. Wave 0 rewrites the existing strings in the chosen voice and writes a five-line voice guide at the top of `copy.ts`. Every later string follows it. Hand 1 and hand 2 read as left and right on screen.
+**Copy voice.** The robot, in the first person, chosen by Nico 2026-10-29; the guide lives at the top of `copy.ts`. Wave 0 rewrites the existing strings in the chosen voice and writes a five-line voice guide at the top of `copy.ts`. Every later string follows it. Hand 1 and hand 2 read as left and right on screen.
 
 ## Wave 0: shell (one stream, Opus)
 

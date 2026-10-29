@@ -25,7 +25,13 @@ Node 20. Then:
     npm run typecheck
     npm run dev       # Vite dev server
 
-CI runs the same three on every push.
+    npm run e2e       # headless browser smoke test (Playwright; Edge locally)
+
+CI runs the same on every push, the smoke test on Playwright's bundled Chromium. Locally, `npm run e2e` needs Microsoft Edge installed; `npx playwright test --project=chromium` uses the bundled Chromium instead (after `npx playwright install chromium`).
+
+## Licence
+
+MIT. Dependencies must be MIT or more permissive; Apache-2.0 is allowed alongside MIT (`@playwright/test` uses it). No GPL code.
 
 ## Origin
 

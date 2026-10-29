@@ -96,28 +96,96 @@ test('play preloads the kit again, so a load that failed at page open is retried
   vi.useRealTimers();
 });
 
-test('position is the playhead in pulses, fractional, and 0 when stopped', () => {
+test('view while playing: one segment of what sounds, from its start, at the audio clock', () => {
   vi.useFakeTimers();
   const { sound, tick } = fakeSound();
   const player = createPlayer(sound);
-  expect(player.position()).toBe(0);
-  player.play(schedule('3'), DEFAULT_MAPPING, 120); // 0.25 s per pulse, starts 0.05 s after now
+  const s = schedule('441');
+  player.play(s, DEFAULT_MAPPING, 120); // 0.25 s per pulse, starts 0.05 s after now
   tick(0.05 + 0.625);
-  expect(player.position()).toBeCloseTo(2.5);
+  const v = player.view();
+  expect(v.state).toBe('playing');
+  expect(v.pending).toBe(false);
+  expect(v.now).toBeCloseTo(0.675);
+  expect(v.segments).toHaveLength(1);
+  const seg = v.segments[0]!;
+  expect(seg.schedule).toBe(s);
+  expect(seg.startTime).toBeCloseTo(0.05);
+  expect(seg.pulseLen).toBe(0.25);
+  expect(seg.endTime).toBeNull();
+  expect(seg.carry.size).toBe(0);
+  // The playhead, in pulses: 2.5 pulses in.
+  expect((v.now - seg.startTime) / seg.pulseLen).toBeCloseTo(2.5);
   player.stop();
-  expect(player.position()).toBe(0);
   vi.useRealTimers();
 });
 
-test('the schedule being played is exposed while playing, null when stopped', () => {
+test('an edit while playing does not change what the picture shows until stopped', () => {
   vi.useFakeTimers();
-  const { sound } = fakeSound();
+  const { sound, tick } = fakeSound();
   const player = createPlayer(sound);
-  expect(player.schedule()).toBeNull();
-  const s = schedule('441');
-  player.play(s, DEFAULT_MAPPING, 120);
-  expect(player.schedule()).toBe(s);
+  const playing = schedule('3');
+  const edited = schedule('441');
+  player.play(playing, DEFAULT_MAPPING, 120);
+  player.setEdit(edited, 60);
+  expect(player.view().segments[0]?.schedule).toBe(playing);
   player.stop();
-  expect(player.schedule()).toBeNull();
+  tick(2);
+  const v = player.view();
+  expect(v.state).toBe('stopped');
+  expect(v.segments[0]?.schedule).toBe(edited);
+  vi.useRealTimers();
+});
+
+test('view while stopped: no segment before any edit, then the latest edit with now at pulse 0', () => {
+  const { sound, tick } = fakeSound();
+  const player = createPlayer(sound);
+  expect(player.view()).toEqual({ now: 0, state: 'stopped', segments: [], pending: false });
+  tick(3);
+  player.setEdit(schedule('3'), 120);
+  const s = schedule('531');
+  player.setEdit(s, 60); // 0.5 s per pulse
+  const v = player.view();
+  expect(v.now).toBe(3);
+  expect(v.segments).toHaveLength(1);
+  expect(v.segments[0]).toMatchObject({ schedule: s, startTime: 3, pulseLen: 0.5, endTime: null });
+  expect(v.segments[0]?.carry.size).toBe(0);
+});
+
+test('each event handed to the sampler is counted, and the count keeps rising across plays', () => {
+  vi.useFakeTimers();
+  const { sound, played, tick } = fakeSound();
+  const counts: number[] = [];
+  const player = createPlayer(sound, { onScheduled: (n) => counts.push(n) });
+  player.play(schedule('3'), DEFAULT_MAPPING, 120);
+  expect(counts.length).toBe(played.length);
+  expect(counts.length).toBeGreaterThan(0);
+  tick(1);
+  vi.advanceTimersByTime(SCHEDULER_INTERVAL_MS);
+  player.play(schedule('441'), DEFAULT_MAPPING, 120);
+  expect(counts).toEqual(counts.map((_, i) => i + 1));
+  expect(counts.length).toBe(played.length);
+  player.stop();
+  vi.useRealTimers();
+});
+
+test('without a listener the count is kept silently', () => {
+  vi.useFakeTimers();
+  const { sound, played } = fakeSound();
+  createPlayer(sound).play(schedule('3'), DEFAULT_MAPPING, 120);
+  expect(played.length).toBeGreaterThan(0);
+  vi.clearAllTimers();
+  vi.useRealTimers();
+});
+
+test('events the mapping silences are neither played nor counted', () => {
+  vi.useFakeTimers();
+  const { sound, played } = fakeSound();
+  const counts: number[] = [];
+  const player = createPlayer(sound, { onScheduled: (n) => counts.push(n) });
+  // Catches on with a null sample: catch events map to no hit. Throws still sound.
+  player.play(schedule('3'), { ...DEFAULT_MAPPING, catches: { on: true, sample: null } }, 120);
+  expect(counts.length).toBe(played.length);
+  player.stop();
   vi.useRealTimers();
 });

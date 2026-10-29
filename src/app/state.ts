@@ -1,0 +1,67 @@
+// The app's state and the one store that holds it. Pure: no DOM, no timers. The knobs write
+// here; every mount reads and subscribes here.
+import type { Ratio } from '../core/types';
+import type { Mapping } from '../sound/mapping';
+import {
+  DEFAULT_BPM,
+  DEFAULT_MAPPING,
+  DEFAULT_PATTERN,
+  DEFAULT_PATTERN_HAND2,
+  DEFAULT_VOLUME,
+} from '../tunables';
+
+export interface AppState {
+  /** Pattern text as typed, hand 1 then hand 2. At 1:1 only hand 1's is used. */
+  readonly patterns: readonly [string, string];
+  readonly ratio: Ratio;
+  /** Tempo of hand 1's beats. */
+  readonly bpm: number;
+  /** Master volume, 0 to 1. Not part of the share link. */
+  readonly volume: number;
+  readonly mapping: Mapping;
+  /** The last play-view state hash (`#v1.…`), for About's back link; null before there is one. */
+  readonly lastStateHash: string | null;
+}
+
+export function defaultState(): AppState {
+  return {
+    patterns: [DEFAULT_PATTERN, DEFAULT_PATTERN_HAND2],
+    ratio: { a: 1, b: 1 },
+    bpm: DEFAULT_BPM,
+    volume: DEFAULT_VOLUME,
+    mapping: DEFAULT_MAPPING,
+    lastStateHash: null,
+  };
+}
+
+export type Listener = (state: AppState, previous: AppState) => void;
+
+export interface Store {
+  get(): AppState;
+  /** Merges `patch` into the state; listeners hear only when a field actually changed (by identity). */
+  set(patch: Partial<AppState>): void;
+  /** Calls `fn` after every change; returns the function that stops it. */
+  subscribe(fn: Listener): () => void;
+}
+
+export function createStore(initial: AppState = defaultState()): Store {
+  let state = initial;
+  const listeners = new Set<Listener>();
+
+  return {
+    get: () => state,
+    set(patch) {
+      const keys = Object.keys(patch) as (keyof AppState)[];
+      if (keys.every((k) => patch[k] === state[k])) return;
+      const previous = state;
+      state = { ...state, ...patch };
+      for (const fn of [...listeners]) fn(state, previous);
+    },
+    subscribe(fn) {
+      listeners.add(fn);
+      return () => {
+        listeners.delete(fn);
+      };
+    },
+  };
+}

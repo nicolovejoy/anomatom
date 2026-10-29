@@ -1,20 +1,17 @@
 import { defineConfig } from 'vitest/config';
 
-// Modules held at 100% line coverage. Add to this list; never lower the threshold.
-const coveredModules = [
-  'src/core/math.ts',
-  'src/core/parse.ts',
-  'src/core/grid.ts',
-  'src/core/flights.ts',
-  'src/core/validate.ts',
-  'src/core/swap.ts',
-  'src/core/crossings.ts',
-  'src/core/schedule.ts',
-  'src/sound/transport.ts',
-  'src/sound/mapping.ts',
-  'src/sound/drum-sound.ts',
+// Modules held at 100% line coverage, per file. Globs, so a new logic module is covered without
+// touching this file. Never lower the threshold.
+const covered = [
+  'src/core/**',
+  'src/view/**',
+  'src/sound/**',
+  // The pure files of src/app; the mounts and canvases there touch the DOM and are not.
   'src/app/player.ts',
-  'src/view/ladder.ts',
+  'src/app/state.ts',
+  'src/app/route.ts',
+  // Stream C's AppState ↔ hash codec, named ahead so C need not edit this file.
+  'src/app/hash.ts',
 ];
 
 export default defineConfig({
@@ -22,7 +19,9 @@ export default defineConfig({
     include: ['src/**/*.test.ts'],
     coverage: {
       provider: 'v8',
-      include: coveredModules,
+      include: covered,
+      // tr808.ts is the browser side of the drums (real Web Audio, smplr); the e2e smoke test covers it.
+      exclude: ['**/*.test.ts', 'src/sound/tr808.ts'],
       thresholds: { lines: 100, perFile: true },
       reporter: ['text'],
     },
