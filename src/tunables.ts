@@ -124,10 +124,13 @@ export const JUGGLER = {
 
 /**
  * Fix suggestions for an invalid pattern (SPEC §4.2). `count`: how many are offered. `budget`:
- * the most candidate patterns validated per call, so a long pattern with no near fix cannot
- * stall a keystroke; past it, fewer fixes are offered.
+ * the most work per call, in pulses: a candidate with a whole ball count costs its cycle length
+ * (validating it walks the cycle), a fractional one its digit count. Past it, fewer fixes are
+ * offered. 300,000 keeps the worst typeable input (9:8, two 16-digit hands with crosses, no
+ * near fix) to about 25 ms in Node on a first call, under 10 ms warm: short, but still too long
+ * to run on every keystroke, so the caller should debounce it or run it off the keystroke.
  */
-export const FIXES = { count: 3, budget: 20_000 } as const;
+export const FIXES = { count: 3, budget: 300_000 } as const;
 
 // ---------------------------------------------------------------------------------------------
 // C: Mapping and sound
