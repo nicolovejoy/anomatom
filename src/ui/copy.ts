@@ -1,8 +1,13 @@
 // Every reader-facing string. Logic modules return structured values; this turns them into words.
+// One section per stream of docs/plans/v1-parallel.md; each stream edits only its own section.
 import type { ParseError } from '../core/parse';
 import type { ThrowId, ValidationError } from '../core/types';
 
 export const copy = {
+  // -------------------------------------------------------------------------------------------
+  // Wave 0: shell
+  // -------------------------------------------------------------------------------------------
+
   title: 'anomatom',
   placeholder: 'A siteswap pattern as polyrhythm. Type a pattern, press play, hear it on a TR-808 and watch it scroll.',
   patternLabel: 'Siteswap',
@@ -39,6 +44,33 @@ export const copy = {
         return `hand ${error.hand + 1} has no ball to throw on beat ${error.beat + 1}`;
     }
   },
+  /** The About placeholder, until stream D writes the page. */
+  aboutTitle: 'About',
+  aboutBack: 'Back to the pattern',
+
+  // -------------------------------------------------------------------------------------------
+  // A: Juggler
+  // -------------------------------------------------------------------------------------------
+
+  // -------------------------------------------------------------------------------------------
+  // B: Player and fixes
+  // -------------------------------------------------------------------------------------------
+
+  // -------------------------------------------------------------------------------------------
+  // C: Mapping and sound
+  // -------------------------------------------------------------------------------------------
+
+  // -------------------------------------------------------------------------------------------
+  // D: About
+  // -------------------------------------------------------------------------------------------
+
+  // -------------------------------------------------------------------------------------------
+  // E: Knobs
+  // -------------------------------------------------------------------------------------------
+
+  // -------------------------------------------------------------------------------------------
+  // F: Sound panel and share
+  // -------------------------------------------------------------------------------------------
 };
 
 function throwList(throws: readonly ThrowId[]): string {

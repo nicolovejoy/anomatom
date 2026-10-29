@@ -1,145 +1,72 @@
-import { buildSchedule, isVanilla, parsePattern, reduceRatio, validate } from './core';
-import type { PatternInput, Ratio, Schedule } from './core';
+// Builds the shared context, mounts every region, and runs the one animation loop. Generic on
+// purpose: no stream after wave 0 edits this file. Regions live in src/app/mount-*.ts.
+import { createPlayer } from './app/player';
+import { createStore } from './app/state';
+import { route } from './app/route';
+import type { AppContext, Mount, Mounted } from './app/mount';
+import { mountJuggler } from './app/mount-juggler';
+import { mountLadder } from './app/mount-ladder';
+import { mountKnobs } from './app/mount-knobs';
+import { mountSoundPanel } from './app/mount-sound-panel';
+import { mountAbout } from './app/mount-about';
+import { mountShare } from './app/mount-share';
 import { createDrumSound } from './sound/drum-sound';
 import { browserContext, tr808 } from './sound/tr808';
-import { createPlayer } from './app/player';
-import { drawLadder } from './app/ladder-canvas';
-import { ladderFrame } from './view/ladder';
-import { DEFAULT_BPM, DEFAULT_MAPPING, DEFAULT_PATTERN, DEFAULT_PATTERN_HAND2, LADDER, RATIO_CHIPS } from './tunables';
 import { copy } from './ui/copy';
 
 const app = document.getElementById('app');
 if (app) {
   app.innerHTML = `
-    <h1>${copy.title}</h1>
-    <p>${copy.placeholder}</p>
-    <canvas id="ladder" height="${LADDER.heightPx}"></canvas>
-    <form id="form">
-      <div class="row">
-        <span>${copy.ratioLabel}</span>
-        ${RATIO_CHIPS.map(([a, b]) => `<button type="button" class="chip" data-a="${a}" data-b="${b}">${copy.ratioChip(a, b)}</button>`).join('')}
-      </div>
-      <div class="row">
-        <label id="label-0">${copy.patternLabel} <input id="hand-0" value="${DEFAULT_PATTERN}" autocomplete="off" /></label>
-        <label id="label-1" hidden>${copy.handLabel(1)} <input id="hand-1" value="${DEFAULT_PATTERN_HAND2}" autocomplete="off" /></label>
-      </div>
-      <p id="hint" class="hint" hidden>${copy.oneHandHint}</p>
-      <div class="row">
-        <button id="play" type="submit">${copy.play}</button>
-        <button id="stop" type="button" disabled>${copy.stop}</button>
-        <span class="hint">${copy.spaceHint}</span>
-      </div>
-    </form>
-    <p id="status" aria-live="polite"></p>
+    <header>
+      <h1>${copy.title}</h1>
+      <p>${copy.placeholder}</p>
+    </header>
+    <div class="play-view">
+      <section class="region-juggler"></section>
+      <section class="region-ladder"></section>
+      <section class="region-knobs"></section>
+      <section class="region-sound-panel"></section>
+    </div>
+    <section class="region-about" hidden></section>
   `;
+  const region = (name: string) => app.querySelector(`.region-${name}`) as HTMLElement;
+  const playView = app.querySelector('.play-view') as HTMLElement;
 
+  // The smoke test (SPEC §7.8) watches this: audio output itself is not observable.
+  app.dataset.eventsScheduled = '0';
   const sound = createDrumSound(browserContext, tr808);
-  const player = createPlayer(sound);
-  const form = document.getElementById('form') as HTMLFormElement;
-  const inputs = [0, 1].map((h) => document.getElementById(`hand-${h}`) as HTMLInputElement);
-  const label1 = document.getElementById('label-1') as HTMLLabelElement;
-  const label0 = document.getElementById('label-0') as HTMLLabelElement;
-  const hint = document.getElementById('hint') as HTMLParagraphElement;
-  const stopButton = document.getElementById('stop') as HTMLButtonElement;
-  const status = document.getElementById('status') as HTMLParagraphElement;
-  const canvas = document.getElementById('ladder') as HTMLCanvasElement;
-  const chips = Array.from(document.querySelectorAll<HTMLButtonElement>('.chip'));
+  const player = createPlayer(sound, { onScheduled: (n) => (app.dataset.eventsScheduled = String(n)) });
+  const store = createStore();
+  const ctx: AppContext = { store, player, sound };
 
-  let ratio: Ratio = { a: 1, b: 1 };
-  let schedule: Schedule | null = null;
+  // Samples preload on page open; a press before they arrive is silent (SPEC §5.4).
+  sound.preload(store.get().mapping);
 
-  sound.preload(DEFAULT_MAPPING);
+  const mounts: [Mount, HTMLElement][] = [
+    [mountJuggler, region('juggler')],
+    [mountLadder, region('ladder')],
+    [mountKnobs, region('knobs')],
+    [mountSoundPanel, region('sound-panel')],
+    [mountAbout, region('about')],
+    [mountShare, app],
+  ];
+  const draws = mounts
+    .map(([mount, root]): Mounted => mount(root, ctx))
+    .flatMap((m) => (m.draw ? [m.draw.bind(m)] : []));
 
-  function check(): Schedule | null {
-    const vanilla = isVanilla(ratio);
-    const hands = [];
-    for (const input of vanilla ? inputs.slice(0, 1) : inputs) {
-      const parsed = parsePattern(input.value);
-      if (!parsed.ok) {
-        status.textContent = copy.parseError(parsed.error);
-        return (schedule = null);
-      }
-      hands.push(parsed.pattern);
-    }
-    const pattern: PatternInput = { ratio, hands };
-    const v = validate(pattern);
-    if (!v.ok) {
-      status.textContent = copy.validationError(v.errors[0]!, vanilla);
-      return (schedule = null);
-    }
-    status.textContent = copy.valid(v.balls);
-    return (schedule = buildSchedule(pattern));
-  }
+  // Play view or About; playback carries on under About.
+  const showRoute = () => {
+    const about = route(location.hash).view === 'about';
+    playView.hidden = about;
+    region('about').hidden = !about;
+  };
+  window.addEventListener('hashchange', showRoute);
+  showRoute();
 
-  function setRatio(next: Ratio) {
-    ratio = reduceRatio(next);
-    const vanilla = isVanilla(ratio);
-    label1.hidden = vanilla;
-    hint.hidden = vanilla;
-    (label0.firstChild as Text).textContent = `${vanilla ? copy.patternLabel : copy.handLabel(0)} `;
-    for (const chip of chips) {
-      const on = Number(chip.dataset.a) === ratio.a && Number(chip.dataset.b) === ratio.b;
-      chip.setAttribute('aria-pressed', String(on));
-    }
-    check();
-  }
-
-  function play() {
-    const s = check();
-    if (!s) return;
-    player.play(s, DEFAULT_MAPPING, DEFAULT_BPM);
-    stopButton.disabled = false;
-  }
-
-  function stop() {
-    player.stop();
-    stopButton.disabled = true;
-  }
-
-  function toggle() {
-    if (player.playing()) stop();
-    else play();
-  }
-
-  for (const input of inputs) input.addEventListener('input', check);
-  for (const chip of chips) {
-    chip.addEventListener('click', () => setRatio({ a: Number(chip.dataset.a), b: Number(chip.dataset.b) }));
-  }
-  form.addEventListener('submit', (e) => {
-    e.preventDefault();
-    play();
-  });
-  stopButton.addEventListener('click', stop);
-  // Space always plays and stops, wherever focus is. Captured before a focused button or input
-  // sees it: a button would otherwise activate (a ratio chip clicked earlier keeps focus), and
-  // an input would get a space, which the parser ignores anyway. Buttons activate on keyup in
-  // some browsers, so that is suppressed too.
-  const isSpace = (e: KeyboardEvent) =>
-    e.code === 'Space' && !e.ctrlKey && !e.metaKey && !e.altKey && !e.isComposing;
-  document.addEventListener(
-    'keydown',
-    (e) => {
-      if (!isSpace(e)) return;
-      e.preventDefault();
-      if (!e.repeat) toggle();
-    },
-    { capture: true },
-  );
-  document.addEventListener(
-    'keyup',
-    (e) => {
-      if (isSpace(e)) e.preventDefault();
-    },
-    { capture: true },
-  );
-
-  // The picture follows what sounds; when stopped, the latest edit.
-  function frame() {
-    const shown = player.schedule() ?? schedule;
-    if (shown) drawLadder(canvas, ladderFrame(shown, player.position(), LADDER));
+  const frame = () => {
+    const view = player.view();
+    for (const draw of draws) draw(view);
     requestAnimationFrame(frame);
-  }
-
-  setRatio(ratio);
+  };
   requestAnimationFrame(frame);
 }

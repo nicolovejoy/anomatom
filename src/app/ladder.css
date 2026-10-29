@@ -1,0 +1,7 @@
+/* The ladder strip region. Colours and sizes that matter live in tunables. */
+.ladder {
+  display: block;
+  width: 100%;
+  border-radius: 6px;
+  margin: 12px 0;
+}
