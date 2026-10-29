@@ -6,12 +6,8 @@ const covered = [
   'src/core/**',
   'src/view/**',
   'src/sound/**',
-  // The pure files of src/app; the mounts and canvases there touch the DOM and are not.
-  'src/app/player.ts',
-  'src/app/state.ts',
-  'src/app/route.ts',
-  // Stream C's AppState ↔ hash codec, named ahead so C need not edit this file.
-  'src/app/hash.ts',
+  // src/app is covered except what touches the DOM: mounts, canvases and styles.
+  'src/app/**',
 ];
 
 export default defineConfig({
@@ -20,8 +16,16 @@ export default defineConfig({
     coverage: {
       provider: 'v8',
       include: covered,
-      // tr808.ts is the browser side of the drums (real Web Audio, smplr); the e2e smoke test covers it.
-      exclude: ['**/*.test.ts', 'src/sound/tr808.ts'],
+      // tr808.ts is the browser side of the drums (real Web Audio, smplr).
+      // Browser-side modules are named `*.browser.ts` and excluded; the e2e smoke test covers them.
+      exclude: [
+        '**/*.test.ts',
+        'src/**/*.browser.ts',
+        'src/app/mount*.ts',
+        'src/app/*-canvas.ts',
+        'src/app/*.css',
+        'src/sound/tr808.ts',
+      ],
       thresholds: { lines: 100, perFile: true },
       reporter: ['text'],
     },

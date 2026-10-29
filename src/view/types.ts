@@ -21,6 +21,7 @@ export interface PlayerView {
   /** The time the picture shows: the audio clock while playing, frozen while paused, set by the scrub slider. */
   readonly now: number;
   readonly state: 'stopped' | 'playing' | 'paused';
+  /** Segments are never dropped in v1: colours are derived from the whole list from the first segment. */
   readonly segments: readonly Segment[];
   /** True while a queued change waits for the next cycle boundary. */
   readonly pending: boolean;
