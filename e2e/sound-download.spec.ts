@@ -41,7 +41,7 @@ test('both hands load the 808 from one download', async ({ page, context }) => {
     }
     return route.fulfill({ headers: { ...cors, 'content-type': 'audio/wav' }, body: wav() });
   });
-  await page.goto('/');
+  await page.goto('/#v1.e30');
   await expect(page.locator('.sound-status')).toHaveAttribute('data-state', 'ready');
   const samples = urls.filter((u) => u.endsWith('.ogg'));
   expect(samples.sort()).toEqual([
