@@ -1,6 +1,7 @@
 // The browser side of the drums: a real AudioContext and smplr's TR-808. Not unit tested
 // (needs Web Audio); the browser smoke test exercises it.
 import type { Hand } from '../core/types';
+import { KIT_VOLUME } from '../tunables';
 import type { Kit } from './drum-sound';
 
 export function browserContext(): AudioContext | null {
@@ -23,7 +24,7 @@ function importSmplr() {
 
 export async function tr808(context: AudioContext, _hand: Hand, pan: number, gain: number): Promise<Kit> {
   const smplr = await importSmplr();
-  const machine = smplr.DrumMachine(context, { instrument: 'TR-808', pan, volume: Math.round(gain * 127) });
+  const machine = smplr.DrumMachine(context, { instrument: 'TR-808', pan, volume: Math.round(gain * KIT_VOLUME) });
   return {
     ready: machine.load.then(() => undefined),
     start: (event) => machine.start(event),

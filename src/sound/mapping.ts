@@ -1,7 +1,7 @@
 // SPEC §3 "Mapping": the rules that turn an Event into a sound. Pure.
 import { isCoincident } from '../core/grid';
 import type { Event, Grid, Hand } from '../core/types';
-import { BASE_VELOCITY } from '../tunables';
+import { BASE_VELOCITY, MAX_HEIGHT, MAX_VELOCITY } from '../tunables';
 
 /** A sample name in the kit, e.g. `kick`, or null for silence. */
 export type Sample = string | null;
@@ -38,7 +38,7 @@ export function hitFor(event: Event, mapping: Mapping, grids: readonly [Grid, Gr
   return {
     sample,
     hand: event.hand,
-    velocity: Math.min(127, BASE_VELOCITY + accent),
+    velocity: Math.min(MAX_VELOCITY, BASE_VELOCITY + accent),
     pan: voice.pan,
     gain: voice.gain,
     durationPulses: event.flight,
@@ -47,7 +47,7 @@ export function hitFor(event: Event, mapping: Mapping, grids: readonly [Grid, Gr
 
 function sampleFor(event: Event, mapping: Mapping, grids: readonly [Grid, Grid]): Sample {
   if (event.kind === 'throw') {
-    return event.height === 0 ? null : (mapping.perHeight[Math.min(event.height, 9)] ?? null);
+    return event.height === 0 ? null : (mapping.perHeight[Math.min(event.height, MAX_HEIGHT)] ?? null);
   }
   if (event.cross && isCoincident(grids, event.pulse) && mapping.crossAccent.downbeat !== null) {
     return mapping.crossAccent.downbeat;

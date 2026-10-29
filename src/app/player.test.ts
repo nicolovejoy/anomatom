@@ -70,3 +70,28 @@ test('play while playing restarts cleanly', () => {
   player.stop();
   vi.useRealTimers();
 });
+
+test('after the clock jumps (a backgrounded tab) missed events are skipped, not piled up', () => {
+  vi.useFakeTimers();
+  const { sound, played, tick } = fakeSound();
+  const player = createPlayer(sound);
+  player.play(schedule('3'), DEFAULT_MAPPING, 120);
+  const before = played.length;
+  tick(30);
+  vi.advanceTimersByTime(SCHEDULER_INTERVAL_MS);
+  const fresh = played.slice(before);
+  expect(fresh.length).toBeGreaterThan(0);
+  expect(fresh.every((p) => p.time >= 30)).toBe(true);
+  player.stop();
+  vi.useRealTimers();
+});
+
+test('play preloads the kit again, so a load that failed at page open is retried', () => {
+  vi.useFakeTimers();
+  const { sound } = fakeSound();
+  const player = createPlayer(sound);
+  player.play(schedule('3'), DEFAULT_MAPPING, 120);
+  expect(sound.preload).toHaveBeenCalledWith(DEFAULT_MAPPING);
+  player.stop();
+  vi.useRealTimers();
+});

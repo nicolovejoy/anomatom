@@ -17,9 +17,10 @@ export type LoadKit = (context: AudioContext, hand: Hand, pan: number, gain: num
 
 export function createDrumSound(makeContext: () => AudioContext | null, loadKit: LoadKit) {
   let context: AudioContext | null | undefined;
-  // Per hand: the kit once loaded, and the mapping voice it was loaded with.
+  // Per hand: the kit once loaded, and the voice (pan/gain) most recently asked for. A kit
+  // keeps playing until its replacement is in.
   const ready = new Map<Hand, Kit>();
-  const loading = new Map<Hand, Kit>();
+  const loading = new Set<Kit>();
   const requested = new Map<Hand, string>();
 
   function audio(): AudioContext | null {
@@ -31,23 +32,20 @@ export function createDrumSound(makeContext: () => AudioContext | null, loadKit:
     const key = `${pan}/${gain}`;
     if (requested.get(hand) === key) return;
     requested.set(hand, key);
-    const stale = ready.get(hand);
-    if (stale) {
-      ready.delete(hand);
-      stale.dispose();
-    }
     loadKit(ctx, hand, pan, gain)
       .then((kit) => {
         if (context !== ctx || requested.get(hand) !== key) return kit.dispose();
-        loading.set(hand, kit);
+        loading.add(kit);
         return kit.ready.then(
           () => {
-            loading.delete(hand);
-            if (context === ctx && requested.get(hand) === key) ready.set(hand, kit);
-            else kit.dispose();
+            loading.delete(kit);
+            if (context === ctx && requested.get(hand) === key) {
+              ready.get(hand)?.dispose();
+              ready.set(hand, kit);
+            } else kit.dispose();
           },
           (error: unknown) => {
-            loading.delete(hand);
+            loading.delete(kit);
             kit.dispose();
             throw error;
           },
@@ -85,7 +83,7 @@ export function createDrumSound(makeContext: () => AudioContext | null, loadKit:
       });
     },
     close() {
-      for (const kit of [...ready.values(), ...loading.values()]) kit.dispose();
+      for (const kit of [...ready.values(), ...loading]) kit.dispose();
       ready.clear();
       loading.clear();
       requested.clear();

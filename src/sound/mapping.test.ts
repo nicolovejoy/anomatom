@@ -55,3 +55,11 @@ test('audible catches use the catch sample', () => {
   const c: Event = { kind: 'catch', pulse: 4, hand: 0, ball: 0, height: 2, flight: 4, cross: false };
   expect(hitFor(c, m, threeTwo)).toMatchObject({ sample: 'rimshot', hand: 0 });
 });
+
+test('a cross caught off the coincidence is an ordinary catch', () => {
+  // Vanilla: a 3 crosses and lands on the other hand's beat, never a coincident pulse.
+  const c: Event = { kind: 'catch', pulse: 3, hand: 1, ball: 0, height: 3, flight: 3, cross: true };
+  expect(hitFor(c, DEFAULT_MAPPING, vanilla)).toBeNull();
+  const audible = { ...DEFAULT_MAPPING, catches: { on: true, sample: 'rimshot' } };
+  expect(hitFor(c, audible, vanilla)).toMatchObject({ sample: 'rimshot' });
+});
