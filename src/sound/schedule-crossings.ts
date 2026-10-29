@@ -4,8 +4,8 @@
 // so the cycle's flights are its throws that start inside the first cycle (a throw event is a
 // flight: it launches at its pulse and lands `flight` pulses later). Height-0 throws are not
 // arcs and `countCrossings` skips them.
-import { countCrossings } from '../core/crossings';
-import type { Flight, Schedule } from '../core/types';
+import { countCrossings } from '../core/legacy/crossings';
+import type { Flight, Schedule } from '../core/legacy/types';
 
 const memo = new WeakMap<Schedule, number>();
 

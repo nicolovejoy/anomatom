@@ -5,10 +5,10 @@
 // pulse of that segment, and each segment starts where the previous one's `endTime` falls. So
 // the strip keeps one pulse per unit of width through a tempo or ratio change and never jumps;
 // only its scroll speed follows the new pulse length.
-import { flightsOf } from '../core/flights';
-import { activeHands, cycleLength, isCoincident, makeGrids } from '../core/grid';
+import { flightsOf } from '../core/legacy/flights';
+import { activeHands, cycleLength, isCoincident, makeGrids } from '../core/legacy/grid';
 import { mod } from '../core/math';
-import type { Flight, Grid, Hand, PatternInput, ValidationError } from '../core/types';
+import type { Flight, Grid, Hand, PatternInput, ValidationError } from '../core/legacy/types';
 import { ballColours } from './colours';
 import type { Segment } from './types';
 

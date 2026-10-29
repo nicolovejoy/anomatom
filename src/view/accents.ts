@@ -1,6 +1,6 @@
 // SPEC §7.3: the accent mark on the ladder strip where a cross throw lands on a pulse both hand
 // grids share (the downbeat of a 3:2 exchange). Pure; the canvas draws it.
-import type { Hand } from '../core/types';
+import type { Hand } from '../core/legacy/types';
 import type { Frame } from './ladder';
 
 export interface Accent {

@@ -1,5 +1,5 @@
 export * from './types';
-export { gcd, lcm, mod } from './math';
+export { gcd, lcm, mod } from '../math';
 export { parsePattern } from './parse';
 export type { ParseError, ParseResult } from './parse';
 export { activeHands, cycleLength, isCoincident, isVanilla, makeGrids, reduceRatio } from './grid';

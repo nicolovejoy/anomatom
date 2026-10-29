@@ -44,8 +44,8 @@
 // d = min(dwell × catching hand's pulses per beat, maxDwellShare × flight), so it reaches the
 // throw point exactly when it is thrown again. Pulses stay integers; seconds appear only as
 // startTime + pulse × pulseLen.
-import { isCoincident } from '../core/grid';
-import type { Event, Hand, Schedule } from '../core/types';
+import { isCoincident } from '../core/legacy/grid';
+import type { Event, Hand, Schedule } from '../core/legacy/types';
 import { ballColours } from './colours';
 import type { Segment } from './types';
 

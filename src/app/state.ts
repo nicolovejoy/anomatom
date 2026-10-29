@@ -1,6 +1,6 @@
 // The app's state and the one store that holds it. Pure: no DOM, no timers. The knobs write
 // here; every mount reads and subscribes here.
-import type { Ratio } from '../core/types';
+import type { Ratio } from '../core/legacy/types';
 import type { Mapping } from '../sound/mapping';
 import {
   DEFAULT_BPM,

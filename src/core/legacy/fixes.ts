@@ -1,4 +1,4 @@
-import { FIXES, MAX_PERIOD } from '../tunables';
+import { FIXES, MAX_PERIOD } from '../../tunables';
 import { activeHands, cycleLength, isVanilla } from './grid';
 import { ballCount, validate } from './validate';
 import type { Hand, PatternInput, Throw, ValidationError } from './types';

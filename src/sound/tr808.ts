@@ -1,6 +1,6 @@
 // The browser side of the drums: a real AudioContext and smplr's TR-808. Not unit tested
 // (needs Web Audio); the browser smoke test exercises it.
-import type { Hand } from '../core/types';
+import type { Hand } from '../core/legacy/types';
 import { KIT_VOLUME } from '../tunables';
 import type { Kit } from './drum-sound';
 

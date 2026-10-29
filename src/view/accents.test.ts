@@ -1,6 +1,6 @@
 import { expect, test } from 'vitest';
-import { buildSchedule, parsePattern } from '../core';
-import type { PatternInput, Ratio, Schedule } from '../core';
+import { buildSchedule, parsePattern } from '../core/legacy';
+import type { PatternInput, Ratio, Schedule } from '../core/legacy';
 import { accents } from './accents';
 import { ladderFrame } from './ladder';
 import type { Segment } from './types';

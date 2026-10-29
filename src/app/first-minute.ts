@@ -1,7 +1,7 @@
 // The first screen (docs/plans/phone-sheet.md, stream B), headless: when it shows, what a card
 // loads, which card is playing. Pure: no DOM, no timers. `mount-first-minute.ts` is the elements.
-import { buildSchedule } from '../core';
-import type { Ratio, Schedule } from '../core';
+import { buildSchedule } from '../core/legacy';
+import type { Ratio, Schedule } from '../core/legacy';
 import { FIRST_MINUTE_PRESETS } from '../tunables';
 import { analyse } from './knobs-model';
 import { route } from './route';

@@ -5,8 +5,8 @@
 // mapping on every look-ahead tick and an edit is heard from the next window (about
 // LOOKAHEAD_SECONDS), not at the next cycle boundary. Events already handed to the sampler
 // keep the sound they were given.
-import { isCoincident } from '../core/grid';
-import type { Event, Grid, Hand } from '../core/types';
+import { isCoincident } from '../core/legacy/grid';
+import type { Event, Grid, Hand } from '../core/legacy/types';
 import {
   BASE_VELOCITY,
   FILTER_FULL_CROSSINGS,

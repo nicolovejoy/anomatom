@@ -1,4 +1,4 @@
-import { gcd, lcm, mod } from './math';
+import { gcd, lcm, mod } from '../math';
 import type { Grid, HandPattern, PatternInput, Ratio } from './types';
 
 export function reduceRatio(ratio: Ratio): Ratio {

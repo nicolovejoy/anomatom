@@ -7,8 +7,8 @@
 // 3. Numbers and hand names stay precise. Hand 1 is the left hand on screen, hand 2 the right.
 // 4. Labels on controls stay labels: a button says "Play", not "I play".
 // 5. Beats count from 1 at 1:1 and within a hand; pulses count from 0.
-import type { ParseError } from '../core/parse';
-import type { ThrowId, ValidationError } from '../core/types';
+import type { ParseError } from '../core/legacy/parse';
+import type { ThrowId, ValidationError } from '../core/legacy/types';
 
 export const copy = {
   // -------------------------------------------------------------------------------------------

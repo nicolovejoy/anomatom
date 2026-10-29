@@ -1,5 +1,5 @@
 import { expect, test } from 'vitest';
-import { buildSchedule, parsePattern } from '../core';
+import { buildSchedule, parsePattern } from '../core/legacy';
 import { ballColours } from './colours';
 import type { Segment } from './types';
 

@@ -1,6 +1,6 @@
 import { describe, expect, test } from 'vitest';
-import { buildSchedule, parsePattern } from '../core';
-import type { Event, PatternInput, Schedule } from '../core';
+import { buildSchedule, parsePattern } from '../core/legacy';
+import type { Event, PatternInput, Schedule } from '../core/legacy';
 import { JUGGLER } from '../tunables';
 import { jugglerFrame } from './juggler';
 import type { JugglerBall, JugglerLayout } from './juggler';

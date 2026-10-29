@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'vitest';
-import { FIXES } from '../tunables';
+import { FIXES } from '../../tunables';
 import { fixesFor, searchFixes } from './fixes';
 import { parsePattern } from './parse';
 import { validate } from './validate';

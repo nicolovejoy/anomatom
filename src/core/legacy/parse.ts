@@ -1,4 +1,4 @@
-import { MAX_PERIOD } from '../tunables';
+import { MAX_PERIOD } from '../../tunables';
 import type { HandPattern, Throw } from './types';
 
 export type ParseError =

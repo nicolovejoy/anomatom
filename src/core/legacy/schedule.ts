@@ -1,6 +1,6 @@
 import { flightsOf } from './flights';
 import { cycleLength, makeGrids } from './grid';
-import { lcm, mod } from './math';
+import { lcm, mod } from '../math';
 import { validate } from './validate';
 import type { Event, Flight, PatternInput, Schedule } from './types';
 

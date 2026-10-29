@@ -1,6 +1,6 @@
 import { flightsOf } from './flights';
 import { activeHands, cycleLength, isVanilla, makeGrids } from './grid';
-import { lcm, mod } from './math';
+import { lcm, mod } from '../math';
 import type { ErrorDetail, Flight, HandPattern, PatternInput, Validation, ValidationError } from './types';
 
 /**
