@@ -1,96 +1,95 @@
-/* The knob panel. Colours that matter live in tunables (KNOBS) and arrive as custom properties
-   set by mount-knobs.ts: --warning, --ok, --selected. */
-.knobs .row,
-.knobs-transport .row {
+/* The Pattern and Rhythm tabs (SPEC 4.1, 4.2) inside the sheet. Colours and fonts are
+   style.css's custom properties; the chosen swap sites use KNOBS.selected via --selected. */
+.knobs {
   display: flex;
-  flex-wrap: wrap;
-  gap: 8px;
-  align-items: center;
-  margin: 8px 0;
+  flex-direction: column;
+  gap: 14px;
+  padding-bottom: 8px;
 }
-.knobs .row[hidden],
-.knobs-transport .row[hidden] {
-  display: none;
+.knobs .group {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
 }
-/* Play, Stop and the sound status sit outside the phone fold. */
-.sound-status {
-  /* Room for the retry button, so the status changing never moves what is below it. */
-  min-height: 44px;
-}
-.sound-status-text {
-  font-size: 0.9em;
-}
-.sound-status[data-state='failed'] .sound-status-text {
-  color: var(--warning);
-}
-.knobs button,
-.knobs-transport button {
-  padding: 6px 12px;
-}
-.knobs button:disabled,
-.knobs-transport button:disabled {
-  opacity: 0.45;
-}
-/* Play is the phone's main control: a touch target of at least 44px. */
-.knobs-transport button {
-  min-height: 44px;
-  padding: 8px 16px;
-}
-#scrub {
-  min-height: 44px;
-}
-.knobs .chip[aria-pressed='true'] {
-  outline: 2px solid var(--selected);
+.section-label {
+  font-size: 13px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--muted);
 }
 .knobs .hint {
-  opacity: 0.7;
-  font-size: 0.9em;
+  margin: 0;
+  font-size: 13px;
+  color: var(--muted);
 }
-.knob-label {
-  min-width: 4.5em;
+.knobs .row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 12px;
+}
+.knobs button:disabled {
+  opacity: 0.45;
 }
 
 /* Pattern inputs: the input's own text is transparent; the coloured copy behind it shows
-   through, so single digits can take the warning colour (SPEC §4.2). Both share one box. */
+   through, so single digits can take the warning colour (SPEC 4.2). Both share one box. */
 .pattern-row {
   display: flex;
-  flex-wrap: wrap;
-  gap: 8px;
+  flex-direction: column;
+  gap: 6px;
+}
+/* At 1:1 the tab already says Pattern; the label stays for a screen reader. */
+.knobs-pattern:not(.two-hands) .pattern-row label {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+}
+.pattern-box {
+  height: 60px;
+  padding: 0 16px;
+  display: flex;
   align-items: center;
-  margin: 8px 0;
+  gap: 12px;
+  border-radius: 14px;
+  background: var(--raised);
 }
-.pattern-row[hidden] {
-  display: none;
+.pattern-row.bad .pattern-box {
+  box-shadow: inset 0 0 0 2px var(--warn);
 }
-.pattern-row label {
-  min-width: 7.5em;
+.pattern-box:focus-within {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
 }
 .pattern-field {
   position: relative;
-  display: inline-block;
-  width: 16em;
-  max-width: 100%;
-  background: #1b1e24;
-  border-radius: 4px;
+  flex: 1 1 auto;
+  min-width: 0;
 }
 .pattern-field input,
 .pattern-field .mirror {
-  box-sizing: border-box;
+  display: block;
   width: 100%;
-  height: 38px;
-  padding: 0 8px;
-  border: 1px solid transparent;
-  font: 20px/36px ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  height: 56px;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  font: 500 30px/56px var(--font-mono);
   letter-spacing: 0.08em;
+}
+.two-hands .pattern-field input,
+.two-hands .pattern-field .mirror {
+  font-size: 22px;
+  letter-spacing: 0.04em;
 }
 .pattern-field input {
   position: relative;
-  display: block;
   color: transparent;
-  caret-color: #e6e8ec;
+  caret-color: var(--text);
   background: transparent;
-  border-color: #3a404c;
-  border-radius: 4px;
+  outline: none;
 }
 .pattern-field .mirror {
   position: absolute;
@@ -98,108 +97,248 @@
   white-space: pre;
   overflow: hidden;
   pointer-events: none;
-  color: #e6e8ec;
+  color: var(--text);
 }
 .mirror .warn {
-  color: var(--warning);
-  text-decoration: underline wavy var(--warning);
-  text-underline-offset: 4px;
+  color: var(--warn);
 }
 .mirror .chosen {
-  background: color-mix(in srgb, var(--selected) 35%, transparent);
-  border-radius: 3px;
+  background: color-mix(in srgb, var(--selected, #3a7be6) 45%, transparent);
+  border-radius: 4px;
 }
 .indicator {
-  display: inline-block;
-  min-width: 1.4em;
-  text-align: center;
-  font-weight: 700;
+  flex: 0 0 auto;
+  font-size: 14px;
+  white-space: nowrap;
 }
 .indicator[data-state='ok'] {
-  color: var(--ok);
+  color: var(--valid);
+  font-size: 18px;
 }
 .indicator[data-state='bad'] {
-  color: var(--warning);
+  color: var(--warn-text);
 }
 .indicator[data-state='neutral'] {
-  opacity: 0.6;
+  color: var(--muted);
 }
 
-.digit-pad .key {
-  min-width: 2.6em;
-  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
-}
-
-#status {
-  margin: 8px 0;
-}
 #status p {
-  margin: 2px 0;
+  margin: 0;
+  font-size: 15px;
+  line-height: 1.35;
+  color: var(--valid);
 }
 #status.invalid p {
-  color: var(--warning);
+  color: var(--text-2);
+}
+#status p + p {
+  margin-top: 4px;
+}
+.fixes {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.fixes-label {
+  margin: 0;
+  font-size: 15px;
+  color: var(--text-2);
 }
 .fix-buttons {
-  display: inline-flex;
+  display: flex;
   flex-wrap: wrap;
-  gap: 6px;
+  gap: 8px;
 }
-.fixes .fix {
-  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+.fix {
+  height: 44px;
+  padding: 0 18px;
+  border: 0;
+  border-radius: 22px;
+  background: var(--raised);
+  font: 18px var(--font-mono);
 }
 
+.digit-pad {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 8px;
+}
+.digit-pad .key {
+  height: 48px;
+  border: 0;
+  border-radius: 12px;
+  background: var(--raised);
+  font: 22px var(--font-mono);
+}
+.digit-pad .key-op {
+  background: transparent;
+  box-shadow: inset 0 0 0 1px var(--rule);
+  color: var(--text-2);
+}
+.knobs .swap {
+  flex-wrap: nowrap;
+}
+#swap {
+  flex: 0 0 auto;
+  height: 44px;
+  padding: 0 20px;
+  border: 0;
+  border-radius: 22px;
+  background: var(--raised);
+  font-size: 15px;
+}
+/* Space plays and pauses: a keyboard's hint, so only on a wide screen. */
+#app:not(.is-wide) .space-hint {
+  display: none;
+}
+.glossary {
+  margin: 4px 0 0;
+  font-size: 13px;
+  color: var(--muted);
+}
+.glossary dt {
+  margin-top: 8px;
+  color: var(--text-2);
+  font-weight: 600;
+}
+.glossary dd {
+  margin: 0;
+}
+
+/* Rhythm: ratio chips, the steppers behind More, tempo, volume. */
+.ratio-chips {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: 8px;
+}
+.chip,
+.chip-more {
+  height: 48px;
+  padding: 0;
+  border: 0;
+  border-radius: 12px;
+  background: var(--raised);
+  font: 17px var(--font-mono);
+}
+.chip[aria-pressed='true'] {
+  background: var(--accent);
+  color: var(--ground);
+  font-weight: 500;
+}
+.chip-more {
+  color: var(--text-2);
+  font: 14px var(--font-ui);
+}
+.chip-more[aria-expanded='true'] {
+  box-shadow: inset 0 0 0 1px var(--muted);
+}
 .steppers {
-  display: inline-flex;
+  display: flex;
   align-items: center;
-  gap: 4px;
-  margin-left: 8px;
+  justify-content: center;
+  gap: 12px;
 }
 .stepper {
   display: inline-flex;
   align-items: center;
-  gap: 2px;
+  gap: 4px;
 }
-.stepper output {
-  min-width: 1.2em;
+.stepper button {
+  width: 44px;
+  height: 44px;
+  border: 0;
+  border-radius: 12px;
+  background: var(--raised);
+  font-size: 22px;
+}
+.stepper output,
+.steppers .colon {
+  min-width: 1.4em;
   text-align: center;
+  font: 20px var(--font-mono);
 }
-.knobs .stepper button {
-  padding: 4px 8px;
+.tempo {
+  gap: 6px;
+}
+.tempo-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+}
+.bpm-readout {
+  display: inline-flex;
+  align-items: baseline;
+  font-family: var(--font-mono);
 }
 #bpm {
-  width: 4.5em;
+  width: 3.2ch;
+  padding: 0;
+  border: 0;
+  border-radius: 6px;
+  background: transparent;
+  font: 28px var(--font-mono);
+  text-align: right;
+  -moz-appearance: textfield;
+  appearance: textfield;
 }
-#tempo,
-#volume {
-  width: 12em;
-  max-width: 50%;
+#bpm::-webkit-inner-spin-button,
+#bpm::-webkit-outer-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
 }
-#scrub {
-  flex: 1 1 12em;
-  min-width: 8em;
+.bpm-readout .unit {
+  margin-left: 0.4em;
+  font-size: 14px;
+  color: var(--muted);
 }
-.pending {
-  color: var(--selected);
-  font-size: 0.9em;
-}
-.about-link {
-  color: inherit;
-}
-.knobs-toggle {
-  margin: 8px 0;
-  padding: 8px 14px;
+.tempo-hands {
+  display: flex;
+  justify-content: space-between;
+  font-size: 14px;
+  color: var(--muted);
 }
 
-.glossary {
-  margin: 16px 0 0;
-  max-width: 40em;
-  font-size: 0.85em;
-  opacity: 0.65;
-}
-.glossary dt {
-  font-weight: 600;
-  margin-top: 6px;
-}
-.glossary dd {
+/* Sliders: a 6px track filled in the accent up to the value (--fill, set by the mount), and a
+   28px thumb, in a 44px-tall touch target. */
+.slider {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 100%;
+  height: 44px;
   margin: 0;
+  background: transparent;
+}
+.slider:disabled {
+  opacity: 0.45;
+}
+.slider::-webkit-slider-runnable-track {
+  height: 6px;
+  border-radius: 3px;
+  background: linear-gradient(to right, var(--accent) var(--fill, 0%), var(--rule) var(--fill, 0%));
+}
+.slider::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  width: 28px;
+  height: 28px;
+  margin-top: -11px;
+  border: 0;
+  border-radius: 14px;
+  background: var(--text);
+}
+.slider::-moz-range-track {
+  height: 6px;
+  border-radius: 3px;
+  background: var(--rule);
+}
+.slider::-moz-range-progress {
+  height: 6px;
+  border-radius: 3px;
+  background: var(--accent);
+}
+.slider::-moz-range-thumb {
+  width: 28px;
+  height: 28px;
+  border: 0;
+  border-radius: 14px;
+  background: var(--text);
 }

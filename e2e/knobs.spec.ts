@@ -1,6 +1,6 @@
 // The knob panel and the fix state (SPEC §4.1, §4.2), headless. Canvas content (the warning
 // flights, the greyed strip, the accent marks) is checked by screenshot, saved to test-results.
-import { expect, test, type Page } from './fixtures';
+import { expect, openTab, stopPlaying, test, type Page } from './fixtures';
 
 const shot = (page: Page, name: string) => page.screenshot({ path: `test-results/knobs-${name}.png`, fullPage: true });
 const hand1 = (page: Page) => page.locator('#hand-0');
@@ -37,21 +37,33 @@ test('12 offers 22 first; the digit pad types at the caret', async ({ page }) =>
 
 test('ratio chips, steppers, tempo for both hands, and the accent at 3:2', async ({ page }) => {
   await page.goto('/#v1.e30');
+  await openTab(page, 'rhythm');
   await page.locator('.chip', { hasText: '3:2' }).click();
-  await expect(page.locator('.pattern-row[data-hand="1"]')).toBeVisible();
   await expect(page.locator('.tempo-both')).toHaveText('Hand 1 beats at 120 bpm, hand 2 at 80.');
+  await expect(page.locator('.tempo-hands')).toHaveText(/Hand 1 · 120 bpm\s*Hand 2 · 80 bpm/);
   // Arrow keys walk the chips.
   await page.locator('.chip', { hasText: '3:2' }).press('ArrowRight');
   await expect(page.locator('.chip', { hasText: '4:3' })).toHaveAttribute('aria-pressed', 'true');
-  // Steppers: 4:3 → 5:3.
+  // Steppers, behind More: 4:3 → 5:3. A ratio with no chip keeps them showing.
+  await expect(page.locator('#ratio-steppers')).toBeHidden();
+  await page.locator('.chip-more').click();
   await page.locator('.stepper[data-hand="0"] [data-delta="1"]').click();
   await expect(page.locator('.stepper[data-hand="0"] output')).toHaveText('5');
   await expect(page.locator('.chip[aria-pressed="true"]')).toHaveCount(0);
+  await page.locator('.chip-more').click();
+  await expect(page.locator('#ratio-steppers')).toBeVisible();
   await page.locator('#bpm').fill('90');
   await page.locator('#bpm').press('Tab');
   await expect(page.locator('.tempo-both')).toHaveText('Hand 1 beats at 90 bpm, hand 2 at 54.');
+  // Enter in the tempo box commits too.
+  await page.locator('#bpm').fill('100');
+  await page.locator('#bpm').press('Enter');
+  await expect(page.locator('.tempo-both')).toHaveText('Hand 1 beats at 100 bpm, hand 2 at 60.');
+  await expect(page.locator('#tempo')).toHaveValue('100');
 
   await page.locator('.chip', { hasText: '3:2' }).click();
+  await openTab(page, 'pattern');
+  await expect(page.locator('.pattern-row[data-hand="1"]')).toBeVisible();
   await hand1(page).fill('2 2x 2');
   await page.locator('#hand-1').fill('2x 2');
   await expect(status(page)).toHaveText('I have 4 balls.');
@@ -96,21 +108,26 @@ test('play, pause, scrub, resume, stop; Space toggles; volume and sound panel', 
   await hand1(page).fill('441');
   await page.locator('#play').click();
   await expect(page.locator('#play')).toHaveText('Pause');
-  await page.locator('#stop').click();
+  // Stop and the time slider show only while paused.
+  await expect(page.locator('#stop')).toBeHidden();
+  await stopPlaying(page);
   await expect(page.locator('#stop')).toBeDisabled();
 
+  await openTab(page, 'rhythm');
   await page.locator('#volume').fill('0.3');
   await expect(page.locator('#volume')).toHaveValue('0.3');
-  await page.locator('#sound-button').click();
-  await expect(page.locator('#sound-button')).toHaveAttribute('aria-expanded', 'true');
+  await openTab(page, 'sound');
+  await expect(page.locator('#tab-sound')).toHaveAttribute('aria-selected', 'true');
   await page.locator('.about-link').click();
   await expect(page).toHaveURL(/#about$/);
 });
 
 test('an invalid edit while playing: the old pattern plays on, the broken one greyed above', async ({ page }) => {
   await page.goto('/#v1.e30');
+  await openTab(page, 'rhythm');
   await page.locator('.chip', { hasText: '3:2' }).click();
   await page.locator('#play').click();
+  await openTab(page, 'pattern');
   await hand1(page).fill('2x 2 2');
   await page.locator('#hand-1').fill('2 2x');
   await expect(page.locator('.ladder-broken')).toBeVisible();
@@ -118,13 +135,15 @@ test('an invalid edit while playing: the old pattern plays on, the broken one gr
   await expect(page.locator('#play')).toHaveText('Pause');
   await expect(page.locator('#play')).toBeEnabled();
   await shot(page, 'greyed-3-2');
-  await page.locator('#stop').click();
+  await stopPlaying(page);
   await expect(page.locator('.ladder-broken')).toBeHidden();
 });
 
 test('Space types a space in a pattern input; Enter there plays; Space elsewhere pauses', async ({ page }) => {
   await page.goto('/#v1.e30');
+  await openTab(page, 'rhythm');
   await page.locator('.chip', { hasText: '3:2' }).click();
+  await openTab(page, 'pattern');
   await hand1(page).fill('');
   await hand1(page).click();
   await page.keyboard.type('2');
@@ -140,6 +159,7 @@ test('Space types a space in a pattern input; Enter there plays; Space elsewhere
   // Enter never pauses.
   await page.locator('#hand-1').press('Enter');
   await expect(page.locator('#play')).toHaveText('Pause');
+  await openTab(page, 'rhythm');
   await page.locator('#volume').focus();
   await page.keyboard.press('Space');
   await expect(page.locator('#play')).toHaveText('Play');
@@ -166,6 +186,8 @@ test('a fix click returns focus to the input; a chip always applies its exact ra
   await page.locator('.fix').first().click();
   await expect(hand1(page)).toBeFocused();
   // Steppers to 2:2, then the 1:1 chip normalises it.
+  await openTab(page, 'rhythm');
+  await page.locator('.chip-more').click();
   await page.locator('.stepper[data-hand="0"] [data-delta="1"]').click();
   await page.locator('.stepper[data-hand="1"] [data-delta="1"]').click();
   await expect(page.locator('.chip[aria-pressed="true"]')).toHaveCount(0);
@@ -174,14 +196,65 @@ test('a fix click returns focus to the input; a chip always applies its exact ra
   await expect(page.locator('.chip', { hasText: '1:1' })).toHaveAttribute('aria-pressed', 'true');
 });
 
-test('phone width folds the panel under a button; the juggler and ladder stay', async ({ page }) => {
+test('phone: the closed sheet, the summary opens Pattern, tabs switch and close, Escape and the handle close', async ({
+  page,
+}) => {
   await page.setViewportSize({ width: 390, height: 844 });
   await page.goto('/#v1.e30');
-  await expect(page.locator('.knobs-toggle')).toBeVisible();
-  await expect(page.locator('#knobs-body')).toBeHidden();
+  // Closed: the summary, Play and the tabs; no panel. The juggler and the ladder stay.
+  await expect(page.locator('.summary')).toBeVisible();
+  await expect(page.locator('.summary')).toContainText('3 balls · 120 bpm');
+  await expect(page.locator('#play')).toBeVisible();
+  await expect(page.locator('#tab-rhythm')).toBeVisible();
+  await expect(hand1(page)).toBeHidden();
   await expect(page.locator('canvas.ladder').last()).toBeVisible();
-  await shot(page, 'phone-folded');
-  await page.locator('.knobs-toggle').click();
-  await expect(page.locator('#knobs-body')).toBeVisible();
-  await shot(page, 'phone-open');
+  await shot(page, 'phone-closed');
+  // The summary opens the Pattern tab.
+  await page.locator('.summary').click();
+  await expect(page.locator('#tab-pattern')).toHaveAttribute('aria-selected', 'true');
+  await expect(hand1(page)).toBeVisible();
+  await expect(page.locator('.about-link')).toBeHidden();
+  await hand1(page).fill('531');
+  await expect(page.locator('.summary')).toContainText('531');
+  // Another tab switches; the open tab again closes.
+  await page.locator('#tab-rhythm').click();
+  await expect(page.locator('.chip').first()).toBeVisible();
+  await expect(hand1(page)).toBeHidden();
+  await shot(page, 'phone-rhythm');
+  await page.locator('#tab-rhythm').click();
+  await expect(page.locator('.chip').first()).toBeHidden();
+  await expect(page.locator('.about-link')).toBeVisible();
+  // Escape closes, focus back on the summary.
+  await page.locator('#tab-sound').click();
+  await expect(page.locator('.sound-panel')).toBeVisible();
+  await page.locator('#sp-preset').focus();
+  await page.keyboard.press('Escape');
+  await expect(page.locator('.sound-panel')).toBeHidden();
+  await expect(page.locator('.summary')).toBeFocused();
+  // The handle: a tap opens on the last tab, a drag down closes.
+  await page.locator('.sheet-grab').click();
+  await expect(page.locator('.sound-panel')).toBeVisible();
+  const grab = (await page.locator('.sheet-grab').boundingBox()) as { x: number; y: number; width: number; height: number };
+  await page.mouse.move(grab.x + grab.width / 2, grab.y + 10);
+  await page.mouse.down();
+  await page.mouse.move(grab.x + grab.width / 2, grab.y + 120, { steps: 5 });
+  await page.mouse.up();
+  await expect(page.locator('.sound-panel')).toBeHidden();
+});
+
+test('wide: the sheet is a column, always open on a tab; the open tab again keeps it', async ({ page }) => {
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await page.goto('/#v1.e30');
+  await expect(page.locator('#tab-pattern')).toHaveAttribute('aria-selected', 'true');
+  await expect(hand1(page)).toBeVisible();
+  await expect(page.locator('.sheet-grab')).toBeHidden();
+  await page.locator('#tab-pattern').click();
+  await expect(hand1(page)).toBeVisible();
+  await page.keyboard.press('Escape');
+  await expect(hand1(page)).toBeVisible();
+  // Arrow keys walk the tabs.
+  await page.locator('#tab-pattern').press('ArrowRight');
+  await expect(page.locator('#tab-rhythm')).toBeFocused();
+  await expect(page.locator('#tab-rhythm')).toHaveAttribute('aria-selected', 'true');
+  await shot(page, 'wide');
 });

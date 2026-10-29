@@ -1,7 +1,7 @@
 // SPEC §7.8: load the page, press play, see the first Event fire. Audio output is not
 // observable (samples load from a CDN and stay silent until they arrive), so the page publishes
 // how many events the player has handed to the sampler in `data-events-scheduled` on #app.
-import { expect, test } from './fixtures';
+import { expect, stopPlaying, test } from './fixtures';
 
 const scheduled = async (page: import('./fixtures').Page) =>
   Number(await page.locator('#app').getAttribute('data-events-scheduled'));
@@ -19,6 +19,6 @@ test('pressing play schedules events, and they keep coming as the audio clock ru
   const first = await scheduled(page);
   await expect.poll(() => scheduled(page), { timeout: 5_000 }).toBeGreaterThan(first + 4);
 
-  await page.locator('#stop').click();
+  await stopPlaying(page);
   await expect(page.locator('#stop')).toBeDisabled();
 });

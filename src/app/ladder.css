@@ -1,15 +1,12 @@
-/* The ladder strip region. Colours and sizes that matter live in tunables. */
+/* The ladder strip region. Colours and sizes that matter live in tunables; the height comes from
+   --ladder-height, set by mount-sheet.ts (LADDER.heightPx wide, SHEET.ladderPx on a phone). */
 .ladder {
   display: block;
   width: 100%;
-  border-radius: 6px;
-  margin: 12px 0;
-}
-.ladder[hidden] {
-  display: none;
+  height: var(--ladder-height, 220px);
+  margin: 4px 0;
 }
 /* The broken pattern, above the one that plays (SPEC 4.2). */
 .ladder-broken {
-  opacity: 0.85;
-  margin-bottom: 0;
+  opacity: 0.75;
 }

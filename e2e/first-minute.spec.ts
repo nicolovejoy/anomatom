@@ -25,6 +25,10 @@ test('opens on the cards, 441 plays, Make your own shows the play view and keeps
   await expect(page.locator('#app')).not.toHaveClass(/is-first-minute/);
   await expect(page.locator('#play')).toBeVisible();
   await expect(page.locator('#hand-0')).toHaveValue('441');
+  // The sheet opens on the Pattern tab.
+  await expect(page.locator('#tab-pattern')).toHaveAttribute('aria-selected', 'true');
+  await expect(page.locator('#hand-0')).toBeVisible();
+  if (SHOTS) await page.screenshot({ path: `${SHOTS}/make-your-own.png` });
   const before = await scheduled(page);
   await expect.poll(() => scheduled(page), { timeout: 5_000 }).toBeGreaterThan(before);
 });

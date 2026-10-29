@@ -1,20 +1,180 @@
-/* Globals only: reset, fonts, the layout of the regions. Each region's styles live beside its
-   mount in src/app. Colours and sizes that matter live in tunables. */
+/* Globals: the palette and fonts every region uses, the reset, and the page layout (play view,
+   phone sheet, desktop column). Each region's own styles live beside its mount in src/app.
+   The names on :root are published for every stream (docs/plans/phone-sheet.md, "Look"). */
+@import url('https://fonts.googleapis.com/css2?family=Unbounded:wght@700&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap');
+
+:root {
+  --ground: #0e1013;
+  --surface: #171a20;
+  --raised: #20242c;
+  --rule: #2a2f38;
+  /* The grab handle and the dimmest marks. */
+  --handle: #3a404b;
+  --text: #e6e8ec;
+  --text-2: #c9ced8;
+  --muted: #8b93a1;
+  --accent: #f0c33c;
+  --valid: #8fd3a8;
+  --warn: #ff9f43;
+  /* The warning colour as text on a surface: the "can't juggle" beside a broken pattern. */
+  --warn-text: #ffbf80;
+  --font-ui: 'IBM Plex Sans', system-ui, -apple-system, 'Segoe UI', sans-serif;
+  --font-mono: 'IBM Plex Mono', ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  --font-mark: 'Unbounded', var(--font-ui);
+  color-scheme: dark;
+  accent-color: var(--accent);
+}
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+[hidden] {
+  display: none !important;
+}
+html,
+body {
+  height: 100%;
+}
 body {
   margin: 0;
-  /* viewport-fit=cover (standalone on iPhone): keep content clear of the notch and home bar. */
-  padding: max(16px, env(safe-area-inset-top)) max(16px, env(safe-area-inset-right)) max(16px, env(safe-area-inset-bottom))
-    max(16px, env(safe-area-inset-left));
-  font: 16px/1.4 system-ui, sans-serif;
-  background: #0e1013;
-  color: #e6e8ec;
-  max-width: 900px;
-  margin-inline: auto;
-}
-h1 {
-  margin: 0 0 4px;
+  font: 16px/1.4 var(--font-ui);
+  background: var(--ground);
+  color: var(--text);
+  -webkit-tap-highlight-color: transparent;
 }
 input,
-button {
+button,
+select {
   font: inherit;
+  color: inherit;
+}
+button {
+  cursor: pointer;
+}
+button:disabled {
+  cursor: default;
+}
+:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  margin: -1px;
+  padding: 0;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+/* -------------------------------------------------------------------------------------------
+   The page: top bar, stage (juggler over ladder), sheet. Phone first; .is-wide is the desktop
+   column, set by mount-sheet.ts from SHEET.wideMinWidthPx.
+   ------------------------------------------------------------------------------------------- */
+
+#app {
+  /* viewport-fit=cover (standalone on iPhone): keep content clear of the notch and home bar. */
+  padding: env(safe-area-inset-top) env(safe-area-inset-right) 0 env(safe-area-inset-left);
+  min-height: 100%;
+}
+.topbar {
+  height: 44px;
+  padding: 0 8px 0 20px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+.wordmark {
+  margin: 0;
+  font: 700 19px/1 var(--font-mark);
+  letter-spacing: -0.02em;
+}
+.topbar .about-link {
+  width: 44px;
+  height: 44px;
+  border-radius: 22px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--text-2);
+  font-size: 20px;
+  font-weight: 600;
+  text-decoration: none;
+}
+.region-about {
+  padding: 0 20px 24px;
+}
+
+/* Phone: the play view fills the screen; the sheet sits at the bottom and grows up when open. */
+.play-view {
+  display: flex;
+  flex-direction: column;
+  height: calc(100dvh - 44px - env(safe-area-inset-top));
+}
+.stage {
+  flex: 1 1 auto;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+}
+.region-juggler {
+  position: relative;
+  flex: 1 1 auto;
+  min-height: 120px;
+}
+.region-ladder {
+  flex: 0 0 auto;
+  padding: 0 16px;
+}
+.region-sheet {
+  flex: 0 0 auto;
+}
+/* Open on a phone: the top bar goes, the sheet takes most of the screen, the pictures shrink. */
+#app.sheet-open:not(.is-wide) .topbar {
+  display: none;
+}
+#app.sheet-open:not(.is-wide) .play-view {
+  height: calc(100dvh - env(safe-area-inset-top));
+}
+#app.sheet-open:not(.is-wide) .region-sheet {
+  flex: 0 1 var(--sheet-open-height, 62dvh);
+  min-height: 0;
+}
+
+/* Desktop: the sheet is a column on the right, always open on a tab. */
+#app.is-wide {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  grid-template-rows: auto 1fr;
+  height: 100dvh;
+}
+#app.is-wide .play-view {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) var(--sheet-column, 400px);
+  gap: 24px;
+  height: auto;
+  min-height: 0;
+  padding: 0 0 0 8px;
+}
+#app.is-wide .region-juggler {
+  min-height: 260px;
+}
+#app.is-wide .region-ladder {
+  padding: 0 8px 24px;
+}
+#app.is-wide .region-sheet {
+  min-height: 0;
+}
+
+/* First minute (stream B): under the juggler on a phone, in the column on a wide screen. */
+.region-first-minute {
+  padding: 0 16px max(20px, env(safe-area-inset-bottom));
+}
+#app.is-wide .region-first-minute {
+  padding: 16px 16px 24px;
 }

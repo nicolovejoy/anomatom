@@ -72,7 +72,8 @@ export const LADDER = {
   tickPx: { coincident: 14, beat: 7 },
   tickWidthPx: { coincident: 2, beat: 1 },
   playheadWidthPx: 2,
-  background: '#14161a',
+  /** The page ground (--ground in style.css). */
+  background: '#0e1013',
   lane: '#2a2e36',
   tick: '#4a505c',
   tickCoincident: '#c8ccd4',
@@ -109,9 +110,14 @@ export const JUGGLER = {
   flashPulses: 1,
   /** Seconds over which the scale follows a pattern switch. */
   boundsEaseSeconds: 0.75,
-  /** The region's height on the page. */
+  /** The region's least height on a wide screen; on a phone it fills what the sheet leaves. */
   heightPx: 260,
-  background: '#14161a',
+  /** The page ground (--ground in style.css): the juggler stands on the page, not in a box. */
+  background: '#0e1013',
+  /** The hands: a bar under each hand's catch-to-throw span (board 2a), this tall, this far under a held ball. */
+  hand: '#3a404b',
+  handBarPx: 9,
+  handGapPx: 4,
   /** The flash: a ring this many radii out, in this colour, as wide as `flashRingPx`. */
   flashRing: '#ffffff',
   flashRingRadii: 1.6,
@@ -260,12 +266,9 @@ export const KNOBS = {
    * after the last keystroke, never on each one; a result for text since changed is dropped.
    */
   fixDebounceMs: 150,
-  /** At this width or narrower the panel folds under a button; the juggler and ladder stay. */
-  phoneMaxWidthPx: 600,
-  /** The warning colour: colliding digits, their flights on the ladder, the invalid indicator. */
-  warning: '#ff6b4a',
-  /** The valid indicator and the chosen swap sites. */
-  ok: '#4fb477',
+  /** The warning colour on the canvases (--warn in style.css): colliding flights on the ladder. */
+  warning: '#ff9f43',
+  /** The chosen swap sites. */
   selected: '#3a7be6',
   /** Volume slider step, 0 to 1. */
   volumeStep: 0.01,
@@ -275,11 +278,26 @@ export const KNOBS = {
 
 /** The broken pattern's strip (SPEC §4.2), and the accent mark at coincident cross landings (SPEC §7.3). */
 export const LADDER_E = {
-  /** Bars of the broken pattern drawn above the playing one, greyed; colliding ones keep the warning colour. */
+  /** The ghost's flights that collide with nothing (the colliding ones take KNOBS.warning). */
   greyBar: '#596070',
   /** The accent: a triangle on the catching hand's lane, pointing into the strip. */
   accent: '#ffffff',
   accentPx: 7,
+  /**
+   * The ghost: the broken pattern on its own short strip above the one that plays (board 1b),
+   * each flight a thin line from the throwing lane to the catching lane, colliding flights in
+   * the warning colour meeting at a ring on the landing pulse, and a small label.
+   */
+  ghost: {
+    heightPx: 56,
+    lanePaddingPx: 14,
+    linePx: 3,
+    alpha: 0.6,
+    ringPx: 7,
+    ringLinePx: 2,
+    labelFont: '11px "IBM Plex Mono", ui-monospace, monospace',
+    label: '#8b93a1',
+  },
 } as const;
 
 // ---------------------------------------------------------------------------------------------
@@ -321,3 +339,23 @@ export const FIRST_MINUTE_PRESETS: readonly {
   { id: 'ramp', patterns: ['97531', DEFAULT_PATTERN_HAND2], ratio: { a: 1, b: 1 }, wide: false },
   { id: 'polyrhythm', patterns: ['2 2x 2', '2x 2'], ratio: { a: 3, b: 2 }, wide: true },
 ];
+
+// ---------------------------------------------------------------------------------------------
+// Phone sheet (docs/plans/phone-sheet.md, stream A)
+// ---------------------------------------------------------------------------------------------
+
+/** The bottom sheet on a phone and the right-hand column on a wide screen. */
+export const SHEET = {
+  /** At this width or wider the sheet is a column on the right, always open on a tab. */
+  wideMinWidthPx: 760,
+  /** The column's width on a wide screen. */
+  columnPx: 400,
+  /** The open sheet's height on a phone, as a share of the screen. */
+  openHeightDvh: 62,
+  /** The ladder strip's height on a phone, sheet closed and open; a wide screen uses LADDER.heightPx. */
+  ladderPx: { closed: 112, open: 92 },
+  /** A drag on the handle longer than this opens or closes the sheet; shorter is a tap. */
+  dragPx: 24,
+  /** A pattern this long or longer is drawn smaller in the closed sheet's summary. */
+  longSummaryChars: 7,
+} as const;

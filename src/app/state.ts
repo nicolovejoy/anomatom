@@ -21,8 +21,6 @@ export interface AppState {
   readonly mapping: Mapping;
   /** The last play-view state hash (`#v1.…`), for About's back link; null before there is one. */
   readonly lastStateHash: string | null;
-  /** UI state: whether the sound panel is open. Stream E sets it, stream F reads it; the share hash never carries it. */
-  readonly soundPanelOpen: boolean;
   /** UI state: which tab of the phone sheet is open, or null when it is closed (docs/plans/phone-sheet.md). Never in the share hash. */
   readonly sheetTab: SheetTab | null;
 }
@@ -37,7 +35,6 @@ export function defaultState(): AppState {
     volume: DEFAULT_VOLUME,
     mapping: DEFAULT_MAPPING,
     lastStateHash: null,
-    soundPanelOpen: false,
     sheetTab: null,
   };
 }

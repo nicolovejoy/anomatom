@@ -7,9 +7,10 @@ export function drawJuggler(canvas: HTMLCanvasElement, frame: JugglerFrame) {
   if (!ctx) return;
   const dpr = window.devicePixelRatio || 1;
   const width = canvas.clientWidth;
-  const height = JUGGLER.heightPx;
+  // The region sets the height (it fills what the sheet leaves on a phone).
+  const height = canvas.clientHeight || JUGGLER.heightPx;
   // Hidden (About showing) or not laid out yet: nothing to draw, and a negative scale would draw garbage.
-  if (width <= 2 * JUGGLER.minRadiusPx) return;
+  if (width <= 2 * JUGGLER.minRadiusPx || height <= 2 * JUGGLER.minRadiusPx) return;
   if (canvas.width !== Math.round(width * dpr) || canvas.height !== Math.round(height * dpr)) {
     canvas.width = Math.round(width * dpr);
     canvas.height = Math.round(height * dpr);
@@ -23,11 +24,26 @@ export function drawJuggler(canvas: HTMLCanvasElement, frame: JugglerFrame) {
   // A margin of the smallest drawn radius keeps a ball drawn larger than the scene's whole.
   const { left, right, bottom, top } = frame.bounds;
   const pad = JUGGLER.minRadiusPx;
-  const scale = Math.min((width - 2 * pad) / (right - left), (height - 2 * pad) / (top - bottom));
+  // Room under the scene for the hands.
+  const floor = height - pad - JUGGLER.handGapPx - JUGGLER.handBarPx;
+  const scale = Math.min((width - 2 * pad) / (right - left), (floor - pad) / (top - bottom));
   const x0 = (width - (right - left) * scale) / 2;
   const px = (x: number) => x0 + (x - left) * scale;
-  const py = (y: number) => height - pad - (y - bottom) * scale;
+  const py = (y: number) => floor - (y - bottom) * scale;
   const r = Math.max(JUGGLER.radius * scale, JUGGLER.minRadiusPx);
+
+  // The hands: a bar under each hand's span, from its catch point to its throw point, just
+  // under a held ball, never past the canvas.
+  const handY = Math.min(py(0) + r + JUGGLER.handGapPx, height - JUGGLER.handBarPx);
+  ctx.fillStyle = JUGGLER.hand;
+  for (const h of [0, 1] as const) {
+    const a = px(Math.min(JUGGLER.catchX[h], JUGGLER.throwX[h])) - r;
+    const b = px(Math.max(JUGGLER.catchX[h], JUGGLER.throwX[h])) + r;
+    const bar = JUGGLER.handBarPx;
+    ctx.beginPath();
+    ctx.roundRect(a, handY, b - a, bar, bar / 2);
+    ctx.fill();
+  }
 
   for (const b of frame.balls) {
     const x = px(b.x);

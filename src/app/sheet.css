@@ -1,0 +1,223 @@
+/* The sheet (docs/plans/phone-sheet.md): a bottom sheet on a phone, a right-hand column on a
+   wide screen. The page layout around it is in style.css; the panels' content in knobs.css and
+   sound-panel.css. Colours and fonts are style.css's custom properties. */
+.sheet {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  padding: 0 16px max(20px, env(safe-area-inset-bottom));
+  background: var(--surface);
+  border-radius: 24px 24px 0 0;
+  box-shadow: 0 -1px 0 var(--rule);
+}
+
+/* The handle: the whole width of the sheet, the pill drawn near its top. */
+.sheet-grab {
+  display: flex;
+  justify-content: center;
+  align-items: flex-start;
+  height: 30px;
+  margin: 0 -16px -14px;
+  padding: 8px 0 0;
+  border: 0;
+  background: transparent;
+  touch-action: none;
+  cursor: grab;
+}
+.sheet-grab span {
+  width: 40px;
+  height: 5px;
+  border-radius: 3px;
+  background: var(--handle);
+}
+/* No handle on a wide screen: the top of the column keeps the sheet's own padding. */
+#app.is-wide .sheet {
+  padding-top: 16px;
+}
+
+/* The head: summary, Play, then (paused) Stop and the time slider, then the sound status. */
+.sheet-head {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+.head-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+.summary {
+  flex: 1 1 auto;
+  min-width: 0;
+  height: 56px;
+  padding: 0 16px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  border: 0;
+  border-radius: 14px;
+  background: var(--raised);
+  color: var(--text);
+  text-align: left;
+}
+.summary-text {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: pre;
+  font: 500 26px/1 var(--font-mono);
+  letter-spacing: 0.08em;
+}
+.summary.long {
+  padding: 0 14px;
+}
+.summary.long .summary-text {
+  font-size: 18px;
+  letter-spacing: 0;
+}
+.summary.invalid .summary-text {
+  color: var(--warn);
+}
+.summary-side {
+  flex: 0 0 auto;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 2px;
+}
+.summary-meta {
+  font-size: 13px;
+  color: var(--valid);
+  white-space: nowrap;
+}
+.summary.invalid .summary-meta {
+  color: var(--warn-text);
+}
+.pending {
+  font-size: 12px;
+  color: var(--accent);
+  white-space: nowrap;
+}
+
+.play {
+  flex: 0 0 auto;
+  width: 64px;
+  height: 64px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 0;
+  border-radius: 32px;
+  background: var(--accent);
+  color: var(--ground);
+}
+.play:disabled {
+  opacity: 0.4;
+}
+.play .icon-pause,
+.play[data-state='playing'] .icon-play {
+  display: none;
+}
+.play[data-state='playing'] .icon-pause {
+  display: block;
+}
+
+.paused-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+#stop {
+  flex: 0 0 auto;
+  height: 44px;
+  padding: 0 18px;
+  border: 0;
+  border-radius: 22px;
+  background: var(--raised);
+  font-size: 15px;
+}
+#scrub {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+/* The sound status says something only when the drums failed; loading and ready stay for a
+   screen reader (role="status"), off screen. */
+.sound-status {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  font-size: 13px;
+  color: var(--warn-text);
+}
+.sound-status:not([data-state='failed']) {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+}
+#sound-retry {
+  flex: 0 0 auto;
+  height: 44px;
+  padding: 0 16px;
+  border: 0;
+  border-radius: 22px;
+  background: var(--raised);
+  color: var(--text);
+}
+
+/* Tabs: plain words while the sheet is closed; an underlined selected tab while it is open. */
+.sheet-tabs {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px;
+}
+.sheet-tab {
+  height: 44px;
+  border: 0;
+  border-radius: 12px;
+  background: transparent;
+  color: var(--text-2);
+  font-size: 15px;
+  font-weight: 500;
+}
+#app.sheet-open .sheet-tabs {
+  border-bottom: 1px solid var(--rule);
+}
+#app.sheet-open .sheet-tab {
+  border-radius: 0;
+  color: var(--muted);
+}
+#app.sheet-open .sheet-tab[aria-selected='true'] {
+  color: var(--text);
+  font-weight: 600;
+  box-shadow: inset 0 -3px 0 var(--accent);
+}
+
+/* The open panel scrolls inside the sheet. */
+.sheet-panels {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  margin: 0 -16px;
+  padding: 0 16px;
+}
+#app:not(.sheet-open) .sheet-panels {
+  display: none;
+}
+
+/* Wide: a column the height of the window. */
+#app.is-wide .region-sheet {
+  border-radius: 24px 24px 0 0;
+  min-height: 0;
+  overflow: hidden;
+}
+
+/* First minute (stream B) takes the sheet's place while it shows. */
+#app.is-first-minute .region-sheet {
+  display: none;
+}

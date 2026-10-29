@@ -19,3 +19,13 @@ export const test = base.extend({
 /** An error from the aborted CDN requests, by source URL or text: nothing else is excused. */
 export const isCdnError = (text: string, m?: ConsoleMessage): boolean =>
   text.includes(CDN_HOST) || (m?.location().url ?? '').includes(CDN_HOST);
+
+/** Shows one tab of the sheet (docs/plans/phone-sheet.md); on a wide screen the column is always open on one. */
+export const openTab = (page: import('@playwright/test').Page, tab: 'pattern' | 'rhythm' | 'sound') =>
+  page.locator(`#tab-${tab}`).click();
+
+/** Stop lives beside the time slider, shown while paused: pause first if playing, then stop. */
+export async function stopPlaying(page: import('@playwright/test').Page) {
+  if ((await page.locator('#play').textContent())?.includes('Pause')) await page.locator('#play').click();
+  await page.locator('#stop').click();
+}

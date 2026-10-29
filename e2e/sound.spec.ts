@@ -1,7 +1,7 @@
 // The sound panel and the share link (SPEC §4.3, §7.5), headless. Audio output is not
 // observable, so "nothing auto-plays" is read from `data-events-scheduled` staying at 0 and the
 // transport staying stopped.
-import { expect, isCdnError, test, type Page } from './fixtures';
+import { expect, isCdnError, openTab, test, type Page } from './fixtures';
 
 const scheduled = async (page: Page) => Number(await page.locator('#app').getAttribute('data-events-scheduled'));
 const shot = (page: Page, name: string) => page.screenshot({ path: `test-results/sound-${name}.png`, fullPage: true });
@@ -14,22 +14,20 @@ async function settledHref(page: Page, contains = '#v1.') {
 }
 
 async function openPanel(page: Page) {
-  await page.locator('#sound-button').click();
+  await openTab(page, 'sound');
   await expect(page.locator('.sound-panel')).toBeVisible();
 }
 
-test('the drawer opens from the Sound button and closes with its button and with Escape', async ({ page }) => {
+test('the Sound tab shows the panel; another tab hides it', async ({ page }) => {
   await page.goto('/#v1.e30');
   await expect(page.locator('.sound-panel')).toBeHidden();
   await openPanel(page);
+  await expect(page.locator('#tab-sound')).toHaveAttribute('aria-selected', 'true');
   await expect(page.locator('#sp-preset')).toHaveValue('height-drum');
-  await shot(page, 'drawer');
-  await page.locator('.sp-close').click();
+  await shot(page, 'tab');
+  await openTab(page, 'pattern');
   await expect(page.locator('.sound-panel')).toBeHidden();
-  await expect(page.locator('#sound-button')).toHaveAttribute('aria-expanded', 'false');
-  await openPanel(page);
-  await page.keyboard.press('Escape');
-  await expect(page.locator('.sound-panel')).toBeHidden();
+  await expect(page.locator('#tab-sound')).toHaveAttribute('aria-selected', 'false');
 });
 
 test('an edit reads as custom, and Reset to preset undoes it', async ({ page }) => {
@@ -63,6 +61,7 @@ test('SPEC §7.5: three sound fields, the link, a new tab: everything matches an
 }) => {
   await page.goto('/#v1.e30');
   await page.locator('#hand-0').fill('441');
+  await openTab(page, 'rhythm');
   await page.locator('#bpm').fill('96');
   await page.locator('#bpm').press('Enter');
   await openPanel(page);
@@ -84,7 +83,7 @@ test('SPEC §7.5: three sound fields, the link, a new tab: everything matches an
   await expect(other.locator('#sp-accent')).toHaveValue('33');
   await expect(other.locator('#sp-pad-on')).toBeChecked();
   await expect(other.locator('#sp-pad-chord')).toHaveValue('open5');
-  // Volume and the open drawer are not in the link.
+  // Volume and the open tab are not in the link.
   await expect(other.locator('.sound-panel')).toBeHidden();
   // Nothing auto-plays: stopped, and nothing handed to the sampler.
   await expect(other.locator('#play')).toHaveText('Play');

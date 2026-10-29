@@ -4,10 +4,73 @@ import type { Bar, Frame } from '../view/ladder';
 import { BALL_COLOURS, KNOBS, LADDER, LADDER_E } from '../tunables';
 
 export interface DrawOptions {
-  /** The broken pattern above the playing one (SPEC §4.2): bars grey, except the colliding ones. */
-  readonly greyed?: boolean;
   /** Marks at coincident cross landings (SPEC §7.3). */
   readonly accents?: readonly Accent[];
+}
+
+/**
+ * The broken pattern as a ghost above the one that plays (SPEC §4.2, board 1b): lanes, each
+ * flight a thin line from lane to lane, colliding ones in the warning colour meeting at a ring
+ * where they land, and `label` ("432 · not playing") at the top right.
+ */
+export function drawGhost(canvas: HTMLCanvasElement, frame: Frame, label: string) {
+  const ctx = canvas.getContext('2d');
+  if (!ctx) return;
+  const g = LADDER_E.ghost;
+  const dpr = window.devicePixelRatio || 1;
+  const width = canvas.clientWidth;
+  const height = canvas.clientHeight || g.heightPx;
+  if (canvas.width !== Math.round(width * dpr) || canvas.height !== Math.round(height * dpr)) {
+    canvas.width = Math.round(width * dpr);
+    canvas.height = Math.round(height * dpr);
+  }
+  ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  ctx.fillStyle = LADDER.background;
+  ctx.fillRect(0, 0, width, height);
+  const px = (pulses: number) => (pulses / frame.windowPulses) * width;
+  const laneY = [g.lanePaddingPx, height - g.lanePaddingPx / 2];
+
+  ctx.strokeStyle = LADDER.lane;
+  ctx.lineWidth = 2;
+  for (const y of laneY) {
+    ctx.beginPath();
+    ctx.moveTo(0, y);
+    ctx.lineTo(width, y);
+    ctx.stroke();
+  }
+
+  ctx.globalAlpha = g.alpha;
+  ctx.lineWidth = g.linePx;
+  ctx.lineCap = 'round';
+  const rings = new Map<string, [number, number]>();
+  const bars: Bar[] = [...frame.bars.filter((b) => !b.broken), ...frame.bars.filter((b) => b.broken)];
+  for (const b of bars) {
+    const x0 = px(b.x0);
+    const x1 = Math.max(px(b.x1), x0 + LADDER.minBarPx);
+    const y0 = laneY[b.from] as number;
+    const y1 = laneY[b.to] as number;
+    ctx.strokeStyle = b.broken ? KNOBS.warning : LADDER_E.greyBar;
+    ctx.beginPath();
+    ctx.moveTo(x0, y0);
+    ctx.lineTo(x1, y1);
+    ctx.stroke();
+    if (b.broken) rings.set(`${Math.round(x1)}:${b.to}`, [x1, y1]);
+  }
+  ctx.strokeStyle = KNOBS.warning;
+  ctx.lineWidth = g.ringLinePx;
+  for (const [x, y] of rings.values()) {
+    ctx.beginPath();
+    ctx.arc(x, y, g.ringPx, 0, Math.PI * 2);
+    ctx.stroke();
+  }
+  ctx.globalAlpha = 1;
+  ctx.font = g.labelFont;
+  ctx.textAlign = 'right';
+  ctx.textBaseline = 'top';
+  ctx.fillStyle = g.label;
+  ctx.fillText(label, width - 2, 0);
+  ctx.textAlign = 'start';
+  ctx.textBaseline = 'alphabetic';
 }
 
 export function drawLadder(canvas: HTMLCanvasElement, frame: Frame, options: DrawOptions = {}) {
@@ -15,7 +78,8 @@ export function drawLadder(canvas: HTMLCanvasElement, frame: Frame, options: Dra
   if (!ctx) return;
   const dpr = window.devicePixelRatio || 1;
   const width = canvas.clientWidth;
-  const height = LADDER.heightPx;
+  // The page sets the height: LADDER.heightPx on a wide screen, less on a phone (SHEET.ladderPx).
+  const height = canvas.clientHeight || LADDER.heightPx;
   if (canvas.width !== Math.round(width * dpr) || canvas.height !== Math.round(height * dpr)) {
     canvas.width = Math.round(width * dpr);
     canvas.height = Math.round(height * dpr);
@@ -67,11 +131,7 @@ export function drawLadder(canvas: HTMLCanvasElement, frame: Frame, options: Dra
   // Flagged flights last, so the warning colour is never hidden under another bar.
   const bars: Bar[] = [...frame.bars.filter((b) => !b.broken), ...frame.bars.filter((b) => b.broken)];
   for (const b of bars) {
-    const colour = b.broken
-      ? KNOBS.warning
-      : options.greyed
-        ? LADDER_E.greyBar
-        : (BALL_COLOURS[b.colour % BALL_COLOURS.length] as string);
+    const colour = b.broken ? KNOBS.warning : (BALL_COLOURS[b.colour % BALL_COLOURS.length] as string);
     const x0 = px(b.x0);
     const x1 = Math.max(px(b.x1), x0 + LADDER.minBarPx);
     const y0 = rowY(b.from, b.colour);
