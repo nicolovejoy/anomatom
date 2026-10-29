@@ -1,6 +1,3 @@
-/* v8 ignore start */
-// Browser-only. The follow-up PR makes vitest.config.ts exclude *.browser.ts; until it lands the
-// ignore comments keep coverage green.
 // The browser side of the downbeat pad: smplr's Mellotron and Soundfont, fetched on demand.
 // Not unit tested (needs Web Audio and the network); coverage ignores `*.browser.ts`.
 import { PAD_INSTRUMENTS, PAD_VOLUME } from '../tunables';
@@ -25,4 +22,3 @@ export const browserPad: LoadPad = async (context, instrument, destination): Pro
     dispose: () => sampler.disconnect(),
   };
 };
-/* v8 ignore stop */
