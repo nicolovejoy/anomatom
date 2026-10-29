@@ -61,7 +61,7 @@ When a pattern is invalid:
 - The input shows the colliding digits in the warning colour; the message names every throw in the group: "throws 2 and 4 both land on beat 3", "throws 1, 2 and 3 all land on beat 5".
 - The ladder strip still draws, with the two colliding flights in the warning colour meeting at the landing pulse.
 - Play is disabled; the last valid pattern keeps playing if it was playing, and the strip shows the broken one above it, greyed, so the user can compare.
-- Up to three fix buttons under the input, each a full pattern the user can read before clicking: Swap (the swap property applied to one colliding throw and another throw of the same hand, the nearest such swap that validates; swapping the colliding pair itself changes nothing, since their landings are equal), and the nearest one or two valid patterns by edit distance. A fractional ball count gets the single-digit change that makes it whole.
+- Up to three fix buttons under the input, each a full pattern the user can read before clicking: the nearest valid patterns by edit distance. Swap is not among them: a swap leaves the set of landings unchanged, so it cannot repair a collision (`MATH.md` §3). A fractional ball count gets the single-digit change that makes it whole: the smallest change to one digit that validates, then the lowest position, then raising over lowering.
 - No automatic correction, ever.
 
 ### 4.3 Sound panel
@@ -112,7 +112,7 @@ Static page. Three short sections: the idea (ladder diagram = piano roll; polyrh
 v1 is done when all of these hold in Chrome, Safari and Firefox on a laptop, and Safari on an iPhone:
 
 1. `3`, `441`, `531`, `51`, `5551`, `97531` validate and play with a 1:1 ratio; the ladder and the juggler agree with hand-drawn ladder diagrams for each.
-2. `12`, `21`, `43`, `4441` report a fractional ball count and offer a one-digit fix that is itself valid; `432`, `510` and `2x 2 2` / `2 2x` report a collision naming the right throws and offer fixes that are themselves valid.
+2. `12`, `21`, `43`, `4441` report a fractional ball count and offer a one-digit fix that is itself valid; `432` and `510` report a collision naming the right throws and offer fixes that are themselves valid.
 3. `2` on each hand at 3:2 validates and plays as two fountains, and the strip shows 3 against 2; `2 2x 2` / `2x 2` validates with both crosses landing on the downbeat and the strip shows the exchange with the accent, while `2x 2 2` / `2 2x` is rejected naming the landing pulses. This is the demo as pitched. (Notation: `MATH.md` §6 and §8.)
 4. Changing tempo or pattern while playing never clicks, drops a ball on screen, or stutters the strip; the change lands on the next cycle.
 5. A share link round-trips: open it in a fresh tab and the knobs, sound panel and pattern match.

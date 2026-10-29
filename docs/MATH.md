@@ -22,7 +22,9 @@ App: the validator. A failure names every throw in a colliding group; when sever
 
 Swapping the landing beats of two throws gives another valid pattern with the same ball count. If throws at positions i and j have heights a and b, the new heights are b + (j − i) at i and a − (j − i) at j. 51 ↔ 24; 441 ↔ 531 (swap positions 1 and 2; positions 2 and 3 give 423). When a throw is marked `x`, the mark belongs to the landing and moves with it. This is where the name "siteswap" comes from.
 
-App: the Swap knob, and the first suggested fix for a collision (swap the colliding pair, which moves one landing off the other).
+Because a swap only exchanges two landings, the set of landing beats is unchanged: a swap keeps a valid pattern valid and an invalid one invalid. It cannot repair a collision.
+
+App: the Swap knob. Not a fix for a collision.
 
 ## 4. States and the state graph (Polster [5]; Chung and Graham 2008 [4])
 

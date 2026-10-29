@@ -29,6 +29,11 @@ interface Segment {
   readonly pulseLen: number;
   /** Seconds at which the next segment takes over; null for the last. Flights launched before it are drawn to their landing. */
   readonly endTime: number | null;
+  /**
+   * Ball identity across the switch into this segment: new ball id → the previous segment's ball
+   * id it continues. Empty for the first segment. Computed by `carryOver` (stream B).
+   */
+  readonly carry: ReadonlyMap<number, number>;
 }
 interface PlayerView {
   /** The time the picture shows: the audio clock while playing, frozen while paused, set by the scrub slider. */
@@ -40,7 +45,9 @@ interface PlayerView {
 }
 ```
 
-When stopped, `player.view()` returns one segment of the latest valid edit placed so that `now` is pulse 0 (or the scrub position). Wave 0 implements this with the current single-schedule player and converts `ladderFrame` to take `(segments, now)`. B adds queued switches and tempo changes behind the same shape.
+When stopped, `player.view()` returns one segment of the latest valid edit placed so that `now` is pulse 0 (or the scrub position). Wave 0 implements this with the current single-schedule player and converts `ladderFrame` to take `(segments, now)`, including several segments: each segment's throws are drawn from its start until its `endTime`, flights to their landing, colours through `carry`. Wave 0 tests that with hand-built two-segment views (a tempo change and a pattern change). B adds queued switches and tempo changes behind the same shape.
+
+**Carry-over rule** (`carryOver(old, new, boundary)`, pure, in `src/core`, owned by B; A and the ladder read only `carry`). An old flight still in the air at the boundary that lands at (pulse, hand) where the new schedule throws is the same ball: the new ball id maps to the old one and keeps its colour. When both patterns pass through the same state at the boundary (MATH §4: `3`, `441`, `531` all share the ground state) every ball carries, and the juggler shows the right count throughout. Unmatched old flights land and vanish into the hand; unmatched new balls appear held at their first throw point. Only a change of ball count or of state leaves unmatched balls.
 
 **App state and store.** `src/app/state.ts`, pure, 100% lines. It holds:
 - pattern text per hand
@@ -58,6 +65,7 @@ The store has `get`, `set(patch)` and `subscribe`.
 - `mountKnobs`
 - `mountSoundPanel`
 - `mountAbout`
+- `mountShare` (a stub in wave 0, no element; stream F fills it)
 
 `main.ts` builds the context, calls each mount and runs one rAF loop over the returned `draw` functions. No stream after wave 0 edits `main.ts`.
 
@@ -103,10 +111,7 @@ Motion:
 - Apex = `g·air²/8` (SPEC §4.1, MATH §7).
 - Before a ball's first throw at or after pulse 0, it sits held at that throw point. The ladder draws nothing before 0, and the two views must agree (SPEC §7.1).
 
-Switches:
-- Flights launched in an old segment are drawn to their landing, then those balls vanish into the hand.
-- Balls of the new segment appear held at their first throw point.
-- Scene bounds fit the larger of the old and new segments across a switch, so the scale doesn't jump.
+Switches follow the carry-over rule above: a carried ball moves without a jump from its old flight into its new throw; an unmatched old ball lands and vanishes; an unmatched new ball appears held. Scene bounds fit the larger of the old and new segments across a switch, so the scale doesn't jump.
 
 Flash: a cross flight landing on a coincident pulse flashes over `[land − d, land + flashPulses)`, centred on the clap.
 
@@ -116,7 +121,7 @@ Tests:
 - A cross ends at the other hand.
 - Positions are continuous across the period wrap and at large `now`.
 - Before the first throw, balls are held.
-- In a two-segment switch, no ball jumps.
+- In a two-segment switch with a full `carry` (`3` → `441`), the ball count on screen stays 3 and no ball jumps; with a ball-count change (`3` → `4`), the count never exceeds the larger of the two.
 - `2 2x 2` / `2x 2` at 3:2 flashes at 6 − ε and 6 + ε.
 - `2` / `2` at 3:2 never flashes, and neither do `3`, `441` and `97531`.
 
@@ -126,16 +131,17 @@ Check for Nico: `3`, `441` and `2 2x 2` / `2x 2` at 3:2 juggle in time with the 
 
 **B. Player and fix state, logic** (roadmap 5, logic half; Opus). Pure where possible, 100% lines.
 - Player: queued changes (pattern, ratio, tempo, a restored hash) land at the next cycle boundary as a new segment, with no restart and no click (SPEC §5.5, §7.4). It also covers tempo changes, pause, resume, scrub while paused, and `pending`. B owns every edit to `player.ts` in wave 1.
-- `src/core/fixes.ts`, `fixesFor(input, errors)`, returns up to three fixes, each of which must validate:
-  - Swap: `swapSites(i, k)` or `swapSites(j, k)`, where i and j are colliding sites and k is another site of the same hand. Take the nearest |site − k| that validates; offer none if none does.
-  - Up to two nearest valid patterns by edit distance.
-  - For a fractional count, the one-digit change that makes it whole. Tie-break: it must validate, the value nearest the original digit wins, then the lowest index.
+- `carryOver(old, new, boundary)` in `src/core`, filling `Segment.carry` for every switch the player queues.
+- `src/core/fixes.ts`, `fixesFor(input, errors)`, returns up to three fixes, each of which must validate (SPEC §4.2):
+  - Up to three nearest valid patterns by edit distance. No swap: a swap keeps the set of landings, so it never repairs a collision (MATH §3).
+  - For a fractional count, the one-digit change that makes it whole: smallest change that validates, then lowest position, then raising over lowering (`12` → `22`).
 - Validation detail for highlighting: all errors, not just `errors[0]`, plus the digit indices each error involves. Structured data only; the words belong to E.
 - `brokenFrame(flights, errors, segments, now, view)` in `src/view/ladder.ts`: the ladder frame of an invalid pattern, with colliding flights flagged.
 
 Tests:
-- `432`, `510` and `2x 2 2` / `2 2x` name the right throws.
-- `12`, `21`, `43` and `4441` get a valid one-digit fix (SPEC §7.2).
+- `432` and `510` name the right colliding throws; `2x 2 2` / `2 2x` names its off-grid landing pulses (SPEC §7.3).
+- `12`, `21`, `43` and `4441` get a valid one-digit fix (SPEC §7.2), `12` → `22`.
+- `carryOver`: `3` → `441` carries every ball; `3` → `4` carries three.
 - Every offered fix validates.
 - A two-segment switch keeps `now` continuous across a tempo change.
 
@@ -194,6 +200,7 @@ Check for Nico: a smoke test of every knob, plus `432` showing its collision and
 **F. Sound panel and share link UI** (roadmap 6, UI half; Sonnet). Needs C.
 - The drawer, with one control per Mapping field, reset to preset, and copy share link.
 - F wires the Mapping into `player.ts` (live edits, pad hits at cycle start, filter cutoff from crossings). It is the only stream editing `player.ts` in wave 2.
+- F fills `mountShare`: restore from the hash on page load, `replaceState` (debounced) on every store change, the `hashchange` listener for a pasted link, and the last state hash kept in the store for About's back link. Wave 0's `route()` decides play versus About; `mountShare` handles only the state.
 
 Check for Nico: change three sound fields, copy the link, open it in a new tab, and everything matches (SPEC §7.5).
 
