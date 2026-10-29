@@ -1,4 +1,5 @@
-/* The knob panel. Colours and sizes that matter live in tunables. */
+/* The knob panel. Colours that matter live in tunables (KNOBS) and arrive as custom properties
+   set by mount-knobs.ts: --warning, --ok, --selected. */
 .knobs .row {
   display: flex;
   flex-wrap: wrap;
@@ -6,23 +7,166 @@
   align-items: center;
   margin: 8px 0;
 }
-.knobs input {
-  padding: 6px 8px;
-  width: 8em;
+.knobs .row[hidden] {
+  display: none;
 }
 .knobs button {
   padding: 6px 12px;
 }
+.knobs button:disabled {
+  opacity: 0.45;
+}
 .knobs .chip[aria-pressed='true'] {
-  outline: 2px solid #3a7be6;
+  outline: 2px solid var(--selected);
 }
 .knobs .hint {
   opacity: 0.7;
   font-size: 0.9em;
 }
+.knob-label {
+  min-width: 4.5em;
+}
+
+/* Pattern inputs: the input's own text is transparent; the coloured copy behind it shows
+   through, so single digits can take the warning colour (SPEC §4.2). Both share one box. */
+.pattern-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+  margin: 8px 0;
+}
+.pattern-row[hidden] {
+  display: none;
+}
+.pattern-row label {
+  min-width: 7.5em;
+}
+.pattern-field {
+  position: relative;
+  display: inline-block;
+  width: 16em;
+  max-width: 100%;
+  background: #1b1e24;
+  border-radius: 4px;
+}
+.pattern-field input,
+.pattern-field .mirror {
+  box-sizing: border-box;
+  width: 100%;
+  height: 38px;
+  padding: 0 8px;
+  border: 1px solid transparent;
+  font: 20px/36px ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  letter-spacing: 0.08em;
+}
+.pattern-field input {
+  position: relative;
+  display: block;
+  color: transparent;
+  caret-color: #e6e8ec;
+  background: transparent;
+  border-color: #3a404c;
+  border-radius: 4px;
+}
+.pattern-field .mirror {
+  position: absolute;
+  inset: 0;
+  white-space: pre;
+  overflow: hidden;
+  pointer-events: none;
+  color: #e6e8ec;
+}
+.mirror .warn {
+  color: var(--warning);
+  text-decoration: underline wavy var(--warning);
+  text-underline-offset: 4px;
+}
+.mirror .chosen {
+  background: color-mix(in srgb, var(--selected) 35%, transparent);
+  border-radius: 3px;
+}
+.indicator {
+  display: inline-block;
+  min-width: 1.4em;
+  text-align: center;
+  font-weight: 700;
+}
+.indicator[data-state='ok'] {
+  color: var(--ok);
+}
+.indicator[data-state='bad'] {
+  color: var(--warning);
+}
+.indicator[data-state='neutral'] {
+  opacity: 0.6;
+}
+
+.digit-pad .key {
+  min-width: 2.6em;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+}
+
 #status {
   margin: 8px 0;
 }
+#status p {
+  margin: 2px 0;
+}
+#status.invalid p {
+  color: var(--warning);
+}
+.fix-buttons {
+  display: inline-flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+.fixes .fix {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+}
+
+.steppers {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  margin-left: 8px;
+}
+.stepper {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+}
+.stepper output {
+  min-width: 1.2em;
+  text-align: center;
+}
+.knobs .stepper button {
+  padding: 4px 8px;
+}
+#bpm {
+  width: 4.5em;
+}
+#tempo,
+#volume {
+  width: 12em;
+  max-width: 50%;
+}
+#scrub {
+  flex: 1 1 12em;
+  min-width: 8em;
+}
+.pending {
+  color: var(--selected);
+  font-size: 0.9em;
+}
+.about-link {
+  color: inherit;
+}
+.knobs-toggle {
+  margin: 8px 0;
+  padding: 8px 14px;
+}
+
 .glossary {
   margin: 16px 0 0;
   max-width: 40em;

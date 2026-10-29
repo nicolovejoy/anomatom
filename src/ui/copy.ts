@@ -144,6 +144,7 @@ export const copy = {
   // -------------------------------------------------------------------------------------------
 
   pause: 'Pause',
+  spacePlayPause: 'Space plays and pauses me, wherever you are on the page.',
   /** The digit pad beside the pattern inputs. */
   digitPadLabel: 'Type a throw',
   crossKey: 'x',
