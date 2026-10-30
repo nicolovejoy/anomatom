@@ -307,12 +307,34 @@ describe('quietly', () => {
   });
 });
 
+describe('a short-looking junk hash', () => {
+  test('restores to the defaults without throwing', () => {
+    for (const junk of ['5x1', '3:2/2!/2', '3:2/x2/2', '2:2/2/2', '531~custom', '531~nope', '9'.repeat(70)]) {
+      const t = setup('#' + junk);
+      expect(() => t.share.start()).not.toThrow();
+      expect(t.store.get().parts).toEqual(defaultState().parts);
+      expect(t.store.get().bpm).toBe(defaultState().bpm);
+    }
+  });
+  test('a percent-encoded short link still reads', () => {
+    const t = setup('#531%7Eheight-drum%40140');
+    t.share.start();
+    expect(t.store.get().bpm).toBe(140);
+    expect(t.store.get().parts).toEqual(vanillaParts('531'));
+  });
+});
+
 describe('shareLink', () => {
   test('uses the share sheet where there is one; a dismissed sheet is not an error', async () => {
     const share = vi.fn(async () => undefined);
     expect(await shareLink('https://x/#531', { share })).toBe('shared');
     expect(share).toHaveBeenCalledWith({ url: 'https://x/#531' });
-    expect(await shareLink('u', { share: async () => Promise.reject(new Error('AbortError')) })).toBe('cancelled');
+    expect(await shareLink('u', { share: async () => Promise.reject(new DOMException('', 'AbortError')) })).toBe('cancelled');
+    // Any other refusal falls back to the clipboard.
+    const writeText = vi.fn(async () => undefined);
+    const refused = async () => Promise.reject(new DOMException('', 'NotAllowedError'));
+    expect(await shareLink('u', { share: refused, writeText })).toBe('copied');
+    expect(await shareLink('u', { share: refused })).toBe('not-copied');
   });
   test('else copies, and says when it could not', async () => {
     const writeText = vi.fn(async () => undefined);

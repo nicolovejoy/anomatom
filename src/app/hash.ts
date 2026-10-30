@@ -93,13 +93,13 @@ export function decodeState(payload: string, version: 1 | 2 | 'short' = 2): Pick
 }
 
 type Shared = Pick<AppState, 'parts' | 'ratio' | 'bpm' | 'mapping'>;
-const SHORT_LINE = /^[0-9a-z x-]+$/;
+const SHORT_LINE = /^[0-9a-z-]+$/;
 
 /** A short link's state (grammar in route.ts), or null when it does not parse. */
 function decodeShort(payload: string): Shared | null {
   const at = payload.indexOf('@');
   const head = at === -1 ? payload : payload.slice(0, at);
-  const bpm = at === -1 ? DEFAULT_BPM : numberIn(Number(payload.slice(at + 1)), BPM_RANGE.min, BPM_RANGE.max, DEFAULT_BPM, true);
+  const bpm = at === -1 || at === payload.length - 1 ? DEFAULT_BPM : numberIn(Number(payload.slice(at + 1)), BPM_RANGE.min, BPM_RANGE.max, DEFAULT_BPM, true);
   const tilde = head.indexOf('~');
   const body = tilde === -1 ? head : head.slice(0, tilde);
   const name = tilde === -1 ? presetOf(DEFAULT_MAPPING) : PRESET_NAMES.find((n) => n === head.slice(tilde + 1));

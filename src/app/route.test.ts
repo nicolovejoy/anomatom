@@ -25,6 +25,11 @@ test('a short link is the play view carrying the whole short form', () => {
   expect(route('#about').view).toBe('about');
 });
 
+test('a percent-encoded short link is decoded; undecodable junk is no state', () => {
+  expect(route('#531%7Eheight-drum%40140')).toEqual({ view: 'play', state: '531~height-drum@140', version: 'short' });
+  expect(route('#%E0%A4%A')).toEqual({ view: 'play', state: null, version: null });
+});
+
 test('a short link may carry a preset segment', () => {
   expect(route('#531~height-drum@140')).toEqual({ view: 'play', state: '531~height-drum@140', version: 'short' });
 });

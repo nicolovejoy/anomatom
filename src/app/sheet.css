@@ -101,9 +101,11 @@
   white-space: nowrap;
 }
 
-.share {
+.share-wrap {
   position: relative;
   flex: 0 0 auto;
+}
+.share {
   width: 44px;
   height: 44px;
   display: flex;

@@ -141,15 +141,16 @@ export interface ShareButtonDeps {
 
 /**
  * What the share button does with `url`: the system share sheet where it exists (a dismissed
- * sheet is `cancelled`, not an error), else the clipboard. Never throws.
+ * sheet is `cancelled`, not an error), else, or if it refuses for another reason, the clipboard. Never throws.
  */
 export async function shareLink(url: string, deps: ShareButtonDeps): Promise<ShareOutcome> {
   if (deps.share) {
     try {
       await deps.share({ url });
       return 'shared';
-    } catch {
-      return 'cancelled';
+    } catch (err) {
+      // A dismissed share sheet is the user's answer; any other refusal falls through to the clipboard.
+      if ((err as { name?: string } | null)?.name === 'AbortError') return 'cancelled';
     }
   }
   try {

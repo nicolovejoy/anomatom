@@ -1,5 +1,9 @@
 // The share button in the head row (v2 plan, ruling 5) and the short links it copies (ruling 4),
 // headless. The clipboard is read for real, so this runs on Chromium-family browsers only.
+import { partsFromVanilla } from '../src/core';
+import { encodeState } from '../src/app/hash';
+import { defaultState } from '../src/app/state';
+import { applyPreset } from '../src/sound/mapping';
 import { expect, test } from './fixtures';
 
 test.use({ viewport: { width: 390, height: 844 } });
@@ -37,7 +41,17 @@ test('the Sound tab no longer has a copy button', async ({ page }) => {
   await expect(page.locator('#sp-copy')).toHaveCount(0);
 });
 
-test('an old #v2. link still opens', async ({ page }) => {
-  await page.goto('/#v1.e30');
+test('an old #v2. link and an old #v1. link still open, and restore their state', async ({ page }) => {
+  const parts = partsFromVanilla('441');
+  if (!parts.ok) throw new Error('441 reads');
+  const v2 = encodeState({ ...defaultState(), parts: parts.parts, bpm: 150, mapping: applyPreset('ball-pitch') });
+  await page.goto('/' + v2);
+  await expect(page.locator('#hand-0')).toHaveValue('441');
+  await expect(page.locator('#bpm')).toHaveValue('150');
   await expect(page.locator('#share')).toBeVisible();
+  const v1 = '#v1.' + Buffer.from(JSON.stringify({ p: ['531', ''], r: [1, 1], t: 95 })).toString('base64url');
+  await page.goto('/' + v1);
+  await page.reload();
+  await expect(page.locator('#hand-0')).toHaveValue('531');
+  await expect(page.locator('#bpm')).toHaveValue('95');
 });

@@ -34,7 +34,7 @@ export interface Route {
 
 const VERSIONS = [1, 2] as const;
 /** The shape of a short link; whether it parses is `hash.ts`'s business. */
-const SHORT = /^(\d[0-9a-z]*|\d+:\d+\/[0-9a-z x-]*\/[0-9a-z x-]*)(~[a-z-]+)?(@\d+)?$/;
+const SHORT = /^(\d[0-9a-z]*|\d+:\d+\/[0-9a-z-]*\/[0-9a-z-]*)(~[a-z-]+)?(@\d+)?$/;
 
 export function route(hash: string): Route {
   const h = hash.startsWith('#') ? hash.slice(1) : hash;
@@ -43,6 +43,13 @@ export function route(hash: string): Route {
     const prefix = `v${version}.`;
     if (h.startsWith(prefix) && h.length > prefix.length) return { view: 'play', state: h.slice(prefix.length), version };
   }
-  if (SHORT.test(h)) return { view: 'play', state: h, version: 'short' };
+  // An app or link sanitizer may have percent-encoded `~`, `:` or `@`.
+  let decoded = h;
+  try {
+    decoded = decodeURIComponent(h);
+  } catch {
+    // not decodable: it cannot be a short link either way
+  }
+  if (SHORT.test(decoded)) return { view: 'play', state: decoded, version: 'short' };
   return { view: 'play', state: null, version: null };
 }

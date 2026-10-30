@@ -366,7 +366,9 @@ describe('short links (grammar in route.ts)', () => {
       ramp: '#97531~height-drum',
       polyrhythm: '#3:2/2-2x-2/2x-2~height-drum',
     };
+    const seen: string[] = [];
     for (const p of PRESETS.filter((c) => c.first && c.parts.length === 2)) {
+      seen.push(p.id);
       const state = { parts: p.parts, ratio: p.ratio, bpm: p.bpm ?? DEFAULT_BPM, mapping: p.mapping };
       const hash = encodeHash(state);
       if (p.id in short) {
@@ -377,6 +379,7 @@ describe('short links (grammar in route.ts)', () => {
         expect(hash.startsWith('#v2.')).toBe(true);
       }
     }
+    expect(Object.keys(short).every((id) => seen.includes(id))).toBe(true);
   });
 
   test('the tempo rides after @ unless it is the default', () => {
@@ -416,7 +419,8 @@ describe('short links (grammar in route.ts)', () => {
     expect(typed?.bpm).toBe(DEFAULT_BPM);
     expect(typed?.mapping).toEqual(DEFAULT_MAPPING);
     expect(decodeState('531@9999', 'short')?.bpm).toBe(BPM_RANGE.max);
-    expect(decodeState('531@', 'short')?.bpm).toBe(BPM_RANGE.min);
+    expect(decodeState('531@', 'short')?.bpm).toBe(DEFAULT_BPM);
+    expect(decodeState('531@abc', 'short')?.bpm).toBe(DEFAULT_BPM);
     const hands = decodeState('6:4/2-2x-2/2x-2', 'short');
     expect(hands?.ratio).toEqual({ a: 6, b: 4 });
     expect(hands?.parts).toEqual(lineParts(['2 2x 2', '2x 2'], { a: 6, b: 4 }));
@@ -428,7 +432,6 @@ describe('short links (grammar in route.ts)', () => {
       '2:2/2/2', '99999:2/2/2', `3:2/${'2'.repeat(65)}/2`, '3:2/0x/2',
     ]) {
       expect(decodeState(junk, 'short')).toBeNull();
-      // And through the store's restore path: no state, never a throw.
     }
     expect(decodeState('5x1', 'short')).toBeNull();
   });
