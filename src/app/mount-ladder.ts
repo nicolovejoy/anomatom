@@ -1,12 +1,15 @@
 // The ladder strip region (SPEC §4.1): one canvas, drawn every frame from the player view.
 // The player always has a schedule (the sound is never gated, design §6), so the strip always
 // draws what plays: a faulted group's flights in grey, with no ball.
-import { LADDER } from '../tunables';
+import { HUMAN_AIRTIME_SECONDS, LADDER } from '../tunables';
 import { accents } from '../view/accents';
 import { ladderFrame } from '../view/ladder';
 import { drawLadder } from './ladder-canvas';
 import type { Mount } from './mount';
 import './ladder.css';
+
+/** The strip's layout, with the airtime past which a flight is not a human throw (dimmed). */
+const VIEW = { ...LADDER, humanAirtimeSeconds: HUMAN_AIRTIME_SECONDS };
 
 export const mountLadder: Mount = (root) => {
   const canvas = document.createElement('canvas');
@@ -18,7 +21,7 @@ export const mountLadder: Mount = (root) => {
     draw(view) {
       // Before the knobs hand the player its first edit there is nothing to show.
       if (view.segments.length === 0) return;
-      const frame = ladderFrame(view.segments, view.now, LADDER);
+      const frame = ladderFrame(view.segments, view.now, VIEW);
       // Test hook (SPEC §7.1): how many distinct balls the strip draws, to compare with the juggler.
       const balls = String(new Set(frame.bars.flatMap((b) => (b.colour === null ? [] : [b.colour]))).size);
       if (canvas.dataset.balls !== balls) canvas.dataset.balls = balls;

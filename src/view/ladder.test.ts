@@ -13,6 +13,16 @@ const view = { windowPulses: 12, playheadFraction: 0.25 };
 const single = (schedule: Schedule): Segment => ({ schedule, startTime: 0, pulseLen: 1, endTime: null, carry: new Map() });
 const frameAt = (schedule: Schedule, position: number, v: LadderView) => ladderFrame([single(schedule)], position, v);
 
+test('a flight longer than a human throw at its tempo is marked, as the juggler marks it (SPEC §4.1 v2)', () => {
+  // 531 at one second a pulse: the 5 is 5 s, the 3 is 3 s (not over), the 1 is 1 s.
+  const f = frameAt(vanilla('531'), 6, { ...view, humanAirtimeSeconds: 3 });
+  expect(f.bars.length).toBeGreaterThan(0);
+  for (const b of f.bars) expect(b.inhuman).toBe(b.x1 - b.x0 > 3);
+  expect(f.bars.some((b) => b.inhuman)).toBe(true);
+  // Without the limit, none is.
+  expect(frameAt(vanilla('531'), 6, view).bars.every((b) => !b.inhuman)).toBe(true);
+});
+
 test('the window is placed around the playhead', () => {
   const f = frameAt(buildSchedule(vanilla('3')), 10, view);
   expect(f.start).toBe(7);

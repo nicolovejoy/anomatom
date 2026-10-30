@@ -46,8 +46,15 @@
 // startTime + pulse × pulseLen.
 //
 // A part in a faulted cross group has events with no ball (design §6): it sounds, and this draws
-// no ball for it. Two parts are drawn, hand 1 and hand 2.
-import type { Event, Schedule } from '../core/types';
+// no ball for it. Its fault is drawn instead (`faults`): the colliding or off-onset flights as
+// arcs, meeting where they land. The Schedule keeps no faulted digits (its stand-in flights are
+// the k = 1 gaps), so those flights come from the caller's lookup by schedule, the model's own
+// `flightsOf` of the parts that schedule was built from. Two parts are drawn, hand 1 and hand 2.
+//
+// SPEC §4.1 (v2): a flight longer than `humanAirtimeSeconds` from throw to catch, at its
+// segment's tempo, is "not a human throw" (`inhuman`): presentation only.
+import { mod } from '../core/math';
+import type { Event, Flight, Schedule } from '../core/types';
 import { ballColours } from './colours';
 import { catchPart, handOf, isCoincident, type Hand } from './grids';
 import type { Segment } from './types';
@@ -73,6 +80,20 @@ export interface JugglerLayout {
   readonly flashPulses: number;
   /** Seconds over which the scene height follows a switch, so the scale never jumps. Above 0. */
   readonly boundsEaseSeconds: number;
+  /** A flight longer than this, throw to catch in seconds, is not a human throw (SPEC §4.1 v2). */
+  readonly humanAirtimeSeconds: number;
+}
+
+/** The flights of the parts a schedule was built from, for drawing its faults; undefined when unknown. */
+export type FlightLookup = (schedule: Schedule) => readonly Flight[] | undefined;
+
+/** A faulted flight (design §6), drawn as a whole arc from its thrower's throw point to its catcher's catch point. */
+export interface FaultArc {
+  readonly x0: number;
+  readonly x1: number;
+  readonly apex: number;
+  /** Longer than a human throw. */
+  readonly inhuman: boolean;
 }
 
 export interface JugglerBall {
@@ -89,6 +110,8 @@ export interface JugglerBall {
    * tick: rises from the catch to 1 on the clap (the landing pulse), falls to 0 after it.
    */
   readonly flash: number;
+  /** The flight the ball is on is longer than a human throw: drawn dimmed. */
+  readonly inhuman: boolean;
 }
 
 /** What the canvas must fit: every ball, its radius included, through any switch on screen. */
@@ -101,6 +124,10 @@ export interface SceneBounds {
 
 export interface JugglerFrame {
   readonly balls: readonly JugglerBall[];
+  /** The faults of the segment playing now: every flight a fault names, as an arc. */
+  readonly faults: readonly FaultArc[];
+  /** True while a ball is in the air on a flight longer than a human throw: the label shows. */
+  readonly inhuman: boolean;
   readonly bounds: SceneBounds;
 }
 
@@ -293,7 +320,12 @@ function waiting(seg: Segment, first: Event, now: number, layout: JugglerLayout)
  *   the next segment carries its ball, the ball is handed over at that instant, when the new
  *   segment's first throw of it begins; if not, the ball vanishes into the hand at the catch.
  */
-export function jugglerFrame(segments: readonly Segment[], now: number, layout: JugglerLayout): JugglerFrame {
+export function jugglerFrame(
+  segments: readonly Segment[],
+  now: number,
+  layout: JugglerLayout,
+  lookup: FlightLookup = () => undefined,
+): JugglerFrame {
   const colours = ballColours(segments);
   const balls: JugglerBall[] = [];
 
@@ -319,7 +351,7 @@ export function jugglerFrame(segments: readonly Segment[], now: number, layout: 
       if (!own) {
         if (ended || seg.carry.has(ball)) continue;
         const place = waiting(seg, index.first[ball] as Event, now, layout);
-        balls.push({ ball: colour.get(ball) as number, ...place, flash: 0 });
+        balls.push({ ball: colour.get(ball) as number, ...place, flash: 0, inhuman: false });
         continue;
       }
 
@@ -354,11 +386,64 @@ export function jugglerFrame(segments: readonly Segment[], now: number, layout: 
         flash = Math.max(flash, 1 - after / flashLen);
       }
 
-      balls.push({ ball: colour.get(ball) as number, ...place, flash });
+      balls.push({ ball: colour.get(ball) as number, ...place, flash, inhuman: span > layout.humanAirtimeSeconds });
     }
   });
 
-  return { balls, bounds: bounds(segments, now, layout) };
+  const playing = segments.find((s) => s.endTime === null || now < s.endTime);
+  return {
+    balls,
+    faults: playing ? faultArcs(playing, layout, lookup) : [],
+    inhuman: balls.some((b) => b.inhuman && b.held === null),
+    bounds: bounds(segments, now, layout, lookup),
+  };
+}
+
+/** A faulted flight in pulses: who throws and catches it, how long it is, and the catcher's spacing. */
+interface FaultFlight {
+  readonly from: Hand;
+  readonly to: Hand;
+  readonly flight: number;
+  readonly toSpacing: number;
+}
+
+const faultFlights = new WeakMap<Schedule, readonly FaultFlight[]>();
+
+/**
+ * Every flight a fault of the schedule's verdict names, once each: the throws of a collision
+ * (those landing on its pulse) and the throw of a no-onset fault. An unfed onset has no flight.
+ * Empty when the lookup does not know the schedule's flights.
+ */
+function faultedFlights(schedule: Schedule, lookup: FlightLookup): readonly FaultFlight[] {
+  const cached = faultFlights.get(schedule);
+  if (cached) return cached;
+  const flights = lookup(schedule);
+  if (!flights) return [];
+  const named = new Set<Flight>();
+  const same = (f: Flight, part: number, index: number) => f.id.part === part && f.id.index === index;
+  for (const fault of schedule.verdict.groups.flatMap((g) => g.faults)) {
+    for (const f of flights) {
+      if (fault.kind === 'collision') {
+        if (f.to === fault.part && mod(f.land, schedule.cycle) === fault.pulse && fault.throws.some((t) => same(f, t.part, t.index))) named.add(f);
+      } else if (fault.kind === 'no-onset' && f.land === fault.pulse && same(f, fault.from.part, fault.from.index)) named.add(f);
+    }
+  }
+  const out = [...named].map((f) => ({ from: handOf(f.from), to: handOf(f.to), flight: f.land - f.launch, toSpacing: spacing(schedule, f.to) }));
+  faultFlights.set(schedule, out);
+  return out;
+}
+
+/** The arcs of a segment's faults, at its pulse length. */
+function faultArcs(seg: Segment, layout: JugglerLayout, lookup: FlightLookup, pulseLen = seg.pulseLen): FaultArc[] {
+  return faultedFlights(seg.schedule, lookup).map((f) => {
+    const d = Math.min(layout.dwellBeats * f.toSpacing, layout.maxDwellShare * f.flight);
+    return {
+      x0: layout.throwX[f.from],
+      x1: layout.catchX[f.to],
+      apex: apex((f.flight - d) * pulseLen, layout),
+      inhuman: f.flight * pulseLen > layout.humanAirtimeSeconds,
+    };
+  });
 }
 
 /**
@@ -385,7 +470,7 @@ const clamp01 = (x: number): number => Math.min(Math.max(x, 0), 1);
  * flight lands, so a switch never makes the scale jump. A segment's apex is taken at the longer
  * of its own and the next pulse length, which bounds its retimed crossing flights too.
  */
-function bounds(segments: readonly Segment[], now: number, layout: JugglerLayout): SceneBounds {
+function bounds(segments: readonly Segment[], now: number, layout: JugglerLayout, lookup: FlightLookup): SceneBounds {
   const ease = layout.boundsEaseSeconds;
   let top = 0;
   segments.forEach((seg, i) => {
@@ -403,6 +488,8 @@ function bounds(segments: readonly Segment[], now: number, layout: JugglerLayout
       const air = (e.flight - dwellPulses(seg.schedule, e, layout)) * pulseLen;
       top = Math.max(top, weight * apex(air, layout));
     }
+    // A faulted group draws its faulted flights instead of balls: the axis fits them too.
+    for (const arc of faultArcs(seg, layout, lookup, pulseLen)) top = Math.max(top, weight * arc.apex);
   });
   const r = layout.radius;
   return {

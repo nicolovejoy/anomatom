@@ -18,6 +18,8 @@ export interface LadderView {
   readonly windowPulses: number;
   /** Where the playhead sits, as a fraction of the window from the left. */
   readonly playheadFraction: number;
+  /** A flight longer than this, throw to catch in seconds, is not a human throw (SPEC §4.1 v2); none is, without it. */
+  readonly humanAirtimeSeconds?: number;
 }
 
 /** A flight as a bar, x in pulses from the left edge of the window. */
@@ -34,6 +36,8 @@ export interface Bar {
   readonly cross: boolean;
   /** True for a flight with no ball: a part in a faulted cross group, drawn grey. */
   readonly broken: boolean;
+  /** Longer than a human throw at its segment's tempo: drawn dimmed, as the juggler dims its ball. */
+  readonly inhuman: boolean;
 }
 
 export interface Tick {
@@ -93,6 +97,7 @@ export function ladderFrame(segments: readonly Segment[], now: number, layout: L
   const end = start + layout.windowPulses;
   const origin = origins(segments);
   const colour = ballColours(segments);
+  const human = layout.humanAirtimeSeconds ?? Infinity;
 
   const bars: Bar[] = [];
   const ticks: Tick[] = [];
@@ -130,6 +135,7 @@ export function ladderFrame(segments: readonly Segment[], now: number, layout: L
           height: e.height,
           cross: e.cross,
           broken: e.ball === null,
+          inhuman: e.flight * seg.pulseLen > human,
         });
       }
     }

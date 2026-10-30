@@ -14,23 +14,30 @@ import type { Schedule } from '../core';
 import { BPM_RANGE, KNOBS, MAX_RATIO, RATIO_CHIPS, SHEET } from '../tunables';
 import { copy } from '../ui/copy';
 import type { PlayerView } from '../view/types';
-import { oneInput } from './actions';
+import { oneInput, type Action } from './actions';
 import { derived } from './derived';
 import {
   analyse,
   badChar,
+  ballsAction,
   clampBpm,
   cyclePosition,
+  cycleSamples,
+  draftAction,
   editChanged,
   editText,
   fixActions,
   fixLabel,
   hand2Bpm,
   handState,
+  hitsAction,
   inputText,
+  phaseAction,
   pieces,
   reduceRatio,
+  rhythmRows,
   siteCovering,
+  splitInputs,
   statusLines,
   stepRatio,
   swapAction,
@@ -38,6 +45,7 @@ import {
   warnSites,
   type Analysis,
   type Caret,
+  type HandRhythm,
   type SiteSelection,
 } from './knobs-model';
 import type { Mount } from './mount';
@@ -49,6 +57,20 @@ const HANDS = [0, 1] as const;
 type Hand = (typeof HANDS)[number];
 /** The pad in the order it is laid out, four to a row. */
 const PAD_KEYS = ['1', '2', '3', 'backspace', '4', '5', '6', 'x', '7', '8', '9', '0'];
+/** The Rhythm tab's steppers per hand (design §14 option b), top to bottom. */
+const RHYTHM_KINDS = ['phase', 'balls', 'hits'] as const;
+type RhythmKind = (typeof RHYTHM_KINDS)[number];
+const RHYTHM_LABELS: Record<RhythmKind, string> = { phase: copy.phaseLabel, balls: copy.ballsLabel, hits: copy.hitsLabel };
+const RHYTHM_STEP_LABELS: Record<RhythmKind, (hand: number, up: boolean) => string> = {
+  phase: copy.phaseStepLabel,
+  balls: copy.ballsStepLabel,
+  hits: copy.hitsStepLabel,
+};
+const RHYTHM_ACTIONS: Record<RhythmKind, (row: HandRhythm, delta: number) => Action | null> = {
+  phase: phaseAction,
+  balls: ballsAction,
+  hits: hitsAction,
+};
 
 export const mountKnobs: Mount = (root, { store, player, sound }) => {
   const slot = <T extends Element>(selector: string) => root.querySelector(selector) as T;
@@ -94,10 +116,12 @@ export const mountKnobs: Mount = (root, { store, player, sound }) => {
       ).join('')}
       <p class="hint one-hand-hint" hidden>${copy.oneHandHint}</p>
       <div id="status" aria-live="polite"></div>
-      <div class="fixes" hidden>
+      <section class="fixes" hidden aria-labelledby="fixes-heading">
+        <h3 class="section-label fixes-heading" id="fixes-heading">${copy.fixesHeading}</h3>
+        <p class="hint">${copy.fixesOptional}</p>
         <p class="fixes-label"></p>
         <div class="fix-buttons"></div>
-      </div>
+      </section>
       <div class="digit-pad" role="group" aria-label="${copy.digitPadLabel}">
         ${PAD_KEYS.map((k) => {
           if (k === 'x') return `<button type="button" class="key key-op" data-key="x" aria-label="${copy.crossKeyLabel}">${copy.crossKey}</button>`;
@@ -133,6 +157,30 @@ export const mountKnobs: Mount = (root, { store, player, sound }) => {
             </span>`,
           ).join('<span class="colon">:</span>')}
         </div>
+        <div class="rhythm-grid">
+          ${HANDS.map((h) => `<span class="rh-hand" data-hand="${h}" style="grid-area: 1 / ${h + 2}">${copy.rhythmHand(h)}</span>`).join('')}
+          ${RHYTHM_KINDS.map(
+            (kind, k) => `
+          <span class="rh-label" style="grid-area: ${k + 2} / 1">${RHYTHM_LABELS[kind]}</span>
+          ${HANDS.map(
+            (h) => `
+          <span class="rstep" data-kind="${kind}" data-hand="${h}" style="grid-area: ${k + 2} / ${h + 2}">
+            <button type="button" data-delta="-1" aria-label="${RHYTHM_STEP_LABELS[kind](h, false)}">${copy.stepDown}</button>
+            <output aria-live="polite"></output>
+            <button type="button" data-delta="1" aria-label="${RHYTHM_STEP_LABELS[kind](h, true)}">${copy.stepUp}</button>
+          </span>${
+            kind === 'balls'
+              ? `
+          <span class="group-balls" data-hand="${h}" style="grid-area: ${k + 2} / ${h + 2}" hidden>
+            <span class="group-count"></span>
+            <button type="button" class="reset-group">${copy.resetGroup}</button>
+          </span>`
+              : ''
+          }`,
+          ).join('')}`,
+          ).join('')}
+        </div>
+        <p class="hint rhythm-hint">${copy.rhythmHint}</p>
       </div>
       <div class="group tempo">
         <div class="tempo-head">
@@ -283,10 +331,13 @@ export const mountKnobs: Mount = (root, { store, player, sound }) => {
         indicator.setAttribute('aria-label', copy.indicator[s].label);
       }
     });
+    const lines = statusLines(analysis);
     status.replaceChildren(
-      ...statusLines(analysis).map((line) => {
+      ...lines.map((line, i) => {
         const p = document.createElement('p');
         p.textContent = line;
+        // The notice is the last line, news rather than a fault: drawn muted.
+        if (analysis.notice !== null && i === lines.length - 1) p.className = 'notice';
         return p;
       }),
     );
@@ -301,6 +352,55 @@ export const mountKnobs: Mount = (root, { store, player, sound }) => {
   // Rendering the store
   // -------------------------------------------------------------------------------------------
 
+  const rhythmHands = HANDS.map((h) => $<HTMLSpanElement>(`.rh-hand[data-hand="${h}"]`));
+  const rsteps = HANDS.map((h) =>
+    Object.fromEntries(RHYTHM_KINDS.map((kind) => [kind, $<HTMLSpanElement>(`.rstep[data-kind="${kind}"][data-hand="${h}"]`)])) as Record<
+      RhythmKind,
+      HTMLSpanElement
+    >,
+  );
+  const groupCells = HANDS.map((h) => $<HTMLSpanElement>(`.group-balls[data-hand="${h}"]`));
+
+  /** The Rhythm tab's columns, one per hand: phase over the cycle, balls (or a manual group's count and Reset), hits. */
+  function renderRhythm(state: AppState) {
+    const rhythm = rhythmRows(state, derived(state));
+    HANDS.forEach((h) => {
+      const row = rhythm[h];
+      (rhythmHands[h] as HTMLSpanElement).hidden = row === undefined;
+      const cells = rsteps[h] as Record<RhythmKind, HTMLSpanElement>;
+      const group = groupCells[h] as HTMLSpanElement;
+      for (const kind of RHYTHM_KINDS) {
+        const cell = cells[kind];
+        cell.hidden = row === undefined || (kind === 'balls' && row.k === null);
+        if (row === undefined || cell.hidden) continue;
+        const out = cell.querySelector('output') as HTMLOutputElement;
+        if (kind === 'phase') {
+          out.innerHTML = '';
+          const value = document.createElement('span');
+          value.className = 'rv';
+          value.textContent = String(row.phase);
+          const of = document.createElement('span');
+          of.className = 'rof';
+          of.textContent = copy.phaseCycle(row.cycle);
+          out.append(value, of);
+          out.setAttribute('aria-label', copy.phaseReadoutLabel(h, row.phase, row.cycle));
+          out.dataset.phase = String(row.phase);
+          out.dataset.cycle = String(row.cycle);
+        } else out.textContent = String(kind === 'balls' ? row.k : row.hits);
+        const [down, up] = cell.querySelectorAll('button');
+        (down as HTMLButtonElement).disabled = RHYTHM_ACTIONS[kind](row, -1) === null;
+        (up as HTMLButtonElement).disabled = RHYTHM_ACTIONS[kind](row, 1) === null;
+      }
+      // A manual group: one count for the group, spanning both columns when it holds both hands.
+      const g = row?.group ?? null;
+      group.hidden = g === null || g.parts[0] !== h;
+      if (g === null || group.hidden) return;
+      group.style.gridColumn = g.parts.length > 1 ? `${h + 2} / span ${g.parts.length}` : `${h + 2}`;
+      (group.querySelector('.group-count') as HTMLSpanElement).textContent = copy.groupBalls(g.balls, g.parts.length);
+      (group.querySelector('.reset-group') as HTMLButtonElement).setAttribute('aria-label', copy.resetGroupLabel(g.parts));
+    });
+  }
+
   function render(state: AppState, previous: AppState | null) {
     const patternsChanged =
       !previous ||
@@ -309,8 +409,10 @@ export const mountKnobs: Mount = (root, { store, player, sound }) => {
       state.ratio !== previous.ratio ||
       state.notice !== previous.notice;
     const vanilla = oneInput(state.ratio);
+    // At 1:1, `a / b` shows as two inputs (form 2); a vanilla siteswap as one.
+    const two = !vanilla || splitInputs(state);
     HANDS.forEach((h) => {
-      const text = vanilla && h > 0 ? '' : inputText(state, derived(state), h);
+      const text = !two && h > 0 ? '' : inputText(state, derived(state), h);
       const input = inputs[h] as HTMLInputElement;
       // Only when they differ, so typing keeps its caret.
       if (input.value !== text) {
@@ -318,11 +420,12 @@ export const mountKnobs: Mount = (root, { store, player, sound }) => {
         carets[h] = null;
       }
     });
-    patternForm.classList.toggle('two-hands', !vanilla);
-    (rows[1] as HTMLDivElement).hidden = vanilla;
+    patternForm.classList.toggle('two-hands', two);
+    (rows[1] as HTMLDivElement).hidden = !two;
     hint.hidden = vanilla;
-    if (vanilla) activeHand = 0;
-    (labels[0] as HTMLLabelElement).textContent = vanilla ? copy.patternLabel : copy.handLabel(0);
+    if (!two) activeHand = 0;
+    (labels[0] as HTMLLabelElement).textContent = two ? copy.handLabel(0) : copy.patternLabel;
+    renderRhythm(state);
     (labels[1] as HTMLLabelElement).textContent = copy.handLabel(1);
     for (const chip of chips) {
       // Pressed only for its exact a:b: 2:2 from the steppers is not the 1:1 chip, which still normalises it.
@@ -358,6 +461,10 @@ export const mountKnobs: Mount = (root, { store, player, sound }) => {
     // The player hears a new schedule, tempo or ratio, whatever else changed with it.
     schedule = derived(state).schedule;
     if (editChanged(previous, state)) player.setEdit(schedule, state.bpm);
+    // Test hook: what one cycle sounds like, so a browser test can see the ball knob leave it alone.
+    if (!previous || schedule !== derived(previous).schedule || state.mapping !== previous.mapping) {
+      root.dataset.cycleSamples = cycleSamples(schedule, state.mapping);
+    }
     const sum = summary(analysis, state.bpm, SHEET.longSummaryChars);
     summaryText.textContent = sum.text;
     summaryMeta.textContent = sum.meta;
@@ -435,7 +542,8 @@ export const mountKnobs: Mount = (root, { store, player, sound }) => {
   // Pattern inputs, the digit pad, swap
   // -------------------------------------------------------------------------------------------
 
-  const setPattern = (hand: Hand, text: string) => store.dispatch({ type: 'editDraft', part: hand, text });
+  /** Typing in one input: at 1:1 with two inputs, both are joined into the one draft (`a / b`). */
+  const setPattern = (hand: Hand, text: string) => store.dispatch(draftAction(store.get(), store.derived(), hand, text));
 
   HANDS.forEach((h) => {
     const input = inputs[h] as HTMLInputElement;
@@ -464,11 +572,27 @@ export const mountKnobs: Mount = (root, { store, player, sound }) => {
     input.addEventListener('focus', () => (activeHand = h));
     for (const type of ['select', 'keyup', 'pointerup', 'scroll']) input.addEventListener(type, remember);
     input.addEventListener('input', () => {
+      const wasSplit = splitInputs(store.get());
       setPattern(h, input.value);
       remember();
+      // A `/` typed at 1:1 splits the pattern in two inputs: typing goes on in hand 2's.
+      if (h === 0 && !wasSplit && splitInputs(store.get())) {
+        const next = inputs[1] as HTMLInputElement;
+        next.focus();
+        next.setSelectionRange(0, 0);
+      }
     });
     // Enter plays, or resumes; it never pauses.
     input.addEventListener('keydown', (e) => {
+      // Backspace in an empty hand 2 at 1:1 joins the pattern back into one input.
+      if (h === 1 && e.key === 'Backspace' && input.value === '' && splitInputs(store.get())) {
+        e.preventDefault();
+        const first = inputs[0] as HTMLInputElement;
+        store.dispatch({ type: 'editDraft', part: 0, text: first.value });
+        first.focus();
+        first.setSelectionRange(first.value.length, first.value.length);
+        return;
+      }
       if (e.key !== 'Enter' || e.isComposing) return;
       e.preventDefault();
       start();
@@ -540,6 +664,22 @@ export const mountKnobs: Mount = (root, { store, player, sound }) => {
         store.dispatch({ type: 'setRatio', ratio: stepRatio(store.get().ratio, h, Number(b.dataset.delta)) }),
       );
     }
+  });
+
+  // Phase, balls and hits per hand; Reset on a manual group.
+  HANDS.forEach((h) => {
+    for (const kind of RHYTHM_KINDS) {
+      for (const b of (rsteps[h] as Record<RhythmKind, HTMLSpanElement>)[kind].querySelectorAll<HTMLButtonElement>('button')) {
+        b.addEventListener('click', () => {
+          const row = rhythmRows(store.get(), store.derived())[h];
+          const action = row ? RHYTHM_ACTIONS[kind](row, Number(b.dataset.delta)) : null;
+          if (action) store.dispatch(action);
+        });
+      }
+    }
+    (groupCells[h] as HTMLSpanElement)
+      .querySelector('.reset-group')
+      ?.addEventListener('click', () => store.dispatch({ type: 'resetGroup', part: h }));
   });
 
   moreButton.addEventListener('click', () => {

@@ -1,6 +1,7 @@
 import { describe, expect, test } from 'vitest';
-import type { Event, Schedule } from '../core';
-import { scheduleOf } from '../test/schedules';
+import { buildSchedule, flightsOf, partsFromOnsets } from '../core';
+import type { Event, Parts, Schedule } from '../core';
+import { scheduleOf, vanillaParts } from '../test/schedules';
 import { JUGGLER } from '../tunables';
 import { jugglerFrame } from './juggler';
 import type { JugglerBall, JugglerLayout } from './juggler';
@@ -420,4 +421,76 @@ test('a faulted group sounds but draws no ball; the other group keeps its balls'
   const half = ratio(3, 2, '1 3 2', '2');
   expect(half.balls).toBe(2);
   expect(frame([single(half)], START + 1).balls.length).toBe(2);
+});
+
+describe('the fault, drawn as arcs (design §6)', () => {
+  /** A schedule and the lookup that knows its parts' flights, as the mount keeps them. */
+  const known = (parts: Parts) => {
+    const schedule = buildSchedule(parts);
+    const flights = flightsOf(parts);
+    return { schedule, lookup: (s: Schedule) => (s === schedule ? flights : undefined) };
+  };
+
+  test('432: the colliding flights meet at hand 1’s catch point; none without the lookup', () => {
+    const { schedule, lookup } = known(vanillaParts('432'));
+    expect(frame([single(schedule)], START + 1).faults).toEqual([]);
+    expect(frame([single(schedule)], START + 1).bounds.top).toBe(R);
+    const f =jugglerFrame([single(schedule)], START + 1, layout, lookup);
+    const intoHand1 = f.faults.filter((a) => a.x1 === layout.catchX[0]);
+    expect(intoHand1.map((a) => a.x0).sort()).toEqual([layout.throwX[0], layout.throwX[0], layout.throwX[1]].sort());
+    // Flights of 4, 3 and 2 pulses, the dwell taken off as the balls' own flights have it.
+    const air = (n: number) => (n - Math.min(layout.dwellBeats * 2, layout.maxDwellShare * n)) * LEN;
+    const apexes = intoHand1.map((a) => a.apex).sort((p, q) => p - q);
+    [2, 3, 4].forEach((n, i) => expect(apexes[i]).toBeCloseTo((layout.g * air(n) ** 2) / 8, 12));
+    expect(f.faults.every((a) => !a.inhuman)).toBe(true);
+    // The axis fits them: no balls, yet the scene is as tall as the tallest arc.
+    expect(f.bounds.top).toBeCloseTo(Math.max(...f.faults.map((a) => a.apex)) + R, 9);
+    // Worked out once per schedule, and kept: a schedule's flights never change.
+    expect(frame([single(schedule)], START + 2).faults).toEqual(f.faults);
+  });
+
+  test('510: the flight onto hand 2’s 0 is drawn, crossing to its catch point', () => {
+    const { schedule, lookup } = known(vanillaParts('510'));
+    const f = jugglerFrame([single(schedule)], START, layout, lookup);
+    expect(f.faults).toContainEqual(expect.objectContaining({ x0: layout.throwX[0], x1: layout.catchX[1] }));
+  });
+
+  test('only the segment playing now draws its fault, at its own tempo', () => {
+    const broken = known(vanillaParts('432'));
+    const fine = vanilla('3');
+    const segments: Segment[] = [
+      { ...single(broken.schedule), endTime: START + 6 * LEN },
+      { schedule: fine, startTime: START + 6 * LEN, pulseLen: LEN, endTime: null, carry: new Map() },
+    ];
+    expect(jugglerFrame(segments, START, layout, broken.lookup).faults.length).toBeGreaterThan(0);
+    expect(jugglerFrame(segments, START + 7 * LEN, layout, broken.lookup).faults).toEqual([]);
+  });
+
+  test('a faulted flight longer than a human throw is marked', () => {
+    const { schedule, lookup } = known(vanillaParts('432'));
+    const f = jugglerFrame([single(schedule, 1)], START, layout, lookup);
+    expect(f.faults.filter((a) => a.inhuman).length).toBeGreaterThan(0);
+  });
+});
+
+describe('not a human throw (SPEC §4.1 v2)', () => {
+  // One hit in a 16-step line at k = 1: a 16-beat flight, 8 s at 120 bpm.
+  const line = buildSchedule(partsFromOnsets([Array.from({ length: 16 }, (_, i) => i === 0)], [1]));
+
+  test('at 120 bpm the ball is dimmed and the label shows while it is up; caught, it hides', () => {
+    const seg = single(line, 0.5);
+    const up = jugglerFrame([seg], at(seg, 4), layout);
+    expect(up.balls).toHaveLength(1);
+    expect(up.balls[0]?.inhuman).toBe(true);
+    expect(up.inhuman).toBe(true);
+    // In the hand for the dwell before the next throw: still the long flight, but not in the air.
+    const held = jugglerFrame([seg], at(seg, 15.9), layout);
+    expect(held.balls[0]?.held).toBe(0);
+    expect(held.inhuman).toBe(false);
+  });
+
+  test('fast enough, it is a human throw', () => {
+    const seg = single(line, 0.15);
+    expect(jugglerFrame([seg], at(seg, 4), layout).inhuman).toBe(false);
+  });
 });
