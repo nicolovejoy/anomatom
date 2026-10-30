@@ -5,7 +5,7 @@ import { partsFromLines } from '../src/core';
 import { DEFAULT_MAPPING } from '../src/tunables';
 import { expect, openTab, test } from './fixtures';
 
-const SHOTS = '/private/tmp/claude-501/-Users-nico-src-anomatom/21d1d264-2e1b-4a8d-a669-c0b72ce81f8d/scratchpad/lanes-sound';
+const SHOTS = 'test-results';
 
 function threePartLink(): string {
   const r = partsFromLines(['3', '2', '4'], { a: 1, b: 1 });
