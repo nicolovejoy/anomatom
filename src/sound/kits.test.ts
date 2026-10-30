@@ -4,6 +4,7 @@ import { buildSchedule, partsFromLines } from '../core';
 import { DEFAULT_MAPPING, KIT_IDS, KIT_ROLES, KIT_SAMPLES } from '../tunables';
 import { copy } from '../ui/copy';
 import { kitSample } from './drum-machine';
+import kitFiles from './fixtures/kit-samples.json';
 import { applyPreset, hitFor, withPartCount, type Mapping } from './mapping';
 
 describe('KIT_ROLES', () => {
@@ -18,6 +19,15 @@ describe('KIT_ROLES', () => {
       const table = KIT_ROLES[kit] as Record<string, string>;
       expect(Object.keys(table).sort()).toEqual([...KIT_SAMPLES].sort());
       for (const role of KIT_SAMPLES) expect(typeof table[role] === 'string' && table[role] !== '').toBe(true);
+    }
+  });
+
+  test('every role plays a sample the kit has (its dm.json, kept in fixtures/kit-samples.json)', () => {
+    const files = kitFiles as unknown as Record<string, string[]>;
+    for (const kit of KIT_IDS) {
+      const samples = files[kit] as string[];
+      expect(samples.length).toBeGreaterThan(0);
+      for (const sample of Object.values(KIT_ROLES[kit] as Record<string, string>)) expect(samples).toContain(sample);
     }
   });
 

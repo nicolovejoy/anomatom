@@ -58,7 +58,14 @@ export function drumMachines<Loader>(importSmplr: () => Promise<SmplrDrums<Loade
       loader = smplr.SampleLoader(context);
       loaders.set(context, loader);
     }
-    const machine = smplr.DrumMachine(context, { instrument: kit, volume: KIT_VOLUME, destination, loader });
+    let machine: ReturnType<SmplrDrums<Loader>['DrumMachine']>;
+    try {
+      machine = smplr.DrumMachine(context, { instrument: kit, volume: KIT_VOLUME, destination, loader });
+    } catch (error) {
+      // smplr throws at once for an instrument it does not know: free the queue for the next machine.
+      finish();
+      throw error;
+    }
     const ready = machine.load.then(() => undefined);
     ready.then(finish, finish);
     return {

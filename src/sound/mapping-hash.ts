@@ -66,7 +66,8 @@ export function decodeMapping(value: unknown, partCount?: number): Mapping {
     return partCount === undefined ? base : withPartCount(base, partCount);
   }
   if (!isRecord(value)) return DEFAULT_MAPPING;
-  if ('n' in value) return withKits(decodeMapping(value.n, partCount), value.k);
+  // Only a string: a nested `n` would recurse as deep as the link is long.
+  if (typeof value.n === 'string') return withKits(decodeMapping(value.n, partCount), value.k);
   const d = DEFAULT_MAPPING;
   const sample = (v: unknown, fallback: Sample): Sample =>
     v === null ? null : typeof v === 'string' && KIT_SAMPLES.includes(v) ? v : fallback;

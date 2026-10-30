@@ -141,12 +141,20 @@ describe('decodeMapping: a preset on kits', () => {
     expect(decodeMapping({ n: 'height-drum', k: 'nope' })).toBe(applyPreset('height-drum'));
     expect(decodeMapping({ n: 'height-drum' })).toBe(applyPreset('height-drum'));
     expect(decodeMapping({ n: 'nope', k: 'LM-2' }).parts.map((v) => v.kit)).toEqual(['LM-2', 'LM-2']);
-    expect(decodeMapping({ n: 5 })).toBe(DEFAULT_MAPPING);
+    expect(decodeMapping({ n: 5 })).toEqual(DEFAULT_MAPPING);
     expect(decodeMapping({ n: 'ball-pitch', k: ['MFB-512', 7] }, 3).parts.map((v) => v.kit)).toEqual([
       'MFB-512',
       'TR-808',
       'TR-808',
     ]);
     expect(presetOf(decodeMapping({ n: 'ball-pitch', k: ['MFB-512'] }, 3))).toBe('ball-pitch');
+  });
+
+  test('a crafted link nesting `n` deep decodes, without recursing: only a string names a preset', () => {
+    let deep: unknown = 'height-drum';
+    for (let i = 0; i < 20_000; i++) deep = { n: deep };
+    expect(decodeMapping(deep)).toEqual(DEFAULT_MAPPING);
+    // A record as `n` is not decoded as a mapping either.
+    expect(decodeMapping({ n: { y: 1 } })).toEqual(DEFAULT_MAPPING);
   });
 });

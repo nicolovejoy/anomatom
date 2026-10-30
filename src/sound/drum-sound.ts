@@ -59,6 +59,8 @@ export function createDrumSound(
   // its replacement is in. `held`: every kit that has come in, disposed on close.
   const ready = new Map<PartIndex, Kit>();
   const held = new Set<Kit>();
+  // The same, by part and kit id: switching a part back to a kit it has had swaps at once, no load.
+  const kept = new Map<PartIndex, Map<string, Kit>>();
   const loading = new Set<Kit>();
   const requested = new Map<PartIndex, string>();
   // Per part: its gain and panner, made with the first load and kept for the context's life.
@@ -150,6 +152,12 @@ export function createDrumSound(
     const v = voice(ctx, part, pan, gain);
     if (requested.get(part) === id) return;
     requested.set(part, id);
+    const had = kept.get(part)?.get(id);
+    if (had) {
+      ready.set(part, had);
+      if (failedParts.delete(part)) notify();
+      return;
+    }
     failedParts.delete(part);
     const end = begin();
     loadKit(ctx, part, v.gain, id)
@@ -161,6 +169,7 @@ export function createDrumSound(
             loading.delete(kit);
             if (context !== ctx) return kit.dispose();
             held.add(kit);
+            kept.set(part, (kept.get(part) ?? new Map<string, Kit>()).set(id, kit));
             // A kit that arrives after the part has moved on is kept for switching back, not played.
             if (requested.get(part) === id) ready.set(part, kit);
           },
@@ -285,6 +294,7 @@ export function createDrumSound(
       for (const kit of [...held, ...pads.values(), ...loading]) kit.dispose();
       ready.clear();
       held.clear();
+      kept.clear();
       pads.clear();
       padsRequested.clear();
       loading.clear();

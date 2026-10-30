@@ -305,19 +305,21 @@ export const KIT_ROLES: Readonly<Record<string, Readonly<Record<string, string>>
     'tom-hi': 'tom-h',
     'tom-low': 'tom-l',
   },
-  // Nine sounds: no congas, clave, rimshot, maraca or cowbell.
+  // Nine sounds: no congas, clave, rimshot, maraca or cowbell. Roles that share a sample choke each
+  // other (smplr cuts a sample's last hit when it plays again), so clave, maraca and the closed hat
+  // each get their own where the kit allows.
   'MFB-512': {
     clap: 'clap',
-    clave: 'hihat-closed', // borrowed: the nearest short high click
+    clave: 'tom-hi', // borrowed: the nearest short pitched hit; shares the high tom's sample
     'conga-hi': 'tom-hi', // borrowed
     'conga-low': 'tom-low', // borrowed
     'conga-mid': 'tom-mid', // borrowed
-    cowbell: 'hihat-open', // borrowed: the nearest ringing metal
+    cowbell: 'hihat-closed', // borrowed: short metal, as a cowbell is; shares the closed hat's sample
     cymbal: 'cymbal',
     'hihat-close': 'hihat-closed',
     'hihat-open': 'hihat-open',
     kick: 'kick',
-    maraca: 'hihat-closed', // borrowed
+    maraca: 'clap', // borrowed: a short noise burst; shares the clap's sample
     'mid-tom': 'tom-mid',
     rimshot: 'snare', // borrowed: a rimshot is a snare stroke
     snare: 'snare',

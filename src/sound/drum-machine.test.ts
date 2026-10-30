@@ -146,6 +146,25 @@ test('dispose disconnects and forgets, so the next ask makes a fresh machine (a 
   expect(load(c, 0, d, 'LM-2')).toBe(second);
 });
 
+test('a machine smplr refuses at once (an unknown instrument) fails that load and frees the queue', async () => {
+  const { smplr, made } = fakeSmplr();
+  const strict: SmplrDrums<{ id: number }> = {
+    SampleLoader: smplr.SampleLoader,
+    DrumMachine: (context, options) => {
+      if (options.instrument === 'nope') throw new Error('Invalid instrument: nope');
+      return smplr.DrumMachine(context, options);
+    },
+  };
+  const load = drumMachines(async () => strict);
+  const c = ctx();
+  await expect(load(c, 0, node(), 'nope')).rejects.toThrow('Invalid instrument');
+  const next = load(c, 1, node(), 'TR-808');
+  await settle();
+  expect(made).toHaveLength(1);
+  made[0]?.resolve();
+  await expect((await next).ready).resolves.toBeUndefined();
+});
+
 test('smplr failing to import is not cached: the next ask tries again', async () => {
   const { smplr, made } = fakeSmplr();
   let fail = true;
