@@ -7,10 +7,10 @@
 // the tabs and the handle (the summary button in mount-knobs.ts and "Make your own" write it
 // too). The panels' content comes from mount-knobs.ts (Pattern, Rhythm, and the head with
 // the summary and Play) and mount-sound-panel.ts (Sound). The logic is in sheet-model.ts.
-import { LADDER, SHEET } from '../tunables';
+import { SHEET } from '../tunables';
 import { copy } from '../ui/copy';
 import type { Mount } from './mount';
-import { dragEnd, edgeTab, pressTab, shownTab, stepTab, TABS } from './sheet-model';
+import { dragEnd, edgeTab, ladderHeightPx, pressTab, shownTab, stepTab, TABS } from './sheet-model';
 import type { SheetTab } from './state';
 import './sheet.css';
 
@@ -44,10 +44,7 @@ export const mountSheet: Mount = (root, { store }) => {
     app.classList.toggle('is-wide', wide);
     app.classList.toggle('is-landscape', landscape);
     app.classList.toggle('sheet-open', shown !== null);
-    app.style.setProperty(
-      '--ladder-height',
-      `${wide ? LADDER.heightPx : landscape ? SHEET.landscape.ladderPx : shown === null ? SHEET.ladderPx.closed : SHEET.ladderPx.open}px`,
-    );
+    app.style.setProperty('--ladder-height', `${ladderHeightPx(wide, landscape, shown)}px`);
     TABS.forEach((t, i) => {
       const tab = tabs[i] as HTMLButtonElement;
       const on = t === shown;

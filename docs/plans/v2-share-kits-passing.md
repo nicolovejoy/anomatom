@@ -11,6 +11,7 @@ Status: wave 1 started 2026-10-30 (governor Fable, session 1191; Nico: "carry on
 3. **Space.** Space is kept by a `select`, a text or number input and a textarea, nowhere else. A `select` blurs itself after `change`, so Space plays and pauses again at once. `[data-keeps-space]` on the whole Sound panel goes.
 4. **Short links.** `#531` and `#531@140` for one vanilla pattern at 1:1 with the default mapping and default phases; `#3:2/2-2x-2/2x-2` (`-` for the space, `@bpm` optional) for two hands at a ratio, same conditions. Anything else writes `#v2.` as today. The hash is written in the shortest form that round-trips. Stream S records the grammar in `src/app/route.ts` before code and tests every first-minute preset with two parts through it; three or more parts always take `#v2.`.
 5. **Share button.** In the head row, between the summary and Play; on a phone it is an icon with an `aria-label`, on a wide screen the icon too. `navigator.share` with `{ url }` where it exists, else the clipboard with a "Link copied" status next to it; the Sound tab's copy button goes.
+6. **Landscape with the sheet open (follow-up, from the PR 50 review).** At 667×375 the open sheet column leaves about 70 px for the panel; a smaller head row while landscape is open is the suggested fix.
 
 ### Streams
 

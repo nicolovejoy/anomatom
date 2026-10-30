@@ -8,10 +8,12 @@ test.describe('phone portrait', () => {
   test('Space plays and pauses right after a Sound tab select changes', async ({ page }) => {
     await page.goto('/#v1.e30');
     await openTab(page, 'sound');
-    await page.locator('#sp-kit').selectOption({ index: 0 });
-    await expect(page.locator('#sp-kit')).not.toBeFocused();
-    await page.locator('#sp-preset').selectOption({ index: 1 });
-    await expect(page.locator('#sp-preset')).not.toBeFocused();
+    for (const [id, index] of [['#sp-kit', 0], ['#sp-preset', 1]] as const) {
+      await page.locator(id).focus();
+      await expect(page.locator(id)).toBeFocused();
+      await page.locator(id).selectOption({ index });
+      await expect(page.locator(id)).not.toBeFocused();
+    }
     await page.keyboard.press('Space');
     await expect(page.locator('#play')).toHaveText('Pause');
     await page.keyboard.press('Space');
@@ -54,6 +56,8 @@ test.describe('phone landscape', () => {
         jugglerH: document.querySelector('.region-juggler')?.getBoundingClientRect().height ?? 0,
         ladderBottom: bottom('.region-ladder'),
         sheetBottom: bottom('.region-sheet'),
+        stageRight: document.querySelector('.stage')?.getBoundingClientRect().right ?? NaN,
+        sheetLeft: document.querySelector('.region-sheet')?.getBoundingClientRect().left ?? NaN,
         jugglerBottom: bottom('.region-juggler'),
         jugglerTop: document.querySelector('.region-juggler')?.getBoundingClientRect().top ?? NaN,
         ladderTop: document.querySelector('.region-ladder')?.getBoundingClientRect().top ?? NaN,
@@ -63,6 +67,7 @@ test.describe('phone landscape', () => {
     await page.screenshot({ path: 'test-results/landscape-667x375.png' });
     expect(fit.scrollH).toBeLessThanOrEqual(fit.innerH);
     expect(fit.sheetBottom).toBeLessThanOrEqual(fit.innerH);
+    expect(fit.sheetLeft).toBeGreaterThanOrEqual(fit.stageRight);
     expect(fit.jugglerH).toBeGreaterThanOrEqual(60);
     expect(fit.ladderBottom).toBeLessThanOrEqual(fit.innerH);
     expect(fit.jugglerBottom).toBeLessThanOrEqual(fit.ladderTop + 1);

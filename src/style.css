@@ -158,7 +158,6 @@ button:disabled {
 #app.is-landscape:not(.is-first-minute) .region-juggler {
   min-height: 0;
 }
-#app.is-landscape.sheet-open:not(.is-wide):not(.is-first-minute) .region-sheet,
 #app.is-landscape:not(.is-wide):not(.is-first-minute) .region-sheet {
   flex: 0 0 var(--sheet-landscape-column, 360px);
   min-height: 0;

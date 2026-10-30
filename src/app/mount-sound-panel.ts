@@ -7,8 +7,8 @@
 // preloads what the new mapping needs and is read on the next look-ahead tick), so a
 // Mapping restored from a share link reaches the sound the same way a panel edit does.
 //
-// A select blurs itself after `change`, so Space plays and pauses again at once (a focused
-// select keeps Space; see keepsSpace in sheet-model.ts).
+// A select hands focus to Play after `change`, so Space plays and pauses again at once (a
+// focused select keeps Space; see keepsSpace in sheet-model.ts).
 import {
   PAD_CHORD_IDS,
   PAD_INSTRUMENT_IDS,
@@ -183,9 +183,10 @@ export const mountSoundPanel: Mount = (root, { store, player }) => {
     padChord.value = m.pad.chord;
   }
 
-  // A select lets go of focus once a choice is made, so Space plays and pauses again at once.
+  // A select hands focus to Play once a choice is made, so Space plays and pauses again at once.
+  // (On Windows and Linux an Arrow key on a closed select fires `change`, so it moves focus too; accepted.)
   root.addEventListener('change', (e) => {
-    if (e.target instanceof HTMLSelectElement) e.target.blur();
+    if (e.target instanceof HTMLSelectElement) document.getElementById('play')?.focus();
   });
 
   // Controls -> edits.
