@@ -45,7 +45,7 @@ test('more reveals the rest of the sourcebook, fewer folds them away', async ({ 
   await expect(page.locator('.fm-card[data-id="rumba"]')).toBeAttached();
   await page.locator('.fm-card[data-id="rumba"]').scrollIntoViewIfNeeded();
   await expect(page.locator('.fm-card[data-id="rumba"]')).toBeVisible();
-  await expect(page.locator('.fm-card:visible')).toHaveCount(22);
+  await expect(page.locator('.fm-card:visible')).toHaveCount(26);
   if (SHOTS) await page.screenshot({ path: `${SHOTS}/more-open.png` });
   await more.click();
   await expect(page.locator('.fm-card:visible')).toHaveCount(9);
@@ -84,7 +84,7 @@ test('About has a section per layer and a source line per sourcebook card', asyn
     'Where the cards come from',
     'A note on the gong cycle',
   ]);
-  await expect(page.locator('.preset-sources li')).toHaveCount(17);
-  await expect(page.locator('.preset-sources a[href="https://ancient-future.com/bellclap.html"]')).toBeVisible();
+  await expect(page.locator('.preset-sources li')).toHaveCount(21);
+  await expect(page.locator('.preset-sources a[href="https://ancient-future.com/bellclap.html"]').first()).toBeVisible();
   if (SHOTS) await page.screenshot({ path: `${SHOTS}/about.png`, fullPage: true });
 });

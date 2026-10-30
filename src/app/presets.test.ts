@@ -66,11 +66,11 @@ const TABLE: Record<string, [number, string, string]> = {
 
 describe('the sourcebook rows', () => {
   test('tempo and voices match the table', () => {
-    const rows = PRESETS.filter((p) => p.kind === 'sourcebook');
+    const rows = PRESETS.filter((p) => p.kind === 'sourcebook' && p.parts.length === 2);
     expect(rows.map((p) => p.id).sort()).toEqual(Object.keys(TABLE).sort());
     for (const p of rows) expect([p.bpm, ...p.mapping.parts.map((v) => v.sample)], p.id).toEqual(TABLE[p.id]);
   });
-  const rows = PRESETS.filter((p) => p.kind === 'sourcebook');
+  const rows = PRESETS.filter((p) => p.kind === 'sourcebook' && p.parts.length === 2);
   test('each line of hits is one ball: the digits are the gap to the next hit, so they sum to the period', () => {
     for (const p of rows) {
       expect(p.balls, p.id).toBe(2);
@@ -93,6 +93,42 @@ describe('the sourcebook rows', () => {
     expect(PRESETS.filter((p) => p.first).map((p) => p.id)).toEqual([
       'cascade', 'pause', 'classic', 'ramp', 'polyrhythm', 'bell', 'son-clave', 'clapping', 'afrobeat',
     ]);
+  });
+});
+
+describe('the layered cards', () => {
+  const layers = PRESETS.filter((p) => p.parts.length > 2);
+  const byId = (id: string) => PRESETS.find((p) => p.id === id)!;
+  test('there are four, behind "more", within the lane limit', () => {
+    expect(layers.map((p) => p.id)).toEqual(['ewe-layers', 'mbira-layers', 'clave-layers', 'stack-345']);
+    for (const p of layers) {
+      expect(p.first, p.id).toBe(false);
+      expect(p.parts.length, p.id).toBeLessThanOrEqual(4);
+      expect(judge(p.parts).ok, p.id).toBe(true);
+      expect(p.mapping.parts.length, p.id).toBe(p.parts.length);
+      expect(p.mapping.byHeight, p.id).toBe(false);
+    }
+  });
+  test('part counts and cycles', () => {
+    expect(layers.map((p) => [p.parts.length, p.cycle])).toEqual([[3, 12], [3, 12], [3, 16], [3, 60]]);
+  });
+  test('Ewe: the bell, a clap every three, the felt beat every four', () => {
+    const p = byId('ewe-layers');
+    expect(p.parts.map(hitGrid)).toEqual(['x.x.xx.x.x.x', 'x..x..x..x..', 'x...x...x...']);
+  });
+  test('mbira: the second hand one pulse late, the rattle on every pulse', () => {
+    const p = byId('mbira-layers');
+    expect(p.parts.map((x) => x.phase)).toEqual([0, 1, 0]);
+    expect(hitGrid(p.parts[2]!)).toBe('xxxxxxxxxxxx');
+  });
+  test('clave: son, cascara, a four-pulse count', () => {
+    const p = byId('clave-layers');
+    expect(p.parts.map(hitGrid)).toEqual(['x..x..x...x.x...', 'x.xx.x.xx.x.xx.x', 'x...x...x...x...']);
+  });
+  test('3:4:5: spacings 20, 15, 12, one hit each, all meeting at the start', () => {
+    const p = byId('stack-345');
+    expect(p.parts.map((x) => x.spacing)).toEqual([20, 15, 12]);
+    expect(p.balls).toBe(3);
   });
 });
 
