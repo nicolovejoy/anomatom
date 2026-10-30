@@ -2,7 +2,7 @@
 
 Shipped on the About page. Papers first, then practitioner sources and prior art. Numbers are the ones `MATH.md` cites.
 
-The About page (stream F, 2026-10-29) cites only entries opened and checked: 1, 5, 13, 16, 18, 19, 20 and 22. Entries 2, 17 and 23 carry the not-yet-opened marker and stay off it until opened. Entries 1 and 5 were not re-opened in this stream; the page says only that they treat juggling sequences and the average of the digits.
+The About page (stream F, 2026-10-29) cites only entries opened and checked: 1, 5, 13, 16, 18, 19, 20 and 22. Entries 2, 17 and 23 carry the not-yet-opened marker and stay off it until opened. Entries 1 and 5 were opened 2026-10-29 for the average theorem: Buhler et al. (the paper's second page, Theorem 1) says the number of balls is the average of the throw heights over large intervals, for bounded non-negative heights; Polster's survey states it as Juggling Theorem 4, "The number of balls needed for juggling a juggling sequence is the average of the numbers in the sequence."
 
 ## Papers
 

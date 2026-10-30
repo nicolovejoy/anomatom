@@ -155,15 +155,15 @@ export const copy = {
     {
       heading: 'Grids: ratio and displacement',
       paragraphs: [
-        'A hand throws on a grid: beats a fixed number of pulses apart, starting at a phase. Two grids with different spacing are a polyrhythm in the strict sense, such as 3 against 2.',
-        'Two grids with the same spacing and a different phase are a displacement, as in Clapping Music. Krebs separates the two as grouping dissonance, layers that do not fit, and displacement dissonance, layers that fit and are not aligned [19]. So 1:1 can mean two different things, and I treat them as one setting.',
+        'A hand throws on a grid: beats a fixed number of pulses apart, starting at a phase. If two of my hands have different spacings, I am playing a polyrhythm, such as 3 against 2.',
+        'Two grids with the same spacing and a different phase are a displacement, as in Clapping Music. Krebs separates the two as grouping dissonance, layers that do not fit, and displacement dissonance, layers that fit and are not aligned [19]. 1:1 can mean two things: hands that strike together, or hands that take turns. For me they are one parameter, the phase.',
         'My grids are even. Beats that are unevenly spaced are not something I play.',
       ],
     },
     {
       heading: 'Lines, necklaces and Euclidean rhythms',
       paragraphs: [
-        'A line is the pattern of hits on a grid, repeated. A line that repeats has no first beat, so turning it gives the same necklace [16, 18].',
+        'A line is the pattern of hits on a grid, repeated. A line that repeats has no first beat, so turning it gives the same necklace [16]. Toussaint’s book has chapters on necklaces and Euclidean rhythms [18].',
         'Some well-known lines are Euclidean: E(k, n) spreads k hits over n pulses as evenly as it can. Toussaint shows E(3, 8) as the tresillo, E(4, 9) as Brubeck’s Rondo a la Turk, E(7, 12) as a common West African bell pattern and E(5, 16) as the bossa-nova necklace [16].',
         'Son clave is not one of them. Its gaps are 3, 3, 4, 2 and 4, three different lengths, so it is nearly even and not maximally even. It stays a preset.',
       ],
@@ -172,7 +172,7 @@ export const copy = {
       heading: 'Flights, objects and k balls',
       paragraphs: [
         'A hit can be a throw. It flies to a later hit, in the same hand or the other, and carries one ball. The balls are the paths those flights make, and I count them.',
-        'For a pattern I can juggle, the average of the digits is the number of balls. Buhler and his co-authors treat juggling sequences this way [1], and so does Polster’s survey [5].',
+        'For a pattern I can juggle, the average of the digits is the number of balls. Buhler and his co-authors give this for juggling sequences [1], and Polster’s survey states it as a theorem [5].',
         'So any line of hits is a pattern I can juggle with one ball: each throw is as long as the gap to the next hit. Give a hand k balls and each throw flies k hits ahead. That changes my picture and not my sound.',
       ],
     },
@@ -180,7 +180,7 @@ export const copy = {
       heading: 'Parts, streams and inherent patterns',
       paragraphs: [
         'A part is a hand: a grid, a line and a phase. Listeners do not hear parts. They hear streams, notes the ear gathers into one line. Bregman’s book introduces the auditory stream [20].',
-        'Kubik described how, in East and Central African instrumental music, the ear groups notes into patterns that conflict with each other, and no player plays them [22]. The mbira card is the one to listen to for that: two hands interlock and a third line appears.',
+        'Kubik described how, in East and Central African instrumental music, the ear groups the notes into conflicting gestalten [22]. I borrow that idea for the mbira card: two hands interlock, and I listen for a third line that neither plays.',
       ],
     },
     {
@@ -193,15 +193,15 @@ export const copy = {
   ] as readonly { heading: string; paragraphs: readonly string[] }[],
   aboutPresetsHeading: 'Where the cards come from',
   aboutPresets: [
-    'Each rhythm card is the skeleton that musicians and ethnomusicologists agree defines the style. It is not a transcription of a recording. The tempi are my starting points.',
-    'Where a card names a page, I opened that page. Where it says standard grid, the positions come from the common reference grids, such as the ones in Toussaint’s book [18], and I opened no page for that card.',
+    'The sourcebook I work from reduces each rhythm to its skeleton, and each card is that skeleton. It is not a transcription of a recording. The tempi are my starting points.',
+    'Where a card names a page, I opened that page. Where it says standard grid, the positions are the common reference grids. The sourcebook marks them as unquoted, and I opened no page for that card.',
     'I play every card on a TR-808. Where a rhythm wants a kalimba or a pluck, a cowbell, a clave or a conga stands in until I have more kits.',
   ],
   aboutPresetSourceNone: 'No page opened: standard grid',
   aboutColotomyHeading: 'A note on the gong cycle',
   aboutColotomy: [
-    'Javanese and Balinese music nests its time: the big gong once per cycle, kempul and kenong at halves and quarters, kethuk at finer points. That is called colotomic structure.',
-    'It is not a polyrhythm, because every level is a power of two. But my cycle marker and my downbeat accent are a colotomy with two levels.',
+    'I hear the gong cycle of Javanese and Balinese music as nested grids: the big gong once per cycle, kempul and kenong at halves and quarters, kethuk at finer points. That is called colotomic structure.',
+    'It is not a polyrhythm, because every level is a power of two. But my cycle line and my downbeat accent are a two-level version of it.',
   ],
   aboutReadingHeading: 'What I read',
   aboutReadingIntro: 'The numbers are the ones the math notes cite.',

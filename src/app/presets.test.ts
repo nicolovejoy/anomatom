@@ -35,13 +35,41 @@ describe.each(PRESETS)('preset $id', (p) => {
     expect(w?.listen).toBeTruthy();
   });
   test('plays at a tempo the player takes, on samples the kit has', () => {
-    expect(p.bpm).toBeGreaterThanOrEqual(40);
-    expect(p.bpm).toBeLessThanOrEqual(240);
+    if (p.bpm !== null) {
+      expect(p.bpm).toBeGreaterThanOrEqual(40);
+      expect(p.bpm).toBeLessThanOrEqual(240);
+    }
     for (const v of p.mapping.parts) expect(KIT_SAMPLES).toContain(v.sample);
   });
 });
 
+/** bpm and voices (hand 1 / hand 2) as the POLYRHYTHMS.md preset table gives them, with the palette's 808 stand-ins. */
+const TABLE: Record<string, [number, string, string]> = {
+  bell: [120, 'cowbell', 'tom-low'],
+  'son-clave': [95, 'rimshot', 'kick'],
+  clapping: [160, 'clap', 'clap'],
+  afrobeat: [105, 'hihat-close', 'kick'],
+  rumba: [95, 'rimshot', 'kick'],
+  cascara: [95, 'hihat-close', 'rimshot'],
+  kotekan: [180, 'cowbell', 'clave'],
+  hocket: [200, 'conga-hi', 'conga-low'],
+  nadai: [60, 'clave', 'kick'],
+  tihai: [100, 'snare', 'kick'],
+  mbira: [130, 'cowbell', 'tom-low'],
+  trance: [138, 'clave', 'kick'],
+  acid: [128, 'clave', 'hihat-close'],
+  'blue-rondo': [180, 'hihat-close', 'snare'],
+  pyramid: [80, 'conga-mid', 'kick'],
+  elvin: [200, 'hihat-open', 'kick'],
+  discipline: [120, 'clave', 'cowbell'],
+};
+
 describe('the sourcebook rows', () => {
+  test('tempo and voices match the table', () => {
+    const rows = PRESETS.filter((p) => p.kind === 'sourcebook');
+    expect(rows.map((p) => p.id).sort()).toEqual(Object.keys(TABLE).sort());
+    for (const p of rows) expect([p.bpm, ...p.mapping.parts.map((v) => v.sample)], p.id).toEqual(TABLE[p.id]);
+  });
   const rows = PRESETS.filter((p) => p.kind === 'sourcebook');
   test('each line of hits is one ball: the digits are the gap to the next hit, so they sum to the period', () => {
     for (const p of rows) {

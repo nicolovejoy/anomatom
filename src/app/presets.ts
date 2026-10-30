@@ -5,7 +5,6 @@ import { onsetsOf, partsFromLines, partsFromOnsets, partsFromVanilla, ratioSpaci
 import type { Part, Parts, PartsResult, Ratio } from '../core';
 import { applyPreset } from '../sound/mapping';
 import type { Mapping, Sample } from '../sound/mapping';
-import { DEFAULT_BPM } from '../tunables';
 
 export interface Preset {
   readonly id: string;
@@ -15,7 +14,8 @@ export interface Preset {
   readonly texts: readonly string[];
   readonly parts: Parts;
   readonly ratio: Ratio;
-  readonly bpm: number;
+  /** Tempo the card loads; null leaves the reader's tempo alone (the juggling cards). */
+  readonly bpm: number | null;
   readonly mapping: Mapping;
   /** The page the source line links to, or null when the grid is the standard one and no page was opened for it. */
   readonly sourceUrl: string | null;
@@ -38,7 +38,7 @@ const SITESWAP_URL = 'https://solipsys.co.uk/new/SiteSwap.html';
 /** A juggling card: a vanilla siteswap at 1:1, one line per hand otherwise. Plays height to drum (design §7). */
 function juggling(id: string, texts: readonly string[], ratio: Ratio, balls: number, cycle: number): Preset {
   const parts = ratio.a === ratio.b ? must(partsFromVanilla(texts[0] as string)) : must(partsFromLines(texts, ratio));
-  return { id, kind: 'juggling', texts, parts, ratio, bpm: DEFAULT_BPM, mapping: HEIGHT_DRUM, sourceUrl: SITESWAP_URL, balls, cycle, first: true };
+  return { id, kind: 'juggling', texts, parts, ratio, bpm: null, mapping: HEIGHT_DRUM, sourceUrl: SITESWAP_URL, balls, cycle, first: true };
 }
 
 interface Row {

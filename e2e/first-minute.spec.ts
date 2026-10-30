@@ -74,7 +74,16 @@ test('a link with state, and About, skip first minute', async ({ page }) => {
 
 test('About has a section per layer and a source line per sourcebook card', async ({ page }) => {
   await page.goto('/#about');
-  await expect(page.locator('.about section h3')).toContainText(['Time and the lattice', 'Notation', 'Where the cards come from']);
+  await expect(page.locator('.about section h3')).toContainText([
+    'Time and the lattice',
+    'Grids: ratio and displacement',
+    'Lines, necklaces and Euclidean rhythms',
+    'Flights, objects and k balls',
+    'Parts, streams and inherent patterns',
+    'Notation',
+    'Where the cards come from',
+    'A note on the gong cycle',
+  ]);
   await expect(page.locator('.preset-sources li')).toHaveCount(17);
   await expect(page.locator('.preset-sources a[href="https://ancient-future.com/bellclap.html"]')).toBeVisible();
   if (SHOTS) await page.screenshot({ path: `${SHOTS}/about.png`, fullPage: true });

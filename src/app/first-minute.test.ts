@@ -1,7 +1,6 @@
 import { describe, expect, test } from 'vitest';
 import { applyPreset } from '../sound/mapping';
 import { lineParts, typed, vanillaParts } from '../test/schedules';
-import { DEFAULT_BPM } from '../tunables';
 import { reduce } from './actions';
 import { cardLines, cardPattern, cardsShown, moreCount, playingPreset, presetPatch, scheduleFor, showsFirstMinute } from './first-minute';
 import { PRESETS } from './presets';
@@ -34,7 +33,6 @@ describe('presets', () => {
       type: 'loadPreset',
       parts: lineParts(['2 2x 2', '2x 2'], { a: 3, b: 2 }),
       ratio: { a: 3, b: 2 },
-      bpm: DEFAULT_BPM,
       mapping: applyPreset('height-drum'),
     });
     expect(cardPattern(preset('polyrhythm'))).toBe('2 2x 2 / 2x 2');
@@ -42,6 +40,11 @@ describe('presets', () => {
   });
   test('the juggling cards play height to drum (design §7), whatever the default', () => {
     for (const p of PRESETS.filter((q) => q.kind === 'juggling')) expect(tapped(p.id).mapping, p.id).toBe(applyPreset('height-drum'));
+  });
+  test('a juggling card leaves the reader’s tempo alone', () => {
+    const s = reduce({ ...defaultState(), bpm: 77 }, presetPatch(preset('classic')));
+    expect(s.bpm).toBe(77);
+    expect(presetPatch(preset('classic'))).not.toHaveProperty('bpm');
   });
   test('a sourcebook card loads its parts, ratio, tempo and its own voices', () => {
     const s = tapped('clapping');

@@ -283,7 +283,7 @@ export const PRESET_MAPPINGS = {
 } as const;
 
 // A fresh state takes voice per part (design §7); each first-minute card carries its own preset
-// (FIRST_MINUTE_PRESETS `mapping`), and an old link carries its mapping, so nothing that played changes its sound.
+// (src/app/presets.ts `mapping`), and an old link carries its mapping, so nothing that played changes its sound.
 export const DEFAULT_MAPPING: Mapping = VOICE_PER_PART;
 
 // ---------------------------------------------------------------------------------------------

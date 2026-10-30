@@ -26,9 +26,9 @@ export function cardsShown(expanded: boolean): readonly Preset[] {
 /** How many cards "more" reveals. */
 export const moreCount = (): number => PRESETS.length - cardsShown(false).length;
 
-/** What tapping a card does: loads its parts, ratio, tempo and mapping (design §7). */
+/** What tapping a card does: loads its parts, ratio, mapping and, for a sourcebook card, tempo (design §7). */
 export function presetPatch(preset: Preset): Action {
-  return { type: 'loadPreset', parts: preset.parts, ratio: { ...preset.ratio }, bpm: preset.bpm, mapping: preset.mapping };
+  return { type: 'loadPreset', parts: preset.parts, ratio: { ...preset.ratio }, ...(preset.bpm === null ? {} : { bpm: preset.bpm }), mapping: preset.mapping };
 }
 
 /** The pattern a juggling card shows: hand 1's text, or both hands' at other ratios than 1:1. */
