@@ -21,3 +21,7 @@
 .about li {
   margin: 0.5em 0;
 }
+.about .preset-sources {
+  list-style: none;
+  padding-left: 0;
+}

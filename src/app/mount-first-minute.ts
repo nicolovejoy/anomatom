@@ -2,9 +2,10 @@
 // your own" and Play/Pause. Shows only when the page opens with no state in the hash. Tapping a
 // card loads it into the store and starts the player; the tap is the gesture iOS needs for
 // sound. Leaving never stops playback. The logic is in first-minute.ts.
-import { FIRST_MINUTE_PRESETS } from '../tunables';
 import { copy } from '../ui/copy';
-import { cardPattern, playingPreset, presetPatch, scheduleFor, showsFirstMinute } from './first-minute';
+import { cardLines, cardsShown, moreCount, playingPreset, presetPatch, scheduleFor, showsFirstMinute } from './first-minute';
+import { PRESETS } from './presets';
+import type { Preset } from './presets';
 import type { Mount } from './mount';
 import './first-minute.css';
 
@@ -19,21 +20,38 @@ export const mountFirstMinute: Mount = (root, { store, player }) => {
     return {};
   }
   const t = copy.firstMinute;
+  const shownAtFirst = new Set(cardsShown(false).map((p) => p.id));
+  const nameOf = (p: Preset) => copy.presets[p.id]?.name ?? '';
+
+  /** A juggling card: its pattern and name, with the ratio badge on the wide one. */
+  const jugglingCard = (p: Preset) => `
+        <button type="button" class="fm-card${p.ratio.a !== p.ratio.b ? ' fm-wide' : ''}" data-id="${p.id}">
+          <span class="fm-text">
+            <span class="fm-pattern">${cardLines(p)[0]}</span>
+            <span class="fm-name">${nameOf(p)}</span>
+          </span>
+          ${p.ratio.a !== p.ratio.b ? `<span class="fm-ratio">${copy.ratioChip(p.ratio.a, p.ratio.b)}</span>` : ''}
+        </button>`;
+
+  /** A sourcebook card: name and badges over a hit grid per hand, and the source. */
+  const sourcebookCard = (p: Preset) => `
+        <button type="button" class="fm-card fm-wide fm-sb" data-id="${p.id}"${shownAtFirst.has(p.id) ? '' : ' hidden'}>
+          <span class="fm-head">
+            <span class="fm-name">${nameOf(p)}</span>
+            <span class="fm-badges"><span class="fm-ratio">${copy.ratioChip(p.ratio.a, p.ratio.b)}</span><span class="fm-bpm">${t.bpm(p.bpm ?? 0)}</span></span>
+          </span>
+          <span class="fm-grids">${cardLines(p)
+            .map((g) => `<span class="fm-grid">${g}</span>`)
+            .join('')}</span>
+          <span class="fm-source">${copy.presets[p.id]?.source ?? ''}</span>
+        </button>`;
+
   root.innerHTML = `
     <p class="fm-line">${t.line}</p>
-    <div class="fm-cards">
-      ${FIRST_MINUTE_PRESETS.map(
-        (p) => `
-        <button type="button" class="fm-card${p.wide ? ' fm-wide' : ''}" data-id="${p.id}">
-          <span class="fm-text">
-            <span class="fm-pattern">${cardPattern(p)}</span>
-            <span class="fm-name">${t.names[p.id] ?? ''}</span>
-          </span>
-          ${p.wide ? `<span class="fm-ratio">${copy.ratioChip(p.ratio.a, p.ratio.b)}</span>` : ''}
-        </button>`,
-      ).join('')}
+    <div class="fm-scroll">
+      <div class="fm-cards">${PRESETS.map((p) => (p.kind === 'juggling' ? jugglingCard(p) : sourcebookCard(p))).join('')}</div>
+      <button type="button" class="fm-more" aria-expanded="false"></button>
     </div>
-    <div class="fm-spacer"></div>
     <div class="fm-bar">
       <button type="button" class="fm-own">${t.makeYourOwn}</button>
       <button type="button" class="fm-play" aria-label="${copy.play}">${PLAY_ICON}</button>
@@ -54,7 +72,7 @@ export const mountFirstMinute: Mount = (root, { store, player }) => {
 
   cards.forEach((card) =>
     card.addEventListener('click', () => {
-      const preset = FIRST_MINUTE_PRESETS.find((p) => p.id === card.dataset.id);
+      const preset = PRESETS.find((p) => p.id === card.dataset.id);
       if (!preset) return;
       store.dispatch(presetPatch(preset));
       // The knobs mount hands a changed pattern to a running player; stopped or paused, the tap starts it.
@@ -74,6 +92,20 @@ export const mountFirstMinute: Mount = (root, { store, player }) => {
     store.set({ sheetTab: 'pattern' });
   });
 
+  const more = root.querySelector('.fm-more') as HTMLButtonElement;
+  let expanded = false;
+  function drawMore() {
+    for (const card of cards) card.hidden = !expanded && !shownAtFirst.has(card.dataset.id ?? '');
+    more.textContent = expanded ? t.fewer : t.more;
+    more.setAttribute('aria-expanded', String(expanded));
+    more.setAttribute('aria-label', expanded ? t.fewerLabel : t.moreLabel(moreCount()));
+  }
+  drawMore();
+  more.addEventListener('click', () => {
+    expanded = !expanded;
+    drawMore();
+  });
+
   let shown = '';
   return {
     draw(view) {
@@ -86,10 +118,10 @@ export const mountFirstMinute: Mount = (root, { store, player }) => {
       for (const card of cards) {
         const on = card.dataset.id === id;
         card.classList.toggle('fm-playing', on);
-        const preset = FIRST_MINUTE_PRESETS.find((p) => p.id === card.dataset.id)!;
-        const name = t.names[preset.id] ?? '';
+        const preset = PRESETS.find((p) => p.id === card.dataset.id)!;
+        const name = nameOf(preset);
         (card.querySelector('.fm-name') as HTMLElement).textContent = name + (on ? t.playingSuffix : '');
-        card.setAttribute('aria-label', t.cardLabel(cardPattern(preset), name, on));
+        card.setAttribute('aria-label', t.cardLabel(cardLines(preset).join(' / '), name, on));
       }
       playButton.innerHTML = playing ? PAUSE_ICON : PLAY_ICON;
       playButton.setAttribute('aria-label', playing ? t.pause : copy.play);

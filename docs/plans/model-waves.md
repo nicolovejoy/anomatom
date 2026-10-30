@@ -2,7 +2,7 @@
 
 Implements `docs/plans/model-rethink.md` (the design; read it first, it is the contract). Process as in `docs/plans/v1-parallel.md` "Roles and process": governor Fable; implementers Opus or Sonnet as marked, one worktree and branch per stream, implementers never spawn agents; one review per stream at its end, final whole-branch review by Fable; merge on green CI without asking; rebase only at a stream's end. Every stream keeps `npm run typecheck`, `npm test` (100% lines per file, `vitest.config.ts`) and `npm run e2e` green at every commit, and `npm run build` building; legacy functions may stay as thin wrappers over new ones until the stream that retires them. Every stream runs its own headless checks and returns screenshot paths; Nico gets one short smoke test at each checkpoint.
 
-Status: written 2026-10-29 (Fable, session 1187). Wave 0 dispatched the same day.
+Status: written 2026-10-29 (Fable, session 1187). Waves 0 and 1 merged 2026-10-29 (PRs 32-37); wave 2 dispatched.
 
 ## Waves
 
@@ -194,3 +194,11 @@ Default preset "Voice per part"; "Height to drum" and "Height to pitch" keep rea
 - 2026-10-29 (Fable): `Event.height` is always `flight / unit`, for faulted parts too. Kotekan telu shares pulses between the hands, so the one-ball crossing test case is the hocket `2 0` / `0 2` versus `1x 0` / `0 1x`. `AppState.notice` is transient UI state, not an action result.
 
 - 2026-10-29 (Fable): for a part in a faulted group, `Event.flight` is the gap to the next onset of that part (the k = 1 value), regardless of what the manual digit said, so the sound fallback of design §7 needs no second code path. The faulted digits are still reported in the verdict for the picture.
+
+- 2026-10-29 (Fable, after wave 1): (a) `Derived.fixTexts` exists. `setPhase` on a lone manual part keeps its flights. `setRatio` resets a vanilla pair with a notice. The notice is transient UI state, shown as the last status line, never in the hash.
+
+- 2026-10-29 (Fable, after wave 1): (b) Drafts edit flights, never grids. A single string is vanilla only over two hands at 1:1. Vanilla text lays out its own grids, and `a / b` typed over a vanilla pair starts at spacing 1, phase 0. The editor is capped at two parts this wave (`MAX_EDITOR_PARTS`). Views take the catching part from the catch event.
+
+- 2026-10-29 (Fable, after wave 1): (c) The "lands between" message uses core's `nearestOnset`.
+
+- 2026-10-29 (Fable, after wave 1): (d) `DEFAULT_MAPPING` is voice per part, and each card carries its own preset.

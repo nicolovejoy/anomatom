@@ -79,9 +79,81 @@
   font-size: 15px;
   color: var(--accent, #f0c33c);
 }
-.fm-spacer {
-  flex-grow: 1;
-  min-height: 16px;
+.fm-scroll {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+  padding-bottom: 12px;
+}
+.fm-card[hidden] {
+  display: none;
+}
+/* A sourcebook card: name and badges, a hit grid per hand, the source. Taller than a juggling card. */
+.fm-card.fm-sb {
+  height: auto;
+  min-height: 96px;
+  flex-direction: column;
+  align-items: stretch;
+  justify-content: flex-start;
+  gap: 8px;
+}
+.fm-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 12px;
+}
+.fm-sb .fm-name {
+  font-size: 15px;
+  color: var(--text, #e6e8ec);
+}
+.fm-sb.fm-playing .fm-name {
+  color: var(--text, #e6e8ec);
+}
+.fm-badges {
+  display: flex;
+  gap: 10px;
+  flex-shrink: 0;
+  white-space: nowrap;
+}
+.fm-bpm {
+  font-family: var(--font-mono, 'IBM Plex Mono', ui-monospace, monospace);
+  font-size: 13px;
+  color: var(--muted, #8b93a1);
+}
+.fm-grids {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.fm-grid {
+  font-family: var(--font-mono, 'IBM Plex Mono', ui-monospace, monospace);
+  font-size: 13px;
+  letter-spacing: 0.12em;
+  line-height: 1.25;
+  color: var(--text-2, #c9ced8);
+}
+.fm-source {
+  font-size: 12px;
+  line-height: 15px;
+  color: var(--muted, #8b93a1);
+}
+.fm-more {
+  display: block;
+  width: 100%;
+  height: 48px;
+  margin-top: 10px;
+  border: 0;
+  border-radius: 14px;
+  background: transparent;
+  color: var(--text-2, #c9ced8);
+  font-size: 15px;
+  box-shadow: inset 0 0 0 1px var(--rule, #2a2f38);
+  cursor: pointer;
+}
+.fm-more:focus-visible {
+  outline: 2px solid var(--text, #e6e8ec);
+  outline-offset: 2px;
 }
 .fm-bar {
   display: flex;
@@ -126,4 +198,13 @@
 #app.is-first-minute .region-sound-panel,
 #app.is-first-minute header p {
   display: none;
+}
+
+/* On a phone the cards scroll inside the space under a short stage; the Play bar stays in reach. */
+#app.is-first-minute:not(.is-wide) .stage {
+  flex: 0 0 132px;
+}
+#app.is-first-minute:not(.is-wide) .region-first-minute {
+  flex: 1 1 0;
+  min-height: 0;
 }
