@@ -215,6 +215,13 @@ export const MAX_LINK_CYCLE = 4096;
 export const MAX_LANES = 4;
 /** The rate stepper's top: a lane plays at most this many beats while a lane of rate 1 plays one. As high as a ratio's side. */
 export const MAX_RATE = MAX_RATIO;
+/** The Rhythm tab's lanes on screen (docs/plans/lanes.md, stream B). */
+export const LANES_UI = {
+  /** Step cells per row on a phone: a longer period wraps to a second row. A wide column holds the whole period in one row. */
+  phoneColumns: 8,
+  /** A lane's colour dot shows from this many lanes, as the ladder and the juggler tint parts only at three or more. */
+  dotsFromLanes: 3,
+} as const;
 
 // ---------------------------------------------------------------------------------------------
 // C: Mapping and sound
