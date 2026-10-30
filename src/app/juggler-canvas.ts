@@ -32,7 +32,7 @@ export function drawJuggler(canvas: HTMLCanvasElement, frame: JugglerFrame) {
   // under a held ball, never past the canvas. Grey for one figure; with three or more parts
   // each in its part's colour, as its ladder lane, so a hand can be found in both.
   const handY = Math.min(py(0) + r + JUGGLER.handGapPx, height - JUGGLER.handBarPx);
-  const tinted = frame.hands.length > 2;
+  const tinted = frame.parts > 2;
   for (const h of frame.hands) {
     ctx.fillStyle = tinted ? partColour(h.part) : JUGGLER.hand;
     const mid = px((h.catchX + h.throwX) / 2);

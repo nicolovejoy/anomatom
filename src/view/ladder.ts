@@ -96,7 +96,8 @@ export function laneGeometry(parts: number, height: number, layout: LaneLayout, 
   const base = { step, barPx: layout.barPx, rowGapPx: layout.rowGapPx };
   if (parts <= 2) return { ...base, y: [pad, height - pad], dir: [1, -1], rows: colours };
   const band = (height - 2 * pad) / parts;
-  const rows = Math.max(1, Math.floor((band - layout.barPx - layout.rowGapPx) / step) + 1);
+  // A row fits when its bar ends a row gap short of the next lane's line.
+  const rows = Math.max(1, Math.floor((band - layout.barPx - 2 * layout.rowGapPx) / step) + 1);
   return { ...base, y: Array.from({ length: parts }, (_, i) => pad + i * band), dir: Array.from({ length: parts }, () => 1 as const), rows };
 }
 

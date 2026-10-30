@@ -101,16 +101,19 @@ export interface HandPlace {
 
 /**
  * Every hand of a picture of `parts` parts, by pairing (lanes ruling 4): part p stands in figure
- * ⌊p/2⌋, as its left hand when p is even and its right hand when odd, except an odd last part,
- * which is a one-handed figure: hand 1's span, moved to the middle of its figure.
+ * ⌊p/2⌋, as its left hand when p is even and its right hand when odd, except an odd last part
+ * past the first figure, which is a one-handed figure: hand 1's span, moved to the middle of its
+ * figure. One part draws as the pair it always was (ruling on PR 43), so the juggler, the
+ * ladder's two lanes and the "two hands" label agree; its ball stays in hand 1.
  */
 export function handPlaces(parts: number, layout: Pick<JugglerLayout, 'catchX' | 'throwX' | 'figureStride'>): HandPlace[] {
   const [c0, c1] = layout.catchX;
   const [t0, t1] = layout.throwX;
   const centre = (c0 + c1) / 2 - (c0 + t0) / 2;
-  return Array.from({ length: parts }, (_, part) => {
+  const drawn = Math.max(parts, 2);
+  return Array.from({ length: drawn }, (_, part) => {
     const offset = Math.floor(part / 2) * layout.figureStride;
-    if (part % 2 === 0 && part === parts - 1) return { part, catchX: offset + c0 + centre, throwX: offset + t0 + centre };
+    if (part % 2 === 0 && part === drawn - 1) return { part, catchX: offset + c0 + centre, throwX: offset + t0 + centre };
     return part % 2 === 0 ? { part, catchX: offset + c0, throwX: offset + t0 } : { part, catchX: offset + c1, throwX: offset + t1 };
   });
 }
@@ -162,6 +165,8 @@ export interface JugglerFrame {
   readonly bounds: SceneBounds;
   /** The hands to draw: every hand of every segment on screen (a part-count switch shows both). */
   readonly hands: readonly HandPlace[];
+  /** The most parts of any segment on screen (2 with none), as the ladder's `Frame.parts`: above 2 the hands take their part colours. */
+  readonly parts: number;
 }
 
 // ---------------------------------------------------------------------------------------------
@@ -437,6 +442,7 @@ export function jugglerFrame(
     inhuman: balls.some((b) => b.inhuman && b.held === null),
     bounds: scene.bounds,
     hands: scene.hands,
+    parts: scene.parts,
   };
 }
 
@@ -548,7 +554,7 @@ export function sceneScale(bounds: SceneBounds, width: number, height: number, l
  * flight lands, so a switch never makes the scale jump. A segment's apex is taken at the longer
  * of its own and the next pulse length, which bounds its retimed crossing flights too.
  */
-function bounds(segments: readonly Segment[], now: number, layout: JugglerLayout, lookup: FlightLookup): { bounds: SceneBounds; hands: HandPlace[] } {
+function bounds(segments: readonly Segment[], now: number, layout: JugglerLayout, lookup: FlightLookup): { bounds: SceneBounds; hands: HandPlace[]; parts: number } {
   const ease = layout.boundsEaseSeconds;
   let top = 0;
   // Across, the span of the segment playing now; a segment weighing in or out with a different
@@ -557,6 +563,7 @@ function bounds(segments: readonly Segment[], now: number, layout: JugglerLayout
   const [lo, hi] = span(playing ? playing.schedule.grids.length : 2, layout);
   let [left, right] = [lo, hi];
   const hands = new Map<string, HandPlace>();
+  let most = playing ? 0 : 2;
   if (!playing) for (const h of handPlaces(2, layout)) hands.set(`${h.part}:${h.catchX}`, h);
   segments.forEach((seg, i) => {
     const next = segments[i + 1];
@@ -568,6 +575,7 @@ function bounds(segments: readonly Segment[], now: number, layout: JugglerLayout
     );
     if (weight === 0) return;
     const parts = seg.schedule.grids.length;
+    most = Math.max(most, parts);
     const [l, r] = span(parts, layout);
     left = Math.min(left, lo + weight * (l - lo));
     right = Math.max(right, hi + weight * (r - hi));
@@ -585,6 +593,7 @@ function bounds(segments: readonly Segment[], now: number, layout: JugglerLayout
   return {
     bounds: { left: left - r, right: right + r, bottom: -layout.scoopDepth - r, top: top + r },
     hands: [...hands.values()],
+    parts: most,
   };
 }
 

@@ -46,9 +46,10 @@ test('hands pair into figures: two parts are one figure as before, an odd last p
     [0, JUGGLER.catchX[0], JUGGLER.throwX[0]],
     [1, JUGGLER.catchX[1], JUGGLER.throwX[1]],
   ]);
+  // One part draws as the pair it always was.
+  expect(places(1)).toEqual(places(2));
   // A one-handed figure: hand 1's span, centred where the pair would stand.
   const shift = (JUGGLER.catchX[1] - JUGGLER.throwX[0]) / 2;
-  expect(places(1)).toEqual([[0, x(shift), x(JUGGLER.throwX[0] + shift)]]);
   expect(places(3).slice(2)).toEqual([[2, x(S + shift), x(S + JUGGLER.throwX[0] + shift)]]);
   expect(places(4).slice(2)).toEqual([
     [2, x(S + JUGGLER.catchX[0]), x(S + JUGGLER.throwX[0])],
@@ -132,6 +133,8 @@ test('a switch to more parts widens the scene smoothly, and both segments\' hand
     { ...first, startTime: B * 0.25, endTime: null },
   ];
   expect(jugglerFrame(back, B * 0.25 + 10, JUGGLER).bounds.right).toBeCloseTo(JUGGLER.catchX[1] + JUGGLER.radius, 9);
+  // No segment: two parts' hands, untinted.
+  expect(jugglerFrame([], 0, JUGGLER)).toMatchObject({ parts: 2, hands: handPlaces(2, JUGGLER) });
   // A frame past every segment's end still has its scene and hands: the last segment's.
   const ended: Segment[] = [{ ...first, endTime: 1 }];
   expect(jugglerFrame(ended, 5, JUGGLER).hands).toHaveLength(2);
@@ -150,7 +153,8 @@ test('lanes: two parts keep the two facing lanes; three or more stack one band e
   expect(four.y).toEqual([0, 1, 2, 3].map((i) => LADDER.lanePaddingPx + i * band));
   expect(four.dir).toEqual([1, 1, 1, 1]);
   // Every row of a lane stays inside its band, and rows repeat past what fits.
-  expect(rowY(four, 3, four.rows - 1) + LADDER.barPx / 2).toBeLessThanOrEqual(220 - LADDER.lanePaddingPx);
+  expect(rowY(four, 3, four.rows - 1) + LADDER.barPx / 2 + LADDER.rowGapPx).toBeLessThanOrEqual(220 - LADDER.lanePaddingPx);
+  expect(rowY(four, 0, four.rows - 1) + LADDER.barPx / 2 + LADDER.rowGapPx).toBeLessThanOrEqual(four.y[1] as number);
   expect(rowY(four, 1, four.rows)).toBe(rowY(four, 1, 0));
   // A phone strip too short for a second row still has one.
   expect(laneGeometry(4, 60, LADDER, BALL_COLOURS.length).rows).toBe(1);
@@ -161,4 +165,25 @@ test('partColour: one per part, the palette repeating past its end', () => {
   expect(partColour(1)).not.toBe(partColour(0));
   expect(partColour(PART_COLOURS.length + 2)).toBe(partColour(2));
   expect(new Set(PART_COLOURS).size).toBe(PART_COLOURS.length);
+});
+
+test('a switch from one part to two never tints the hands: one part is the pair, as the ladder\'s two lanes', () => {
+  const one = buildSchedule(partsFromOnsets([[true, true, true]], [1], [3]));
+  expect(one.grids).toHaveLength(1);
+  const two = scheduleOf('3');
+  const segments: Segment[] = [
+    { schedule: one, startTime: 0, pulseLen: 0.25, endTime: 3, carry: new Map() },
+    { schedule: two, startTime: 3, pulseLen: 0.25, endTime: null, carry: new Map() },
+  ];
+  for (const t of [0, 2.8, 3.1, 6]) {
+    const f = jugglerFrame(segments, t, JUGGLER);
+    expect(f.parts).toBeLessThanOrEqual(2);
+    expect(f.hands).toEqual(handPlaces(2, JUGGLER));
+    expect(f.bounds.right).toBeCloseTo(JUGGLER.catchX[1] + JUGGLER.radius, 9);
+  }
+  expect(jugglerFrame(segments, 0, JUGGLER).parts).toBe(1);
+  expect(jugglerFrame(segments, 3.1, JUGGLER).parts).toBe(2);
+  expect(ladderFrame(segments, 3.1, LADDER).parts).toBe(2);
+  // Its balls ride hand 1, as they always have.
+  for (const b of jugglerFrame(segments, 1.3, JUGGLER).balls) if (b.held !== null) expect(b.held).toBe(0);
 });
