@@ -88,6 +88,13 @@ export const LADDER = {
 // ---------------------------------------------------------------------------------------------
 
 /**
+ * SPEC §4.1 (v2): a flight longer than this from throw to catch, in seconds at the current
+ * tempo, is "not a human throw": drawn dimmed on the juggler and the ladder, and labelled.
+ * Presentation only; juggleability never depends on tempo.
+ */
+export const HUMAN_AIRTIME_SECONDS = 3;
+
+/**
  * The juggler (SPEC §4.1), in metres and seconds: front view, hand 1 on the left. The canvas
  * scales the scene to fit its region, so only the proportions show.
  */
@@ -124,6 +131,21 @@ export const JUGGLER = {
   flashRing: '#ffffff',
   flashRingRadii: 1.6,
   flashRingPx: 3,
+  /**
+   * The juggler's axes (SPEC §4.1 v2, `sceneScale`): up to an apex this tall, in metres, one
+   * scale serves both axes, fitted to a scene this tall, so the hands keep one height; a taller
+   * apex squeezes only the height so it stays on the canvas. 531 at 120 bpm peaks under it.
+   */
+  uniformTopMetres: 1.5,
+  /** A flight over HUMAN_AIRTIME_SECONDS: its ball drawn at this opacity. */
+  inhumanAlpha: 0.4,
+  /** A faulted group's flights (design §6): arcs in the warning colour (--warn), this wide, meeting at a ring on the landing. */
+  fault: '#ff9f43',
+  faultLinePx: 2.5,
+  faultRingPx: 7,
+  /** A faulted flight that is also over HUMAN_AIRTIME_SECONDS: dashed, these lengths. */
+  inhumanDashPx: [6, 6],
+  humanAirtimeSeconds: HUMAN_AIRTIME_SECONDS,
 } as const;
 
 // ---------------------------------------------------------------------------------------------
@@ -309,6 +331,8 @@ export const KNOBS = {
   volumeStep: 0.01,
   /** Positions on the scrub slider across one cycle. */
   scrubSteps: 1000,
+  /** The Rhythm tab's ball stepper runs from 1 to this, per hand. */
+  maxBalls: 9,
 } as const;
 
 /** The broken pattern's strip (SPEC §4.2), and the accent mark at coincident cross landings (SPEC §7.3). */
@@ -318,6 +342,8 @@ export const LADDER_E = {
   /** The accent: a triangle on the catching hand's lane, pointing into the strip. */
   accent: '#ffffff',
   accentPx: 7,
+  /** A flight over HUMAN_AIRTIME_SECONDS: its bar at this opacity, as the juggler dims its ball. */
+  inhumanAlpha: 0.4,
 } as const;
 
 // ---------------------------------------------------------------------------------------------

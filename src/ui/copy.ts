@@ -84,6 +84,8 @@ export const copy = {
 
   /** The juggler canvas, for a screen reader. */
   jugglerLabel: 'My two hands juggling the pattern: hand 1 on the left, hand 2 on the right.',
+  /** SPEC §4.1 (v2): shown while a flight longer than `seconds` is in the air. */
+  notHumanThrow: (seconds: number) => `Not a human throw: I keep this one up for more than ${seconds} seconds.`,
 
   // -------------------------------------------------------------------------------------------
   // B: Player and fixes
@@ -250,7 +252,30 @@ export const copy = {
   scrubLabel: 'Time in the cycle',
   volumeLabel: 'Volume',
   nextCycle: 'Next cycle',
+  /** Design §6: the fixes are an offer, never a gate. */
+  fixesHeading: 'Make it juggleable',
+  fixesOptional: 'Optional. I play it as it is either way.',
   fixesLabel: 'Nearest patterns I can juggle:',
+  /** Rhythm tab, one column per hand (design §14 option b). Controls stay labels. */
+  rhythmHand: (hand: number) => `Hand ${hand + 1}`,
+  phaseLabel: 'Phase',
+  ballsLabel: 'Balls',
+  hitsLabel: 'Hits',
+  /** The phase readout: the phase over the cycle, both in pulses ("3", then "/ 12" under it). */
+  phaseCycle: (cycle: number) => `/ ${cycle}`,
+  phaseReadoutLabel: (hand: number, phase: number, cycle: number) =>
+    `Hand ${hand + 1} phase: ${phase} of a ${cycle}-pulse cycle`,
+  phaseStepLabel: (hand: number, later: boolean) => `Hand ${hand + 1} ${later ? 'one pulse later' : 'one pulse earlier'}`,
+  ballsStepLabel: (hand: number, up: boolean) => `${up ? 'More' : 'Fewer'} balls in hand ${hand + 1}`,
+  hitsStepLabel: (hand: number, up: boolean) => `${up ? 'More' : 'Fewer'} hits for hand ${hand + 1}`,
+  /** A manual group has no ball knob: its count, which may span both hands, and Reset. */
+  groupBalls: (balls: number | null, hands: number) =>
+    balls === null ? 'can’t juggle' : hands > 1 ? `${balls} ball${balls === 1 ? '' : 's'} between both hands` : String(balls),
+  resetGroup: 'Reset',
+  resetGroupLabel: (hands: readonly number[]) =>
+    hands.length === 1 ? `Reset hand ${(hands[0] as number) + 1} to 1 ball` : 'Reset both hands to 1 ball each',
+  rhythmHint:
+    'Phase moves a hand later, a pulse at a time. Balls is how many I keep in the air over the same hits. Hits spreads that many throws evenly over the hand’s beats.',
   fixesNone: 'I found no pattern nearby that I can juggle.',
   fixLabel: (texts: readonly string[]) => texts.join(' / '),
   /** The samples, beside Play. Loading is quiet; failed says what it means for the reader and offers the retry. */

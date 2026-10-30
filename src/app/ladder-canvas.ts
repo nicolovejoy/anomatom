@@ -71,6 +71,8 @@ export function drawLadder(canvas: HTMLCanvasElement, frame: Frame, options: Dra
     const x1 = Math.max(px(b.x1), x0 + LADDER.minBarPx);
     const y0 = rowY(b.from, b.colour);
     const y1 = rowY(b.to, b.colour);
+    // Not a human throw (SPEC §4.1 v2): dimmed, as the juggler dims its ball.
+    ctx.globalAlpha = b.inhuman ? LADDER_E.inhumanAlpha : 1;
     if (b.cross) {
       ctx.strokeStyle = colour;
       ctx.lineWidth = LADDER.crossLinePx;
@@ -84,6 +86,8 @@ export function drawLadder(canvas: HTMLCanvasElement, frame: Frame, options: Dra
       ctx.fillRect(x0, y0 - LADDER.barPx / 2, x1 - x0, LADDER.barPx);
     }
   }
+
+  ctx.globalAlpha = 1;
 
   // A triangle on the catching hand's lane, pointing into the strip.
   ctx.fillStyle = LADDER_E.accent;

@@ -134,10 +134,24 @@
 #status p + p {
   margin-top: 4px;
 }
+/* The last action's notice (design §5): news, not a fault, so neither green nor warning. */
+#status p.notice,
+#status.invalid p.notice {
+  color: var(--muted);
+  font-size: 14px;
+  font-style: italic;
+}
 .fixes {
   display: flex;
   flex-direction: column;
-  gap: 10px;
+  gap: 8px;
+  padding-top: 4px;
+  border-top: 1px solid var(--rule);
+}
+.fixes-heading {
+  margin: 8px 0 0;
+  font-weight: 500;
+  color: var(--accent);
 }
 .fixes-label {
   margin: 0;
@@ -256,6 +270,70 @@
   min-width: 1.4em;
   text-align: center;
   font: 20px var(--font-mono);
+}
+/* Per hand, under the chips (design §14 option b): a column per hand, a row per knob. */
+.rhythm-grid {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) minmax(0, 1fr);
+  align-items: center;
+  gap: 8px 10px;
+  margin-top: 4px;
+}
+.rh-hand {
+  justify-self: center;
+  font-size: 13px;
+  color: var(--text-2);
+}
+.rh-label {
+  font-size: 13px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+.rstep {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 4px;
+}
+.rstep button {
+  flex: 0 0 44px;
+  width: 44px;
+  height: 44px;
+  border: 0;
+  border-radius: 12px;
+  background: var(--raised);
+  font-size: 22px;
+}
+.rstep output {
+  flex: 1 1 auto;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  font: 20px/1.1 var(--font-mono);
+}
+.rstep output .rof {
+  font-size: 11px;
+  color: var(--muted);
+}
+.group-balls {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  min-height: 44px;
+  font: 16px var(--font-mono);
+  color: var(--text-2);
+}
+.reset-group {
+  flex: 0 0 auto;
+  height: 44px;
+  padding: 0 16px;
+  border: 0;
+  border-radius: 22px;
+  background: var(--raised);
+  font: 15px var(--font-ui);
 }
 .tempo {
   gap: 6px;

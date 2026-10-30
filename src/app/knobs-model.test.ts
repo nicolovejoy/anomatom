@@ -1,14 +1,25 @@
 import { describe, expect, test } from 'vitest';
 import { scheduleOf, typed } from '../test/schedules';
-import { BPM_RANGE, MAX_RATIO } from '../tunables';
+import { partsFromOnsets } from '../core';
+import { BPM_RANGE, KNOBS, MAX_RATIO } from '../tunables';
 import type { PlayerView, Segment } from '../view/types';
 import { reduce } from './actions';
 import { derived } from './derived';
 import {
   analyse,
   badChar,
+  ballsAction,
   clampBpm,
   cyclePosition,
+  cycleSamples,
+  draftAction,
+  hitsAction,
+  joinInputs,
+  phaseAction,
+  rhythmRows,
+  splitInputs,
+  splitText,
+  type HandRhythm,
   editChanged,
   editText,
   fixActions,
@@ -16,6 +27,7 @@ import {
   hand2Bpm,
   handState,
   inputText,
+  joinAction,
   pieces,
   reduceRatio,
   siteCovering,
@@ -25,7 +37,7 @@ import {
   toggleSite,
   warnSites,
 } from './knobs-model';
-import { defaultState } from './state';
+import { defaultState, type AppState } from './state';
 
 const one = { a: 1, b: 1 };
 const threeTwo = { a: 3, b: 2 };
@@ -49,8 +61,14 @@ describe('analyse and the fix state', () => {
     expect(inputText(s, derived(s), 0)).toBe('22');
     const d = defaultState();
     expect(inputText(d, derived(d), 0)).toBe('3');
+    // `a / b` at 1:1 shows as two inputs, one per part, typed or not.
     const form2 = { ...typed(['3 / 2']), drafts: [null, null] };
-    expect(inputText(form2, derived(form2), 0)).toBe('3 / 2');
+    expect([0, 1].map((i) => inputText(form2, derived(form2), i))).toEqual(['3', '2']);
+    const typedForm2 = typed(['3  /2 1']);
+    expect([0, 1].map((i) => inputText(typedForm2, derived(typedForm2), i))).toEqual(['3 ', '2 1']);
+    // One part at 1:1: its line, in the one input.
+    const lone = { ...form2, parts: form2.parts.slice(0, 1), drafts: [null] };
+    expect(inputText(lone, derived(lone), 0)).toBe('3');
     const r = { ...typed(['2 2x 2', '2x 2'], threeTwo), drafts: [null, null] };
     expect([0, 1, 2].map((i) => inputText(r, derived(r), i))).toEqual(['2 2x 2', '2x 2', '']);
   });
@@ -138,7 +156,73 @@ describe('analyse and the fix state', () => {
   });
 
   test('more than two patterns at 1:1 is refused: two hands are on screen', () => {
-    expect(statusLines(analyse(typed(['1 / 1 / 1'])))).toEqual(['I have 2 hands; write at most 2 patterns, with a / between them.']);
+    // At 1:1 the pattern splits at its first `/`; the second is in hand 2's input.
+    const a = analyse(typed(['1 / 1 / 1']));
+    expect(a.split).toBe(true);
+    expect(a.inputs).toEqual(['1', '1 / 1']);
+    expect(statusLines(a)).toEqual(['Hand 2 pattern: I have 2 hands; write at most 2 patterns, with a / between them.']);
+    expect(handState(a, 0)).toBe('neutral');
+    expect(handState(a, 1)).toBe('bad');
+    // Each side reads on its own, its x to the other hand.
+    const side = analyse(typed(['3x / 0x']));
+    expect(side.errors).toEqual([null, { kind: 'bad-target', index: 1 }]);
+    expect(badChar(side, 1)).toBeNull();
+    const bad = analyse(typed(['3 / 4#']));
+    expect(badChar(bad, 1)).toBe(1);
+    expect(statusLines(bad)).toEqual(['Hand 2 pattern: I only read digits and x; character 2 isn’t one.']);
+  });
+
+  test('splitText and joinInputs: two inputs and one draft, either way, exactly', () => {
+    expect(splitText('3 / 2 1')).toEqual(['3', '2 1']);
+    expect(splitText('3/2')).toEqual(['3', '2']);
+    expect(splitText('3')).toEqual(['3', '']);
+    expect(splitText(joinInputs('2 ', ' 2x'))).toEqual(['2 ', ' 2x']);
+  });
+
+  test('splitInputs: at 1:1 from a typed `/`, or two parts that are not one vanilla siteswap', () => {
+    expect(splitInputs(typed(['531']))).toBe(false);
+    expect(splitInputs(typed(['5#']))).toBe(false);
+    expect(splitInputs(typed(['3 /']))).toBe(true);
+    expect(splitInputs({ ...typed(['3 / 3']), drafts: [null, null] })).toBe(true);
+    expect(splitInputs(typed(['2 2x 2', '2x 2'], threeTwo))).toBe(false);
+    // A vanilla pair reset to its default rule is two parts of their own.
+    const reset = reduce(typed(['531']), { type: 'resetGroup', part: 0 });
+    expect(splitInputs(reset)).toBe(true);
+  });
+
+  test('draftAction: one input edits its own draft; two at 1:1 make the one draft', () => {
+    const v = typed(['3']);
+    expect(draftAction(v, derived(v), 0, '531')).toEqual({ type: 'editDraft', part: 0, text: '531' });
+    const r = typed(['2 2', '2'], threeTwo);
+    expect(draftAction(r, derived(r), 1, '2x')).toEqual({ type: 'editDraft', part: 1, text: '2x' });
+    const s = typed(['3 / 3']);
+    expect(draftAction(s, derived(s), 1, '4 2')).toEqual({ type: 'editDraft', part: 0, text: '3 / 4 2' });
+    expect(draftAction(s, derived(s), 0, '')).toEqual({ type: 'editDraft', part: 0, text: ' / 3' });
+  });
+
+  test('draftAction: a `/` typed in hand 1 while split is dropped, hand 2’s text stays put', () => {
+    const s = typed(['3 / 3']);
+    const action = draftAction(s, derived(s), 0, '3/4');
+    expect(action).toEqual({ type: 'editDraft', part: 0, text: '34 / 3' });
+    const after = reduce(s, action);
+    expect([0, 1].map((i) => inputText(after, derived(after), i))).toEqual(['34', '3']);
+  });
+
+  test('joinAction: only a vanilla pair or a split typed here joins back; never two parts of their own', () => {
+    const v = typed(['531 /']);
+    expect(joinAction(v, derived(v), false)).toEqual({ type: 'editDraft', part: 0, text: '531' });
+    const s = typed(['3 / 3']);
+    expect(joinAction(s, derived(s), true)).toEqual({ type: 'editDraft', part: 0, text: '3' });
+    expect(joinAction(s, derived(s), false)).toBeNull();
+    // Clapping Music, hand 2 at phase 3, hand 2's input cleared: Backspace changes no part.
+    const clap = [true, true, true, false, true, true, false, true, false, true, true, false];
+    let c: AppState = { ...defaultState(), parts: partsFromOnsets([clap, clap], [1, 1]), drafts: [null, null] };
+    c = reduce(c, { type: 'setPhase', part: 1, phase: 3 });
+    const parts = c.parts;
+    c = reduce(c, draftAction(c, derived(c), 1, ''));
+    expect(c.parts).toBe(parts);
+    expect(joinAction(c, derived(c), false)).toBeNull();
+    expect(joinAction(typed(['531']), derived(typed(['531'])), true)).toBeNull();
   });
 
   test('editChanged: the player hears a new schedule, tempo or ratio, even when the schedule object is the same', () => {
@@ -153,10 +237,11 @@ describe('analyse and the fix state', () => {
     expect(editChanged(s, reduce(s, { type: 'editDraft', part: 0, text: '5#' }))).toBe(false);
   });
 
-  test('at 1:1 `a / b` numbers its sites across the slash', () => {
+  test('at 1:1 `a / b` warns in each part’s own input', () => {
     const a = analyse(typed(['3 / 2 1']));
     expect(a.balls).toBeNull();
-    expect([...warnSites(a, 0)].sort()).toEqual([1, 2]);
+    expect(warnSites(a, 0).size).toBe(0);
+    expect([...warnSites(a, 1)].sort()).toEqual([0, 1]);
   });
 
   test('the last action’s notice follows the status', () => {
@@ -166,6 +251,83 @@ describe('analyse and the fix state', () => {
     expect(statusLines(analyse(bad)).at(-1)).toBe('n');
     const broken = { ...typed(['432']), notice: 'n' };
     expect(statusLines(analyse(broken)).at(-1)).toBe('n');
+    expect(analyse(broken).notice).toBe('n');
+    expect(analyse(typed(['432'])).notice).toBeNull();
+  });
+});
+
+describe('the Rhythm tab: phase, balls and hits per hand', () => {
+  const clap = [true, true, true, false, true, true, false, true, false, true, true, false];
+  const clapping = (): AppState => ({ ...defaultState(), parts: partsFromOnsets([clap, clap], [1, 1]), drafts: [null, null] });
+  const rows = (s: AppState) => rhythmRows(s, derived(s));
+  const apply = (s: AppState, a: ReturnType<typeof phaseAction>) => reduce(s, a as NonNullable<typeof a>);
+
+  test('Clapping Music: every phase step keeps the cycle at 12, wrapping within the period', () => {
+    let s = clapping();
+    const [h1, h2] = rows(s) as [HandRhythm, HandRhythm];
+    expect(h1).toEqual({ part: 0, phase: 0, wrap: 12, cycle: 12, hits: 8, period: 12, k: 1, group: null });
+    expect(h2.part).toBe(1);
+    for (let i = 1; i <= 12; i++) {
+      s = apply(s, phaseAction(rows(s)[1] as HandRhythm, 1));
+      expect(rows(s)[1]).toMatchObject({ phase: i % 12, cycle: 12 });
+    }
+    expect(phaseAction(rows(s)[1] as HandRhythm, -1)).toEqual({ type: 'setPhase', part: 1, phase: 11 });
+    // A period of one pulse has no phase to step.
+    expect(phaseAction({ ...h1, wrap: 1 }, 1)).toBeNull();
+  });
+
+  test('balls: k from 1 to the most, on a default group only; the sound stays', () => {
+    const s = clapping();
+    const h1 = rows(s)[0] as HandRhythm;
+    expect(ballsAction(h1, -1)).toBeNull();
+    const up = apply(s, ballsAction(h1, 1));
+    expect(rows(up)[0]?.k).toBe(2);
+    expect(up.parts[1]).toBe(s.parts[1]);
+    expect(analyse(up).balls).toBe(3);
+    expect(ballsAction({ ...h1, k: KNOBS.maxBalls }, 1)).toBeNull();
+    // Voice per part: the knob changes the picture, never the sound.
+    const sound = (x: AppState) => cycleSamples(derived(x).schedule, x.mapping);
+    expect(sound(up)).toBe(sound(s));
+    expect(sound(s).split(' ')).toHaveLength(16);
+  });
+
+  test('a manual group: no knob, its derived count across both hands, and reset', () => {
+    const s = typed(['531']);
+    const [h1, h2] = rows(s) as [HandRhythm, HandRhythm];
+    expect(h1.k).toBeNull();
+    expect(h1.group).toEqual({ parts: [0, 1], balls: 3 });
+    expect(h2.group).toEqual({ parts: [0, 1], balls: 3 });
+    expect(ballsAction(h1, 1)).toBeNull();
+    const reset = reduce(s, { type: 'resetGroup', part: 0 });
+    expect(rows(reset).map((r) => [r.k, r.group])).toEqual([
+      [1, null],
+      [1, null],
+    ]);
+    // Faulted: no count yet.
+    expect(rows(typed(['432']))[0]?.group?.balls).toBeNull();
+  });
+
+  test('hits: the Euclidean generator over the period, 1 to every beat', () => {
+    const s = clapping();
+    const h1 = rows(s)[0] as HandRhythm;
+    expect(hitsAction(h1, -3)).toEqual({ type: 'generate', part: 0, hits: 5 });
+    const five = apply(s, hitsAction(h1, -3));
+    expect(rows(five)[0]).toMatchObject({ hits: 5, period: 12 });
+    expect(hitsAction({ ...h1, hits: 1 }, -1)).toBeNull();
+    expect(hitsAction({ ...h1, hits: 12 }, 1)).toBeNull();
+  });
+
+  test('two hands at most; a lone part has one row', () => {
+    const lone = { ...clapping(), parts: partsFromOnsets([clap], [1]) };
+    expect(rows(lone)).toHaveLength(1);
+    const three = { ...clapping(), parts: partsFromOnsets([clap, clap, clap], [1, 1, 1]) };
+    expect(rows(three)).toHaveLength(2);
+  });
+
+  test('cycleSamples leaves out throws the mapping keeps silent', () => {
+    const s = clapping();
+    const silent = { ...s.mapping, parts: s.mapping.parts.map((p, i) => (i === 0 ? { ...p, sample: null } : p)) };
+    expect(cycleSamples(derived(s).schedule, silent).split(' ')).toHaveLength(8);
   });
 });
 
@@ -224,10 +386,14 @@ describe('swap', () => {
   test('swapAction: the sites of one input as the swap action, or null across a slash', () => {
     expect(swapAction(typed(['531']), 0, 1, 2)).toEqual({ type: 'swapSites', part: 0, i: 1, j: 2 });
     expect(swapAction(typed(['2 2', '2'], threeTwo), 1, 0, 1)).toEqual({ type: 'swapSites', part: 1, i: 0, j: 1 });
+    // `a / b` at 1:1 is two inputs: each input's sites are its part's.
     const form2 = typed(['2 2 / 3 3']);
-    expect(swapAction(form2, 0, 2, 3)).toEqual({ type: 'swapSites', part: 1, i: 0, j: 1 });
+    expect(swapAction(form2, 1, 0, 1)).toEqual({ type: 'swapSites', part: 1, i: 0, j: 1 });
     expect(swapAction(form2, 0, 0, 1)).toEqual({ type: 'swapSites', part: 0, i: 0, j: 1 });
-    expect(swapAction(form2, 0, 1, 2)).toBeNull();
+    // One input over parts that are not a vanilla pair (a lone part) counts across them.
+    const lone = { ...form2, parts: form2.parts.slice(0, 1), drafts: [null] };
+    expect(swapAction(lone, 0, 0, 1)).toEqual({ type: 'swapSites', part: 0, i: 0, j: 1 });
+    expect(swapAction(lone, 0, 1, 2)).toBeNull();
   });
 
   test('pieces: letters are throws (10-35); a slash separates parts and is no throw', () => {
