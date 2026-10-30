@@ -189,7 +189,9 @@ describe('junk', () => {
 
   test('missing fields come from the defaults, one by one', () => {
     expect(decodeState(b64({ t: 100 }))).toEqual({ ...defaults, bpm: 100 });
-    expect(decodeState(b64({ r: [4, 3] }))).toEqual({ ...defaults, ratio: { a: 4, b: 3 } });
+    // `r` is derived from the parts: one that disagrees with them is ignored, one that agrees is kept as written.
+    expect(decodeState(b64({ r: [4, 3] }))).toEqual(defaults);
+    expect(decodeState(b64({ r: [2, 2] }))).toEqual({ ...defaults, ratio: { a: 2, b: 2 } });
     expect(decodeState(b64({ m: { f: [1] } }))?.mapping?.filter).toEqual({
       on: true,
       low: DEFAULT_MAPPING.filter.low,
@@ -259,6 +261,10 @@ describe('junk', () => {
       b64({
         t: 9999,
         r: [0, 99],
+        p: [
+          { s: 9, f: 0, u: 9, o: '1', k: 1 },
+          { s: 1, f: 0, u: 1, o: '1', k: 1 },
+        ],
         m: { p: [['TR-808', 'kick', -5, 5], ['TR-808', 'snare', 0.5, -1]], d: [999], f: [1, 1, 1e9] },
       }),
     ) as AppState;
@@ -272,7 +278,11 @@ describe('junk', () => {
     expect(s.mapping.filter).toMatchObject({ low: 100, high: 20000 });
     expect(decodeState(b64({ t: 0 }))?.bpm).toBe(BPM_RANGE.min);
     expect(decodeState(b64({ t: 100.4, r: [2.6, 3.2] }))).toMatchObject({ bpm: 100, ratio: { a: 3, b: 3 } });
-    expect(decodeState(b64({ t: null, r: [Number.NaN, 2] }))).toMatchObject({ bpm: d.bpm, ratio: { a: 1, b: 2 } });
+    const oneTwo = [
+      { s: 2, f: 0, u: 2, o: '1', k: 1 },
+      { s: 1, f: 0, u: 1, o: '1', k: 1 },
+    ];
+    expect(decodeState(b64({ t: null, r: [Number.NaN, 2], p: oneTwo }))).toMatchObject({ bpm: d.bpm, ratio: { a: 1, b: 2 } });
   });
 });
 
@@ -290,5 +300,49 @@ describe('byBall (C nit 3)', () => {
   test('a good list is used, and an explicit null is none', () => {
     expect(byBall(['kick', 'clave'])).toEqual(['kick', 'clave']);
     expect(byBall(null)).toBeNull();
+  });
+});
+
+describe('lanes: three and four parts (docs/plans/lanes.md)', () => {
+  const x = (s: string) => [...s].map((c) => c === 'x');
+  const voices = (n: number) =>
+    Array.from({ length: n }, (_, i) => ({ kit: 'TR-808', sample: i % 2 ? 'snare' : 'kick', pan: 0, gain: 1 }));
+  const rOf = (hash: string) => JSON.parse(atob(payloadOf(hash).replace(/-/g, '+').replace(/_/g, '/'))).r;
+
+  test('three parts at rates 3, 4 and 5, with a phase, k = 2 and a manual lone part, round-trip; r is the first two rates', () => {
+    const stack: Parts = [
+      ...partsFromOnsets([x('x..x'), x('xx')], [20, 15], [1, 2]),
+      { spacing: 12, phase: 6, unit: 12, flights: { kind: 'manual', throws: [{ height: 36, to: null }, { height: 0, to: null }, { height: 0, to: null }] } },
+    ];
+    const state: AppState = { ...defaultState(), parts: stack, drafts: [null, null, null], ratio: { a: 3, b: 4 }, mapping: { ...custom, parts: voices(3) } };
+    const back = roundTrip(state);
+    expect(back?.parts).toEqual(stack);
+    expect(back?.ratio).toEqual({ a: 3, b: 4 });
+    expect(back?.mapping.parts).toEqual(voices(3));
+    expect(rOf(encodeState(state))).toEqual([3, 4]);
+  });
+
+  test('four parts, two of them joined by crosses, round-trip juggleable', () => {
+    const four: Parts = [
+      ...lineParts(['2 2x 2', '2x 2'], { a: 3, b: 2 }),
+      ...partsFromOnsets([x('x.'), x('x')], [6, 6]),
+    ];
+    const state: AppState = { ...defaultState(), parts: four, drafts: four.map(() => null), mapping: { ...custom, parts: voices(4) } };
+    const back = roundTrip(state);
+    expect(back?.parts).toEqual(four);
+    expect(back?.ratio).toEqual({ a: 3, b: 2 });
+    expect(buildSchedule(back?.parts as Parts).verdict.ok).toBe(true);
+    expect(back?.mapping.parts).toEqual(voices(4));
+  });
+
+  test('a preset name decodes with one voice per part', () => {
+    const three = partsFromOnsets([x('x'), x('x'), x('x')], [1, 1, 1]);
+    const back = decodeState(b64({ p: three.map((p) => ({ s: p.spacing, f: 0, u: p.unit, o: '1', k: 1 })), m: 'voice-per-part' }));
+    expect(back?.mapping.parts).toHaveLength(3);
+  });
+
+  test('the ratio written is the parts’, whatever the state holds', () => {
+    const stepped: AppState = { ...defaultState(), ratio: { a: 2, b: 2 } };
+    expect(rOf(encodeState(stepped))).toEqual([1, 1]);
   });
 });

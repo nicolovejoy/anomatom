@@ -14,12 +14,11 @@ import type { Schedule } from '../core';
 import { BPM_RANGE, KNOBS, MAX_RATIO, RATIO_CHIPS, SHEET } from '../tunables';
 import { copy } from '../ui/copy';
 import type { PlayerView } from '../view/types';
-import { oneInput, type Action } from './actions';
+import { inputPerPart, type Action } from './actions';
 import { derived } from './derived';
 import {
   analyse,
   badChar,
-  ballsAction,
   clampBpm,
   cyclePosition,
   cycleSamples,
@@ -30,13 +29,10 @@ import {
   fixLabel,
   hand2Bpm,
   handState,
-  hitsAction,
   inputText,
   joinAction,
-  phaseAction,
   pieces,
   reduceRatio,
-  rhythmRows,
   siteCovering,
   splitInputs,
   statusLines,
@@ -46,9 +42,9 @@ import {
   warnSites,
   type Analysis,
   type Caret,
-  type HandRhythm,
   type SiteSelection,
 } from './knobs-model';
+import { ballsAction, hitsAction, laneRows, phaseAction, type LaneRow } from './lanes-model';
 import type { Mount } from './mount';
 import { fillPercent, hasChip, summary, tempoLines } from './sheet-model';
 import type { AppState } from './state';
@@ -67,7 +63,7 @@ const RHYTHM_STEP_LABELS: Record<RhythmKind, (hand: number, up: boolean) => stri
   balls: copy.ballsStepLabel,
   hits: copy.hitsStepLabel,
 };
-const RHYTHM_ACTIONS: Record<RhythmKind, (row: HandRhythm, delta: number) => Action | null> = {
+const RHYTHM_ACTIONS: Record<RhythmKind, (row: LaneRow, delta: number) => Action | null> = {
   phase: phaseAction,
   balls: ballsAction,
   hits: hitsAction,
@@ -366,7 +362,7 @@ export const mountKnobs: Mount = (root, { store, player, sound }) => {
 
   /** The Rhythm tab's columns, one per hand: phase over the cycle, balls (or a manual group's count and Reset), hits. */
   function renderRhythm(state: AppState) {
-    const rhythm = rhythmRows(state, derived(state));
+    const rhythm = laneRows(state, derived(state));
     HANDS.forEach((h) => {
       const row = rhythm[h];
       (rhythmHands[h] as HTMLSpanElement).hidden = row === undefined;
@@ -411,7 +407,7 @@ export const mountKnobs: Mount = (root, { store, player, sound }) => {
       state.drafts !== previous.drafts ||
       state.ratio !== previous.ratio ||
       state.notice !== previous.notice;
-    const vanilla = oneInput(state.ratio);
+    const vanilla = !inputPerPart(state);
     // At 1:1, `a / b` shows as two inputs (form 2); a vanilla siteswap as one.
     const two = !vanilla || splitInputs(state);
     // A split typed here lasts while the pattern stays split.
@@ -679,7 +675,7 @@ export const mountKnobs: Mount = (root, { store, player, sound }) => {
     for (const kind of RHYTHM_KINDS) {
       for (const b of (rsteps[h] as Record<RhythmKind, HTMLSpanElement>)[kind].querySelectorAll<HTMLButtonElement>('button')) {
         b.addEventListener('click', () => {
-          const row = rhythmRows(store.get(), store.derived())[h];
+          const row = laneRows(store.get(), store.derived())[h];
           const action = row ? RHYTHM_ACTIONS[kind](row, Number(b.dataset.delta)) : null;
           if (action) store.dispatch(action);
         });

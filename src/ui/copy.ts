@@ -74,6 +74,8 @@ export const copy = {
     hands.length === 1
       ? `I reset hand ${(hands[0] as number) + 1} to 1 ball.`
       : `I reset hands ${andList(hands.map((h) => String(h + 1)))} to 1 ball each.`,
+  /** A rate, steps or ratio change refused: its cycle would be longer than a share link carries (MAX_LINK_CYCLE). */
+  cycleTooLong: 'That would make the cycle too long for me.',
   /** The About placeholder, until stream D writes the page. */
   aboutTitle: 'About',
   aboutBack: 'Back to the pattern',

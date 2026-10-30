@@ -8,6 +8,8 @@
 //   o  a default part's onsets, one '1' or '0' per beat   k  its ball knob
 //   t  a manual part's throws, [height in pulses, destination part or null] per beat
 // Only the parts, ratio, bpm and mapping travel; never volume, drafts, the notice or UI state.
+// `r` is derived (`ratioOf(parts)`, docs/plans/lanes.md ruling 2): written so older readers have
+// it, and on reading kept only when it agrees with the spacings (2:2 over 1:1 parts), else replaced.
 // The mapping is `encodeMapping`'s (src/sound/mapping-hash.ts).
 //
 // Scheme v1 (old links, still read): { p: [pattern1, pattern2], r, t, m }, pattern text as typed:
@@ -19,7 +21,7 @@
 // the defaults, numbers clamped to their ranges). Parts that do not make a sound model (a wrong
 // type, a height off its unit, a cross to no part, a cycle past MAX_LINK_CYCLE) give the default
 // pattern.
-import { cycleOf, mod, normalise, parseThrows, partsFromLines, partsFromVanilla } from '../core';
+import { cycleOf, mod, normalise, parseThrows, partsFromLines, partsFromVanilla, ratioOf } from '../core';
 import type { Part, PartFlights, Parts, Ratio, Throw } from '../core';
 import { decodeMapping, encodeMapping } from '../sound/mapping-hash';
 import {
@@ -47,10 +49,11 @@ function encodePart(p: Part): Record<string, unknown> {
   return { s: p.spacing, f: p.phase, u: p.unit, t: p.flights.throws.map((t) => [t.height, t.to]) };
 }
 
-export function encodeState(state: Pick<AppState, 'parts' | 'ratio' | 'bpm' | 'mapping'>): string {
+export function encodeState(state: Pick<AppState, 'parts' | 'bpm' | 'mapping'>): string {
+  const ratio = ratioOf(state.parts);
   const json = JSON.stringify({
     p: state.parts.map(encodePart),
-    r: [state.ratio.a, state.ratio.b],
+    r: [ratio.a, ratio.b],
     t: state.bpm,
     m: encodeMapping(state.mapping),
   });
@@ -71,12 +74,14 @@ export function decodeState(payload: string, version: 1 | 2 = 2): Pick<AppState,
   }
   if (!isRecord(raw)) return null;
   const defaults = defaultState();
-  const ratio = ratioFrom(raw.r, defaults.ratio);
+  const written = ratioFrom(raw.r, defaults.ratio);
+  const parts = version === 1 ? partsFromV1(raw.p, written) : (partsFrom(raw.p) ?? defaultParts());
+  const r = ratioOf(parts);
   return {
-    parts: version === 1 ? partsFromV1(raw.p, ratio) : (partsFrom(raw.p) ?? defaultParts()),
-    ratio,
+    parts,
+    ratio: written.a * r.b === written.b * r.a ? written : r,
     bpm: numberIn(raw.t, BPM_RANGE.min, BPM_RANGE.max, defaults.bpm, true),
-    mapping: decodeMapping(raw.m),
+    mapping: decodeMapping(raw.m, parts.length),
   };
 }
 

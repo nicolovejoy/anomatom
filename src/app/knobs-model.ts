@@ -2,13 +2,13 @@
 // values into elements. `Analysis` is a thin view over `derived(state)` (derived.ts): what the
 // inputs show, the indicators, the warning sites, the status lines and the fixes, in the robot's
 // words.
-import { gcd, isVanillaPair, mod, onsetsOf, parseThrows, periodOf, throwsOf, vanillaIndex } from '../core';
+import { gcd, isVanillaPair, mod, parseThrows, periodOf, throwsOf, vanillaIndex } from '../core';
 import type { Fault, ParseError, Part, PartIndex, Parts, Ratio, Schedule, ThrowId } from '../core';
 import { hitFor, type Mapping } from '../sound/mapping';
-import { BPM_RANGE, KNOBS, MAX_EDITOR_PARTS, MAX_RATIO } from '../tunables';
+import { BPM_RANGE, MAX_EDITOR_PARTS, MAX_RATIO } from '../tunables';
 import { copy, type ThrowRef } from '../ui/copy';
 import type { PlayerView, Segment } from '../view/types';
-import { groupOf, isManualGroup, oneInput, parseDraft, type Action } from './actions';
+import { inputPerPart, parseDraft, type Action } from './actions';
 import { derived, type Derived } from './derived';
 import type { AppState } from './state';
 
@@ -17,7 +17,7 @@ import type { AppState } from './state';
 // ---------------------------------------------------------------------------------------------
 
 export interface Analysis {
-  /** At 1:1 one draft holds the whole pattern (one input, or two for `a / b`); otherwise there is one input per part. */
+  /** At 1:1 over at most two parts one draft holds the whole pattern (one input, or two for `a / b`); otherwise there is one input per part (`inputPerPart`). */
   readonly vanilla: boolean;
   /** At 1:1, `a / b` shown as two inputs, one per part (`splitInputs`). */
   readonly split: boolean;
@@ -46,7 +46,7 @@ export interface Analysis {
  * one input stays for a vanilla pair, a lone part, and a draft without a `/`.
  */
 export function splitInputs(state: Pick<AppState, 'parts' | 'drafts' | 'ratio'>): boolean {
-  if (!oneInput(state.ratio)) return false;
+  if (inputPerPart(state)) return false;
   const draft = state.drafts[0];
   if (draft != null) return draft.includes('/');
   return state.parts.length >= 2 && !isVanillaPair(state.parts);
@@ -99,7 +99,7 @@ export function inputText(state: AppState, d: Derived, i: number): string {
   if (splitInputs(state)) return splitText(state.drafts[0] ?? d.texts.join(' / '))[i] ?? '';
   const draft = state.drafts[i];
   if (draft != null) return draft;
-  return oneInput(state.ratio) ? d.texts.join(' / ') : (d.texts[i] ?? '');
+  return inputPerPart(state) ? (d.texts[i] ?? '') : d.texts.join(' / ');
 }
 
 /** The beat of a part that pulse `pulse` (in [0, cycle)) is, counted from 1 within the cycle. */
@@ -109,7 +109,7 @@ const beatOf = (p: Part, pulse: number) => (pulse - mod(p.phase, p.spacing)) / p
 const siteCount = (text: string) => pieces(text, new Set(), new Set(), null).reduce((n, p) => Math.max(n, (p.site ?? -1) + 1), 0);
 
 export function analyse(state: AppState, d: Derived = derived(state)): Analysis {
-  const vanilla = oneInput(state.ratio);
+  const vanilla = !inputPerPart(state);
   const split = splitInputs(state);
   const inputs = Array.from({ length: split ? 2 : vanilla ? 1 : state.parts.length }, (_, i) => inputText(state, d, i));
   const errors = inputs.map((text, i) => {
@@ -242,9 +242,9 @@ export function fixLabel(texts: readonly string[]): string {
   return copy.fixLabel(texts);
 }
 
-/** The edits that apply a fix: its texts typed into the inputs (at 1:1, the one input). */
-export function fixActions(state: Pick<AppState, 'ratio'>, texts: readonly string[]): Action[] {
-  if (oneInput(state.ratio)) return [{ type: 'editDraft', part: 0, text: texts.join(' / ') }];
+/** The edits that apply a fix: its texts typed into the inputs (at 1:1 over two parts, the one input). */
+export function fixActions(state: Pick<AppState, 'parts' | 'ratio'>, texts: readonly string[]): Action[] {
+  if (!inputPerPart(state)) return [{ type: 'editDraft', part: 0, text: texts.join(' / ') }];
   return texts.map((text, part) => ({ type: 'editDraft', part, text }));
 }
 
@@ -354,7 +354,7 @@ export function toggleSite(sel: SiteSelection | null, hand: number, site: number
  * numbers its sites across the slash, so both must fall in one part.
  */
 export function swapAction(state: AppState, input: number, i: number, j: number): Action | null {
-  if (!oneInput(state.ratio) || splitInputs(state)) return { type: 'swapSites', part: input, i, j };
+  if (inputPerPart(state) || splitInputs(state)) return { type: 'swapSites', part: input, i, j };
   if (isVanillaPair(state.parts)) return { type: 'swapSites', part: 0, i, j };
   let offset = 0;
   for (const [part, p] of state.parts.entries()) {
@@ -401,66 +401,6 @@ export function cyclePosition(view: PlayerView): { pulse: number; cycle: number 
   const { cycle } = seg.schedule;
   const pulse = Math.max(0, (now - seg.startTime) / seg.pulseLen);
   return { pulse: pulse % cycle, cycle };
-}
-
-// ---------------------------------------------------------------------------------------------
-// The Rhythm tab's row per hand: phase, balls, hits (design §14 option b)
-// ---------------------------------------------------------------------------------------------
-
-/** What one hand's row shows. */
-export interface HandRhythm {
-  readonly part: PartIndex;
-  /** The phase, in current pulses, within [0, wrap). */
-  readonly phase: number;
-  /** The part's period in pulses (spacing × beats): its phase wraps here. */
-  readonly wrap: number;
-  /** The cycle length in pulses, for the readout: it changes when the lattice refines. */
-  readonly cycle: number;
-  /** How many beats of the part have a throw, and how many beats its period has. */
-  readonly hits: number;
-  readonly period: number;
-  /** The ball knob of a default group; null on a manual one, which has no knob (design §5). */
-  readonly k: number | null;
-  /** A manual group: its parts and its derived ball count (null while it has faults). Null on a default group. */
-  readonly group: { readonly parts: readonly PartIndex[]; readonly balls: number | null } | null;
-}
-
-/** One row per hand on screen (two this wave), from the store's parts and the derived groups. */
-export function rhythmRows(state: Pick<AppState, 'parts'>, d: Derived): HandRhythm[] {
-  return state.parts.slice(0, MAX_EDITOR_PARTS).map((p, part) => {
-    const parts = groupOf(state.parts, part);
-    const manual = isManualGroup(state.parts, parts);
-    const balls = d.groups.find((g) => g.parts.includes(part))?.balls ?? null;
-    return {
-      part,
-      phase: p.phase,
-      wrap: p.spacing * periodOf(p),
-      cycle: d.schedule.cycle,
-      hits: onsetsOf(p).filter(Boolean).length,
-      period: periodOf(p),
-      k: manual ? null : (p.flights as { k: number }).k,
-      group: manual ? { parts, balls } : null,
-    };
-  });
-}
-
-/** The phase stepper: one pulse later or earlier, wrapping within the period. Whole pulses never refine the lattice. */
-export function phaseAction(row: HandRhythm, delta: number): Action | null {
-  if (row.wrap <= 1) return null;
-  return { type: 'setPhase', part: row.part, phase: mod(row.phase + delta, row.wrap) };
-}
-
-/** The ball stepper of a default group: k from 1 to KNOBS.maxBalls; null at a limit or on a manual group. */
-export function ballsAction(row: HandRhythm, delta: number): Action | null {
-  if (row.k === null) return null;
-  const k = row.k + delta;
-  return k < 1 || k > KNOBS.maxBalls ? null : { type: 'setK', part: row.part, k };
-}
-
-/** The hits stepper: the Euclidean generator over the hand's period, from 1 hit to every beat; null at a limit. */
-export function hitsAction(row: HandRhythm, delta: number): Action | null {
-  const hits = row.hits + delta;
-  return hits < 1 || hits > row.period ? null : { type: 'generate', part: row.part, hits };
 }
 
 /**

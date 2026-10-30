@@ -1,9 +1,9 @@
 import { describe, expect, test } from 'vitest';
-import { judge, partsFromLines, partsFromOnsets, textOf, throwsOf, withPhase } from '../core';
+import { judge, onsetsOf, partsFromLines, partsFromOnsets, ratesOf, textOf, throwsOf, withPhase } from '../core';
 import type { Part, Parts } from '../core';
-import { applyPreset } from '../sound/mapping';
+import { applyPreset, voiceForNewPart } from '../sound/mapping';
 import { lineParts, typed, vanillaParts } from '../test/schedules';
-import { BPM_RANGE } from '../tunables';
+import { BPM_RANGE, MAX_LANES, MAX_PERIOD, MAX_RATE } from '../tunables';
 import { groupOf, isManualGroup, parseDraft, reduce, rescale, type Action } from './actions';
 import { derived } from './derived';
 import { fixActions } from './knobs-model';
@@ -94,12 +94,10 @@ describe('editDraft', () => {
     ]);
     expect(two.drafts).toEqual(['2 / 2', null]);
     const three = at(lineParts(['1x2', '1x3', '1x1'], one).map((p, i) => ({ ...p, spacing: i + 1, unit: i + 1 })));
+    // Three parts have an input each (lanes ruling 3): a `/` there is refused, not a way to drop one.
     const dropped = reduce(three, { type: 'editDraft', part: 0, text: '1 / 1' });
-    expect(dropped.parts.map((p) => [p.spacing, p.unit])).toEqual([
-      [1, 1],
-      [2, 2],
-    ]);
-    expect(dropped.drafts).toEqual(['1 / 1', null]);
+    expect(dropped.parts).toBe(three.parts);
+    expect(dropped.drafts).toEqual(['1 / 1', null, null]);
   });
 
   test('a single string is vanilla over two parts, and one part’s line over one', () => {
@@ -365,5 +363,172 @@ describe('swapSites (MATH.md §3)', () => {
     expect(texts(swapped.parts)).toEqual(['2 0']);
     expect(reduce(d, { type: 'swapSites', part: 0, i: 0, j: 5 })).toBe(d);
     expect(reduce(d, { type: 'swapSites', part: 3, i: 0, j: 1 })).toBe(d);
+  });
+});
+
+describe('lanes (docs/plans/lanes.md)', () => {
+  const voice = (sample: string) => ({ kit: 'TR-808', sample, pan: 0, gain: 1 });
+  const withVoices = (s: AppState, ...samples: string[]): AppState => ({ ...s, mapping: { ...s.mapping, parts: samples.map(voice) } });
+  const flights = (s: AppState) => s.parts.map((p) => p.flights);
+
+  test('addLane: a default part on the last part’s rate and steps, phase 0, one onset on beat 0, k = 1', () => {
+    const s = typed(['2 2 0', '2 0'], threeTwo);
+    const next = reduce(s, { type: 'addLane' });
+    expect(next.parts).toHaveLength(3);
+    expect(next.parts[2]).toEqual({ spacing: 3, phase: 0, unit: 3, flights: { kind: 'default', onsets: [true, false], k: 1 } });
+    expect(ratesOf(next.parts)).toEqual([3, 2, 2]);
+    expect(next.parts.slice(0, 2)).toEqual(s.parts);
+    expect(next.drafts).toEqual([null, null, null]);
+    expect(next.ratio).toEqual(threeTwo);
+    // On the vanilla pair: the last part's steps, its spacing, a voice for the new part.
+    const v = reduce(defaultState(), { type: 'addLane' });
+    expect(v.parts[2]).toMatchObject({ phase: 0, flights: { kind: 'default', onsets: [true], k: 1 } });
+    expect(v.parts[2]?.spacing).toBe(v.parts[0]?.spacing);
+    expect(v.mapping.parts).toHaveLength(3);
+    expect(v.mapping.parts[2]).toEqual(voiceForNewPart(defaultState().mapping, 2));
+    expect(v.notice).toBeNull();
+  });
+
+  test('addLane stops at MAX_LANES', () => {
+    const full = run(defaultState(), ...Array.from({ length: MAX_LANES }, (): Action => ({ type: 'addLane' })));
+    expect(full.parts).toHaveLength(MAX_LANES);
+    expect(reduce(full, { type: 'addLane' })).toBe(full);
+    const none = at([]);
+    expect(reduce(none, { type: 'addLane' })).toBe(none);
+  });
+
+  test('removeLane: a lane a cross reaches resets the rest of its group, with a notice', () => {
+    const s = reduce(defaultState(), { type: 'removeLane', part: 1 });
+    expect(s.parts).toHaveLength(1);
+    expect(s.parts[0]).toEqual({ spacing: 1, phase: 0, unit: 1, flights: { kind: 'default', onsets: [true], k: 1 } });
+    expect(s.notice).toBe('I reset hand 1 to 1 ball.');
+    expect(s.mapping.parts).toEqual([defaultState().mapping.parts[0]]);
+    expect(s.drafts).toEqual([null]);
+    // The only lane stays; a missing one is refused.
+    const quiet = { ...s, notice: null };
+    expect(reduce(quiet, { type: 'removeLane', part: 0 })).toBe(quiet);
+    const d = defaultState();
+    expect(reduce(d, { type: 'removeLane', part: 2 })).toBe(d);
+  });
+
+  test('removeLane: a lone lane goes with its voice; crosses into later lanes are renumbered', () => {
+    const r = partsFromLines(['1', '2 2x3 2', '2x2 2'], one, [6, 2, 3]);
+    const s = withVoices(at((r as { parts: Parts }).parts), 'kick', 'snare', 'clap');
+    const next = reduce(s, { type: 'removeLane', part: 0 });
+    expect(texts(next.parts)).toEqual(['2 2x 2', '2x 2']);
+    expect(judge(next.parts).ok).toBe(true);
+    expect(next.notice).toBeNull();
+    expect(next.mapping.parts.map((p) => p.sample)).toEqual(['snare', 'clap']);
+    expect(next.ratio).toEqual(threeTwo);
+    // A mapping that borrows voices (fewer than the parts) keeps what it has, up to the parts left.
+    const borrowing = withVoices(at((r as { parts: Parts }).parts), 'kick', 'snare');
+    expect(reduce(borrowing, { type: 'removeLane', part: 2 }).mapping.parts.map((p) => p.sample)).toEqual(['kick', 'snare']);
+    // The last lane of a cross group: the other one is reset, and named as numbered after.
+    const tail = reduce(s, { type: 'removeLane', part: 2 });
+    expect(tail.notice).toBe('I reset hand 2 to 1 ball.');
+    expect(kind(tail, 1)).toBe('default');
+  });
+
+  test('setRate: rates 3 and 2 are 3:2; 3, 4 and 5 are a layered stack', () => {
+    const two = at(partsFromOnsets([on('x'), on('x')], [1, 1]));
+    const tp = run(two, { type: 'setRate', part: 0, rate: 3 }, { type: 'setRate', part: 1, rate: 2 });
+    expect(ratesOf(tp.parts)).toEqual([3, 2]);
+    expect(tp.ratio).toEqual(threeTwo);
+    expect(flights(tp)).toEqual(flights(two));
+    const three = at(partsFromOnsets([on('x'), on('x'), on('x')], [1, 1, 1]));
+    const stack = run(three, { type: 'setRate', part: 0, rate: 3 }, { type: 'setRate', part: 1, rate: 4 }, { type: 'setRate', part: 2, rate: 5 });
+    expect(ratesOf(stack.parts)).toEqual([3, 4, 5]);
+    expect(stack.parts.map((p) => p.spacing)).toEqual([20, 15, 12]);
+    expect(stack.ratio).toEqual({ a: 3, b: 4 });
+  });
+
+  test('setRate refuses a rate out of range, the same rates, a lone part, a missing one and a cycle no link could carry', () => {
+    const two = at(partsFromOnsets([on('x'), on('x')], [1, 1]));
+    expect(reduce(two, { type: 'setRate', part: 0, rate: 0 })).toBe(two);
+    expect(reduce(two, { type: 'setRate', part: 0, rate: MAX_RATE + 1 })).toBe(two);
+    expect(reduce(two, { type: 'setRate', part: 0, rate: 1 })).toBe(two);
+    expect(reduce(two, { type: 'setRate', part: 2, rate: 2 })).toBe(two);
+    const lone = at(partsFromOnsets([on('x')], [1]));
+    expect(reduce(lone, { type: 'setRate', part: 0, rate: 3 })).toBe(lone);
+    const long = on('x...............');
+    const wide = at(partsFromOnsets([long, long, long, long], [280, 315, 360, 1]));
+    const tooLong = reduce(wide, { type: 'setRate', part: 3, rate: 5 });
+    expect(tooLong.parts).toBe(wide.parts);
+    expect(tooLong.notice).toBe('That would make the cycle too long for me.');
+  });
+
+  test('setRate on a vanilla pair resets it, with a notice, as setRatio does; a manual lone part keeps its digits', () => {
+    const v = reduce(defaultState(), { type: 'setRate', part: 0, rate: 3 });
+    expect(ratesOf(v.parts)).toEqual([3, 1]);
+    expect(v.parts.map((p) => p.flights.kind)).toEqual(['default', 'default']);
+    expect(v.notice).toBe('I reset hands 1 and 2 to 1 ball each.');
+    expect(v.ratio).toEqual({ a: 3, b: 1 });
+    const manual = at([...lineParts(['3 0 0'], one), ...partsFromOnsets([on('x')], [1])]);
+    const next = reduce(manual, { type: 'setRate', part: 1, rate: 2 });
+    expect(ratesOf(next.parts)).toEqual([1, 2]);
+    expect(kind(next, 0)).toBe('manual');
+    expect(texts(next.parts)).toEqual(['3 0 0', '1']);
+    expect(next.notice).toBeNull();
+  });
+
+  test('setRate on a third lane keeps a vanilla-born pair’s flights; on lane 1 only what no longer lands is reset', () => {
+    const s = reduce(defaultState(), { type: 'addLane' });
+    const third = reduce(s, { type: 'setRate', part: 2, rate: 2 });
+    expect(ratesOf(third.parts)).toEqual([1, 1, 2]);
+    expect(texts(third.parts).slice(0, 2)).toEqual(['3x2', '3x1']);
+    expect(judge(third.parts).ok).toBe(true);
+    expect(third.notice).toBeNull();
+    // Lane 1 at rate 2: its crosses no longer land on hand 2, so that group is reset, with the notice; lane 3 is kept.
+    const first = reduce(s, { type: 'setRate', part: 0, rate: 2 });
+    expect(ratesOf(first.parts)).toEqual([2, 1, 1]);
+    expect(first.notice).toBe('I reset hands 1 and 2 to 1 ball each.');
+    expect(first.parts[2]?.flights).toEqual(s.parts[2]?.flights);
+    // A manual part whose rate does not change keeps its digits in its own unit.
+    const kept = reduce(at([...s.parts.slice(0, 2), ...partsFromOnsets([on('x')], [1])]), { type: 'setRate', part: 2, rate: 3 });
+    expect(texts(kept.parts).slice(0, 2)).toEqual(['3x2', '3x1']);
+    expect(kept.notice).toBeNull();
+  });
+
+  test('setSteps pads with rests and drops the tail; a default part keeps its k; the phase wraps', () => {
+    const s = at(partsFromOnsets([on('x.x'), on('x')], [1, 1], [2, 1]));
+    const padded = reduce(s, { type: 'setSteps', part: 0, steps: 5 });
+    expect(padded.parts[0]?.flights).toEqual({ kind: 'default', onsets: on('x.x..'), k: 2 });
+    expect(padded.notice).toBeNull();
+    expect(reduce(s, { type: 'setSteps', part: 0, steps: 2 }).parts[0]?.flights).toEqual({ kind: 'default', onsets: on('x.'), k: 2 });
+    const late = at([{ spacing: 1, phase: 5, unit: 1, flights: { kind: 'default', onsets: on('x.......'), k: 1 } }]);
+    expect(reduce(late, { type: 'setSteps', part: 0, steps: 4 }).parts[0]?.phase).toBe(1);
+  });
+
+  test('setSteps on a manual group resets it, with the notice; out of range, the same steps and too long a cycle are refused', () => {
+    const v = reduce(typed(['531']), { type: 'setSteps', part: 0, steps: 4 });
+    expect(v.parts.map((p) => p.flights.kind)).toEqual(['default', 'default']);
+    expect(v.notice).toBe('I reset hands 1 and 2 to 1 ball each.');
+    expect(onsetsOf(v.parts[0] as Part)).toEqual(on('xxx.'));
+    const s = at(partsFromOnsets([on('x.x')], [1]));
+    expect(reduce(s, { type: 'setSteps', part: 0, steps: 0 })).toBe(s);
+    expect(reduce(s, { type: 'setSteps', part: 0, steps: MAX_PERIOD + 1 })).toBe(s);
+    expect(reduce(s, { type: 'setSteps', part: 0, steps: 3 })).toBe(s);
+    expect(reduce(s, { type: 'setSteps', part: 1, steps: 3 })).toBe(s);
+    const wide = at(partsFromOnsets([on('x...............'), on('x')], [7, 9]));
+    expect(reduce(wide, { type: 'setSteps', part: 1, steps: 15 })).toEqual({ ...wide, notice: 'That would make the cycle too long for me.' });
+    // setRatio too: 16 and 15 beats at 7:9 is a cycle of 5040 pulses.
+    const ratio = at(partsFromOnsets([on('x...............'), on('x..............')], [1, 1]));
+    const refused = reduce(ratio, { type: 'setRatio', ratio: { a: 7, b: 9 } });
+    expect(refused.parts).toBe(ratio.parts);
+    expect(refused.ratio).toEqual(one);
+    expect(refused.notice).toBe('That would make the cycle too long for me.');
+  });
+
+  test('the ratio follows the parts after every action; the mapping has a voice per part', () => {
+    // A preset whose ratio disagrees with its parts: the parts win.
+    const parts = lineParts(['2', '2'], threeTwo);
+    const loaded = reduce(defaultState(), { type: 'loadPreset', parts, ratio: { a: 5, b: 4 } });
+    expect(loaded.ratio).toEqual(threeTwo);
+    // Agreeing, unreduced, it is kept as written (the steppers' 2:2).
+    const two = reduce(defaultState(), { type: 'loadPreset', parts: lineParts(['2', '2'], one), ratio: { a: 2, b: 2 } });
+    expect(two.ratio).toEqual({ a: 2, b: 2 });
+    // Fewer parts than voices: the tail goes.
+    const three = withVoices(at(partsFromOnsets([on('x'), on('x'), on('x')], [1, 1, 1])), 'kick', 'snare', 'clap');
+    expect(reduce(three, { type: 'loadPreset', parts, ratio: threeTwo }).mapping.parts.map((p) => p.sample)).toEqual(['kick', 'snare']);
   });
 });
