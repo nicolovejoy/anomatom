@@ -9,8 +9,13 @@
 // A part in a faulted cross group (design §6) still sounds, so its flights are still bars: the
 // Schedule's stand-in flights for it (each onset to its next one), with no ball, `broken` set,
 // drawn grey.
+//
+// One lane per part (lanes ruling 4). Two parts keep the two lanes they always had, hand 1's at
+// the top with its rows growing down and hand 2's at the bottom with its rows growing up; three
+// or more stack one band each, top to bottom, rows growing down (`laneGeometry`).
+import type { PartIndex } from '../core/types';
 import { ballColours } from './colours';
-import { catchPart, handOf, isCoincident, onBeat, type Hand } from './grids';
+import { catchPart, isCoincident, onBeat } from './grids';
 import type { Segment } from './types';
 
 export interface LadderView {
@@ -26,8 +31,8 @@ export interface LadderView {
 export interface Bar {
   readonly x0: number;
   readonly x1: number;
-  readonly from: Hand;
-  readonly to: Hand;
+  readonly from: PartIndex;
+  readonly to: PartIndex;
   /** The ball id within its segment's schedule; null for a part in a faulted group. */
   readonly ball: number | null;
   /** The ball's lasting identity, carried across segments: picks its colour and its row. Null with no ball. */
@@ -41,7 +46,7 @@ export interface Bar {
 }
 
 export interface Tick {
-  readonly hand: Hand;
+  readonly part: PartIndex;
   readonly x: number;
   readonly coincident: boolean;
 }
@@ -56,6 +61,50 @@ export interface Frame {
   readonly ticks: readonly Tick[];
   /** x of each cycle start in the window. */
   readonly cycleLines: readonly number[];
+  /** Lanes to draw: the most parts of any segment on the strip (at least 1). */
+  readonly parts: number;
+}
+
+/** What `laneGeometry` reads of the strip's tunables. */
+export interface LaneLayout {
+  readonly lanePaddingPx: number;
+  readonly barPx: number;
+  readonly rowGapPx: number;
+}
+
+/** Where each part's lane line sits on a strip `height` pixels tall, and which way its rows grow. */
+export interface LaneGeometry {
+  readonly y: readonly number[];
+  /** +1: rows grow down from the line; -1: up. */
+  readonly dir: readonly (1 | -1)[];
+  /** Ball rows per lane before they repeat. */
+  readonly rows: number;
+  readonly step: number;
+  readonly barPx: number;
+  readonly rowGapPx: number;
+}
+
+/**
+ * The lanes. Up to two parts: two lines, `lanePaddingPx` in from the top and the bottom, rows
+ * growing towards each other, one row per ball colour (`colours` of them), as the strip always
+ * was. Three or more: the strip between the paddings split into one band per part, each lane's
+ * line at its band's top and its rows growing down, as many rows as fit in the band (at least one).
+ */
+export function laneGeometry(parts: number, height: number, layout: LaneLayout, colours: number): LaneGeometry {
+  const step = layout.barPx + layout.rowGapPx;
+  const pad = layout.lanePaddingPx;
+  const base = { step, barPx: layout.barPx, rowGapPx: layout.rowGapPx };
+  if (parts <= 2) return { ...base, y: [pad, height - pad], dir: [1, -1], rows: colours };
+  const band = (height - 2 * pad) / parts;
+  // A row fits when its bar ends a row gap short of the next lane's line.
+  const rows = Math.max(1, Math.floor((band - layout.barPx - 2 * layout.rowGapPx) / step) + 1);
+  return { ...base, y: Array.from({ length: parts }, (_, i) => pad + i * band), dir: Array.from({ length: parts }, () => 1 as const), rows };
+}
+
+/** The y of a bar's end in `part`'s lane: each ball colour its own row, so overlapping flights stay visible. */
+export function rowY(g: LaneGeometry, part: PartIndex, colour: number | null): number {
+  const row = ((colour ?? 0) % g.rows) * g.step + g.barPx / 2 + g.rowGapPx;
+  return (g.y[part] as number) + (g.dir[part] as number) * row;
 }
 
 /**
@@ -102,6 +151,7 @@ export function ladderFrame(segments: readonly Segment[], now: number, layout: L
   const bars: Bar[] = [];
   const ticks: Tick[] = [];
   const cycleLines: number[] = [];
+  let parts = 1;
   segments.forEach((seg, i) => {
     const u0 = origin[i] as number;
     const B = boundary(seg);
@@ -125,11 +175,12 @@ export function ladderFrame(segments: readonly Segment[], now: number, layout: L
         // retiming does not move the bar in pulses: it is visible only through time (axisPulse),
         // as the next segment's pulse length changes how fast the strip scrolls past it.
         if (next && launch + e.flight > B) land = nextOrigin + (launch + e.flight - B);
+        parts = Math.max(parts, grids.length);
         bars.push({
           x0: u0 + launch - start,
           x1: land - start,
-          from: handOf(e.part),
-          to: handOf(catchPart(seg.schedule, e)),
+          from: e.part,
+          to: catchPart(seg.schedule, e),
           ball: e.ball,
           colour: e.ball === null ? null : (colour[i]?.get(e.ball) as number),
           height: e.height,
@@ -144,12 +195,13 @@ export function ladderFrame(segments: readonly Segment[], now: number, layout: L
     // also ticks the pulses before it started, as the strip always has.
     const lo = i === 0 ? start : Math.max(start, u0);
     const hi = next ? Math.min(end, nextOrigin) : end;
+    if (lo < hi) parts = Math.max(parts, grids.length);
     for (let u = Math.ceil(lo); u < hi; u++) {
       const p = u - u0;
       const coincident = isCoincident(grids, p);
-      // Two lanes, hand 1 and hand 2.
-      [0, 1].forEach((hand) => {
-        if (onBeat(grids, hand, p)) ticks.push({ hand: hand as Hand, x: u - start, coincident });
+      // One lane per part.
+      grids.forEach((_, part) => {
+        if (onBeat(grids, part, p)) ticks.push({ part, x: u - start, coincident });
       });
     }
     for (let u = u0 + Math.max(0, Math.ceil((lo - u0) / cycle) * cycle); u < hi; u += cycle) {
@@ -157,5 +209,5 @@ export function ladderFrame(segments: readonly Segment[], now: number, layout: L
     }
   });
 
-  return { start, windowPulses: layout.windowPulses, playhead, bars, ticks, cycleLines };
+  return { start, windowPulses: layout.windowPulses, playhead, bars, ticks, cycleLines, parts };
 }

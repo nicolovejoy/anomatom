@@ -54,7 +54,7 @@ test('ball ids follow the period: the same throw two periods on has the same bal
 test('ticks mark both grids and the coincident pulses weigh more', () => {
   const s = scheduleOf(['2', '2'], { a: 3, b: 2 });
   const f = frameAt(s, 0, { windowPulses: 7, playheadFraction: 0 });
-  const at = (hand: 0 | 1) => f.ticks.filter((t) => t.hand === hand).map((t) => [t.x, t.coincident]);
+  const at = (part: 0 | 1) => f.ticks.filter((t) => t.part === part).map((t) => [t.x, t.coincident]);
   expect(at(0)).toEqual([
     [0, true],
     [2, false],
@@ -70,7 +70,7 @@ test('ticks mark both grids and the coincident pulses weigh more', () => {
 
 test('vanilla ticks alternate hands and nothing is coincident', () => {
   const f = frameAt(buildSchedule(vanilla('3')), 0, { windowPulses: 4, playheadFraction: 0 });
-  expect(f.ticks.map((t) => [t.hand, t.x, t.coincident])).toEqual([
+  expect(f.ticks.map((t) => [t.part, t.x, t.coincident])).toEqual([
     [0, 0, false],
     [1, 1, false],
     [0, 2, false],

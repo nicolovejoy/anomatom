@@ -84,6 +84,11 @@ export const copy = {
 
   /** The juggler canvas, for a screen reader. */
   jugglerLabel: 'My two hands juggling the pattern: hand 1 on the left, hand 2 on the right.',
+  /** The juggler's label for three or more hands, paired into jugglers (lanes ruling 4); two or fewer read `jugglerLabel`. */
+  jugglersLabel: (hands: number) => {
+    const pairs = Array.from({ length: Math.ceil(hands / 2) }, (_, f) => (2 * f + 2 <= hands ? `hands ${2 * f + 1} and ${2 * f + 2}` : `hand ${2 * f + 1}`));
+    return `My ${hands} hands juggling the pattern as ${pairs.length} jugglers side by side, left to right: ${pairs.join(', ')}.`;
+  },
   /** SPEC §4.1 (v2): shown while a flight longer than `seconds` is in the air. */
   notHumanThrow: (seconds: number) => `Not a human throw: I keep this one up for more than ${seconds} seconds.`,
 

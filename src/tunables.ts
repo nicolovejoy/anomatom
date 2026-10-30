@@ -57,6 +57,14 @@ export const BALL_COLOURS: readonly string[] = [
   '#8fb43a',
 ];
 
+/**
+ * One colour per part (hand), repeating past the end: the lanes UI's dot for a part, and, with
+ * three or more parts, its ladder lane line and its hand bar in the juggler. Two parts draw as
+ * they always have (grey lanes and hands; the bars carry the ball colours), so a two-part picture
+ * never changes. Kept apart from BALL_COLOURS' strongest hues, so a lane never reads as a ball.
+ */
+export const PART_COLOURS: readonly string[] = ['#8c96ff', '#ff8fb1', '#62d2b4', '#f2b872', '#c5a3ff', '#9fd36a', '#7fc8f5', '#e8a0a0'];
+
 /** The ladder strip. */
 export const LADDER = {
   /** Pulses visible across the strip, and where the playhead sits. */
@@ -81,6 +89,8 @@ export const LADDER = {
   playhead: '#ffffff',
   /** Pulses per screen width is fixed; bars shorter than this many pixels are still drawn. */
   minBarPx: 2,
+  /** Three or more parts: each lane's line in its part colour, this wide (two parts keep the grey 1 px line). */
+  partLanePx: 2,
 } as const;
 
 // ---------------------------------------------------------------------------------------------
@@ -99,9 +109,15 @@ export const HUMAN_AIRTIME_SECONDS = 3;
  * scales the scene to fit its region, so only the proportions show.
  */
 export const JUGGLER = {
-  /** Each hand's outer point, where it catches, and inner point, where it throws. */
+  /** Each hand's outer point, where it catches, and inner point, where it throws: one figure, hands 1 and 2. */
   catchX: [0, 0.9],
   throwX: [0.25, 0.65],
+  /**
+   * Parts pair into figures (lanes ruling 4): parts 1 and 2 are the first figure, 3 and 4 the
+   * second, side by side this far apart, left edge to left edge; an odd last part is a one-handed
+   * figure. A flight between figures is a pass across.
+   */
+  figureStride: 1.9,
   /** Gravity: a ball's apex is g·air²/8 (MATH §7). */
   g: 9.81,
   /** Time in the catching hand, in that hand's beats, at most this share of the flight. */

@@ -17,8 +17,8 @@ test('2 2x 2 / 2x 2 at 3:2: both crosses land on the shared downbeat, one mark p
   expect(marks.length).toBeGreaterThan(0);
   // Every mark is at a pulse where the 2-pulse and 3-pulse grids meet.
   for (const m of marks) expect(Math.round(m.x + f.start) % 6).toBe(0);
-  expect(new Set(marks.map((m) => m.hand))).toEqual(new Set([0, 1]));
-  const keys = marks.map((m) => `${m.hand}:${Math.round(m.x + f.start)}`);
+  expect(new Set(marks.map((m) => m.part))).toEqual(new Set([0, 1]));
+  const keys = marks.map((m) => `${m.part}:${Math.round(m.x + f.start)}`);
   expect(new Set(keys).size).toBe(keys.length);
 });
 

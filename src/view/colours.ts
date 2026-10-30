@@ -1,5 +1,13 @@
 // One colour rule for the whole picture: the ladder and the juggler both read it. Pure.
+import type { PartIndex } from '../core/types';
+import { PART_COLOURS } from '../tunables';
 import type { Segment } from './types';
+
+/**
+ * A part's colour (lanes ruling 4), repeating past the palette: the lanes UI's dot, and with
+ * three or more parts the part's ladder lane and juggler hand. Balls keep `ballColours`.
+ */
+export const partColour = (part: PartIndex): string => PART_COLOURS[part % PART_COLOURS.length] as string;
 
 /**
  * Each segment's colour for each of its balls (ball id → colour index), derived from the whole
