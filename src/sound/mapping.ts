@@ -12,11 +12,13 @@ import {
   FILTER_HZ_RANGE,
   FILTER_OPEN_HZ,
   MAX_HEIGHT,
+  MAX_MAPPING_PARTS,
   MAX_VELOCITY,
   PAD_CHORDS,
   PAD_HOLD_PULSES,
   PAD_VELOCITY,
   PRESET_MAPPINGS,
+  SOUND_LANES,
 } from '../tunables';
 
 /** A sample name in the kit, e.g. `kick`, or null for silence. */
@@ -85,6 +87,34 @@ function deepEqual(a: unknown, b: unknown): boolean {
     ka.length === kb.length &&
     ka.every((k) => k in b && deepEqual((a as Record<string, unknown>)[k], (b as Record<string, unknown>)[k]))
   );
+}
+
+/**
+ * The voice a part added at `index` gets: entry `index mod length` of SOUND_LANES.voices, in the
+ * kit of the mapping's first voice (the kit selector is global today), pan mirrored on every odd lap.
+ */
+export function voiceForNewPart(mapping: Mapping, index: number): PartVoice {
+  const rotation = SOUND_LANES.voices;
+  const entry = rotation[index % rotation.length] as (typeof rotation)[number];
+  const lap = Math.floor(index / rotation.length);
+  return {
+    kit: mapping.parts[0]?.kit ?? SOUND_LANES.kit,
+    sample: entry.sample,
+    pan: lap % 2 === 0 ? entry.pan : -entry.pan,
+    gain: SOUND_LANES.gain,
+  };
+}
+
+/**
+ * The mapping with exactly `n` voices (1 to MAX_MAPPING_PARTS): a new part takes the next voice of the
+ * rotation, a removed part drops the trailing voice. The same object when nothing changes.
+ */
+export function withPartCount(mapping: Mapping, n: number): Mapping {
+  const count = Math.min(MAX_MAPPING_PARTS, Math.max(1, Math.trunc(n)));
+  if (!Number.isFinite(count) || count === mapping.parts.length) return mapping;
+  const parts = mapping.parts.slice(0, count);
+  for (let i = parts.length; i < count; i++) parts.push(voiceForNewPart(mapping, i));
+  return { ...mapping, parts };
 }
 
 /** One note of the downbeat pad, in the pad instrument's note names. */

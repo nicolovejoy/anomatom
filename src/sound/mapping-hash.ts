@@ -30,6 +30,7 @@ import {
   PAD_INSTRUMENT_IDS,
   presetOf,
   PRESET_NAMES,
+  voiceForNewPart,
   type Mapping,
   type PartVoice,
   type Sample,
@@ -79,7 +80,7 @@ export function decodeMapping(value: unknown): Mapping {
         : d.byBall;
 
   const voice = (kit: unknown, smp: unknown, pan: unknown, gain: unknown, i: number): PartVoice => {
-    const f = d.parts[Math.min(i, d.parts.length - 1)] as PartVoice;
+    const f = d.parts[i] ?? voiceForNewPart(d, i);
     return {
       kit: pick(kit, KIT_IDS, f.kit),
       sample: sample(smp, f.sample),

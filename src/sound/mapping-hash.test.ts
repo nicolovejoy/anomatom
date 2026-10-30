@@ -1,6 +1,6 @@
 import { describe, expect, test } from 'vitest';
 import { DEFAULT_MAPPING, MAX_MAPPING_PARTS } from '../tunables';
-import { applyPreset, PRESET_NAMES, type Mapping } from './mapping';
+import { applyPreset, PRESET_NAMES, voiceForNewPart, withPartCount, type Mapping } from './mapping';
 import { decodeMapping, encodeMapping } from './mapping-hash';
 
 const custom: Mapping = {
@@ -72,7 +72,7 @@ describe('decodeMapping', () => {
     expect(decodeMapping({ y: 7, v: [[0, 1]] }).byHeight).toBe(true);
   });
 
-  test('parts are repaired per field: unknown kit and sample, junk numbers, extra parts take the last default', () => {
+  test('parts are repaired per field: unknown kit and sample, junk numbers, extra parts take the next rotation voice', () => {
     const m = decodeMapping({
       p: [
         ['Moog', 'tuba', 'left', null],
@@ -85,7 +85,7 @@ describe('decodeMapping', () => {
       DEFAULT_MAPPING.parts[0],
       { kit: 'TR-808', sample: 'kick', pan: -1, gain: 1 },
       { kit: 'TR-808', sample: 'snare', pan: 0.5, gain: 0.5 },
-      DEFAULT_MAPPING.parts[1],
+      voiceForNewPart(DEFAULT_MAPPING, 3),
     ]);
     expect(decodeMapping({ p: [] }).parts).toEqual(DEFAULT_MAPPING.parts);
     expect(decodeMapping({ p: 'x' }).parts).toEqual(DEFAULT_MAPPING.parts);
@@ -95,5 +95,21 @@ describe('decodeMapping', () => {
     const many = Array.from({ length: MAX_MAPPING_PARTS + 5 }, () => ['TR-808', 'kick', 0, 1]);
     expect(decodeMapping({ p: many }).parts).toHaveLength(MAX_MAPPING_PARTS);
     expect(decodeMapping({ v: many.map(() => [0, 1]) }).parts).toHaveLength(MAX_MAPPING_PARTS);
+  });
+});
+
+describe('three and four voices', () => {
+  test('a grown mapping round trips through a link', () => {
+    for (const n of [3, 4]) {
+      const m = withPartCount(DEFAULT_MAPPING, n);
+      const back = decodeMapping(JSON.parse(JSON.stringify(encodeMapping(m))));
+      expect(back).toEqual(m);
+      expect(back.parts).toHaveLength(n);
+    }
+  });
+
+  test('a junk voice past the defaults takes the rotation, not the second voice', () => {
+    const m = decodeMapping({ p: [['TR-808', 'kick', 0, 1], 'junk', 'junk', 'junk'] });
+    expect(m.parts.map((v) => v.sample)).toEqual(['kick', 'snare', 'hihat-close', 'clap']);
   });
 });
