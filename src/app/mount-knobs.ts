@@ -142,6 +142,12 @@ export const mountKnobs: Mount = (root, { store, player, sound }) => {
           <span id="pending" class="pending" hidden>${copy.nextCycle}</span>
         </span>
       </button>
+      <div class="share-wrap">
+      <button id="share" type="button" class="share" aria-label="${copy.shareLabel}">
+        <svg aria-hidden="true" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 15V3"/><path d="M7 8l5-5 5 5"/><path d="M5 12v7a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-7"/></svg>
+      </button>
+        <span id="share-status" class="share-status" role="status" aria-live="polite"></span>
+      </div>
       <button id="play" type="button" class="play">
         <svg class="icon-play" aria-hidden="true" width="24" height="24" viewBox="0 0 24 24"><path d="M7 4l13 8-13 8z" fill="currentColor"/></svg>
         <svg class="icon-pause" aria-hidden="true" width="22" height="22" viewBox="0 0 24 24"><rect x="5" y="4" width="5" height="16" fill="currentColor"/><rect x="14" y="4" width="5" height="16" fill="currentColor"/></svg>

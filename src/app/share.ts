@@ -11,7 +11,7 @@
 // - `lastStateHash` in the store is kept current at once (About's back link), not debounced. It
 //   rides in the same `store.set` as the change it follows (a `store.derive` deriver),
 //   so listeners run once per change, not twice.
-import { decodeState, encodeState } from './hash';
+import { decodeState, encodeHash, encodeState } from './hash';
 import { route } from './route';
 import { defaultState, type AppState, type Store } from './state';
 
@@ -71,7 +71,7 @@ export function quietly(replace: (hash: string) => void): (hash: string) => void
 /** The link to the current state: this page's address with the live hash, never a stale one. */
 export function shareUrl(href: string, state: AppState): string {
   const at = href.indexOf('#');
-  return (at === -1 ? href : href.slice(0, at)) + encodeState(state);
+  return (at === -1 ? href : href.slice(0, at)) + encodeHash(state);
 }
 
 export function createShare(deps: ShareDeps) {
@@ -84,7 +84,7 @@ export function createShare(deps: ShareDeps) {
     pending = false;
     // About owns the hash while it shows; the back link holds the state.
     if (route(deps.hash()).view === 'about') return;
-    const hash = encodeState(store.get());
+    const hash = encodeHash(store.get());
     if (deps.hash() !== hash) deps.replaceHash(hash);
   }
 
@@ -108,7 +108,7 @@ export function createShare(deps: ShareDeps) {
     /** Restores from the hash, then follows the store. Call once. */
     start() {
       store.derive((next, previous) =>
-        sharedChanged(next, previous) ? { lastStateHash: encodeState(next) } : {},
+        sharedChanged(next, previous) ? { lastStateHash: encodeHash(next) } : {},
       );
       store.subscribe((state, previous) => {
         if (!sharedChanged(state, previous)) return;
@@ -118,7 +118,7 @@ export function createShare(deps: ShareDeps) {
       });
       restore();
       // The deriver only runs on a change; the first hash is set here.
-      const hash = encodeState(store.get());
+      const hash = encodeHash(store.get());
       if (hash !== store.get().lastStateHash) store.set({ lastStateHash: hash });
     },
     /** A pasted link, or any hash change on an open page. */
@@ -128,4 +128,36 @@ export function createShare(deps: ShareDeps) {
       if (pending) write();
     },
   };
+}
+
+export type ShareOutcome = 'shared' | 'copied' | 'not-copied' | 'cancelled';
+
+export interface ShareButtonDeps {
+  /** `navigator.share`, where the browser has one. */
+  readonly share?: (data: { url: string }) => Promise<void>;
+  /** `navigator.clipboard.writeText`, where there is one. */
+  readonly writeText?: (text: string) => Promise<void>;
+}
+
+/**
+ * What the share button does with `url`: the system share sheet where it exists (a dismissed
+ * sheet is `cancelled`, not an error), else, or if it refuses for another reason, the clipboard. Never throws.
+ */
+export async function shareLink(url: string, deps: ShareButtonDeps): Promise<ShareOutcome> {
+  if (deps.share) {
+    try {
+      await deps.share({ url });
+      return 'shared';
+    } catch (err) {
+      // A dismissed share sheet is the user's answer; any other refusal falls through to the clipboard.
+      if ((err as { name?: string } | null)?.name === 'AbortError') return 'cancelled';
+    }
+  }
+  try {
+    if (!deps.writeText) return 'not-copied';
+    await deps.writeText(url);
+    return 'copied';
+  } catch {
+    return 'not-copied';
+  }
 }

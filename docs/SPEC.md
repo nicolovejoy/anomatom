@@ -109,7 +109,7 @@ A drawer over the play view. Every control edits one field of the Mapping. Defau
 6. Cross-throw accent: velocity boost (0 to 40); downbeat sound (clap, cowbell, none).
 7. Crossings to filter: on/off; cutoff range low-high in Hz.
 8. Pad on downbeat: on/off; instrument (Mellotron, Soundfont pad); chord (a short list: Dm9, Am7, Cmaj7, F6/9, one open fifth).
-9. Reset to preset. Copy share link.
+9. Reset to preset. (The share button is in the head row, not here: it shares the link, short where the pattern allows, else `#v2.`.)
 
 (v2, 2026-10-29) The preset list gains "Voice per part", the new default for a fresh state (§6), and item 4 becomes per hand: kit, sample, pan and gain. The Sound tab copy says that the sound is invariant under ball count unless the preset reads flight length.
 

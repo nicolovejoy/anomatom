@@ -3,9 +3,10 @@ import { buildSchedule, partsFromOnsets, withPhase } from '../core';
 import type { Parts } from '../core';
 import { applyPreset, PRESET_NAMES, presetOf, type Mapping } from '../sound/mapping';
 import { lineParts, vanillaParts } from '../test/schedules';
-import { BPM_RANGE, DEFAULT_MAPPING, MAX_LINK_CYCLE, MAX_PARTS } from '../tunables';
+import { BPM_RANGE, DEFAULT_BPM, DEFAULT_MAPPING, MAX_LINK_CYCLE, MAX_PARTS } from '../tunables';
 import cards from './fixtures/v1-cards.json';
-import { decodeState, encodeState } from './hash';
+import { decodeState, encodeHash, encodeState } from './hash';
+import { PRESETS } from './presets';
 import { defaultParts, defaultState, type AppState } from './state';
 import { route } from './route';
 
@@ -344,5 +345,106 @@ describe('lanes: three and four parts (docs/plans/lanes.md)', () => {
   test('the ratio written is the parts’, whatever the state holds', () => {
     const stepped: AppState = { ...defaultState(), ratio: { a: 2, b: 2 } };
     expect(rOf(encodeState(stepped))).toEqual([1, 1]);
+  });
+});
+
+describe('short links (grammar in route.ts)', () => {
+  const shared = (s: AppState) => ({ parts: s.parts, ratio: s.ratio, bpm: s.bpm, mapping: s.mapping });
+  const roundTrips = (hash: string, state: Pick<AppState, 'parts' | 'ratio' | 'bpm' | 'mapping'>) => {
+    const r = route(hash);
+    expect(r.version).toBe('short');
+    const back = decodeState(r.state as string, 'short');
+    expect(back).not.toBeNull();
+    expect(encodeState(back as NonNullable<typeof back>)).toBe(encodeState(state));
+  };
+
+  test('every two-part first-minute card with its own sound takes its shortest form and round-trips', () => {
+    const short: Record<string, string> = {
+      cascade: '#3~height-drum',
+      pause: '#441~height-drum',
+      classic: '#531~height-drum',
+      ramp: '#97531~height-drum',
+      polyrhythm: '#3:2/2-2x-2/2x-2~height-drum',
+    };
+    const seen: string[] = [];
+    for (const p of PRESETS.filter((c) => c.first && c.parts.length === 2)) {
+      seen.push(p.id);
+      const state = { parts: p.parts, ratio: p.ratio, bpm: p.bpm ?? DEFAULT_BPM, mapping: p.mapping };
+      const hash = encodeHash(state);
+      if (p.id in short) {
+        expect(hash).toBe(short[p.id]);
+        roundTrips(hash, state);
+      } else {
+        // A sourcebook card is hit rules, not written throws: it has no short form.
+        expect(hash.startsWith('#v2.')).toBe(true);
+      }
+    }
+    expect(Object.keys(short).every((id) => seen.includes(id))).toBe(true);
+  });
+
+  test('the tempo rides after @ unless it is the default', () => {
+    const base = { ...shared(defaultState()), parts: vanillaParts('531') };
+    expect(encodeHash({ ...base, bpm: 140 })).toBe('#531@140');
+    expect(encodeHash({ ...base, bpm: DEFAULT_BPM })).toBe('#531');
+    roundTrips('#531@140', { ...base, bpm: 140 });
+    const drum = { ...base, mapping: applyPreset('height-drum'), bpm: 140 };
+    expect(encodeHash(drum)).toBe('#531~height-drum@140');
+    roundTrips('#531~height-drum@140', drum);
+    expect(decodeState('531~nope', 'short')).toBeNull();
+    expect(decodeState('531~custom', 'short')).toBeNull();
+    const hands = { ...base, parts: lineParts(['2 2x 2', '2x 2'], { a: 3, b: 2 }), ratio: { a: 3, b: 2 } };
+    expect(encodeHash({ ...hands, bpm: 90 })).toBe('#3:2/2-2x-2/2x-2@90');
+  });
+
+  test('a changed mapping, a phase, a third part or a odd tempo fall back to #v2.', () => {
+    const base = { ...shared(defaultState()), parts: vanillaParts('531') };
+    const v2 = (s: typeof base) => expect(encodeHash(s).startsWith('#v2.')).toBe(true);
+    v2({ ...base, mapping: custom });
+    v2({ ...base, parts: withPhase(base.parts, 1, 2, 1) });
+    v2({ ...base, bpm: 100.5 });
+    v2({ ...base, parts: lineParts(['3', '3', '3'], { a: 1, b: 1 }) });
+    const hands = { ...base, parts: lineParts(['2 2x 2', '2x 2'], { a: 3, b: 2 }), ratio: { a: 3, b: 2 } };
+    v2({ ...hands, parts: withPhase(hands.parts, 1, 2, 1) });
+    v2({ ...hands, mapping: custom });
+    // Two parts at 1:1 that are not one siteswap (a hand each) have no short form.
+    v2({ ...base, parts: lineParts(['3', '4'], { a: 1, b: 1 }) });
+    // Default-rule parts are not written throws.
+    v2({ ...base, parts: partsFromOnsets([[true, false], [true]], [1, 1]) });
+  });
+
+  test('a preset on another kit has no short form and round-trips through #v2. with the kit intact', () => {
+    const base = { ...shared(defaultState()), parts: vanillaParts('531') };
+    const lm2: Mapping = { ...base.mapping, parts: base.mapping.parts.map((v) => ({ ...v, kit: 'LM-2' })) };
+    const state = { ...base, mapping: lm2 };
+    expect(presetOf(lm2)).toBe('voice-per-part');
+    const hash = encodeHash(state);
+    expect(hash.startsWith('#v2.')).toBe(true);
+    const back = decodeState(hash.slice('#v2.'.length));
+    expect(back?.mapping.parts.map((v) => v.kit)).toEqual(['LM-2', 'LM-2']);
+    expect(encodeState(back as NonNullable<typeof back>)).toBe(encodeState(state));
+  });
+
+  test('a short link is decoded by the parsers the Pattern tab uses', () => {
+    const typed = decodeState('531', 'short');
+    expect(typed?.parts).toEqual(vanillaParts('531'));
+    expect(typed?.ratio).toEqual({ a: 1, b: 1 });
+    expect(typed?.bpm).toBe(DEFAULT_BPM);
+    expect(typed?.mapping).toEqual(DEFAULT_MAPPING);
+    expect(decodeState('531@9999', 'short')?.bpm).toBe(BPM_RANGE.max);
+    expect(decodeState('531@', 'short')?.bpm).toBe(DEFAULT_BPM);
+    expect(decodeState('531@abc', 'short')?.bpm).toBe(DEFAULT_BPM);
+    const hands = decodeState('6:4/2-2x-2/2x-2', 'short');
+    expect(hands?.ratio).toEqual({ a: 6, b: 4 });
+    expect(hands?.parts).toEqual(lineParts(['2 2x 2', '2x 2'], { a: 6, b: 4 }));
+  });
+
+  test('junk short forms decode to nothing, so the defaults load', () => {
+    for (const junk of [
+      '', 'x', '5!1', '9'.repeat(65), '5/1', '3:2', '3:2/2', '3:2/2/2/2', '0:2/2/2', '3:0/2/2', '3:2/2!/2', '3:2/x2/2', '3:2/ / ',
+      '2:2/2/2', '99999:2/2/2', `3:2/${'2'.repeat(65)}/2`, '3:2/0x/2',
+    ]) {
+      expect(decodeState(junk, 'short')).toBeNull();
+    }
+    expect(decodeState('5x1', 'short')).toBeNull();
   });
 });

@@ -17,3 +17,19 @@ test('empty, bare and junk hashes are the play view with no state', () => {
     expect(route(hash)).toEqual({ view: 'play', state: null, version: null });
   }
 });
+
+test('a short link is the play view carrying the whole short form', () => {
+  expect(route('#531')).toEqual({ view: 'play', state: '531', version: 'short' });
+  expect(route('#531@140')).toEqual({ view: 'play', state: '531@140', version: 'short' });
+  expect(route('#3:2/2-2x-2/2x-2@90')).toEqual({ view: 'play', state: '3:2/2-2x-2/2x-2@90', version: 'short' });
+  expect(route('#about').view).toBe('about');
+});
+
+test('a percent-encoded short link is decoded; undecodable junk is no state', () => {
+  expect(route('#531%7Eheight-drum%40140')).toEqual({ view: 'play', state: '531~height-drum@140', version: 'short' });
+  expect(route('#%E0%A4%A')).toEqual({ view: 'play', state: null, version: null });
+});
+
+test('a short link may carry a preset segment', () => {
+  expect(route('#531~height-drum@140')).toEqual({ view: 'play', state: '531~height-drum@140', version: 'short' });
+});

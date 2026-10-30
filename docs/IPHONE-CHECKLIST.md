@@ -42,7 +42,7 @@ Each step says what pass looks like and what fail looks like.
 ## 5. Share link round trip (SPEC §7.5)
 
 1. Change three things: the pattern to `441`, the bpm to `96`, and one sound field in the Sound drawer (for example the height 4 sound to cowbell).
-2. In the Sound drawer tap "Copy share link". Pass: the robot says it copied the link. If it says it could not, copy the address from Safari's bar instead (this is the documented fallback, not a fail).
+2. Tap the share icon in the head row, between the pattern summary and Play. Pass: the iOS share sheet opens with the link. If it does not, copy the address from Safari's bar instead (this is the documented fallback, not a fail).
 3. Open a new Safari tab and paste the link. Pass: the pattern box shows `441`, bpm 96, the Sound drawer shows the cowbell and a `Custom` preset, and nothing is playing until you tap Play. Fail: any value differs, or sound starts by itself.
 
 ## 6. The folded knob panel

@@ -39,7 +39,6 @@ import {
   sampleValue,
   type MappingEdit,
 } from './sound-panel-model';
-import { shareUrl } from './share';
 import './sound-panel.css';
 
 const label = (sample: Sample) => (sample === null ? copy.noSample : (copy.sampleNames[sample] ?? sample));
@@ -122,9 +121,7 @@ export const mountSoundPanel: Mount = (root, { store, player }) => {
       </fieldset>
       <div class="sp-row sp-actions">
         <button type="button" id="sp-reset">${copy.resetToPreset}</button>
-        <button type="button" id="sp-copy">${copy.copyLink}</button>
       </div>
-      <p id="sp-confirm" class="sp-confirm" role="status" aria-live="polite"></p>
     </div>
   `;
 
@@ -143,7 +140,6 @@ export const mountSoundPanel: Mount = (root, { store, player }) => {
   const padOn = $<HTMLInputElement>('#sp-pad-on');
   const padInstrument = $<HTMLSelectElement>('#sp-pad-instrument');
   const padChord = $<HTMLSelectElement>('#sp-pad-chord');
-  const confirm = $<HTMLParagraphElement>('#sp-confirm');
 
   /** The only write to the Mapping. */
   const edit = (e: MappingEdit) => store.set({ mapping: applyEdit(store.get().mapping, e) });
@@ -244,21 +240,6 @@ export const mountSoundPanel: Mount = (root, { store, player }) => {
   $<HTMLButtonElement>('#sp-reset').addEventListener('click', () =>
     edit({ kind: 'preset', name: resetTarget(store.get().mapping, lastPreset) }),
   );
-
-  // Copy share link: the address with the live state, not whatever the debounce last wrote.
-  let confirmTimer: ReturnType<typeof setTimeout> | undefined;
-  const say = (text: string) => {
-    confirm.textContent = text;
-    clearTimeout(confirmTimer);
-    confirmTimer = setTimeout(() => (confirm.textContent = ''), SOUND_PANEL.confirmMs);
-  };
-  $<HTMLButtonElement>('#sp-copy').addEventListener('click', () => {
-    const url = shareUrl(location.href, store.get());
-    navigator.clipboard.writeText(url).then(
-      () => say(copy.linkCopied),
-      () => say(copy.linkNotCopied),
-    );
-  });
 
   // A pattern with more parts than the mapping has voices (a link, a preset) gets the rotation's next voices.
   const growVoices = (state = store.get()) => {

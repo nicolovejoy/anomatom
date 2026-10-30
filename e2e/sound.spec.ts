@@ -94,32 +94,6 @@ test('SPEC §7.5: three sound fields, the link, a new tab: everything matches an
   await expect(page.locator('#hand-0')).toHaveValue('441');
 });
 
-test('Copy share link puts the current link on the clipboard and confirms in the robot’s voice', async ({
-  page,
-  context,
-}) => {
-  // Playwright grants clipboard permissions on Chromium only, so every browser gets the same stub:
-  // writeText records what the page asked to copy.
-  await page.addInitScript(() => {
-    const w = window as unknown as { __copied?: string };
-    Object.defineProperty(navigator, 'clipboard', {
-      configurable: true,
-      value: { writeText: async (t: string) => void (w.__copied = t) },
-    });
-  });
-  await page.goto('/#v1.e30');
-  await openPanel(page);
-  await page.locator('#sp-filter-on').check();
-  // Straight after the edit: the clipboard holds the live state, not a stale address.
-  await page.locator('#sp-copy').click();
-  await expect(page.locator('#sp-confirm')).toContainText('I copied the link');
-  const copied = await page.evaluate(() => (window as unknown as { __copied?: string }).__copied);
-  expect(copied).toMatch(/#v2\./);
-  const other = await context.newPage();
-  await other.goto(copied as string);
-  await expect(other.locator('#sp-filter-on')).toBeChecked();
-});
-
 test('a link pasted while playing lands at the next cycle: no restart, no stop', async ({ page }) => {
   await page.goto('/#v1.e30');
   await page.locator('#play').click();
@@ -150,13 +124,11 @@ test('a link that differs only in tempo, pasted while playing, reaches the playe
   await page.locator('#play').click();
   await expect(page.locator('#play')).toHaveText('Pause');
   await page.locator('#hand-0').fill('441');
-  const link = await settledHref(page);
+  await settledHref(page, '#441');
   await expect(page.locator('#pending')).toBeHidden({ timeout: 5_000 });
-  const payload = new URL(link).hash.slice('#v2.'.length);
-  const json = JSON.parse(atob(payload.replace(/-/g, '+').replace(/_/g, '/')));
-  const faster = '#v2.' + btoa(JSON.stringify({ ...json, t: json.t + 30 })).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
-  await page.evaluate((hash) => (location.hash = hash), faster);
-  await expect(page.locator('#bpm')).toHaveValue(String(json.t + 30));
+  // 441 at the default tempo is the short link `#441`; the same link at 150 bpm differs only in tempo.
+  await page.evaluate((hash) => (location.hash = hash), '#441@150');
+  await expect(page.locator('#bpm')).toHaveValue('150');
   // Queued for the next cycle boundary, as any edit while playing.
   await expect(page.locator('#pending')).toBeVisible();
   await expect(page.locator('#play')).toHaveText('Pause');
@@ -167,7 +139,7 @@ test('a pasted link while stopped does not start anything', async ({ page }) => 
   const other = await page.context().newPage();
   await other.goto('/#v1.e30');
   await other.locator('#hand-0').fill('51');
-  const link = await settledHref(other);
+  const link = await settledHref(other, '#51');
   await other.close();
   await page.evaluate((hash) => (location.hash = hash), new URL(link).hash);
   await expect(page.locator('#hand-0')).toHaveValue('51');
@@ -210,5 +182,5 @@ test('About keeps the state: its back link returns to the pattern as it was', as
   await expect(page).toHaveURL(/#about$/); // the hash write leaves About alone
   await page.locator('.region-about a', { hasText: 'Back to the pattern' }).click();
   await expect(page.locator('#hand-0')).toHaveValue('441');
-  await expect(page).toHaveURL(/#v2\./);
+  await expect(page).toHaveURL(/#441$/);
 });

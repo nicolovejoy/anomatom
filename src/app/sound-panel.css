@@ -92,11 +92,6 @@
   border-radius: 22px;
   background: var(--raised);
 }
-.sound-panel .sp-confirm {
-  min-height: 1.4em;
-  margin: 0;
-  color: var(--text-2);
-}
 /* Range rows keep label, slider and readout on one line, even at 390 px. */
 .sound-panel .sp-row:has(input[type='range']) {
   flex-wrap: nowrap;
