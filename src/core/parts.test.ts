@@ -8,6 +8,8 @@ import {
   partsFromOnsets,
   partsFromVanilla,
   periodOf,
+  ratesOf,
+  ratioOf,
   textOf,
   throwsOf,
   vanillaIndex,
@@ -208,5 +210,26 @@ describe('the lattice', () => {
 
   test('an empty model has cycle 1', () => {
     expect(cycleOf([])).toBe(1);
+  });
+});
+
+describe('rates (docs/plans/lanes.md)', () => {
+  test('rate is lcm(spacings) / spacing, in lowest terms; the ratio is the first two', () => {
+    expect(ratesOf(ok(partsFromVanilla('531')))).toEqual([1, 1]);
+    expect(ratesOf(partsFromOnsets([[X], [X]], [2, 3]))).toEqual([3, 2]);
+    // 3:4:5, a layered stack: spacings 20, 15, 12.
+    const stack = partsFromOnsets([[X], [X], [X]], [20, 15, 12]);
+    expect(ratesOf(stack)).toEqual([3, 4, 5]);
+    expect(ratioOf(stack)).toEqual({ a: 3, b: 4 });
+    // Two rates sharing a factor the third does not: the ratio is still in lowest terms.
+    expect(ratioOf(partsFromOnsets([[X], [X], [X]], [3, 3, 2]))).toEqual({ a: 1, b: 1 });
+    // A refined lattice keeps its rates.
+    expect(ratesOf(withPhase(partsFromOnsets([[X], [X]], [2, 3]), 1, 1, 2))).toEqual([3, 2]);
+  });
+
+  test('one part is 1:1; no parts have no rates', () => {
+    expect(ratioOf(partsFromOnsets([[X]], [5]))).toEqual({ a: 1, b: 1 });
+    expect(ratesOf([])).toEqual([]);
+    expect(ratioOf([])).toEqual({ a: 1, b: 1 });
   });
 });

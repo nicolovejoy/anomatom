@@ -15,18 +15,30 @@
 //   k = 1, with a one-line notice. resetGroup does the same on request, without one.
 // - setRatio rescales the spacings; parts keep their digits and onsets. A manual group where a
 //   cross can no longer land on an onset is reset, with a notice; any other group is kept.
+// - Lanes (docs/plans/lanes.md): addLane appends a default part on the last part's rate and
+//   steps; removeLane drops a part, resetting with a notice the rest of a cross group it was in;
+//   setRate rescales the spacings as setRatio does, for N parts; setSteps pads a part's period
+//   with rests or drops its tail, an onset change like any other.
+// - `ratio` follows the parts (ruling 2 of docs/plans/lanes.md): after every action it reduces to
+//   `ratioOf(parts)`. It stays stored only because the ratio steppers show it unreduced (2:2 is
+//   not the 1:1 chip); setRatio is the one action that sets it, and only over two parts.
+// - Every action that changes how many parts there are gives the mapping that many voices.
 import {
   crossGroups,
+  cycleOf,
   euclid,
   gcd,
   isVanillaPair,
   judge,
   lcm,
+  mod,
   normalise,
   onsetsOf,
   parseThrows,
   partsFromVanilla,
   periodOf,
+  ratesOf,
+  ratioOf,
   ratioSpacings,
   swapSites as swapThrows,
   throwsOf,
@@ -36,7 +48,16 @@ import {
 } from '../core';
 import type { ParseError, Part, PartIndex, Parts, Ratio, Throw } from '../core';
 import type { Mapping } from '../sound/mapping';
-import { BPM_RANGE, MAX_EDITOR_PARTS, MAX_PHASE_REFINEMENT, MAX_RATIO } from '../tunables';
+import {
+  BPM_RANGE,
+  MAX_EDITOR_PARTS,
+  MAX_LANES,
+  MAX_LINK_CYCLE,
+  MAX_PERIOD,
+  MAX_PHASE_REFINEMENT,
+  MAX_RATE,
+  MAX_RATIO,
+} from '../tunables';
 import { copy } from '../ui/copy';
 import type { AppState } from './state';
 
@@ -50,10 +71,24 @@ export type Action =
   | { type: 'setBpm'; bpm: number }
   | { type: 'loadPreset'; parts: Parts; ratio: Ratio; bpm?: number; mapping?: Mapping }
   | { type: 'generate'; part: PartIndex; hits: number }
-  | { type: 'swapSites'; part: PartIndex; i: number; j: number };
+  | { type: 'swapSites'; part: PartIndex; i: number; j: number }
+  | { type: 'addLane' }
+  | { type: 'removeLane'; part: PartIndex }
+  /** Rescales the spacings on the lattice so part `part` plays `rate` beats to a rate-1 part's one; normalised after. */
+  | { type: 'setRate'; part: PartIndex; rate: number }
+  /** The part's period in beats: pads with rests or drops the tail. */
+  | { type: 'setSteps'; part: PartIndex; steps: number };
 
-/** At 1:1 one input holds the whole pattern (vanilla, or `a / b`); otherwise one input per part. */
+/** Hands at the same rate: 1:1 (or 2:2 from the steppers). */
 export const oneInput = (ratio: Ratio): boolean => ratio.a === ratio.b;
+
+/**
+ * Whether the editor has one input per part, in one-hand counting: at any ratio but 1:1, and
+ * with more parts than one input writes (MAX_EDITOR_PARTS; ruling 3 of docs/plans/lanes.md).
+ * Otherwise one input holds the whole pattern (vanilla, or `a / b`).
+ */
+export const inputPerPart = (state: Pick<AppState, 'parts' | 'ratio'>): boolean =>
+  !oneInput(state.ratio) || state.parts.length > MAX_EDITOR_PARTS;
 
 export type DraftResult = { readonly ok: true; readonly parts: Parts } | { readonly ok: false; readonly error: ParseError };
 
@@ -66,7 +101,7 @@ export type DraftResult = { readonly ok: true; readonly parts: Parts } | { reado
  * starts from spacing 1, phase 0, unit 1. The editor writes at most MAX_EDITOR_PARTS parts.
  */
 export function parseDraft(state: Pick<AppState, 'parts' | 'ratio'>, part: PartIndex, text: string): DraftResult {
-  if (oneInput(state.ratio)) {
+  if (!inputPerPart(state)) {
     // A single string is vanilla over two parts; over one part it is that part's line.
     if (!text.includes('/') && state.parts.length === 2) {
       const r = partsFromVanilla(text);
@@ -101,7 +136,16 @@ export function parseDraft(state: Pick<AppState, 'parts' | 'ratio'>, part: PartI
 }
 
 export function reduce(state: AppState, action: Action): AppState {
-  const s: AppState = state.notice === null ? state : { ...state, notice: null };
+  const next = step(state.notice === null ? state : { ...state, notice: null }, action);
+  if (next.parts === state.parts) return next;
+  // The ratio follows the parts, and the mapping has a voice per part.
+  const r = ratioOf(next.parts);
+  const ratio = next.ratio.a * r.b === next.ratio.b * r.a ? next.ratio : r;
+  const mapping = next.parts.length === state.parts.length ? next.mapping : withPartCount(next.mapping, next.parts.length);
+  return ratio === next.ratio && mapping === next.mapping ? next : { ...next, ratio, mapping };
+}
+
+function step(s: AppState, action: Action): AppState {
   switch (action.type) {
     case 'editDraft':
       return editDraft(s, action.part, action.text);
@@ -147,6 +191,14 @@ export function reduce(state: AppState, action: Action): AppState {
       };
     case 'swapSites':
       return swapSites(s, action.part, action.i, action.j);
+    case 'addLane':
+      return addLane(s);
+    case 'removeLane':
+      return removeLane(s, action.part);
+    case 'setRate':
+      return setRate(s, action.part, action.rate);
+    case 'setSteps':
+      return setSteps(s, action.part, action.steps);
   }
 }
 
@@ -189,7 +241,7 @@ const withParts = (s: AppState, parts: Parts, notice: string | null = null): App
 });
 
 function editDraft(s: AppState, part: PartIndex, text: string): AppState {
-  const one = oneInput(s.ratio);
+  const one = !inputPerPart(s);
   if (part < 0 || (one ? part !== 0 : part >= s.parts.length)) return s;
   const r = parseDraft(s, part, text);
   if (!r.ok) return { ...s, drafts: s.parts.map((_, i) => (i === part ? text : (s.drafts[i] ?? null))) };
@@ -272,25 +324,122 @@ export function rescale(parts: Parts, spacings: readonly number[]): Parts {
   );
 }
 
+/**
+ * The ratio of two parts (the chips and steppers). The ratio follows the parts, so with any other
+ * number of parts it is refused; the same reduced ratio (2:2 for 1:1) keeps the parts as they are.
+ */
 function setRatio(s: AppState, ratio: Ratio): AppState {
   const a = Math.round(ratio.a);
   const b = Math.round(ratio.b);
-  if (!(a >= 1 && b >= 1 && a <= MAX_RATIO && b <= MAX_RATIO) || (a === s.ratio.a && b === s.ratio.b)) return s;
+  if (!(a >= 1 && b >= 1 && a <= MAX_RATIO && b <= MAX_RATIO) || (a === s.ratio.a && b === s.ratio.b) || s.parts.length !== 2) return s;
   const next: Ratio = { a, b };
   const [s0, s1] = ratioSpacings(next);
   const [o0, o1] = ratioSpacings(s.ratio);
-  // Two parts follow the ratio; the same reduced ratio (2:2 for 1:1) keeps them as they are.
-  if (s.parts.length !== 2 || (s0 === o0 && s1 === o1)) return { ...s, ratio: next };
-  const scaled = rescale(s.parts, [s0, s1]);
+  if (s0 === o0 && s1 === o1) return { ...s, ratio: next };
+  const spaced = respace(s, [s0, s1]);
+  return spaced === s ? s : { ...spaced, ratio: next };
+}
+
+/**
+ * The parts at new spacings (`rescale`), each keeping its digits and onsets. A manual group where
+ * a cross can no longer land on an onset is reset, with a notice; any other group is kept. A
+ * cycle past MAX_LINK_CYCLE, which no link could carry, is refused.
+ */
+function respace(s: AppState, spacings: readonly number[]): AppState {
+  const scaled = rescale(s.parts, spacings);
+  if (cycleOf(scaled) > MAX_LINK_CYCLE) return s;
   const verdict = judge(scaled);
   const lost = verdict.groups.filter(
     (g) =>
       isManualGroup(scaled, g.parts) &&
       g.faults.some((f) => f.kind === 'no-onset' && throwsOf(scaled[f.from.part] as Part)[f.from.index]?.to != null),
   );
-  if (lost.length === 0) return withParts({ ...s, ratio: next }, scaled);
+  if (lost.length === 0) return withParts(s, scaled);
   const group = lost.flatMap((g) => g.parts).sort((x, y) => x - y);
-  return withParts({ ...s, ratio: next }, normalise(resetParts(scaled, group)), copy.resetNotice(group));
+  return withParts(s, normalise(resetParts(scaled, group)), copy.resetNotice(group));
+}
+
+// ---------------------------------------------------------------------------------------------
+// Lanes (docs/plans/lanes.md)
+// ---------------------------------------------------------------------------------------------
+
+/**
+ * A new last part (the plan's "Add a hand"): the last part's rate and steps, phase 0, one onset
+ * on beat 0, k = 1. Up to MAX_LANES parts.
+ */
+function addLane(s: AppState): AppState {
+  const last = s.parts[s.parts.length - 1];
+  if (last === undefined || s.parts.length >= MAX_LANES) return s;
+  const onsets = Array.from({ length: periodOf(last) }, (_, beat) => beat === 0);
+  return withParts(s, normalise([...s.parts, defaultPart({ ...last, phase: 0 }, onsets)]));
+}
+
+/**
+ * Part `part` removed, with its voice. The rest of a cross group it was in loses the crosses that
+ * fed it, so those parts are re-derived at k = 1, with a notice naming them as they are numbered
+ * after. Crosses into later parts are renumbered. The last part cannot be removed.
+ */
+function removeLane(s: AppState, part: PartIndex): AppState {
+  if (s.parts[part] === undefined || s.parts.length <= 1) return s;
+  const others = groupOf(s.parts, part).filter((i) => i !== part);
+  const changed = others.some((i) => !isDefaultAt1(s.parts[i] as Part));
+  const renumber = (i: PartIndex) => (i > part ? i - 1 : i);
+  const parts = resetParts(s.parts, others)
+    .filter((_, i) => i !== part)
+    .map((p) =>
+      p.flights.kind === 'default'
+        ? p
+        : manualPart(p, p.flights.throws.map((t) => (t.to === null ? t : { height: t.height, to: renumber(t.to) }))),
+    );
+  const voices = s.mapping.parts;
+  // A voice per part: the removed part's goes with it. A mapping that borrows voices keeps them all.
+  const mapping = voices.length === s.parts.length ? { ...s.mapping, parts: voices.filter((_, i) => i !== part) } : s.mapping;
+  return { ...withParts(s, normalise(parts), changed ? copy.resetNotice(others.map(renumber)) : null), mapping };
+}
+
+/**
+ * Part `part` at `rate` (1 to MAX_RATE), the others at theirs: spacings `lcm(rates) / rate`,
+ * rescaled as setRatio does, so two parts at rates 3 and 2 are 3:2.
+ */
+function setRate(s: AppState, part: PartIndex, rate: number): AppState {
+  const r = Math.round(rate);
+  const rates = ratesOf(s.parts);
+  if (s.parts[part] === undefined || !(r >= 1 && r <= MAX_RATE)) return s;
+  const next = rates.map((x, i) => (i === part ? r : x));
+  const g = next.reduce(gcd, 0);
+  // The same rates in lowest terms (a lone part is always at rate 1): nothing to rescale.
+  if (next.every((x, i) => x / g === rates[i])) return s;
+  const l = next.reduce(lcm, 1);
+  return respace(s, next.map((x) => l / x));
+}
+
+/**
+ * Part `part`'s period to `steps` beats (1 to MAX_PERIOD): rests added at the end, or the tail
+ * dropped. Its onsets change, so a manual group is reset with a notice (`changeOnsets`). The
+ * phase wraps into the new period; a cycle past MAX_LINK_CYCLE is refused.
+ */
+function setSteps(s: AppState, part: PartIndex, steps: number): AppState {
+  const p = s.parts[part];
+  const n = Math.round(steps);
+  if (p === undefined || !(n >= 1 && n <= MAX_PERIOD) || n === periodOf(p)) return s;
+  const was = onsetsOf(p);
+  const onsets = Array.from({ length: n }, (_, beat) => was[beat] ?? false);
+  const wrapped = s.parts.map((q, i) => (i === part ? { ...q, phase: mod(q.phase, q.spacing * n) } : q));
+  const next = changeOnsets({ ...s, parts: wrapped }, part, onsets);
+  return cycleOf(next.parts) > MAX_LINK_CYCLE ? s : next;
+}
+
+/**
+ * The mapping with `n` voices, one per part: a part past the end takes voice `part mod length`,
+ * as `hitFor` already borrows, and voices past `n` are dropped.
+ *
+ * A stub (docs/plans/lanes.md): stream D ships the real `withPartCount` in src/sound/mapping.ts,
+ * with the voice rotation for new parts; the governor swaps this for it at rebase.
+ */
+function withPartCount(mapping: Mapping, n: number): Mapping {
+  const voices = mapping.parts;
+  if (voices.length === n || voices.length === 0) return mapping;
+  return { ...mapping, parts: Array.from({ length: n }, (_, i) => voices[i % voices.length] as Mapping['parts'][number]) };
 }
 
 /** The vanilla digits as the one input shows them: the draft's, when it reads as vanilla, else the parts'. */

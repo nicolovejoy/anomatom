@@ -176,6 +176,24 @@ export function ratioSpacings(ratio: Ratio): [number, number] {
 }
 
 /**
+ * Each part's rate (docs/plans/lanes.md): how many beats it plays while a part of rate 1 plays
+ * one, `lcm(spacings) / spacing`, divided by the gcd of the rates. A vanilla pair is 1 and 1;
+ * spacings 2 and 3 are rates 3 and 2. Phase never enters, so a refined lattice keeps its rates.
+ */
+export function ratesOf(parts: Parts): number[] {
+  const l = parts.reduce((acc, p) => lcm(acc, p.spacing), 1);
+  const rates = parts.map((p) => l / p.spacing);
+  const g = rates.reduce((acc, r) => gcd(acc, r), 0);
+  return rates.map((r) => r / g);
+}
+
+/** The first two parts' rates as a ratio in lowest terms (hand 1 : hand 2); 1:1 for one part. */
+export function ratioOf(parts: Parts): Ratio {
+  const [a, b] = ratesOf(parts.slice(0, 2));
+  return b === undefined ? { a: 1, b: 1 } : { a: a as number, b };
+}
+
+/**
  * One text per part in one-hand counting (design §8 form 2). Two parts take their spacings from
  * the ratio; more take `spacings`, or 1 each.
  */

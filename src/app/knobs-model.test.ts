@@ -1,25 +1,20 @@
 import { describe, expect, test } from 'vitest';
 import { scheduleOf, typed } from '../test/schedules';
 import { partsFromOnsets } from '../core';
-import { BPM_RANGE, KNOBS, MAX_RATIO } from '../tunables';
+import { BPM_RANGE, MAX_RATIO } from '../tunables';
 import type { PlayerView, Segment } from '../view/types';
 import { reduce } from './actions';
 import { derived } from './derived';
 import {
   analyse,
   badChar,
-  ballsAction,
   clampBpm,
   cyclePosition,
   cycleSamples,
   draftAction,
-  hitsAction,
   joinInputs,
-  phaseAction,
-  rhythmRows,
   splitInputs,
   splitText,
-  type HandRhythm,
   editChanged,
   editText,
   fixActions,
@@ -118,7 +113,7 @@ describe('analyse and the fix state', () => {
     expect(fixActions(s, texts)).toEqual([{ type: 'editDraft', part: 0, text: '22' }]);
     const fixed = fixActions(s, texts).reduce(reduce, s);
     expect(analyse(fixed).balls).toBe(2);
-    expect(fixActions({ ratio: threeTwo }, ['2', '2x'])).toEqual([
+    expect(fixActions({ ratio: threeTwo, parts: defaultState().parts }, ['2', '2x'])).toEqual([
       { type: 'editDraft', part: 0, text: '2' },
       { type: 'editDraft', part: 1, text: '2x' },
     ]);
@@ -256,78 +251,58 @@ describe('analyse and the fix state', () => {
   });
 });
 
-describe('the Rhythm tab: phase, balls and hits per hand', () => {
+describe('cycleSamples', () => {
   const clap = [true, true, true, false, true, true, false, true, false, true, true, false];
   const clapping = (): AppState => ({ ...defaultState(), parts: partsFromOnsets([clap, clap], [1, 1]), drafts: [null, null] });
-  const rows = (s: AppState) => rhythmRows(s, derived(s));
-  const apply = (s: AppState, a: ReturnType<typeof phaseAction>) => reduce(s, a as NonNullable<typeof a>);
-
-  test('Clapping Music: every phase step keeps the cycle at 12, wrapping within the period', () => {
-    let s = clapping();
-    const [h1, h2] = rows(s) as [HandRhythm, HandRhythm];
-    expect(h1).toEqual({ part: 0, phase: 0, wrap: 12, cycle: 12, hits: 8, period: 12, k: 1, group: null });
-    expect(h2.part).toBe(1);
-    for (let i = 1; i <= 12; i++) {
-      s = apply(s, phaseAction(rows(s)[1] as HandRhythm, 1));
-      expect(rows(s)[1]).toMatchObject({ phase: i % 12, cycle: 12 });
-    }
-    expect(phaseAction(rows(s)[1] as HandRhythm, -1)).toEqual({ type: 'setPhase', part: 1, phase: 11 });
-    // A period of one pulse has no phase to step.
-    expect(phaseAction({ ...h1, wrap: 1 }, 1)).toBeNull();
-  });
-
-  test('balls: k from 1 to the most, on a default group only; the sound stays', () => {
-    const s = clapping();
-    const h1 = rows(s)[0] as HandRhythm;
-    expect(ballsAction(h1, -1)).toBeNull();
-    const up = apply(s, ballsAction(h1, 1));
-    expect(rows(up)[0]?.k).toBe(2);
-    expect(up.parts[1]).toBe(s.parts[1]);
-    expect(analyse(up).balls).toBe(3);
-    expect(ballsAction({ ...h1, k: KNOBS.maxBalls }, 1)).toBeNull();
-    // Voice per part: the knob changes the picture, never the sound.
-    const sound = (x: AppState) => cycleSamples(derived(x).schedule, x.mapping);
-    expect(sound(up)).toBe(sound(s));
-    expect(sound(s).split(' ')).toHaveLength(16);
-  });
-
-  test('a manual group: no knob, its derived count across both hands, and reset', () => {
-    const s = typed(['531']);
-    const [h1, h2] = rows(s) as [HandRhythm, HandRhythm];
-    expect(h1.k).toBeNull();
-    expect(h1.group).toEqual({ parts: [0, 1], balls: 3 });
-    expect(h2.group).toEqual({ parts: [0, 1], balls: 3 });
-    expect(ballsAction(h1, 1)).toBeNull();
-    const reset = reduce(s, { type: 'resetGroup', part: 0 });
-    expect(rows(reset).map((r) => [r.k, r.group])).toEqual([
-      [1, null],
-      [1, null],
-    ]);
-    // Faulted: no count yet.
-    expect(rows(typed(['432']))[0]?.group?.balls).toBeNull();
-  });
-
-  test('hits: the Euclidean generator over the period, 1 to every beat', () => {
-    const s = clapping();
-    const h1 = rows(s)[0] as HandRhythm;
-    expect(hitsAction(h1, -3)).toEqual({ type: 'generate', part: 0, hits: 5 });
-    const five = apply(s, hitsAction(h1, -3));
-    expect(rows(five)[0]).toMatchObject({ hits: 5, period: 12 });
-    expect(hitsAction({ ...h1, hits: 1 }, -1)).toBeNull();
-    expect(hitsAction({ ...h1, hits: 12 }, 1)).toBeNull();
-  });
-
-  test('two hands at most; a lone part has one row', () => {
-    const lone = { ...clapping(), parts: partsFromOnsets([clap], [1]) };
-    expect(rows(lone)).toHaveLength(1);
-    const three = { ...clapping(), parts: partsFromOnsets([clap, clap, clap], [1, 1, 1]) };
-    expect(rows(three)).toHaveLength(2);
-  });
 
   test('cycleSamples leaves out throws the mapping keeps silent', () => {
     const s = clapping();
     const silent = { ...s.mapping, parts: s.mapping.parts.map((p, i) => (i === 0 ? { ...p, sample: null } : p)) };
     expect(cycleSamples(derived(s).schedule, silent).split(' ')).toHaveLength(8);
+  });
+});
+
+describe('the Pattern editor over three lanes (docs/plans/lanes.md ruling 3)', () => {
+  // The vanilla `3` and a third hand: at 1:1, yet one input per lane in one-hand counting.
+  const three = () => reduce(defaultState(), { type: 'addLane' });
+
+  test('one input per lane, each its part’s text with x<n> targets; no split, no join', () => {
+    const s = three();
+    const a = analyse(s);
+    expect(a.vanilla).toBe(false);
+    expect(a.split).toBe(false);
+    expect(a.inputs).toEqual(['3x2', '3x1', '1']);
+    expect(a.balls).toBe(4);
+    expect([0, 1, 2, 3].map((i) => handState(a, i))).toEqual(['ok', 'ok', 'ok', 'hidden']);
+    expect(splitInputs(s)).toBe(false);
+    expect(inputText(s, derived(s), 2)).toBe('1');
+    expect(joinAction(s, derived(s), true)).toBeNull();
+  });
+
+  test('typing in lane 3 edits lane 3; a `/` there is refused', () => {
+    const s = three();
+    const action = draftAction(s, derived(s), 2, '2');
+    expect(action).toEqual({ type: 'editDraft', part: 2, text: '2' });
+    const typedIn = reduce(s, action);
+    expect(analyse(typedIn).inputs).toEqual(['3x2', '3x1', '2']);
+    expect(analyse(typedIn).balls).toBe(5);
+    const slash = analyse(reduce(s, { type: 'editDraft', part: 2, text: '1 / 1' }));
+    expect(handState(slash, 2)).toBe('bad');
+    expect(badChar(slash, 2)).toBe(2);
+    expect(statusLines(slash)[0]).toMatch(/^Hand 3/);
+  });
+
+  test('a fault in lane 3 colours lane 3; fixes and swaps act on each lane', () => {
+    const s = reduce(three(), { type: 'editDraft', part: 2, text: '1x1' });
+    const a = analyse(s);
+    expect(a.balls).toBeNull();
+    expect([...warnSites(a, 2)]).toEqual([0]);
+    expect(fixActions(s, ['3x2', '3x1', '1'])).toEqual([
+      { type: 'editDraft', part: 0, text: '3x2' },
+      { type: 'editDraft', part: 1, text: '3x1' },
+      { type: 'editDraft', part: 2, text: '1' },
+    ]);
+    expect(swapAction(s, 2, 0, 1)).toEqual({ type: 'swapSites', part: 2, i: 0, j: 1 });
   });
 });
 

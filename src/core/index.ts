@@ -14,6 +14,8 @@ export {
   partsFromOnsets,
   partsFromVanilla,
   periodOf,
+  ratesOf,
+  ratioOf,
   ratioSpacings,
   textOf,
   throwsOf,

@@ -194,12 +194,27 @@ export const MAX_PHASE_REFINEMENT = 64;
 // Model B: app model, actions and hash (docs/plans/model-waves.md)
 // ---------------------------------------------------------------------------------------------
 
-/** Most parts the pattern editor writes: two hands are on screen in this wave. */
+/**
+ * Most parts one input writes with `/` (form 2, `a / b` at 1:1). With more lanes than this the
+ * editor has one input per lane instead (docs/plans/lanes.md ruling 3), up to MAX_LANES.
+ */
 export const MAX_EDITOR_PARTS = 2;
 /** Most parts a share link may carry; a link with more falls back to the default pattern. */
 export const MAX_PARTS = 8;
 /** Longest cycle, in pulses, a share link may ask for; a longer one falls back to the default pattern. */
 export const MAX_LINK_CYCLE = 4096;
+
+// ---------------------------------------------------------------------------------------------
+// Lanes: the Rhythm tab as a mixer (docs/plans/lanes.md)
+// ---------------------------------------------------------------------------------------------
+
+/**
+ * Most lanes (parts) on screen and in the editor; "Add a hand" stops here. A link may still
+ * carry up to MAX_PARTS, of which the first MAX_LANES are shown.
+ */
+export const MAX_LANES = 4;
+/** The rate stepper's top: a lane plays at most this many beats while a lane of rate 1 plays one. As high as a ratio's side. */
+export const MAX_RATE = MAX_RATIO;
 
 // ---------------------------------------------------------------------------------------------
 // C: Mapping and sound
