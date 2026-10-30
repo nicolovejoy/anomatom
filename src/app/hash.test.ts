@@ -335,6 +335,12 @@ describe('lanes: three and four parts (docs/plans/lanes.md)', () => {
     expect(back?.mapping.parts).toEqual(voices(4));
   });
 
+  test('a preset name decodes with one voice per part', () => {
+    const three = partsFromOnsets([x('x'), x('x'), x('x')], [1, 1, 1]);
+    const back = decodeState(b64({ p: three.map((p) => ({ s: p.spacing, f: 0, u: p.unit, o: '1', k: 1 })), m: 'voice-per-part' }));
+    expect(back?.mapping.parts).toHaveLength(3);
+  });
+
   test('the ratio written is the parts’, whatever the state holds', () => {
     const stepped: AppState = { ...defaultState(), ratio: { a: 2, b: 2 } };
     expect(rOf(encodeState(stepped))).toEqual([1, 1]);

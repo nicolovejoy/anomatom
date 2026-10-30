@@ -81,7 +81,7 @@ export function decodeState(payload: string, version: 1 | 2 = 2): Pick<AppState,
     parts,
     ratio: written.a * r.b === written.b * r.a ? written : r,
     bpm: numberIn(raw.t, BPM_RANGE.min, BPM_RANGE.max, defaults.bpm, true),
-    mapping: decodeMapping(raw.m),
+    mapping: decodeMapping(raw.m, parts.length),
   };
 }
 

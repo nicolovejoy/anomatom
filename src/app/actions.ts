@@ -47,7 +47,7 @@ import {
   withPhase,
 } from '../core';
 import type { ParseError, Part, PartIndex, Parts, Ratio, Throw } from '../core';
-import type { Mapping } from '../sound/mapping';
+import { withPartCount, type Mapping } from '../sound/mapping';
 import {
   BPM_RANGE,
   MAX_EDITOR_PARTS,
@@ -392,7 +392,8 @@ function removeLane(s: AppState, part: PartIndex): AppState {
         : manualPart(p, p.flights.throws.map((t) => (t.to === null ? t : { height: t.height, to: renumber(t.to) }))),
     );
   const voices = s.mapping.parts;
-  // A voice per part: the removed part's goes with it. A mapping that borrows voices keeps them all.
+  // A voice per part: the removed part's goes with it (withPartCount, in reduce, only trims the tail).
+  // A mapping that borrows voices keeps them all.
   const mapping = voices.length === s.parts.length ? { ...s.mapping, parts: voices.filter((_, i) => i !== part) } : s.mapping;
   return { ...withParts(s, normalise(parts), changed ? copy.resetNotice(others.map(renumber)) : null), mapping };
 }
@@ -427,19 +428,6 @@ function setSteps(s: AppState, part: PartIndex, steps: number): AppState {
   const wrapped = s.parts.map((q, i) => (i === part ? { ...q, phase: mod(q.phase, q.spacing * n) } : q));
   const next = changeOnsets({ ...s, parts: wrapped }, part, onsets);
   return cycleOf(next.parts) > MAX_LINK_CYCLE ? s : next;
-}
-
-/**
- * The mapping with `n` voices, one per part: a part past the end takes voice `part mod length`,
- * as `hitFor` already borrows, and voices past `n` are dropped.
- *
- * A stub (docs/plans/lanes.md): stream D ships the real `withPartCount` in src/sound/mapping.ts,
- * with the voice rotation for new parts; the governor swaps this for it at rebase.
- */
-function withPartCount(mapping: Mapping, n: number): Mapping {
-  const voices = mapping.parts;
-  if (voices.length === n || voices.length === 0) return mapping;
-  return { ...mapping, parts: Array.from({ length: n }, (_, i) => voices[i % voices.length] as Mapping['parts'][number]) };
 }
 
 /** The vanilla digits as the one input shows them: the draft's, when it reads as vanilla, else the parts'. */

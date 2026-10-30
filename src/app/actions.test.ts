@@ -1,7 +1,7 @@
 import { describe, expect, test } from 'vitest';
 import { judge, onsetsOf, partsFromLines, partsFromOnsets, ratesOf, textOf, throwsOf, withPhase } from '../core';
 import type { Part, Parts } from '../core';
-import { applyPreset } from '../sound/mapping';
+import { applyPreset, voiceForNewPart } from '../sound/mapping';
 import { lineParts, typed, vanillaParts } from '../test/schedules';
 import { BPM_RANGE, MAX_LANES, MAX_PERIOD, MAX_RATE } from '../tunables';
 import { groupOf, isManualGroup, parseDraft, reduce, rescale, type Action } from './actions';
@@ -385,7 +385,7 @@ describe('lanes (docs/plans/lanes.md)', () => {
     expect(v.parts[2]).toMatchObject({ phase: 0, flights: { kind: 'default', onsets: [true], k: 1 } });
     expect(v.parts[2]?.spacing).toBe(v.parts[0]?.spacing);
     expect(v.mapping.parts).toHaveLength(3);
-    expect(v.mapping.parts[2]).toEqual(defaultState().mapping.parts[0]);
+    expect(v.mapping.parts[2]).toEqual(voiceForNewPart(defaultState().mapping, 2));
     expect(v.notice).toBeNull();
   });
 
@@ -504,8 +504,5 @@ describe('lanes (docs/plans/lanes.md)', () => {
     // Fewer parts than voices: the tail goes.
     const three = withVoices(at(partsFromOnsets([on('x'), on('x'), on('x')], [1, 1, 1])), 'kick', 'snare', 'clap');
     expect(reduce(three, { type: 'loadPreset', parts, ratio: threeTwo }).mapping.parts.map((p) => p.sample)).toEqual(['kick', 'snare']);
-    // A mapping with no voices is left alone.
-    const silent = { ...three, mapping: { ...three.mapping, parts: [] } };
-    expect(reduce(silent, { type: 'loadPreset', parts, ratio: threeTwo }).mapping.parts).toEqual([]);
   });
 });
