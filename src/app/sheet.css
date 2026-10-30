@@ -101,6 +101,36 @@
   white-space: nowrap;
 }
 
+.share {
+  position: relative;
+  flex: 0 0 auto;
+  width: 44px;
+  height: 44px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 0;
+  border-radius: 22px;
+  background: var(--raised);
+  color: var(--text-2);
+}
+.share-status {
+  position: absolute;
+  right: 0;
+  top: 100%;
+  margin-top: 4px;
+  padding: 2px 8px;
+  border-radius: 8px;
+  background: var(--raised);
+  color: var(--valid);
+  font-size: 12px;
+  white-space: nowrap;
+  pointer-events: none;
+}
+.share-status:empty {
+  display: none;
+}
+
 .play {
   flex: 0 0 auto;
   width: 64px;

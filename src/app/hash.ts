@@ -12,6 +12,9 @@
 // it, and on reading kept only when it agrees with the spacings (2:2 over 1:1 parts), else replaced.
 // The mapping is `encodeMapping`'s (src/sound/mapping-hash.ts).
 //
+// Short links: grammar in route.ts. `encodeHash` writes the shortest form that round-trips, `decodeState`
+// reads a short payload with version 'short'.
+//
 // Scheme v1 (old links, still read): { p: [pattern1, pattern2], r, t, m }, pattern text as typed:
 // at 1:1 hand 1's text is one vanilla siteswap (`partsFromVanilla`), otherwise each hand's is
 // one-hand counting (`partsFromLines`), so an old link plays the Schedule it always did.
@@ -21,11 +24,14 @@
 // the defaults, numbers clamped to their ranges). Parts that do not make a sound model (a wrong
 // type, a height off its unit, a cross to no part, a cycle past MAX_LINK_CYCLE) give the default
 // pattern.
-import { cycleOf, mod, normalise, parseThrows, partsFromLines, partsFromVanilla, ratioOf } from '../core';
+import { cycleOf, isVanillaPair, mod, normalise, parseThrows, partsFromLines, partsFromVanilla, ratioOf, textOf } from '../core';
 import type { Part, PartFlights, Parts, Ratio, Throw } from '../core';
+import { withPartCount } from '../sound/mapping';
 import { decodeMapping, encodeMapping } from '../sound/mapping-hash';
 import {
   BPM_RANGE,
+  DEFAULT_BPM,
+  DEFAULT_MAPPING,
   DEFAULT_PATTERN,
   DEFAULT_PATTERN_HAND2,
   MAX_LINK_CYCLE,
@@ -65,7 +71,8 @@ export function encodeState(state: Pick<AppState, 'parts' | 'bpm' | 'mapping'>):
  * it is not a payload at all. Always returns all four shared fields when it returns anything,
  * repaired from the defaults.
  */
-export function decodeState(payload: string, version: 1 | 2 = 2): Pick<AppState, 'parts' | 'ratio' | 'bpm' | 'mapping'> | null {
+export function decodeState(payload: string, version: 1 | 2 | 'short' = 2): Pick<AppState, 'parts' | 'ratio' | 'bpm' | 'mapping'> | null {
+  if (version === 'short') return decodeShort(payload);
   let raw: unknown;
   try {
     raw = JSON.parse(fromBase64Url(payload));
@@ -83,6 +90,60 @@ export function decodeState(payload: string, version: 1 | 2 = 2): Pick<AppState,
     bpm: numberIn(raw.t, BPM_RANGE.min, BPM_RANGE.max, defaults.bpm, true),
     mapping: decodeMapping(raw.m, parts.length),
   };
+}
+
+type Shared = Pick<AppState, 'parts' | 'ratio' | 'bpm' | 'mapping'>;
+const SHORT_LINE = /^[0-9a-z x-]+$/;
+
+/** A short link's state (grammar in route.ts), or null when it does not parse. */
+function decodeShort(payload: string): Shared | null {
+  const at = payload.indexOf('@');
+  const body = at === -1 ? payload : payload.slice(0, at);
+  const bpm = at === -1 ? DEFAULT_BPM : numberIn(Number(payload.slice(at + 1)), BPM_RANGE.min, BPM_RANGE.max, DEFAULT_BPM, true);
+  const finish = (parts: Parts, written: Ratio): Shared => {
+    const r = ratioOf(parts);
+    return {
+      parts,
+      ratio: written.a * r.b === written.b * r.a ? written : r,
+      bpm,
+      mapping: withPartCount(DEFAULT_MAPPING, parts.length),
+    };
+  };
+  if (!body.includes('/')) {
+    const r = body.length <= MAX_PATTERN_CHARS && /^\d[0-9a-z]*$/.test(body) ? partsFromVanilla(body) : null;
+    return r?.ok ? finish(r.parts, { a: 1, b: 1 }) : null;
+  }
+  const m = /^(\d+):(\d+)\/([^/]*)\/([^/]*)$/.exec(body);
+  if (m === null) return null;
+  const ratio = { a: Number(m[1]), b: Number(m[2]) };
+  const inRange = (n: number) => n >= 1 && n <= MAX_RATIO;
+  const texts = [m[3] as string, m[4] as string];
+  if (!inRange(ratio.a) || !inRange(ratio.b) || ratio.a === ratio.b) return null;
+  if (!texts.every((t) => t.length <= MAX_PATTERN_CHARS && SHORT_LINE.test(t))) return null;
+  const r = partsFromLines(texts.map((t) => t.replace(/-/g, ' ')), ratio);
+  return r.ok ? finish(r.parts, ratio) : null;
+}
+
+/** The short form of `state` (with its `#`), or null when it has none; not yet checked to round-trip. */
+function shortCandidate(state: Shared): string | null {
+  const { parts, ratio } = state;
+  if (parts.length !== 2) return null;
+  const tempo = state.bpm === DEFAULT_BPM ? '' : `@${state.bpm}`;
+  if (oneInput(ratio)) return isVanillaPair(parts) ? `#${textOf(parts[0] as Part, parts)}${tempo}` : null;
+  const lines = parts.map((p) => textOf(p, parts).replace(/ /g, '-'));
+  return `#${ratio.a}:${ratio.b}/${lines.join('/')}${tempo}`;
+}
+
+/**
+ * The hash for `state`: the shortest form that round-trips. A short candidate is decoded and kept
+ * only if `encodeState` of what it decodes to equals `encodeState` of the state; else `#v2.`.
+ */
+export function encodeHash(state: Shared): string {
+  const full = encodeState(state);
+  const short = shortCandidate(state);
+  if (short === null || short.length >= full.length) return full;
+  const back = decodeShort(short.slice(1));
+  return back !== null && encodeState(back) === full ? short : full;
 }
 
 /**

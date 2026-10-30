@@ -2,8 +2,8 @@ import { describe, expect, test, vi } from 'vitest';
 import { applyPreset } from '../sound/mapping';
 import { lineParts, vanillaParts } from '../test/schedules';
 import { DEFAULT_MAPPING } from '../tunables';
-import { encodeState } from './hash';
-import { changedFields, createShare, quietly, shareUrl } from './share';
+import { encodeHash } from './hash';
+import { changedFields, createShare, quietly, shareLink, shareUrl } from './share';
 import { createStore, defaultState, type AppState } from './state';
 
 const DEBOUNCE = 250;
@@ -57,7 +57,7 @@ const linked: AppState = {
 
 describe('restoring on load', () => {
   test('a link restores pattern, ratio, tempo and the whole Mapping, and sets nothing else', () => {
-    const t = setup(encodeState(linked));
+    const t = setup(encodeHash(linked));
     t.share.start();
     const s = t.store.get();
     expect(s.parts).toEqual(linked.parts);
@@ -71,10 +71,10 @@ describe('restoring on load', () => {
   test('the last state hash is set from the start, so About’s back link works at once', () => {
     const t = setup();
     t.share.start();
-    expect(t.store.get().lastStateHash).toBe(encodeState(defaultState()));
-    const u = setup(encodeState(linked));
+    expect(t.store.get().lastStateHash).toBe(encodeHash(defaultState()));
+    const u = setup(encodeHash(linked));
     u.share.start();
-    expect(u.store.get().lastStateHash).toBe(encodeState(linked));
+    expect(u.store.get().lastStateHash).toBe(encodeHash(linked));
   });
 
   test('a shared change is one store.set: listeners hear it once, with the new lastStateHash', () => {
@@ -83,10 +83,10 @@ describe('restoring on load', () => {
     const heard: (string | null)[] = [];
     t.store.subscribe((s) => heard.push(s.lastStateHash));
     t.store.set({ bpm: 111 });
-    expect(heard).toEqual([encodeState({ ...defaultState(), bpm: 111 })]);
+    expect(heard).toEqual([encodeHash({ ...defaultState(), bpm: 111 })]);
     t.store.set({ volume: 0.3 });
     expect(heard).toHaveLength(2);
-    expect(t.store.get().lastStateHash).toBe(encodeState({ ...defaultState(), bpm: 111 }));
+    expect(t.store.get().lastStateHash).toBe(encodeHash({ ...defaultState(), bpm: 111 }));
   });
 
   test('a pasted link is also one change', () => {
@@ -94,9 +94,9 @@ describe('restoring on load', () => {
     t.share.start();
     const heard: unknown[] = [];
     t.store.subscribe((s) => heard.push(s.lastStateHash));
-    t.setHash(encodeState(linked));
+    t.setHash(encodeHash(linked));
     t.share.onHashChange();
-    expect(heard).toEqual([encodeState(linked)]);
+    expect(heard).toEqual([encodeHash(linked)]);
   });
 
   test('no hash, `#` and `#about` change nothing and write nothing', () => {
@@ -129,7 +129,7 @@ describe('restoring on load', () => {
   });
 
   test('a link whose pattern does not validate restores into the store: the knobs show the fix state', () => {
-    const t = setup(encodeState({ ...defaultState(), parts: vanillaParts('432') }));
+    const t = setup(encodeHash({ ...defaultState(), parts: vanillaParts('432') }));
     t.share.start();
     expect(t.store.get().parts).toEqual(vanillaParts('432'));
     expect(t.store.get().drafts).toEqual([null, null]);
@@ -146,7 +146,7 @@ describe('writing the hash', () => {
     expect(t.replaced).toEqual([]);
     expect(t.waitMs()).toBe(DEBOUNCE);
     t.fire();
-    expect(t.replaced).toEqual([encodeState({ ...defaultState(), bpm: 102 })]);
+    expect(t.replaced).toEqual([encodeHash({ ...defaultState(), bpm: 102 })]);
   });
 
   test('each new change restarts the wait', () => {
@@ -169,7 +169,7 @@ describe('writing the hash', () => {
     const t = setup();
     t.share.start();
     t.store.set({ mapping: applyPreset('height-pitch') });
-    expect(t.store.get().lastStateHash).toBe(encodeState({ ...defaultState(), mapping: applyPreset('height-pitch') }));
+    expect(t.store.get().lastStateHash).toBe(encodeHash({ ...defaultState(), mapping: applyPreset('height-pitch') }));
     expect(t.replaced).toEqual([]);
   });
 
@@ -177,7 +177,7 @@ describe('writing the hash', () => {
     const t = setup();
     t.share.start();
     t.store.set({ bpm: 100 });
-    t.setHash(encodeState({ ...defaultState(), bpm: 100 }));
+    t.setHash(encodeHash({ ...defaultState(), bpm: 100 }));
     t.fire();
     expect(t.replaced).toEqual([]);
   });
@@ -190,7 +190,7 @@ describe('writing the hash', () => {
     t.fire();
     expect(t.hash()).toBe('#about');
     expect(t.replaced).toEqual([]);
-    expect(t.store.get().lastStateHash).toBe(encodeState({ ...defaultState(), bpm: 100 }));
+    expect(t.store.get().lastStateHash).toBe(encodeHash({ ...defaultState(), bpm: 100 }));
   });
 
   test('flush writes a waiting change now, and does nothing otherwise', () => {
@@ -200,7 +200,7 @@ describe('writing the hash', () => {
     expect(t.replaced).toEqual([]);
     t.store.set({ bpm: 77 });
     t.share.flush();
-    expect(t.replaced).toEqual([encodeState({ ...defaultState(), bpm: 77 })]);
+    expect(t.replaced).toEqual([encodeHash({ ...defaultState(), bpm: 77 })]);
     expect(t.waiting()).toBe(false);
     t.share.flush();
     expect(t.replaced).toHaveLength(1);
@@ -214,7 +214,7 @@ describe('a pasted link on an open page', () => {
     const before = t.store.get();
     const seen: string[][] = [];
     t.store.subscribe((s, p) => seen.push(Object.keys(s).filter((k) => s[k as keyof AppState] !== p[k as keyof AppState])));
-    t.setHash(encodeState({ ...defaultState(), bpm: 150, parts: vanillaParts('531') }));
+    t.setHash(encodeHash({ ...defaultState(), bpm: 150, parts: vanillaParts('531') }));
     t.share.onHashChange();
     expect(t.store.get().bpm).toBe(150);
     expect(t.store.get().parts).toEqual(vanillaParts('531'));
@@ -288,7 +288,7 @@ describe('changedFields', () => {
 
 describe('shareUrl', () => {
   test('replaces any hash on the address with the live state', () => {
-    const hash = encodeState(linked);
+    const hash = encodeHash(linked);
     expect(shareUrl('https://anomatom.com/', linked)).toBe('https://anomatom.com/' + hash);
     expect(shareUrl('https://anomatom.com/?x=1#v1.old', linked)).toBe('https://anomatom.com/?x=1' + hash);
     expect(shareUrl('https://anomatom.com/#about', linked)).toBe('https://anomatom.com/' + hash);
@@ -304,5 +304,35 @@ describe('quietly', () => {
       throw new DOMException('rate limited', 'SecurityError');
     });
     expect(() => boom('#b')).not.toThrow();
+  });
+});
+
+describe('shareLink', () => {
+  test('uses the share sheet where there is one; a dismissed sheet is not an error', async () => {
+    const share = vi.fn(async () => undefined);
+    expect(await shareLink('https://x/#531', { share })).toBe('shared');
+    expect(share).toHaveBeenCalledWith({ url: 'https://x/#531' });
+    expect(await shareLink('u', { share: async () => Promise.reject(new Error('AbortError')) })).toBe('cancelled');
+  });
+  test('else copies, and says when it could not', async () => {
+    const writeText = vi.fn(async () => undefined);
+    expect(await shareLink('u', { writeText })).toBe('copied');
+    expect(writeText).toHaveBeenCalledWith('u');
+    expect(await shareLink('u', { writeText: async () => Promise.reject(new Error('denied')) })).toBe('not-copied');
+    expect(await shareLink('u', {})).toBe('not-copied');
+  });
+});
+
+describe('the short link in the address', () => {
+  test('a state that has a short form writes it, and a pasted short link restores it', () => {
+    const t = setup('', { ...defaultState(), parts: vanillaParts('531') });
+    t.share.start();
+    t.store.set({ bpm: 140 });
+    t.fire();
+    expect(t.hash()).toBe('#531@140');
+    const other = setup('#531@140');
+    other.share.start();
+    expect(other.store.get().bpm).toBe(140);
+    expect(other.store.get().parts).toEqual(vanillaParts('531'));
   });
 });

@@ -397,9 +397,9 @@ export const copy = {
   padInstrumentLabel: 'Pad instrument',
   padChordLabel: 'Chord',
   resetToPreset: 'Reset to preset',
-  copyLink: 'Copy share link',
-  linkCopied: 'I copied the link. It holds my pattern, ratio, tempo and sound, and it never starts me playing.',
-  linkNotCopied: 'I could not copy the link. Copy the address from the bar instead.',
+  shareLabel: 'Share this pattern',
+  linkCopied: 'Link copied',
+  linkNotCopied: 'Link not copied',
 
   // -------------------------------------------------------------------------------------------
   // Phone sheet, stream B: first minute

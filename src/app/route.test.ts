@@ -17,3 +17,10 @@ test('empty, bare and junk hashes are the play view with no state', () => {
     expect(route(hash)).toEqual({ view: 'play', state: null, version: null });
   }
 });
+
+test('a short link is the play view carrying the whole short form', () => {
+  expect(route('#531')).toEqual({ view: 'play', state: '531', version: 'short' });
+  expect(route('#531@140')).toEqual({ view: 'play', state: '531@140', version: 'short' });
+  expect(route('#3:2/2-2x-2/2x-2@90')).toEqual({ view: 'play', state: '3:2/2-2x-2/2x-2@90', version: 'short' });
+  expect(route('#about').view).toBe('about');
+});
