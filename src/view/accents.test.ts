@@ -1,16 +1,12 @@
 import { expect, test } from 'vitest';
-import { buildSchedule, parsePattern } from '../core/legacy';
-import type { PatternInput, Ratio, Schedule } from '../core/legacy';
+import type { Ratio, Schedule } from '../core';
+import { scheduleOf } from '../test/schedules';
 import { accents } from './accents';
 import { ladderFrame } from './ladder';
 import type { Segment } from './types';
 
-function pat(text: string) {
-  const r = parsePattern(text);
-  if (!r.ok) throw new Error(text);
-  return r.pattern;
-}
-const input = (ratio: Ratio, ...hands: string[]): PatternInput => ({ ratio, hands: hands.map(pat) });
+const buildSchedule = ({ ratio, hands }: { ratio: Ratio; hands: string[] }) => scheduleOf(hands, ratio);
+const input = (ratio: Ratio, ...hands: string[]) => ({ ratio, hands });
 const single = (schedule: Schedule): Segment => ({ schedule, startTime: 0, pulseLen: 1, endTime: null, carry: new Map() });
 const view = { windowPulses: 24, playheadFraction: 0.25 };
 

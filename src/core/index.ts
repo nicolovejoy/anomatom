@@ -1,5 +1,5 @@
 // The part model (docs/plans/model-rethink.md, API frozen in docs/plans/model-waves.md).
-// The two-hand model is in ./legacy until stream B moves its callers.
+// The two-hand model (src/core/legacy) was retired by stream B: every caller reads parts.
 export * from './types';
 export { gcd, lcm, mod } from './math';
 export { digitValue, parseThrows } from './parse';

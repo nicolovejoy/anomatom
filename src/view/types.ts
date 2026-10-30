@@ -1,7 +1,7 @@
 // What the picture reads from the player (docs/plans/v1-parallel.md, "Player view"). Frozen in
 // wave 0: changing a field is a governor ruling. Lives in src/view so the pure view modules
 // need no import from src/app; src/app/player.ts re-exports it.
-import type { Schedule } from '../core/legacy/types';
+import type { Schedule } from '../core/types';
 
 export interface Segment {
   readonly schedule: Schedule;

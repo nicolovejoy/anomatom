@@ -1,17 +1,36 @@
 import { expect, test, vi } from 'vitest';
-import { DEFAULT_BPM, DEFAULT_MAPPING, DEFAULT_PATTERN, DEFAULT_PATTERN_HAND2, DEFAULT_VOLUME } from '../tunables';
+import { partsFromVanilla } from '../core';
+import { DEFAULT_BPM, DEFAULT_MAPPING, DEFAULT_PATTERN, DEFAULT_VOLUME } from '../tunables';
+import { derived } from './derived';
 import { createStore, defaultState } from './state';
 
 test('the defaults come from the tunables', () => {
+  const vanilla = partsFromVanilla(DEFAULT_PATTERN);
   expect(defaultState()).toEqual({
-    patterns: [DEFAULT_PATTERN, DEFAULT_PATTERN_HAND2],
+    parts: vanilla.ok && vanilla.parts,
+    drafts: [null, null],
     ratio: { a: 1, b: 1 },
     bpm: DEFAULT_BPM,
     volume: DEFAULT_VOLUME,
     mapping: DEFAULT_MAPPING,
     lastStateHash: null,
     sheetTab: null,
+    notice: null,
   });
+});
+
+test('dispatch runs an action through reduce; derived() is the selector on the current state', () => {
+  const store = createStore();
+  const heard = vi.fn();
+  store.subscribe(heard);
+  store.dispatch({ type: 'editDraft', part: 0, text: '441' });
+  expect(heard).toHaveBeenCalledTimes(1);
+  expect(store.get().drafts[0]).toBe('441');
+  expect(store.derived()).toBe(derived(store.get()));
+  expect(store.derived().schedule.balls).toBe(3);
+  // An action that changes nothing is silent.
+  store.dispatch({ type: 'setBpm', bpm: store.get().bpm });
+  expect(heard).toHaveBeenCalledTimes(1);
 });
 
 test('a new store starts at the defaults, or at the state it is given', () => {
@@ -27,9 +46,9 @@ test('set merges a patch and tells every listener the new and previous state', (
   const b = vi.fn();
   store.subscribe(a);
   store.subscribe(b);
-  store.set({ bpm: 100, patterns: ['441', '2'] });
+  store.set({ bpm: 100, sheetTab: 'rhythm' });
   const after = store.get();
-  expect(after).toEqual({ ...before, bpm: 100, patterns: ['441', '2'] });
+  expect(after).toEqual({ ...before, bpm: 100, sheetTab: 'rhythm' });
   expect(before.bpm).toBe(DEFAULT_BPM); // the old state is not mutated
   expect(a).toHaveBeenCalledWith(after, before);
   expect(b).toHaveBeenCalledWith(after, before);

@@ -1,8 +1,14 @@
 import { describe, expect, test } from 'vitest';
+import { applyPreset } from '../sound/mapping';
+import { lineParts, typed, vanillaParts } from '../test/schedules';
 import { FIRST_MINUTE_PRESETS } from '../tunables';
-import { cardPattern, playingPreset, presetPatch, scheduleFor, showsFirstMinute } from './first-minute';
+import { reduce } from './actions';
+import { cardPattern, playingPreset, presetParts, presetPatch, scheduleFor, showsFirstMinute } from './first-minute';
 import { analyse } from './knobs-model';
 import { defaultState } from './state';
+
+/** The state after tapping a card. */
+const tapped = (id: string) => reduce(defaultState(), presetPatch(preset(id)));
 
 const preset = (id: string) => FIRST_MINUTE_PRESETS.find((p) => p.id === id)!;
 
@@ -19,43 +25,54 @@ describe('showsFirstMinute', () => {
 });
 
 describe('presets', () => {
-  test('every card is a valid pattern', () => {
-    for (const p of FIRST_MINUTE_PRESETS) expect(analyse(p.patterns, p.ratio).balls, p.id).not.toBeNull();
+  test('every card is a juggleable pattern', () => {
+    for (const p of FIRST_MINUTE_PRESETS) expect(analyse(tapped(p.id)).balls, p.id).not.toBeNull();
   });
-  test('the polyrhythm card is the canonical two-hand pattern at 3:2', () => {
-    expect(presetPatch(preset('polyrhythm'))).toEqual({ patterns: ['2 2x 2', '2x 2'], ratio: { a: 3, b: 2 } });
+  test('the polyrhythm card is the canonical two-hand pattern at 3:2, with its mapping preset', () => {
+    expect(presetPatch(preset('polyrhythm'))).toEqual({
+      type: 'loadPreset',
+      parts: lineParts(['2 2x 2', '2x 2'], { a: 3, b: 2 }),
+      ratio: { a: 3, b: 2 },
+      mapping: applyPreset('height-drum'),
+    });
     expect(cardPattern(preset('polyrhythm'))).toBe('2 2x 2 / 2x 2');
     expect(cardPattern(preset('pause'))).toBe('441');
   });
-  test('a patch is a copy: the shared preset is never handed out', () => {
+  test('the juggling cards play height to drum (design §7), whatever the default', () => {
+    for (const p of FIRST_MINUTE_PRESETS) expect(tapped(p.id).mapping, p.id).toBe(applyPreset('height-drum'));
+  });
+  test('a patch is a copy: the shared preset is never handed out; the parts are made once', () => {
     const patch = presetPatch(preset('pause'));
-    expect(patch.ratio).not.toBe(preset('pause').ratio);
-    expect(patch).toEqual({ patterns: ['441', '2'], ratio: { a: 1, b: 1 } });
+    expect(patch.type === 'loadPreset' && patch.ratio).not.toBe(preset('pause').ratio);
+    expect(patch).toMatchObject({ parts: vanillaParts('441'), ratio: { a: 1, b: 1 } });
+    expect(presetParts(preset('pause'))).toBe(presetParts(preset('pause')));
   });
 });
 
 describe('playingPreset', () => {
   test('names the card the store holds, only while playing', () => {
-    const s = { ...defaultState(), ...presetPatch(preset('pause')) };
+    const s = tapped('pause');
     expect(playingPreset(s, true)).toBe('pause');
     expect(playingPreset(s, false)).toBeNull();
   });
-  test('hand 2 is ignored at 1:1 and matters at 3:2', () => {
-    const odd = { ...defaultState(), patterns: ['531', '9'] as [string, string] };
-    expect(playingPreset(odd, true)).toBe('classic');
-    const poly = { ...defaultState(), ...presetPatch(preset('polyrhythm')) };
+  test('the same pattern typed matches; at 3:2 both hands count', () => {
+    expect(playingPreset(typed(['531']), true)).toBe('classic');
+    const poly = tapped('polyrhythm');
     expect(playingPreset(poly, true)).toBe('polyrhythm');
-    expect(playingPreset({ ...poly, patterns: ['2 2x 2', '2'] }, true)).toBeNull();
+    expect(playingPreset(reduce(poly, { type: 'editDraft', part: 1, text: '2' }), true)).toBeNull();
   });
   test('a pattern of the reader’s own matches no card', () => {
-    expect(playingPreset({ ...defaultState(), patterns: ['4', '2'] }, true)).toBeNull();
+    expect(playingPreset(typed(['4']), true)).toBeNull();
     expect(playingPreset({ ...defaultState(), ratio: { a: 4, b: 3 } }, true)).toBeNull();
   });
 });
 
 describe('scheduleFor', () => {
-  test('builds a schedule for a valid pattern and null for an invalid one', () => {
-    expect(scheduleFor(presetPatch(preset('polyrhythm')))).not.toBeNull();
-    expect(scheduleFor({ patterns: ['432', '2'], ratio: { a: 1, b: 1 } })).toBeNull();
+  test('is the derived schedule: there is one even for a pattern I cannot juggle', () => {
+    const poly = tapped('polyrhythm');
+    expect(scheduleFor(poly).balls).toBe(4);
+    const broken = typed(['432']);
+    expect(scheduleFor(broken).verdict.ok).toBe(false);
+    expect(scheduleFor(broken).events.length).toBeGreaterThan(0);
   });
 });

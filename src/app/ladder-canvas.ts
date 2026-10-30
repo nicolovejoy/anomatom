@@ -1,76 +1,11 @@
 // Draws a ladder Frame on a canvas. Reads nothing but the frame, its options and the tunables.
 import type { Accent } from '../view/accents';
 import type { Bar, Frame } from '../view/ladder';
-import { BALL_COLOURS, KNOBS, LADDER, LADDER_E } from '../tunables';
+import { BALL_COLOURS, LADDER, LADDER_E } from '../tunables';
 
 export interface DrawOptions {
   /** Marks at coincident cross landings (SPEC §7.3). */
   readonly accents?: readonly Accent[];
-}
-
-/**
- * The broken pattern as a ghost above the one that plays (SPEC §4.2, board 1b): lanes, each
- * flight a thin line from lane to lane, colliding ones in the warning colour meeting at a ring
- * where they land, and `label` ("432 · not playing") at the top right.
- */
-export function drawGhost(canvas: HTMLCanvasElement, frame: Frame, label: string) {
-  const ctx = canvas.getContext('2d');
-  if (!ctx) return;
-  const g = LADDER_E.ghost;
-  const dpr = window.devicePixelRatio || 1;
-  const width = canvas.clientWidth;
-  const height = canvas.clientHeight || g.heightPx;
-  if (canvas.width !== Math.round(width * dpr) || canvas.height !== Math.round(height * dpr)) {
-    canvas.width = Math.round(width * dpr);
-    canvas.height = Math.round(height * dpr);
-  }
-  ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
-  ctx.fillStyle = LADDER.background;
-  ctx.fillRect(0, 0, width, height);
-  const px = (pulses: number) => (pulses / frame.windowPulses) * width;
-  const laneY = [g.lanePaddingPx, height - g.lanePaddingPx / 2];
-
-  ctx.strokeStyle = LADDER.lane;
-  ctx.lineWidth = 2;
-  for (const y of laneY) {
-    ctx.beginPath();
-    ctx.moveTo(0, y);
-    ctx.lineTo(width, y);
-    ctx.stroke();
-  }
-
-  ctx.globalAlpha = g.alpha;
-  ctx.lineWidth = g.linePx;
-  ctx.lineCap = 'round';
-  const rings = new Map<string, [number, number]>();
-  const bars: Bar[] = [...frame.bars.filter((b) => !b.broken), ...frame.bars.filter((b) => b.broken)];
-  for (const b of bars) {
-    const x0 = px(b.x0);
-    const x1 = Math.max(px(b.x1), x0 + LADDER.minBarPx);
-    const y0 = laneY[b.from] as number;
-    const y1 = laneY[b.to] as number;
-    ctx.strokeStyle = b.broken ? KNOBS.warning : LADDER_E.greyBar;
-    ctx.beginPath();
-    ctx.moveTo(x0, y0);
-    ctx.lineTo(x1, y1);
-    ctx.stroke();
-    if (b.broken) rings.set(`${Math.round(x1)}:${b.to}`, [x1, y1]);
-  }
-  ctx.strokeStyle = KNOBS.warning;
-  ctx.lineWidth = g.ringLinePx;
-  for (const [x, y] of rings.values()) {
-    ctx.beginPath();
-    ctx.arc(x, y, g.ringPx, 0, Math.PI * 2);
-    ctx.stroke();
-  }
-  ctx.globalAlpha = 1;
-  ctx.font = g.labelFont;
-  ctx.textAlign = 'right';
-  ctx.textBaseline = 'top';
-  ctx.fillStyle = g.label;
-  ctx.fillText(label, width - 2, 0);
-  ctx.textAlign = 'start';
-  ctx.textBaseline = 'alphabetic';
 }
 
 export function drawLadder(canvas: HTMLCanvasElement, frame: Frame, options: DrawOptions = {}) {
@@ -89,9 +24,9 @@ export function drawLadder(canvas: HTMLCanvasElement, frame: Frame, options: Dra
   const laneY = [LADDER.lanePaddingPx, height - LADDER.lanePaddingPx];
   // Within a lane each ball has its own row so overlapping flights stay visible: hand 1's rows
   // go down from its line, hand 2's go up, so the two hands grow towards each other.
-  const rowY = (hand: 0 | 1, ball: number) => {
+  const rowY = (hand: 0 | 1, ball: number | null) => {
     const step = LADDER.barPx + LADDER.rowGapPx;
-    const row = (ball % BALL_COLOURS.length) * step + LADDER.barPx / 2 + LADDER.rowGapPx;
+    const row = ((ball ?? 0) % BALL_COLOURS.length) * step + LADDER.barPx / 2 + LADDER.rowGapPx;
     return hand === 0 ? (laneY[0] as number) + row : (laneY[1] as number) - row;
   };
 
@@ -128,10 +63,10 @@ export function drawLadder(canvas: HTMLCanvasElement, frame: Frame, options: Dra
     ctx.stroke();
   }
 
-  // Flagged flights last, so the warning colour is never hidden under another bar.
-  const bars: Bar[] = [...frame.bars.filter((b) => !b.broken), ...frame.bars.filter((b) => b.broken)];
+  // A faulted group's flights (no ball) in grey, under the balls' colours.
+  const bars: Bar[] = [...frame.bars.filter((b) => b.broken), ...frame.bars.filter((b) => !b.broken)];
   for (const b of bars) {
-    const colour = b.broken ? KNOBS.warning : (BALL_COLOURS[b.colour % BALL_COLOURS.length] as string);
+    const colour = b.colour === null ? LADDER_E.greyBar : (BALL_COLOURS[b.colour % BALL_COLOURS.length] as string);
     const x0 = px(b.x0);
     const x1 = Math.max(px(b.x1), x0 + LADDER.minBarPx);
     const y0 = rowY(b.from, b.colour);

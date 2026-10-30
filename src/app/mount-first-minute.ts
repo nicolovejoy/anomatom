@@ -48,7 +48,6 @@ export const mountFirstMinute: Mount = (root, { store, player }) => {
   function start() {
     const state = store.get();
     const schedule = scheduleFor(state);
-    if (schedule === null) return;
     if (player.view().state === 'paused') player.resume();
     else if (!player.playing()) player.play(schedule, state.mapping, state.bpm);
   }
@@ -57,7 +56,7 @@ export const mountFirstMinute: Mount = (root, { store, player }) => {
     card.addEventListener('click', () => {
       const preset = FIRST_MINUTE_PRESETS.find((p) => p.id === card.dataset.id);
       if (!preset) return;
-      store.set(presetPatch(preset));
+      store.dispatch(presetPatch(preset));
       // The knobs mount hands a changed pattern to a running player; stopped or paused, the tap starts it.
       if (!player.playing()) start();
     }),

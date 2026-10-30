@@ -1,132 +1,206 @@
-// The knob panel's logic (SPEC §4.1, §4.2), pure: no DOM, no timers. mount-knobs.ts and
-// mount-ladder.ts turn these values into elements and pixels.
-import { isVanilla, makeGrids, parsePattern, swapSites, validate, validateAll } from '../core/legacy';
-import type { ErrorDetail, Hand, HandPattern, ParseResult, PatternInput, Ratio, Throw } from '../core/legacy';
+// The knob panel's logic (SPEC §4.1, §4.2), pure: no DOM, no timers. mount-knobs.ts turns these
+// values into elements. `Analysis` is a thin view over `derived(state)` (derived.ts): what the
+// inputs show, the indicators, the warning sites, the status lines and the fixes, in the robot's
+// words.
+import { gcd, isVanillaPair, mod, periodOf, throwsOf, vanillaIndex } from '../core';
+import type { Fault, ParseError, Part, PartIndex, Parts, Ratio, ThrowId } from '../core';
 import { BPM_RANGE, MAX_RATIO } from '../tunables';
-import { copy } from '../ui/copy';
+import { copy, type ThrowRef } from '../ui/copy';
 import type { PlayerView, Segment } from '../view/types';
+import { oneInput, parseDraft, type Action } from './actions';
+import { derived, type Derived } from './derived';
+import type { AppState } from './state';
 
 // ---------------------------------------------------------------------------------------------
 // Validity
 // ---------------------------------------------------------------------------------------------
 
 export interface Analysis {
+  /** At 1:1 one input holds the whole pattern; otherwise there is one input per part. */
   readonly vanilla: boolean;
-  /** Each input's parse; hand 2's is null at 1:1, where only one input shows. */
-  readonly parsed: readonly [ParseResult, ParseResult | null];
-  /** The pattern, when every input in use parses; else null. */
-  readonly input: PatternInput | null;
-  /** Ball count when valid; null otherwise. */
+  /** The text each input shows: its draft as typed, else its part's text. */
+  readonly inputs: readonly string[];
+  /** Each input's parse error, or null when it reads (or shows its part's own text). */
+  readonly errors: readonly (ParseError | null)[];
+  /** Ball count when every input reads and every group is juggleable; null otherwise. */
   readonly balls: number | null;
-  /** Every validation error with its digits (validateAll); empty when valid or unparsed. */
-  readonly details: readonly ErrorDetail[];
+  /** Per input, the sites (throw indices in its text) a fault names, for the warning colour. */
+  readonly warn: readonly ReadonlySet<number>[];
+  /** The status lines under the inputs, then the last action's notice. */
+  readonly lines: readonly string[];
+  /** True when the mean is fractional (MATH.md §9.4): the whole pattern's fault, so every input is implicated. */
+  readonly fractional: boolean;
+  /** True when "make it juggleable" applies: every input reads and a group has faults. */
+  readonly fixable: boolean;
 }
 
-export function analyse(patterns: readonly [string, string], ratio: Ratio): Analysis {
-  const vanilla = isVanilla(ratio);
-  const first = parsePattern(patterns[0]);
-  const second = vanilla ? null : parsePattern(patterns[1]);
-  const parsed = [first, second] as const;
-  const hands: HandPattern[] = [];
-  for (const p of parsed) if (p?.ok) hands.push(p.pattern);
-  if (!first.ok || (second !== null && !second.ok)) return { vanilla, parsed, input: null, balls: null, details: [] };
-  const input: PatternInput = { ratio, hands };
-  const v = validate(input);
-  if (v.ok) return { vanilla, parsed, input, balls: v.balls, details: [] };
-  return { vanilla, parsed, input, balls: null, details: validateAll(input) };
+/** The text input `i` shows: its draft, else its part's text (at 1:1, every part's, with `/` between). */
+export function inputText(state: AppState, d: Derived, i: number): string {
+  const draft = state.drafts[i];
+  if (draft != null) return draft;
+  return oneInput(state.ratio) ? d.texts.join(' / ') : (d.texts[i] ?? '');
+}
+
+/** The beat of a part that pulse `pulse` (in [0, cycle)) is, counted from 1 within the cycle. */
+const beatOf = (p: Part, pulse: number) => (pulse - mod(p.phase, p.spacing)) / p.spacing + 1;
+
+/** How many throws `text` holds, as `pieces` numbers them. */
+const siteCount = (text: string) => pieces(text, new Set(), new Set(), null).reduce((n, p) => Math.max(n, (p.site ?? -1) + 1), 0);
+
+export function analyse(state: AppState, d: Derived = derived(state)): Analysis {
+  const vanilla = oneInput(state.ratio);
+  const inputs = Array.from({ length: vanilla ? 1 : state.parts.length }, (_, i) => inputText(state, d, i));
+  const errors = inputs.map((text, i) => {
+    if (state.drafts[i] == null) return null;
+    const r = parseDraft(state, i, text);
+    return r.ok ? null : r.error;
+  });
+  const warn = inputs.map(() => new Set<number>());
+  const notice = state.notice === null ? [] : [state.notice];
+  const base = { vanilla, inputs, errors, warn, fractional: false, fixable: false };
+  if (errors.some((e) => e !== null)) {
+    const lines = errors.flatMap((e, i) =>
+      e === null ? [] : [vanilla ? copy.parseError(e) : copy.handParseError(i, copy.parseError(e))],
+    );
+    return { ...base, balls: null, lines: [...lines, ...notice] };
+  }
+  if (d.schedule.verdict.ok) return { ...base, balls: d.schedule.balls, lines: [copy.valid(d.schedule.balls), ...notice] };
+
+  const { parts } = state;
+  const pair = isVanillaPair(parts);
+  const { cycle } = d.schedule;
+  const length = Math.max(1, siteCount(inputs[0] as string));
+  /** A throw as the reader counts it: a vanilla pair's by its siteswap position, otherwise in its own hand. */
+  const ref = (t: ThrowId): ThrowRef => (pair ? { hand: 0, index: vanillaIndex(t.part, t.index, length) } : { hand: t.part, index: t.index });
+  /** Colours the throw's site in the input that shows it (at 1:1, `a / b` numbers its sites across the slash). */
+  const mark = (t: ThrowId) => {
+    const r = ref(t);
+    if (pair || !vanilla) (warn[r.hand] as Set<number>).add(r.index);
+    else (warn[0] as Set<number>).add(parts.slice(0, t.part).reduce((n, p) => n + periodOf(p), 0) + t.index);
+  };
+  const beat = (p: Part, pulse: number) => (pair ? pulse + 1 : beatOf(p, pulse));
+
+  // A part's unfed onsets are one line, where its first one is met.
+  const lines: (string | PartIndex)[] = d.fractional === null ? [] : [copy.fractional(d.fractional)];
+  const unfed = new Map<PartIndex, number[]>();
+  const seen = new Set<string>();
+  for (const f of d.groups.flatMap((g) => g.faults)) {
+    const own = parts[f.part] as Part;
+    if (f.kind === 'collision') {
+      f.throws.forEach(mark);
+      const refs = f.throws.map(ref).sort((p, q) => p.hand - q.hand || p.index - q.index);
+      // A vanilla pair's siteswap repeats in both parts: one group of digits is reported once.
+      const key = refs.map((r) => `${r.hand}.${r.index}`).join(',');
+      if (seen.has(key)) continue;
+      seen.add(key);
+      lines.push(copy.collision(refs, f.part, beat(own, f.pulse), pair));
+    } else if (f.kind === 'no-onset') {
+      mark(f.from);
+      lines.push(noOnsetLine(parts, f, cycle, pair, ref(f.from)));
+    } else {
+      mark({ part: f.part, index: mod((f.pulse - own.phase) / own.spacing, periodOf(own)) });
+      const beats = unfed.get(f.part) ?? [];
+      if (beats.length === 0) lines.push(f.part);
+      unfed.set(f.part, [...beats, beat(own, f.pulse)]);
+    }
+  }
+  const text = lines.map((l) => (typeof l === 'string' ? l : copy.noBall(l, unfed.get(l) as number[])));
+  return { ...base, balls: null, lines: [...text, ...notice], fractional: d.fractional !== null, fixable: true };
+}
+
+/**
+ * A flight landing off the catching part's onsets. On one of its beats (a `0`), it lands where
+ * that hand has nothing to throw. Between its beats it is a cross, named with the catching part's
+ * next onset at or after the landing, as core reports it (MATH.md §9.3).
+ */
+function noOnsetLine(parts: Parts, f: Extract<Fault, { kind: 'no-onset' }>, cycle: number, pair: boolean, who: ThrowRef): string {
+  const to = parts[f.part] as Part;
+  const landing = mod(f.pulse, cycle);
+  if (mod(f.pulse - to.phase, to.spacing) === 0) {
+    return copy.noThrowThere(who, f.part, pair ? landing + 1 : beatOf(to, landing), pair);
+  }
+  const from = parts[f.from.part] as Part;
+  const launch = f.pulse - (throwsOf(from)[f.from.index] as { height: number }).height;
+  return copy.crossBetween(f.from.part, beatOf(from, mod(launch, cycle)), f.part, f.nearestOnset);
 }
 
 export type HandState = 'hidden' | 'ok' | 'bad' | 'neutral';
 
 /**
- * The indicator beside one input. Valid: ok. This input fails to parse, or an error names one
- * of its digits, or the ball count is fractional (the whole pattern's): bad. Otherwise neutral,
+ * The indicator beside one input. Juggleable: ok. This input fails to parse, or a fault names
+ * one of its digits, or the mean is fractional (the whole pattern's): bad. Otherwise neutral,
  * since the pattern as a whole still fails.
  */
-export function handState(a: Analysis, hand: Hand): HandState {
-  const parsed = a.parsed[hand];
-  if (parsed === null) return 'hidden';
-  if (!parsed.ok) return 'bad';
+export function handState(a: Analysis, input: number): HandState {
+  if (input >= a.inputs.length) return 'hidden';
+  if (a.errors[input] != null) return 'bad';
   if (a.balls !== null) return 'ok';
-  const implicated = a.details.some(
-    (d) => (d.digits[hand] as readonly number[]).length > 0 || d.error.kind === 'fractional-balls',
-  );
-  return implicated ? 'bad' : 'neutral';
+  return (a.warn[input] as ReadonlySet<number>).size > 0 || a.fractional ? 'bad' : 'neutral';
 }
 
-/** Indices of one input's throws that any error names, for the warning colour. */
-export function warnSites(a: Analysis, hand: Hand): ReadonlySet<number> {
-  return new Set(a.details.flatMap((d) => d.digits[hand] as readonly number[]));
+/** Indices of one input's throws that any fault names, for the warning colour. */
+export function warnSites(a: Analysis, input: number): ReadonlySet<number> {
+  return a.warn[input] ?? new Set();
 }
 
 /** The character a parse error points at in one input, or null. */
-export function badChar(a: Analysis, hand: Hand): number | null {
-  const p = a.parsed[hand];
-  return p && !p.ok && p.error.kind === 'bad-char' ? p.error.index : null;
+export function badChar(a: Analysis, input: number): number | null {
+  const e = a.errors[input];
+  return e?.kind === 'bad-char' ? e.index : null;
 }
 
-/** The status lines under the inputs: the ball count, or every problem, in the robot's words. */
-export function statusLines(a: Analysis): string[] {
-  if (a.balls !== null) return [copy.valid(a.balls)];
-  if (a.input === null) {
-    return a.parsed.flatMap((p, hand) =>
-      p && !p.ok ? [a.vanilla ? copy.parseError(p.error) : copy.handParseError(hand as Hand, copy.parseError(p.error))] : [],
-    );
-  }
-  const grids = makeGrids(a.input.ratio);
-  // Missing balls follow from the other errors; one line per hand names all of its beats.
-  const noBall: [number[], number[]] = [[], []];
-  const lines: (string | Hand)[] = [];
-  for (const { error } of a.details) {
-    if (error.kind === 'no-ball') {
-      if (noBall[error.hand].length === 0) lines.push(error.hand);
-      noBall[error.hand].push(error.beat + 1);
-    } else if (error.kind === 'collision') {
-      // At 1:1 a pulse is a shared beat; otherwise the landing is on the catching hand's own grid.
-      const beat = a.vanilla ? error.pulse + 1 : error.pulse / grids[error.hand].pulsesPerBeat + 1;
-      lines.push(copy.collision(error.throws, error.hand, beat, a.vanilla));
-    } else {
-      lines.push(copy.validationError(error, a.vanilla));
-    }
-  }
-  return lines.map((l) => (typeof l === 'string' ? l : copy.noBall(l, noBall[l])));
+/** The status lines under the inputs: the ball count, or every problem, in the robot's words; then any notice. */
+export function statusLines(a: Analysis): readonly string[] {
+  return a.lines;
+}
+
+/**
+ * Whether the player must be handed the edit (`setEdit`): the first render, a new schedule, or a
+ * tempo or ratio change, even when the schedule object is the same one (a link that differs only
+ * in tempo). A draft that does not read changes none of these.
+ */
+export function editChanged(previous: AppState | null, state: AppState): boolean {
+  return (
+    previous === null ||
+    derived(previous).schedule !== derived(state).schedule ||
+    previous.bpm !== state.bpm ||
+    previous.ratio !== state.ratio
+  );
+}
+
+// ---------------------------------------------------------------------------------------------
+// Fixes
+// ---------------------------------------------------------------------------------------------
+
+/** What a fix button reads: its texts (`derived(state).fixTexts`), as the inputs would show them. */
+export function fixLabel(texts: readonly string[]): string {
+  return copy.fixLabel(texts);
+}
+
+/** The edits that apply a fix: its texts typed into the inputs (at 1:1, the one input). */
+export function fixActions(state: Pick<AppState, 'ratio'>, texts: readonly string[]): Action[] {
+  if (oneInput(state.ratio)) return [{ type: 'editDraft', part: 0, text: texts.join(' / ') }];
+  return texts.map((text, part) => ({ type: 'editDraft', part, text }));
 }
 
 // ---------------------------------------------------------------------------------------------
 // Pattern text
 // ---------------------------------------------------------------------------------------------
 
-/** One hand's throws as text: digits run together at 1:1, separated by spaces otherwise. */
-export function patternText(hand: HandPattern, vanilla: boolean): string {
-  return hand.map((t: Throw) => `${t.height}${t.cross ? 'x' : ''}`).join(vanilla ? '' : ' ');
-}
-
-/** A fix's text per input; at 1:1 hand 2's text, unused, is kept as it was. */
-export function fixTexts(fix: PatternInput, current: readonly [string, string]): [string, string] {
-  const vanilla = isVanilla(fix.ratio);
-  const h0 = patternText(fix.hands[0] as HandPattern, vanilla);
-  return vanilla ? [h0, current[1]] : [h0, patternText(fix.hands[1] as HandPattern, false)];
-}
-
-/** What a fix button reads: the texts of the inputs in use. */
-export function fixLabel(fix: PatternInput): string {
-  const texts = fixTexts(fix, ['', '']);
-  return copy.fixLabel(isVanilla(fix.ratio) ? [texts[0]] : texts);
-}
-
 /** One character of an input's text as shown behind it, with the throw it belongs to. */
 export interface Piece {
   readonly text: string;
-  /** The throw's index in its hand's sequence; null for whitespace or an unreadable character. */
+  /** The throw's index in the input's text, counted across a `/`; null for whitespace, `/` or an unreadable character. */
   readonly site: number | null;
   readonly warn: boolean;
   readonly selected: boolean;
 }
 
 /**
- * Splits `text` as parsePattern reads it, so each throw can be coloured: warning for `warn`
- * sites and for the unreadable character at `bad`, outlined for `selected` sites. Characters
- * after an unreadable one are still split as far as they read.
+ * Splits `text` as the parser reads it, so each throw can be coloured: warning for `warn` sites
+ * and for the unreadable character at `bad`, outlined for `selected` sites. A throw is a digit or
+ * a letter (10-35); an `x` marks the throw before it, once. Characters after an unreadable one
+ * are still split as far as they read.
  */
 export function pieces(
   text: string,
@@ -136,19 +210,18 @@ export function pieces(
 ): Piece[] {
   const out: Piece[] = [];
   let site = -1;
-  // As in parsePattern: an `x` marks the last throw, whitespace between them or not, once.
+  // An `x` marks the last throw, whitespace between them or not, once.
   let crossable = false;
   for (let i = 0; i < text.length; i++) {
     const c = text[i] as string;
-    if (c >= '0' && c <= '9') {
-      site++;
-      crossable = true;
+    const throwChar = (c >= '0' && c <= '9') || (c >= 'a' && c <= 'z' && c !== 'x');
+    if (throwChar || (c === 'x' && crossable)) {
+      if (throwChar) site++;
+      crossable = throwChar;
       out.push({ text: c, site, warn: warn.has(site), selected: selected.has(site) });
-    } else if (c === 'x' && crossable) {
-      crossable = false;
-      out.push({ text: c, site, warn: warn.has(site), selected: selected.has(site) });
-    } else if (c === ' ' || c === '\t') {
-      out.push({ text: c, site: null, warn: false, selected: false });
+    } else if (c === ' ' || c === '\t' || c === '/') {
+      if (c === '/') crossable = false;
+      out.push({ text: c, site: null, warn: i === bad, selected: false });
     } else {
       crossable = false;
       out.push({ text: c, site: null, warn: i === bad, selected: false });
@@ -191,7 +264,8 @@ export function editText(text: string, caret: Caret, key: string): { text: strin
 // ---------------------------------------------------------------------------------------------
 
 export interface SiteSelection {
-  readonly hand: Hand;
+  /** The input the sites are in. */
+  readonly hand: number;
   /** One or two throw indices, in the order tapped. */
   readonly sites: readonly number[];
 }
@@ -200,7 +274,7 @@ export interface SiteSelection {
  * A tap on a throw. Tapping a chosen one unchooses it; a tap in the other hand starts over; a
  * third tap keeps the last two.
  */
-export function toggleSite(sel: SiteSelection | null, hand: Hand, site: number): SiteSelection | null {
+export function toggleSite(sel: SiteSelection | null, hand: number, site: number): SiteSelection | null {
   if (sel === null || sel.hand !== hand) return { hand, sites: [site] };
   if (sel.sites.includes(site)) {
     const sites = sel.sites.filter((s) => s !== site);
@@ -209,12 +283,22 @@ export function toggleSite(sel: SiteSelection | null, hand: Hand, site: number):
   return { hand, sites: [...sel.sites, site].slice(-2) };
 }
 
-/** MATH.md §3 on one input's text: the swapped pattern's text, or null when it cannot be swapped. */
-export function swapText(text: string, i: number, j: number, vanilla: boolean): string | null {
-  const parsed = parsePattern(text);
-  if (!parsed.ok) return null;
-  const swapped = swapSites(parsed.pattern, i, j);
-  return swapped === null ? null : patternText(swapped, vanilla);
+/**
+ * The swap action for two sites chosen in one input (MATH.md §3), or null when they are not two
+ * throws of one part. At 1:1 a vanilla pair's sites are its siteswap's positions; `a / b`
+ * numbers its sites across the slash, so both must fall in one part.
+ */
+export function swapAction(state: AppState, input: number, i: number, j: number): Action | null {
+  if (!oneInput(state.ratio)) return { type: 'swapSites', part: input, i, j };
+  if (isVanillaPair(state.parts)) return { type: 'swapSites', part: 0, i, j };
+  let offset = 0;
+  for (const [part, p] of state.parts.entries()) {
+    const n = periodOf(p);
+    const inside = (k: number) => k >= offset && k < offset + n;
+    if (inside(i) && inside(j)) return { type: 'swapSites', part, i: i - offset, j: j - offset };
+    offset += n;
+  }
+  return null;
 }
 
 // ---------------------------------------------------------------------------------------------
@@ -222,9 +306,15 @@ export function swapText(text: string, i: number, j: number, vanilla: boolean): 
 // ---------------------------------------------------------------------------------------------
 
 /** A stepper: one side up or down by one, within 1 … MAX_RATIO. Left unreduced, so a stepper moves one step at a time. */
-export function stepRatio(r: Ratio, hand: Hand, delta: number): Ratio {
+export function stepRatio(r: Ratio, hand: number, delta: number): Ratio {
   const clamp = (n: number) => Math.min(MAX_RATIO, Math.max(1, n + delta));
   return hand === 0 ? { a: clamp(r.a), b: r.b } : { a: r.a, b: clamp(r.b) };
+}
+
+/** A ratio in lowest terms: a chip's 2:2 is 1:1. */
+export function reduceRatio(r: Ratio): Ratio {
+  const g = gcd(r.a, r.b);
+  return { a: r.a / g, b: r.b / g };
 }
 
 /** Hand 2's tempo: it makes b beats while hand 1 makes a, to one decimal. */

@@ -1,13 +1,9 @@
 import { expect, test } from 'vitest';
-import { buildSchedule, parsePattern } from '../core/legacy';
+import { scheduleOf } from '../test/schedules';
 import { ballColours } from './colours';
 import type { Segment } from './types';
 
-function sched(text: string) {
-  const r = parsePattern(text);
-  if (!r.ok) throw new Error(text);
-  return buildSchedule({ ratio: { a: 1, b: 1 }, hands: [r.pattern] });
-}
+const sched = (text: string) => scheduleOf(text);
 const seg = (text: string, carry: [number, number][] = []): Segment => ({
   schedule: sched(text),
   startTime: 0,

@@ -41,12 +41,15 @@
 //
 // Timing (docs/plans/v1-parallel.md, wave 1 A): each throw event owns [t, t + flight) of its
 // segment's pulses. The ball is in the air for flight − d, then in the catching hand for d,
-// d = min(dwell × catching hand's pulses per beat, maxDwellShare × flight), so it reaches the
+// d = min(dwell × catching hand's spacing, maxDwellShare × flight), so it reaches the
 // throw point exactly when it is thrown again. Pulses stay integers; seconds appear only as
 // startTime + pulse × pulseLen.
-import { isCoincident } from '../core/legacy/grid';
-import type { Event, Hand, Schedule } from '../core/legacy/types';
+//
+// A part in a faulted cross group has events with no ball (design §6): it sounds, and this draws
+// no ball for it. Two parts are drawn, hand 1 and hand 2.
+import type { Event, Schedule } from '../core/types';
 import { ballColours } from './colours';
+import { catchPart, handOf, isCoincident, type Hand } from './grids';
 import type { Segment } from './types';
 
 /** The scene, in metres, x to the right and y up, y = 0 the height of the hands. */
@@ -171,7 +174,7 @@ function indexOf(schedule: Schedule): Index {
   const throws: Event[][] = Array.from({ length: schedule.balls }, () => []);
   let maxFlight = 0;
   for (const e of schedule.events) {
-    if (e.kind !== 'throw') continue;
+    if (e.kind !== 'throw' || e.ball === null) continue;
     (throws[e.ball] as Event[]).push(e);
     maxFlight = Math.max(maxFlight, e.flight);
   }
@@ -202,11 +205,15 @@ function owner(schedule: Schedule, ball: number, p: number): Owned | null {
   return null;
 }
 
-const catcher = (e: Event): Hand => (e.cross ? ((1 - e.hand) as Hand) : e.hand);
+/** The hand a throw leaves, and the hand that catches it (from its catch event), as drawn. */
+const thrower = (e: Event): Hand => handOf(e.part);
+const catcher = (schedule: Schedule, e: Event): Hand => handOf(catchPart(schedule, e));
 
 /** Pulses the ball spends in the catching hand at the end of throw `e`. */
 const dwellPulses = (schedule: Schedule, e: Event, layout: JugglerLayout): number =>
-  Math.min(layout.dwellBeats * schedule.grids[catcher(e)].pulsesPerBeat, layout.maxDwellShare * e.flight);
+  Math.min(layout.dwellBeats * spacing(schedule, catchPart(schedule, e)), layout.maxDwellShare * e.flight);
+
+const spacing = (schedule: Schedule, part: number): number => schedule.grids[part]?.spacing ?? 1;
 
 const apex = (air: number, layout: JugglerLayout): number => (layout.g * air * air) / 8;
 
@@ -232,9 +239,9 @@ interface Place {
  * air takes the same share of the span as `flight − d` of `flight`, so a flight retimed across
  * a switch is still one parabola, ending in a scoop.
  */
-function along(e: Event, d: number, tLaunch: number, tEnd: number, now: number, layout: JugglerLayout) {
-  const from = e.hand;
-  const to = catcher(e);
+function along(schedule: Schedule, e: Event, d: number, tLaunch: number, tEnd: number, now: number, layout: JugglerLayout) {
+  const from = thrower(e);
+  const to = catcher(schedule, e);
   const span = tEnd - tLaunch;
   const air = (span * (e.flight - d)) / e.flight;
   const u = Math.min(Math.max(now - tLaunch, 0), span);
@@ -264,8 +271,8 @@ function along(e: Event, d: number, tLaunch: number, tEnd: number, now: number, 
  * 2026-10-29), which overlapped two balls waiting in one hand.
  */
 function waiting(seg: Segment, first: Event, now: number, layout: JugglerLayout): Place {
-  const hand = first.hand;
-  const dwell = layout.dwellBeats * seg.schedule.grids[hand].pulsesPerBeat * seg.pulseLen;
+  const hand = thrower(first);
+  const dwell = layout.dwellBeats * spacing(seg.schedule, first.part) * seg.pulseLen;
   const tThrow = seg.startTime + first.pulse * seg.pulseLen;
   const f = dwell > 0 ? clamp01(1 - (tThrow - now) / dwell) : 1;
   const air = (first.flight - dwellPulses(seg.schedule, first, layout)) * seg.pulseLen;
@@ -322,7 +329,7 @@ export function jugglerFrame(segments: readonly Segment[], now: number, layout: 
       const tLaunch = seg.startTime + launch * seg.pulseLen;
       const tEnd = crossing ? next.startTime + (land - B) * next.pulseLen : seg.startTime + land * seg.pulseLen;
       const d = dwellPulses(schedule, e, layout);
-      const { place, air, span } = along(e, d, tLaunch, tEnd, now, layout);
+      const { place, air, span } = along(schedule, e, d, tLaunch, tEnd, now, layout);
 
       if (crossing) {
         const fresh = onward.get(ball);
@@ -392,6 +399,7 @@ function bounds(segments: readonly Segment[], now: number, layout: JugglerLayout
     if (weight === 0) return;
     const pulseLen = Math.max(seg.pulseLen, next?.pulseLen ?? 0);
     for (const e of seg.schedule.events) {
+      if (e.ball === null) continue;
       const air = (e.flight - dwellPulses(seg.schedule, e, layout)) * pulseLen;
       top = Math.max(top, weight * apex(air, layout));
     }

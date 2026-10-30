@@ -3,9 +3,9 @@
 //
 // `AppState.sheetTab` is which tab is open, or null when the sheet is closed. On a wide screen
 // the sheet is a column that is always open, so a null there shows the last tab instead.
-import type { Ratio } from '../core/legacy/types';
-import { isVanilla } from '../core/legacy';
+import type { Ratio } from '../core/types';
 import { copy } from '../ui/copy';
+import { oneInput } from './actions';
 import type { Analysis } from './knobs-model';
 import { hand2Bpm } from './knobs-model';
 import type { SheetTab } from './state';
@@ -49,9 +49,8 @@ export interface Summary {
 }
 
 /** What the closed sheet's summary button says. */
-export function summary(a: Analysis, patterns: readonly [string, string], bpm: number, longChars: number): Summary {
-  const texts = a.vanilla ? [patterns[0]] : [patterns[0], patterns[1]];
-  const trimmed = texts.map((t) => t.trim());
+export function summary(a: Analysis, bpm: number, longChars: number): Summary {
+  const trimmed = a.inputs.map((t) => t.trim());
   const text = trimmed.every((t) => t === '') ? copy.summaryEmpty : trimmed.join(' / ');
   const long = text.length >= longChars;
   if (a.balls === null) return { text, meta: copy.summaryCantJuggle, valid: false, long };
@@ -60,7 +59,7 @@ export function summary(a: Analysis, patterns: readonly [string, string], bpm: n
 
 /** The two lines under the tempo slider: each hand's bpm, or at 1:1 a hand's and the shared beat's. */
 export function tempoLines(bpm: number, ratio: Ratio): [string, string] {
-  if (isVanilla(ratio)) return [copy.tempoEach(bpm), copy.tempoShared(bpm * 2)];
+  if (oneInput(ratio)) return [copy.tempoEach(bpm), copy.tempoShared(bpm * 2)];
   return [copy.tempoHand(0, bpm), copy.tempoHand(1, hand2Bpm(bpm, ratio))];
 }
 

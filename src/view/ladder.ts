@@ -5,11 +5,12 @@
 // pulse of that segment, and each segment starts where the previous one's `endTime` falls. So
 // the strip keeps one pulse per unit of width through a tempo or ratio change and never jumps;
 // only its scroll speed follows the new pulse length.
-import { flightsOf } from '../core/legacy/flights';
-import { activeHands, cycleLength, isCoincident, makeGrids } from '../core/legacy/grid';
-import { mod } from '../core/math';
-import type { Flight, Grid, Hand, PatternInput, ValidationError } from '../core/legacy/types';
+//
+// A part in a faulted cross group (design §6) still sounds, so its flights are still bars: the
+// Schedule's stand-in flights for it (each onset to its next one), with no ball, `broken` set,
+// drawn grey.
 import { ballColours } from './colours';
+import { catchPart, handOf, isCoincident, onBeat, type Hand } from './grids';
 import type { Segment } from './types';
 
 export interface LadderView {
@@ -25,17 +26,14 @@ export interface Bar {
   readonly x1: number;
   readonly from: Hand;
   readonly to: Hand;
-  /** The ball id within its segment's schedule. */
-  readonly ball: number;
-  /** The ball's lasting identity, carried across segments: picks its colour and its row. */
-  readonly colour: number;
+  /** The ball id within its segment's schedule; null for a part in a faulted group. */
+  readonly ball: number | null;
+  /** The ball's lasting identity, carried across segments: picks its colour and its row. Null with no ball. */
+  readonly colour: number | null;
   readonly height: number;
   readonly cross: boolean;
-  /**
-   * Set only by `brokenFrame`: true for a flight in a reported collision (it shares its landing
-   * pulse and hand with another flight of the group) or an off-grid cross. Absent in `ladderFrame`.
-   */
-  readonly broken?: boolean;
+  /** True for a flight with no ball: a part in a faulted cross group, drawn grey. */
+  readonly broken: boolean;
 }
 
 export interface Tick {
@@ -125,12 +123,13 @@ export function ladderFrame(segments: readonly Segment[], now: number, layout: L
         bars.push({
           x0: u0 + launch - start,
           x1: land - start,
-          from: e.hand,
-          to: e.cross ? ((1 - e.hand) as Hand) : e.hand,
+          from: handOf(e.part),
+          to: handOf(catchPart(seg.schedule, e)),
           ball: e.ball,
-          colour: colour[i]?.get(e.ball) as number,
+          colour: e.ball === null ? null : (colour[i]?.get(e.ball) as number),
           height: e.height,
           cross: e.cross,
+          broken: e.ball === null,
         });
       }
     }
@@ -142,8 +141,9 @@ export function ladderFrame(segments: readonly Segment[], now: number, layout: L
     for (let u = Math.ceil(lo); u < hi; u++) {
       const p = u - u0;
       const coincident = isCoincident(grids, p);
-      grids.forEach((g, hand) => {
-        if (mod(p - g.offset, g.pulsesPerBeat) === 0) ticks.push({ hand: hand as Hand, x: u - start, coincident });
+      // Two lanes, hand 1 and hand 2.
+      [0, 1].forEach((hand) => {
+        if (onBeat(grids, hand, p)) ticks.push({ hand: hand as Hand, x: u - start, coincident });
       });
     }
     for (let u = u0 + Math.max(0, Math.ceil((lo - u0) / cycle) * cycle); u < hi; u += cycle) {
@@ -152,113 +152,4 @@ export function ladderFrame(segments: readonly Segment[], now: number, layout: L
   });
 
   return { start, windowPulses: layout.windowPulses, playhead, bars, ticks, cycleLines };
-}
-
-/**
- * SPEC §4.2: the ladder frame of an invalid pattern, to draw greyed over (or, with nothing
- * playing, in place of) `ladderFrame(segments, now, layout)`. Same window, same pulse axis.
- *
- * Placement: the broken pattern's pulse 0 sits at the start of the segment that owns `now`, so
- * while stopped (that segment starts at `now`) it is at the playhead, and while playing it runs in
- * phase with the pattern that plays. With no segment at all it is at the playhead too. Unlike
- * a played segment it is a loop, not a performance: its cycle repeats across the whole window,
- * before pulse 0 as well, so the picture does not change as `now` moves within a segment.
- *
- * Bars: one per flight of `flightsOf(input)` per cycle in the window, with `broken` set on the
- * flights the errors name: in a collision, the group's flights that share a landing pulse and
- * hand (so the flagged bars meet where they collide); an off-grid cross, its flight. Zero-length
- * flights (a `0`) are drawn only when flagged, as a bar of no length at its pulse. An invalid
- * pattern has no ball ids, so `ball` numbers its digits across hands (hand 1's 0 to n − 1, then
- * hand 2's), and `colour` is what `ballColours` gives such balls after the segments: none
- * carried, none sharing a colour with the last segment. Ticks and cycle lines are the broken
- * pattern's own grid and cycle.
- */
-export function brokenFrame(
-  input: PatternInput,
-  errors: readonly ValidationError[],
-  segments: readonly Segment[],
-  now: number,
-  layout: LadderView,
-): Frame {
-  const playhead = layout.windowPulses * layout.playheadFraction;
-  const start = axisPulse(segments, now) - playhead;
-  const end = start + layout.windowPulses;
-  const anchor = segments.length === 0 ? 0 : (origins(segments)[segmentAt(segments, now)] as number);
-
-  const cycle = cycleLength(input);
-  const grids = makeGrids(input.ratio);
-  const flights = flightsOf(input);
-  const flagged = brokenFlights(flights, errors, cycle);
-  const hands = activeHands(input);
-  const firstBall = [0, (hands[0] as readonly unknown[]).length];
-  const balls = hands.reduce((n, h) => n + h.length, 0);
-  // A stand-in segment with `balls` uncarried balls, so the colours follow the one rule.
-  const loop: Segment = {
-    schedule: { cycle, period: cycle, grids, balls, events: [] },
-    startTime: now,
-    pulseLen: 1,
-    endTime: null,
-    carry: new Map(),
-  };
-  const colour = ballColours([...segments, loop])[segments.length] as ReadonlyMap<number, number>;
-
-  const bars: Bar[] = [];
-  flights.forEach((f, i) => {
-    const broken = flagged.has(i);
-    if (f.height === 0 && !broken) return;
-    const ball = (firstBall[f.id.hand] as number) + f.id.index;
-    // Every repetition whose flight overlaps the window: anchor + land + k·cycle > start.
-    for (let k = Math.floor((start - anchor - f.land) / cycle) + 1; ; k++) {
-      const launch = anchor + f.launch + k * cycle;
-      if (launch >= end) break;
-      bars.push({
-        x0: launch - start,
-        x1: launch + (f.land - f.launch) - start,
-        from: f.from,
-        to: f.to,
-        ball,
-        colour: colour.get(ball) as number,
-        height: f.height,
-        cross: f.cross,
-        broken,
-      });
-    }
-  });
-
-  const ticks: Tick[] = [];
-  for (let u = Math.ceil(start); u < end; u++) {
-    const p = u - anchor;
-    const coincident = isCoincident(grids, p);
-    grids.forEach((g: Grid, hand) => {
-      if (mod(p - g.offset, g.pulsesPerBeat) === 0) ticks.push({ hand: hand as Hand, x: u - start, coincident });
-    });
-  }
-  const cycleLines: number[] = [];
-  for (let u = anchor + Math.ceil((start - anchor) / cycle) * cycle; u < end; u += cycle) cycleLines.push(u - start);
-
-  return { start, windowPulses: layout.windowPulses, playhead, bars, ticks, cycleLines };
-}
-
-/** Indices into `flights` of the flights the errors name (see `brokenFrame`). */
-function brokenFlights(flights: readonly Flight[], errors: readonly ValidationError[], cycle: number): Set<number> {
-  const out = new Set<number>();
-  for (const e of errors) {
-    if (e.kind === 'collision') {
-      const group = new Set(e.throws.map((t) => `${t.hand}:${t.index}`));
-      // A group can collide on several pulses and in either hand; one cycle's repetition of a
-      // digit can collide while another does not. Flag the group's flights that share a landing.
-      const landings = new Map<string, number[]>();
-      flights.forEach((f, i) => {
-        if (!group.has(`${f.id.hand}:${f.id.index}`)) return;
-        const at = `${f.to}:${mod(f.land, cycle)}`;
-        landings.set(at, [...(landings.get(at) ?? []), i]);
-      });
-      for (const same of landings.values()) if (same.length > 1) for (const i of same) out.add(i);
-    } else if (e.kind === 'cross-off-grid') {
-      flights.forEach((f, i) => {
-        if (f.from === e.fromHand && f.beat === e.beat) out.add(i);
-      });
-    }
-  }
-  return out;
 }

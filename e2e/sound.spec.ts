@@ -7,7 +7,7 @@ const scheduled = async (page: Page) => Number(await page.locator('#app').getAtt
 const shot = (page: Page, name: string) => page.screenshot({ path: `test-results/sound-${name}.png`, fullPage: true });
 
 /** The hash settles a moment after the last change (the debounce). */
-async function settledHref(page: Page, contains = '#v1.') {
+async function settledHref(page: Page, contains = '#v2.') {
   await expect.poll(() => page.evaluate(() => location.href), { timeout: 5_000 }).toContain(contains);
   await page.waitForTimeout(600);
   return page.evaluate(() => location.href);
@@ -23,7 +23,7 @@ test('the Sound tab shows the panel; another tab hides it', async ({ page }) => 
   await expect(page.locator('.sound-panel')).toBeHidden();
   await openPanel(page);
   await expect(page.locator('#tab-sound')).toHaveAttribute('aria-selected', 'true');
-  await expect(page.locator('#sp-preset')).toHaveValue('height-drum');
+  await expect(page.locator('#sp-preset')).toHaveValue('voice-per-part');
   await shot(page, 'tab');
   await openTab(page, 'pattern');
   await expect(page.locator('.sound-panel')).toBeHidden();
@@ -36,7 +36,7 @@ test('an edit reads as custom, and Reset to preset undoes it', async ({ page }) 
   await page.locator('#sp-height-3').selectOption('cowbell');
   await expect(page.locator('#sp-preset')).toHaveValue('custom');
   await page.locator('#sp-reset').click();
-  await expect(page.locator('#sp-preset')).toHaveValue('height-drum');
+  await expect(page.locator('#sp-preset')).toHaveValue('voice-per-part');
   await expect(page.locator('#sp-height-3')).toHaveValue('snare');
   await page.locator('#sp-preset').selectOption('ball-pitch');
   await page.locator('#sp-height-1').selectOption('kick');
@@ -72,7 +72,7 @@ test('SPEC §7.5: three sound fields, the link, a new tab: everything matches an
   await expect(page.locator('#sp-preset')).toHaveValue('custom');
 
   const href = await settledHref(page);
-  expect(href).toMatch(/#v1\./);
+  expect(href).toMatch(/#v2\./);
 
   const other = await context.newPage();
   await other.goto(href);
@@ -115,7 +115,7 @@ test('Copy share link puts the current link on the clipboard and confirms in the
   await page.locator('#sp-copy').click();
   await expect(page.locator('#sp-confirm')).toContainText('I copied the link');
   const copied = await page.evaluate(() => (window as unknown as { __copied?: string }).__copied);
-  expect(copied).toMatch(/#v1\./);
+  expect(copied).toMatch(/#v2\./);
   const other = await context.newPage();
   await other.goto(copied as string);
   await expect(other.locator('#sp-filter-on')).toBeChecked();
@@ -146,6 +146,23 @@ test('a link pasted while playing lands at the next cycle: no restart, no stop',
   await expect(page.locator('#status')).toContainText('I have 3 balls');
 });
 
+test('a link that differs only in tempo, pasted while playing, reaches the player at the next cycle', async ({ page }) => {
+  await page.goto('/#v1.e30');
+  await page.locator('#play').click();
+  await expect(page.locator('#play')).toHaveText('Pause');
+  await page.locator('#hand-0').fill('441');
+  const link = await settledHref(page);
+  await expect(page.locator('#pending')).toBeHidden({ timeout: 5_000 });
+  const payload = new URL(link).hash.slice('#v2.'.length);
+  const json = JSON.parse(atob(payload.replace(/-/g, '+').replace(/_/g, '/')));
+  const faster = '#v2.' + btoa(JSON.stringify({ ...json, t: json.t + 30 })).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+  await page.evaluate((hash) => (location.hash = hash), faster);
+  await expect(page.locator('#bpm')).toHaveValue(String(json.t + 30));
+  // Queued for the next cycle boundary, as any edit while playing.
+  await expect(page.locator('#pending')).toBeVisible();
+  await expect(page.locator('#play')).toHaveText('Pause');
+});
+
 test('a pasted link while stopped does not start anything', async ({ page }) => {
   await page.goto('/#v1.e30');
   const other = await page.context().newPage();
@@ -171,7 +188,7 @@ test('a junk hash loads the defaults and the page works', async ({ page }) => {
     await expect(page.locator('#hand-0')).toHaveValue('3');
     await expect(page.locator('#bpm')).toHaveValue('120');
     await openPanel(page);
-    await expect(page.locator('#sp-preset')).toHaveValue('height-drum');
+    await expect(page.locator('#sp-preset')).toHaveValue('voice-per-part');
     await expect(page.locator('#play')).toBeEnabled();
   }
   expect(errors).toEqual([]);
@@ -194,5 +211,5 @@ test('About keeps the state: its back link returns to the pattern as it was', as
   await expect(page).toHaveURL(/#about$/); // the hash write leaves About alone
   await page.locator('.region-about a', { hasText: 'Back to the pattern' }).click();
   await expect(page.locator('#hand-0')).toHaveValue('441');
-  await expect(page).toHaveURL(/#v1\./);
+  await expect(page).toHaveURL(/#v2\./);
 });
