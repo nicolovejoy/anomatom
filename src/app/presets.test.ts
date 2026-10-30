@@ -1,7 +1,7 @@
 import { describe, expect, test } from 'vitest';
 import bibliography from '../../docs/BIBLIOGRAPHY.md?raw';
 import polyrhythms from '../../docs/POLYRHYTHMS.md?raw';
-import { buildSchedule, cycleOf, judge, textOf } from '../core';
+import { buildSchedule, cycleOf, judge, ratioOf, textOf } from '../core';
 import { presetOf } from '../sound/mapping';
 import { KIT_SAMPLES } from '../tunables';
 import { copy } from '../ui/copy';
@@ -108,6 +108,9 @@ describe('the layered cards', () => {
       expect(p.mapping.parts.length, p.id).toBe(p.parts.length);
       expect(p.mapping.byHeight, p.id).toBe(false);
     }
+  });
+  test('the ratio is the one the parts derive', () => {
+    for (const p of layers) expect(p.ratio, p.id).toEqual(ratioOf(p.parts));
   });
   test('part counts and cycles', () => {
     expect(layers.map((p) => [p.parts.length, p.cycle])).toEqual([[3, 12], [3, 12], [3, 16], [3, 60]]);

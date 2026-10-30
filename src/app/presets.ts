@@ -1,7 +1,7 @@
 // The preset cards as data (docs/POLYRHYTHMS.md "Preset table", docs/plans/model-rethink.md §10):
 // the five juggling cards, then the sourcebook's rows. Pure: no DOM, no timers. Reader-facing
 // words (names, source lines, "listen for") are in `copy.presets`, keyed by `id`.
-import { onsetsOf, partsFromLines, partsFromOnsets, partsFromVanilla, ratioSpacings, withPhase } from '../core';
+import { onsetsOf, partsFromLines, partsFromOnsets, partsFromVanilla, ratioOf, ratioSpacings, withPhase } from '../core';
 import type { Part, Parts, PartsResult, Ratio } from '../core';
 import { applyPreset, withPartCount } from '../sound/mapping';
 import type { Mapping, Sample } from '../sound/mapping';
@@ -76,13 +76,13 @@ interface Layers {
   readonly phases?: readonly { readonly part: number; readonly pulses: number }[];
 }
 
-/** Layered cards sit behind "more". Their ratio is 1:1: the store's ratio is a two-hand idea and these have more hands. */
+/** Layered cards sit behind "more". Their ratio is the one the parts derive (ratioOf), which is what the store holds after a load. */
 function layered(row: Layers): Preset {
   const lines = row.texts.map((t) => t.split(' ').map((d) => d !== '0'));
   const made = partsFromOnsets(lines, row.spacings ?? lines.map(() => 1));
   const parts = (row.phases ?? []).reduce((acc, ph) => withPhase(acc, ph.part, ph.pulses, 1), made);
   const { id, texts, bpm, sourceUrl, cycle } = row;
-  return { id, kind: 'sourcebook', texts, parts, ratio: { a: 1, b: 1 }, bpm, mapping: voiced(row.voices), sourceUrl, balls: parts.length, cycle, first: false };
+  return { id, kind: 'sourcebook', texts, parts, ratio: ratioOf(parts), bpm, mapping: voiced(row.voices), sourceUrl, balls: parts.length, cycle, first: false };
 }
 
 /** A sourcebook row: each line of hits is a default part (one ball, the gap to the next hit), so the k knob works. */

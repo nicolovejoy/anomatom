@@ -415,7 +415,7 @@ export const copy = {
     discipline: { name: 'Discipline', source: 'King Crimson, common knowledge', listen: 'A 35-pulse cycle of interlocking guitars. A clave and a cowbell stand in.' },
     'ewe-layers': { name: 'Ewe bell, clap and felt three', source: 'Ewe bell and clap, via ancient-future.com', listen: 'The bell, a clap every three pulses and a felt beat every four: one twelve, three ways.' },
     'mbira-layers': { name: 'Mbira pair with hosho', source: 'Shona mbira, via Afropop', listen: 'Two interlocking hands and a steady rattle under them. A cowbell and a tom stand in for the mbira.' },
-    'clave-layers': { name: 'Clave, cascara and the count', source: 'Son clave, via Ethan Hein; cascara on the standard grid', listen: 'Clave and cascara mesh over a four-pulse count.' },
+    'clave-layers': { name: 'Clave, cascara and the count', source: 'Son clave, via Ethan Hein', listen: 'Clave and cascara mesh over a four-pulse count.' },
     'stack-345': { name: 'Three, four and five', source: 'A plain rate stack, common knowledge', listen: 'Three, four and five beats in the same span. They all meet only once, at the start.' },
   } as Record<string, { name: string; source: string; listen: string }>,
 };
