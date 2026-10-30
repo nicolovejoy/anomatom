@@ -45,12 +45,11 @@ test('an edit reads as custom, and Reset to preset undoes it', async ({ page }) 
   await expect(page.locator('#sp-preset')).toHaveValue('ball-pitch');
 });
 
-test('Space in the drawer is the control’s, not play and pause', async ({ page }) => {
+test('Space on a focused select is the select’s, not play and pause', async ({ page }) => {
   await page.goto('/#v1.e30');
   await openPanel(page);
-  await page.locator('#sp-pad-on').focus();
+  await page.locator('#sp-preset').focus();
   await page.keyboard.press('Space');
-  await expect(page.locator('#sp-pad-on')).toBeChecked();
   await expect(page.locator('#play')).toHaveText('Play');
   await expect(page.locator('#app')).toHaveAttribute('data-events-scheduled', '0');
 });

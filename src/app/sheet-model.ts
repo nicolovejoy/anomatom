@@ -4,6 +4,7 @@
 // `AppState.sheetTab` is which tab is open, or null when the sheet is closed. On a wide screen
 // the sheet is a column that is always open, so a null there shows the last tab instead.
 import type { Ratio } from '../core/types';
+import { LADDER, SHEET } from '../tunables';
 import { copy } from '../ui/copy';
 import { oneInput } from './actions';
 import type { Analysis } from './knobs-model';
@@ -30,6 +31,25 @@ export function dragEnd(open: SheetTab | null, last: SheetTab, dy: number, thres
   if (dy > threshold) return null;
   if (dy < -threshold) return open ?? last;
   return open === null ? last : null;
+}
+
+/** The ladder strip's height: wide, a phone on its side, or a phone with the sheet closed or open. */
+export function ladderHeightPx(wide: boolean, landscape: boolean, shown: SheetTab | null): number {
+  if (wide) return LADDER.heightPx;
+  if (landscape) return SHEET.landscape.ladderPx;
+  return shown === null ? SHEET.ladderPx.closed : SHEET.ladderPx.open;
+}
+
+/** Whether Space belongs to a focused control: a select, a text or number input, a textarea. */
+export function keepsSpace(tagName: string, inputType: string | null): boolean {
+  const tag = tagName.toLowerCase();
+  if (tag === 'select' || tag === 'textarea') return true;
+  return tag === 'input' && (inputType === 'text' || inputType === 'number');
+}
+
+/** Home and End in the tab list: the first or last tab. */
+export function edgeTab(edge: 'first' | 'last'): SheetTab {
+  return TABS[edge === 'first' ? 0 : TABS.length - 1] as SheetTab;
 }
 
 /** Arrow keys in the tab list: the next or previous tab, wrapping. */

@@ -254,7 +254,7 @@ export const KIT_SAMPLES: readonly string[] = [
 
 /**
  * The kits a part may name, by smplr's DrumMachine instrument id; the hash accepts only these, and the
- * Kit select lists them in this order. Licences: docs/plans/v2-share-kits-passing.md, ruling 6.
+ * Kit select lists them in this order. Licences: docs/plans/v2-share-kits-passing.md, ruling 7.
  */
 export const KIT_IDS: readonly string[] = ['TR-808', 'Casio-RZ1', 'LM-2', 'MFB-512', 'Roland CR-8000'];
 
@@ -530,6 +530,11 @@ export const SHEET = {
   openHeightDvh: 62,
   /** The ladder strip's height on a phone, sheet closed and open; a wide screen uses LADDER.heightPx. */
   ladderPx: { closed: 112, open: 92 },
+  /**
+   * A phone on its side (narrower than wideMinWidthPx, at most maxHeightPx tall): the stage and
+   * the sheet sit side by side, the sheet a column of columnPx, the ladder ladderPx tall.
+   */
+  landscape: { maxHeightPx: 480, columnPx: 360, ladderPx: 96 },
   /** A drag on the handle longer than this opens or closes the sheet; shorter is a tap. */
   dragPx: 24,
   /** A pattern this long or longer is drawn smaller in the closed sheet's summary. */
