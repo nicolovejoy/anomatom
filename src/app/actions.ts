@@ -3,11 +3,12 @@
 // nowhere else. Pure: no DOM, no timers.
 //
 // - Every action clears `notice` first; only a reset sets it again.
-// - Editing a draft parses it. At 1:1 the one input is vanilla siteswap, or form 2 (`a / b`, two
-//   parts at phase 0, spacing 1, unit 1) when it holds a `/`; at other ratios each input is one
-//   hand in one-hand counting. A parse that fails keeps the draft and leaves the parts alone; one
-//   that succeeds writes manual throws for the edited part's cross group (a default part an `x`
-//   now lands in becomes manual with the throws its default rule had).
+// - Editing a draft parses it and edits flights, never grids (see `parseDraft`). At 1:1 the one
+//   input is vanilla siteswap over two parts, or form 2 (`a / b`) when it holds a `/` (or the
+//   state has one part); at other ratios each input is one hand in one-hand counting. A parse that
+//   fails keeps the draft and leaves the parts alone; one that succeeds writes manual throws for
+//   the edited part's cross group (a default part an `x` now lands in becomes manual with the
+//   throws its default rule had).
 // - A manual group (one with any manual part) has no ball knob: setK is ignored on it. A change
 //   to its onsets (toggleOnset, generate, or setPhase on a group of several parts, whose crosses
 //   would move) drops its manual flights and re-derives every part of it by the default rule at
@@ -21,7 +22,6 @@ import {
   isVanillaPair,
   judge,
   lcm,
-  linesParts,
   normalise,
   onsetsOf,
   parseThrows,
@@ -36,7 +36,7 @@ import {
 } from '../core';
 import type { ParseError, Part, PartIndex, Parts, Ratio, Throw } from '../core';
 import type { Mapping } from '../sound/mapping';
-import { BPM_RANGE, MAX_PHASE_REFINEMENT, MAX_RATIO } from '../tunables';
+import { BPM_RANGE, MAX_EDITOR_PARTS, MAX_PHASE_REFINEMENT, MAX_RATIO } from '../tunables';
 import { copy } from '../ui/copy';
 import type { AppState } from './state';
 
@@ -57,15 +57,34 @@ export const oneInput = (ratio: Ratio): boolean => ratio.a === ratio.b;
 
 export type DraftResult = { readonly ok: true; readonly parts: Parts } | { readonly ok: false; readonly error: ParseError };
 
-/** What `editDraft` would make of `text` typed in input `part`: the whole new parts, or the parse error. */
+/**
+ * What `editDraft` would make of `text` typed in input `part`: the whole new parts, or the parse
+ * error. A draft edits flights, never grids (ruling 2026-10-29): the parts it names keep their
+ * spacing, phase and unit, so a refined lattice stays refined; a part the text adds comes in at
+ * phase 0 on the last part's spacing, and a part it drops is removed. Only a vanilla pair's grids
+ * belong to its notation: vanilla text lays out its own, and `a / b` typed over a vanilla pair
+ * starts from spacing 1, phase 0, unit 1. The editor writes at most MAX_EDITOR_PARTS parts.
+ */
 export function parseDraft(state: Pick<AppState, 'parts' | 'ratio'>, part: PartIndex, text: string): DraftResult {
   if (oneInput(state.ratio)) {
-    if (!text.includes('/')) {
+    // A single string is vanilla over two parts; over one part it is that part's line.
+    if (!text.includes('/') && state.parts.length === 2) {
       const r = partsFromVanilla(text);
       return r.ok ? r : { ok: false, error: r.error };
     }
     const r = parseThrows(text);
-    return r.ok ? { ok: true, parts: linesParts(r.throws, r.throws.map(() => 1)) } : r;
+    if (!r.ok) return r;
+    if (r.parts > MAX_EDITOR_PARTS) return { ok: false, error: { kind: 'too-many-parts', max: MAX_EDITOR_PARTS } };
+    const base: Parts = isVanillaPair(state.parts) ? [] : state.parts;
+    const spacing = base[base.length - 1]?.spacing ?? 1;
+    const grid = (i: number) => base[i] ?? { spacing, phase: 0, unit: spacing };
+    return {
+      ok: true,
+      parts: r.throws.map((line, i): Part => {
+        const { spacing: s, phase, unit } = grid(i);
+        return { spacing: s, phase, unit, flights: { kind: 'manual', throws: line.map((t) => ({ height: t.height * unit, to: t.to })) } };
+      }),
+    };
   }
   const slash = text.indexOf('/');
   if (slash >= 0) return { ok: false, error: { kind: 'bad-char', index: slash } };
@@ -77,7 +96,7 @@ export function parseDraft(state: Pick<AppState, 'parts' | 'ratio'>, part: PartI
   const group = groupOf(edited, part);
   return {
     ok: true,
-    parts: normalise(edited.map((p, i) => (group.includes(i) && p.flights.kind === 'default' ? manualPart(p, throwsOf(p)) : p))),
+    parts: edited.map((p, i) => (group.includes(i) && p.flights.kind === 'default' ? manualPart(p, throwsOf(p)) : p)),
   };
 }
 

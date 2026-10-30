@@ -6,7 +6,9 @@ export type ParseError =
   | { readonly kind: 'bad-char'; readonly index: number }
   | { readonly kind: 'too-long'; readonly max: number }
   /** An `x` with no part to go to: one part, a bare `x` among three or more, or a wrong number. */
-  | { readonly kind: 'bad-target'; readonly index: number };
+  | { readonly kind: 'bad-target'; readonly index: number }
+  /** More parts than the editor shows (the app's rule, never the parser's: stream B ruling). */
+  | { readonly kind: 'too-many-parts'; readonly max: number };
 
 export type ThrowsResult =
   | { readonly ok: true; readonly throws: Throw[][]; readonly parts: number }

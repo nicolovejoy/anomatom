@@ -19,7 +19,7 @@
 // the defaults, numbers clamped to their ranges). Parts that do not make a sound model (a wrong
 // type, a height off its unit, a cross to no part, a cycle past MAX_LINK_CYCLE) give the default
 // pattern.
-import { cycleOf, normalise, parseThrows, partsFromLines, partsFromVanilla } from '../core';
+import { cycleOf, mod, normalise, parseThrows, partsFromLines, partsFromVanilla } from '../core';
 import type { Part, PartFlights, Parts, Ratio, Throw } from '../core';
 import { decodeMapping, encodeMapping } from '../sound/mapping-hash';
 import {
@@ -38,11 +38,13 @@ const PREFIX = '#v2.';
 /** Longest pattern text accepted from a v1 link. */
 const MAX_PATTERN_CHARS = 64;
 
+/** A part in short keys. A default part's phase is stored within its period (spacing × beats), where it means the same. */
 function encodePart(p: Part): Record<string, unknown> {
-  const grid = { s: p.spacing, f: p.phase, u: p.unit };
-  return p.flights.kind === 'default'
-    ? { ...grid, o: p.flights.onsets.map((on) => (on ? '1' : '0')).join(''), k: p.flights.k }
-    : { ...grid, t: p.flights.throws.map((t) => [t.height, t.to]) };
+  if (p.flights.kind === 'default') {
+    const { onsets, k } = p.flights;
+    return { s: p.spacing, f: mod(p.phase, p.spacing * onsets.length), u: p.unit, o: onsets.map((on) => (on ? '1' : '0')).join(''), k };
+  }
+  return { s: p.spacing, f: p.phase, u: p.unit, t: p.flights.throws.map((t) => [t.height, t.to]) };
 }
 
 export function encodeState(state: Pick<AppState, 'parts' | 'ratio' | 'bpm' | 'mapping'>): string {

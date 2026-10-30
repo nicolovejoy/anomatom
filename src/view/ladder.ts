@@ -10,7 +10,7 @@
 // Schedule's stand-in flights for it (each onset to its next one), with no ball, `broken` set,
 // drawn grey.
 import { ballColours } from './colours';
-import { isCoincident, onBeat, type Hand } from './grids';
+import { catchPart, handOf, isCoincident, onBeat, type Hand } from './grids';
 import type { Segment } from './types';
 
 export interface LadderView {
@@ -120,12 +120,11 @@ export function ladderFrame(segments: readonly Segment[], now: number, layout: L
         // retiming does not move the bar in pulses: it is visible only through time (axisPulse),
         // as the next segment's pulse length changes how fast the strip scrolls past it.
         if (next && launch + e.flight > B) land = nextOrigin + (launch + e.flight - B);
-        const from = e.part as Hand;
         bars.push({
           x0: u0 + launch - start,
           x1: land - start,
-          from,
-          to: e.cross ? ((1 - from) as Hand) : from,
+          from: handOf(e.part),
+          to: handOf(catchPart(seg.schedule, e)),
           ball: e.ball,
           colour: e.ball === null ? null : (colour[i]?.get(e.ball) as number),
           height: e.height,

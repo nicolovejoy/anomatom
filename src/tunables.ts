@@ -156,6 +156,8 @@ export const MAX_PHASE_REFINEMENT = 64;
 // Model B: app model, actions and hash (docs/plans/model-waves.md)
 // ---------------------------------------------------------------------------------------------
 
+/** Most parts the pattern editor writes: two hands are on screen in this wave. */
+export const MAX_EDITOR_PARTS = 2;
 /** Most parts a share link may carry; a link with more falls back to the default pattern. */
 export const MAX_PARTS = 8;
 /** Longest cycle, in pulses, a share link may ask for; a longer one falls back to the default pattern. */
@@ -311,26 +313,11 @@ export const KNOBS = {
 
 /** The broken pattern's strip (SPEC §4.2), and the accent mark at coincident cross landings (SPEC §7.3). */
 export const LADDER_E = {
-  /** The ghost's flights that collide with nothing (the colliding ones take KNOBS.warning). */
+  /** A faulted group's flights on the strip (no ball, design §6). */
   greyBar: '#596070',
   /** The accent: a triangle on the catching hand's lane, pointing into the strip. */
   accent: '#ffffff',
   accentPx: 7,
-  /**
-   * The ghost: the broken pattern on its own short strip above the one that plays (board 1b),
-   * each flight a thin line from the throwing lane to the catching lane, colliding flights in
-   * the warning colour meeting at a ring on the landing pulse, and a small label.
-   */
-  ghost: {
-    heightPx: 60,
-    lanePaddingPx: 20,
-    linePx: 3,
-    alpha: 0.6,
-    ringPx: 7,
-    ringLinePx: 2,
-    labelFont: '11px "IBM Plex Mono", ui-monospace, monospace',
-    label: '#8b93a1',
-  },
 } as const;
 
 // ---------------------------------------------------------------------------------------------

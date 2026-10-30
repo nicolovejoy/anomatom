@@ -146,6 +146,23 @@ test('a link pasted while playing lands at the next cycle: no restart, no stop',
   await expect(page.locator('#status')).toContainText('I have 3 balls');
 });
 
+test('a link that differs only in tempo, pasted while playing, reaches the player at the next cycle', async ({ page }) => {
+  await page.goto('/#v1.e30');
+  await page.locator('#play').click();
+  await expect(page.locator('#play')).toHaveText('Pause');
+  await page.locator('#hand-0').fill('441');
+  const link = await settledHref(page);
+  await expect(page.locator('#pending')).toBeHidden({ timeout: 5_000 });
+  const payload = new URL(link).hash.slice('#v2.'.length);
+  const json = JSON.parse(atob(payload.replace(/-/g, '+').replace(/_/g, '/')));
+  const faster = '#v2.' + btoa(JSON.stringify({ ...json, t: json.t + 30 })).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+  await page.evaluate((hash) => (location.hash = hash), faster);
+  await expect(page.locator('#bpm')).toHaveValue(String(json.t + 30));
+  // Queued for the next cycle boundary, as any edit while playing.
+  await expect(page.locator('#pending')).toBeVisible();
+  await expect(page.locator('#play')).toHaveText('Pause');
+});
+
 test('a pasted link while stopped does not start anything', async ({ page }) => {
   await page.goto('/#v1.e30');
   const other = await page.context().newPage();

@@ -1,10 +1,12 @@
 import { describe, expect, test } from 'vitest';
-import { judge, partsFromLines, partsFromOnsets, textOf, throwsOf } from '../core';
+import { judge, partsFromLines, partsFromOnsets, textOf, throwsOf, withPhase } from '../core';
 import type { Part, Parts } from '../core';
 import { applyPreset } from '../sound/mapping';
 import { lineParts, typed, vanillaParts } from '../test/schedules';
 import { BPM_RANGE } from '../tunables';
 import { groupOf, isManualGroup, parseDraft, reduce, rescale, type Action } from './actions';
+import { derived } from './derived';
+import { fixActions } from './knobs-model';
 import { defaultState, type AppState } from './state';
 
 const one = { a: 1, b: 1 };
@@ -53,10 +55,64 @@ describe('editDraft', () => {
       [1, 0, 1],
     ]);
     expect(s.drafts).toEqual(['3 / 3', null]);
-    // Three parts: the drafts follow the parts.
+    // Two hands on screen: the editor writes at most two parts.
     const three = reduce(s, { type: 'editDraft', part: 0, text: '1 / 1 / 1' });
-    expect(three.parts.length).toBe(3);
-    expect(three.drafts).toEqual(['1 / 1 / 1', null, null]);
+    expect(three.parts).toBe(s.parts);
+    expect(parseDraft(s, 0, '1 / 1 / 1')).toEqual({ ok: false, error: { kind: 'too-many-parts', max: 2 } });
+  });
+
+  test('a draft edits flights, never grids: phases, spacings and a refined lattice stay', () => {
+    const clapping = on('xxx.xx.x.xx.');
+    const s = at(withPhase(partsFromOnsets([clapping, clapping], [1, 1]), 1, 3, 1));
+    const text = texts(s.parts).join(' / ');
+    const again = reduce(s, { type: 'editDraft', part: 0, text });
+    expect(again.parts.map((p) => [p.spacing, p.phase, p.unit])).toEqual([
+      [1, 0, 1],
+      [1, 3, 1],
+    ]);
+    expect(texts(again.parts)).toEqual(texts(s.parts));
+    // `3 0 / 1 1`, part 2 half a pulse late, then a fix applied: the lattice stays refined.
+    const refined = reduce(typed(['3 0 / 1 1']), { type: 'setPhase', part: 1, phase: 0.5 });
+    expect(refined.parts.map((p) => [p.spacing, p.phase])).toEqual([
+      [2, 0],
+      [2, 1],
+    ]);
+    const d = derived(refined);
+    expect(d.fixes.length).toBeGreaterThan(0);
+    const fixed = fixActions(refined, d.fixTexts[0] as string[]).reduce(reduce, refined);
+    expect(fixed.parts).toEqual(d.fixes[0]);
+    expect(fixed.parts.map((p) => [p.spacing, p.phase, p.unit])).toEqual([
+      [2, 0, 2],
+      [2, 1, 2],
+    ]);
+    // A part the text adds comes in at phase 0 on the last part's spacing; one it drops is gone.
+    const solo = at([{ spacing: 2, phase: 1, unit: 2, flights: { kind: 'default', onsets: [true], k: 1 } }]);
+    const two = reduce(solo, { type: 'editDraft', part: 0, text: '2 / 2' });
+    expect(two.parts.map((p) => [p.spacing, p.phase, p.unit])).toEqual([
+      [2, 1, 2],
+      [2, 0, 2],
+    ]);
+    expect(two.drafts).toEqual(['2 / 2', null]);
+    const three = at(lineParts(['1x2', '1x3', '1x1'], one).map((p, i) => ({ ...p, spacing: i + 1, unit: i + 1 })));
+    const dropped = reduce(three, { type: 'editDraft', part: 0, text: '1 / 1' });
+    expect(dropped.parts.map((p) => [p.spacing, p.unit])).toEqual([
+      [1, 1],
+      [2, 2],
+    ]);
+    expect(dropped.drafts).toEqual(['1 / 1', null]);
+  });
+
+  test('a single string is vanilla over two parts, and one part’s line over one', () => {
+    const s = at(partsFromOnsets([on('x.x')], [1]));
+    const next = reduce(s, { type: 'editDraft', part: 0, text: '4 0 2' });
+    expect(next.parts.length).toBe(1);
+    expect(texts(next.parts)).toEqual(['4 0 2']);
+    expect(next.parts[0]?.flights.kind).toBe('manual');
+    // An x has no other hand to go to.
+    expect(parseDraft(s, 0, '3x')).toMatchObject({ ok: false, error: { kind: 'bad-target' } });
+    // Over two parts the same string is vanilla.
+    const two = at(partsFromOnsets([on('x'), on('x')], [1, 1]));
+    expect(reduce(two, { type: 'editDraft', part: 0, text: '531' }).parts).toEqual(vanillaParts('531'));
   });
 
   test('a failed parse keeps the draft and leaves the parts alone', () => {
@@ -226,7 +282,7 @@ describe('setRatio', () => {
     expect(reduce(d, { type: 'setRatio', ratio: { a: 0, b: 1 } })).toBe(d);
     expect(reduce(d, { type: 'setRatio', ratio: { a: 10, b: 1 } })).toBe(d);
     // Not two parts: only the chips follow.
-    const three = typed(['1 / 1 / 1']);
+    const three = at(lineParts(['1x2', '1x3', '1x1'], one));
     expect(reduce(three, { type: 'setRatio', ratio: threeTwo }).parts).toBe(three.parts);
   });
 

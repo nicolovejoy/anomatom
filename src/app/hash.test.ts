@@ -69,6 +69,10 @@ describe('encodeState', () => {
     const parts = partsFromOnsets([[true, false, true]], [1], [2]);
     const json = atob(payloadOf(encodeState({ ...defaultState(), parts })).replace(/-/g, '+').replace(/_/g, '/'));
     expect(JSON.parse(json).p).toEqual([{ s: 1, f: 0, u: 1, o: '101', k: 2 }]);
+    // A default part's phase is stored within its period (3 beats of 2 pulses), where it means the same.
+    const late = [{ spacing: 2, phase: 13, unit: 2, flights: { kind: 'default' as const, onsets: [true, false, true], k: 1 } }];
+    const lateJson = atob(payloadOf(encodeState({ ...defaultState(), parts: late })).replace(/-/g, '+').replace(/_/g, '/'));
+    expect(JSON.parse(lateJson).p[0].f).toBe(1);
   });
 });
 

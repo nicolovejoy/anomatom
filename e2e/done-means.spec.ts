@@ -93,7 +93,7 @@ test.describe('SPEC 7.2: fractional counts and collisions come with valid fixes'
     // A 0 is a beat with no throw (MATH.md §9.2): flights onto it land where nothing is thrown.
     ['510', 'throw 1 lands in hand 2 on beat 6, where I have nothing to throw'],
   ] as const) {
-    test(`${pattern}: the collision names the throws, and every fix is valid`, async ({ page }) => {
+    test(`${pattern}: the message names the throws (432 collides; 510's two flights land where the 0 is), and every fix is valid`, async ({ page }) => {
       await page.goto('/#v1.e30');
       await hand(page).fill(pattern);
       await expect(status(page)).toContainText(named);
@@ -152,7 +152,11 @@ test.describe('SPEC 7.3: the 3:2 demo', () => {
     await hand(page, 0).fill('2x 2 2');
     await hand(page, 1).fill('2 2x');
     await expect(status(page)).toContainText('lands between');
-    await expect(status(page)).toContainText(/is 6\b[\s\S]*is 12\b|is 12\b[\s\S]*is 6\b/);
+    // The nearest pulse is the catching hand's next onset at or after the landing (MATH.md §9.3).
+    await expect(status(page)).toContainText('The nearest pulse it could land on is 6.');
+    await hand(page, 0).fill('1x 1 1');
+    await hand(page, 1).fill('1 1');
+    await expect(status(page)).toContainText('The nearest pulse it could land on is 3.');
     // The sound is never gated (design §6): Play stays on for a pattern I can't juggle.
       await expect(page.locator('#play')).toBeEnabled();
   });

@@ -21,6 +21,7 @@ import {
   badChar,
   clampBpm,
   cyclePosition,
+  editChanged,
   editText,
   fixActions,
   fixLabel,
@@ -197,8 +198,6 @@ export const mountKnobs: Mount = (root, { store, player, sound }) => {
   let schedule: Schedule = store.derived().schedule;
   let selection: SiteSelection | null = null;
   let swapFailed = false;
-  /** Whether the player has been handed an edit yet. */
-  let previousEdit = false;
   /** The player state the transport controls show. */
   let shownState: PlayerView['state'] = 'stopped';
   /** Where the digit pad types: the last focused input, and each input's caret (null: the end). */
@@ -293,11 +292,6 @@ export const mountKnobs: Mount = (root, { store, player, sound }) => {
     );
     status.classList.toggle('invalid', analysis.balls === null);
     rows.forEach((row, h) => row.classList.toggle('bad', handState(analysis, h) === 'bad'));
-    const next = derived(state).schedule;
-    // A draft that does not read leaves the parts, and so the schedule, as they were.
-    if (next !== schedule || !previousEdit) player.setEdit(next, state.bpm);
-    schedule = next;
-    previousEdit = true;
     scheduleFixes(analysis, state);
     renderMirrors();
     sync();
@@ -360,9 +354,10 @@ export const mountKnobs: Mount = (root, { store, player, sound }) => {
         swapFailed = false;
       }
       check(state);
-    } else if (state.bpm !== previous?.bpm) {
-      player.setEdit(schedule, state.bpm);
     }
+    // The player hears a new schedule, tempo or ratio, whatever else changed with it.
+    schedule = derived(state).schedule;
+    if (editChanged(previous, state)) player.setEdit(schedule, state.bpm);
     const sum = summary(analysis, state.bpm, SHEET.longSummaryChars);
     summaryText.textContent = sum.text;
     summaryMeta.textContent = sum.meta;

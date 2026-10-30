@@ -49,15 +49,18 @@ export const copy = {
         return `I only read digits and x; character ${error.index + 1} isn’t one.`;
       case 'too-long':
         return `I read at most ${error.max} throws per hand.`;
+      case 'too-many-parts':
+        return `I have ${error.max} hands; write at most ${error.max} patterns, with a / between them.`;
       case 'bad-target':
         return `I can’t send the x at character ${error.index + 1} anywhere: it follows a 0, or there is no other hand for it.`;
     }
   },
   /** A fractional mean (MATH.md §9.4), the cheaper of two presentations of one fault. */
   fractional: (balls: number) => `That makes ${Number(balls.toFixed(2))} balls. I can only juggle a whole number.`,
-  /** A cross that lands between the catching hand's beats; `nearest` is the first pulse at or after it where it could land. */
-  crossBetween: (fromHand: number, beat: number, toHand: number, nearest: number) =>
-    `I can’t catch that: the cross from hand ${fromHand + 1} on beat ${beat} lands between hand ${toHand + 1}’s beats. The nearest pulse it could land on is ${nearest}.`,
+  /** A cross that lands between the catching hand's beats; `nearest` is that hand's next onset at or after the landing (null: it has none). */
+  crossBetween: (fromHand: number, beat: number, toHand: number, nearest: number | null) =>
+    `I can’t catch that: the cross from hand ${fromHand + 1} on beat ${beat} lands between hand ${toHand + 1}’s beats.` +
+    (nearest === null ? '' : ` The nearest pulse it could land on is ${nearest}.`),
   /**
    * A flight that lands on a beat where the catching hand has no throw (a 0). `beat` counts from
    * 1: the shared beat at 1:1, the catching hand's own beat otherwise.

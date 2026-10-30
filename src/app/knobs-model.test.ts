@@ -9,6 +9,7 @@ import {
   badChar,
   clampBpm,
   cyclePosition,
+  editChanged,
   editText,
   fixActions,
   fixLabel,
@@ -120,14 +121,36 @@ describe('analyse and the fix state', () => {
     expect(statusLines(r)).toEqual(['Hand 2 pattern: I need a pattern.']);
   });
 
-  test('a cross between the catching hand’s beats names the next pulse it could land on', () => {
+  test('a cross between the catching hand’s beats names that hand’s next onset at or after the landing (MATH.md §9.3)', () => {
     const a = analyse(typed(['2x 2 2', '2 2x'], threeTwo));
     expect(a.balls).toBeNull();
     const lines = statusLines(a);
     expect(lines).toContain('I can’t catch that: the cross from hand 1 on beat 1 lands between hand 2’s beats. The nearest pulse it could land on is 6.');
-    expect(lines).toContain('I can’t catch that: the cross from hand 2 on beat 2 lands between hand 1’s beats. The nearest pulse it could land on is 12.');
+    expect(lines).toContain('I can’t catch that: the cross from hand 2 on beat 2 lands between hand 1’s beats. The nearest pulse it could land on is 10.');
     expect([...warnSites(a, 0)]).toContain(0);
     expect([...warnSites(a, 1)]).toContain(1);
+    expect(statusLines(analyse(typed(['1x 1 1', '1 1'], threeTwo)))).toContain(
+      'I can’t catch that: the cross from hand 1 on beat 1 lands between hand 2’s beats. The nearest pulse it could land on is 3.',
+    );
+    // A catching hand with no onset at all has no nearest one.
+    const empty = analyse(typed(['1x 1 1', '0'], threeTwo));
+    expect(statusLines(empty)).toContain('I can’t catch that: the cross from hand 1 on beat 1 lands between hand 2’s beats.');
+  });
+
+  test('more than two patterns at 1:1 is refused: two hands are on screen', () => {
+    expect(statusLines(analyse(typed(['1 / 1 / 1'])))).toEqual(['I have 2 hands; write at most 2 patterns, with a / between them.']);
+  });
+
+  test('editChanged: the player hears a new schedule, tempo or ratio, even when the schedule object is the same', () => {
+    const s = typed(['441']);
+    expect(editChanged(null, s)).toBe(true);
+    expect(editChanged(s, { ...s, volume: 0.2 })).toBe(false);
+    // A link differing only in tempo: same parts, same schedule object, new bpm.
+    expect(editChanged(s, { ...s, bpm: s.bpm + 1 })).toBe(true);
+    expect(editChanged(s, { ...s, ratio: { a: 2, b: 2 } })).toBe(true);
+    expect(editChanged(s, reduce(s, { type: 'editDraft', part: 0, text: '531' }))).toBe(true);
+    // A draft that does not read leaves the schedule as it was.
+    expect(editChanged(s, reduce(s, { type: 'editDraft', part: 0, text: '5#' }))).toBe(false);
   });
 
   test('at 1:1 `a / b` numbers its sites across the slash', () => {

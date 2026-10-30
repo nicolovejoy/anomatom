@@ -2,7 +2,7 @@
 // values into elements. `Analysis` is a thin view over `derived(state)` (derived.ts): what the
 // inputs show, the indicators, the warning sites, the status lines and the fixes, in the robot's
 // words.
-import { gcd, isVanillaPair, mod, onsetPulses, periodOf, throwsOf, vanillaIndex } from '../core';
+import { gcd, isVanillaPair, mod, periodOf, throwsOf, vanillaIndex } from '../core';
 import type { Fault, ParseError, Part, PartIndex, Parts, Ratio, ThrowId } from '../core';
 import { BPM_RANGE, MAX_RATIO } from '../tunables';
 import { copy, type ThrowRef } from '../ui/copy';
@@ -80,7 +80,6 @@ export function analyse(state: AppState, d: Derived = derived(state)): Analysis 
   };
   const beat = (p: Part, pulse: number) => (pair ? pulse + 1 : beatOf(p, pulse));
 
-  const onsets = onsetPulses(parts, cycle).map((o) => new Set(o));
   // A part's unfed onsets are one line, where its first one is met.
   const lines: (string | PartIndex)[] = d.fractional === null ? [] : [copy.fractional(d.fractional)];
   const unfed = new Map<PartIndex, number[]>();
@@ -97,7 +96,7 @@ export function analyse(state: AppState, d: Derived = derived(state)): Analysis 
       lines.push(copy.collision(refs, f.part, beat(own, f.pulse), pair));
     } else if (f.kind === 'no-onset') {
       mark(f.from);
-      lines.push(noOnsetLine(parts, f, cycle, onsets[f.part] as ReadonlySet<number>, pair, ref(f.from)));
+      lines.push(noOnsetLine(parts, f, cycle, pair, ref(f.from)));
     } else {
       mark({ part: f.part, index: mod((f.pulse - own.phase) / own.spacing, periodOf(own)) });
       const beats = unfed.get(f.part) ?? [];
@@ -111,18 +110,10 @@ export function analyse(state: AppState, d: Derived = derived(state)): Analysis 
 
 /**
  * A flight landing off the catching part's onsets. On one of its beats (a `0`), it lands where
- * that hand has nothing to throw. Between its beats it is a cross, named with the first pulse at
- * or after the landing that its digit could reach (a whole number of the thrower's units on) and
- * that is an onset of the catching part: for two hands at a ratio, the next shared beat.
+ * that hand has nothing to throw. Between its beats it is a cross, named with the catching part's
+ * next onset at or after the landing, as core reports it (MATH.md §9.3).
  */
-function noOnsetLine(
-  parts: Parts,
-  f: Extract<Fault, { kind: 'no-onset' }>,
-  cycle: number,
-  catcherOnsets: ReadonlySet<number>,
-  pair: boolean,
-  who: ThrowRef,
-): string {
+function noOnsetLine(parts: Parts, f: Extract<Fault, { kind: 'no-onset' }>, cycle: number, pair: boolean, who: ThrowRef): string {
   const to = parts[f.part] as Part;
   const landing = mod(f.pulse, cycle);
   if (mod(f.pulse - to.phase, to.spacing) === 0) {
@@ -130,14 +121,7 @@ function noOnsetLine(
   }
   const from = parts[f.from.part] as Part;
   const launch = f.pulse - (throwsOf(from)[f.from.index] as { height: number }).height;
-  let nearest = f.nearestOnset ?? f.pulse;
-  for (let t = f.pulse; t < f.pulse + cycle * from.unit; t += from.unit) {
-    if (catcherOnsets.has(mod(t, cycle))) {
-      nearest = t;
-      break;
-    }
-  }
-  return copy.crossBetween(f.from.part, beatOf(from, mod(launch, cycle)), f.part, nearest);
+  return copy.crossBetween(f.from.part, beatOf(from, mod(launch, cycle)), f.part, f.nearestOnset);
 }
 
 export type HandState = 'hidden' | 'ok' | 'bad' | 'neutral';
@@ -168,6 +152,20 @@ export function badChar(a: Analysis, input: number): number | null {
 /** The status lines under the inputs: the ball count, or every problem, in the robot's words; then any notice. */
 export function statusLines(a: Analysis): readonly string[] {
   return a.lines;
+}
+
+/**
+ * Whether the player must be handed the edit (`setEdit`): the first render, a new schedule, or a
+ * tempo or ratio change, even when the schedule object is the same one (a link that differs only
+ * in tempo). A draft that does not read changes none of these.
+ */
+export function editChanged(previous: AppState | null, state: AppState): boolean {
+  return (
+    previous === null ||
+    derived(previous).schedule !== derived(state).schedule ||
+    previous.bpm !== state.bpm ||
+    previous.ratio !== state.ratio
+  );
 }
 
 // ---------------------------------------------------------------------------------------------
