@@ -1,24 +1,35 @@
 # v2: sharing, kits, passing
 
-Status: drafted 2026-10-29, not started. On hold for a rethink of the mental model: see `docs/plans/rethink-brief.md`. Nico decided: share link always in reach, a few drum kits to choose from, then straight to passing (not independent layers first). Process as in `docs/plans/v1-parallel.md` (Roles and process) and `docs/plans/phone-sheet.md`; one PR per stream, governor merges on green CI after a fresh-eyes review, checkpoint smoke test after each wave.
+Status: wave 1 started 2026-10-30 (governor Fable, session 1191; Nico: "carry on", so the design calls below are the governor's, open to correction at the checkpoint). Drafted 2026-10-29; held for the model rethink, which shipped as `docs/plans/model-rethink.md` and `docs/plans/lanes.md` (parts, N lanes, a `PartVoice` per part with a `kit` field). Nico decided: share link always in reach, a few drum kits to choose from, then straight to passing (not independent layers first). Process as in `docs/plans/lanes.md`: one worktree and branch per stream, implementers never spawn agents, every stream keeps `npm run typecheck`, `npm test` (100% lines per file in `vitest.config.ts`), `npm run e2e` and `npm run build` green and returns screenshot paths; one fresh-eyes review per stream; the governor merges on green CI without asking; checkpoint smoke after the wave, run by the governor headless first (Nico has no time for smokes this week).
 
 ## Wave 1: polish (three parallel streams, small)
 
-**K · Kits** (Sonnet). Owns `src/sound/*`, the Kit select in `mount-sound-panel.ts`, `Mapping` and its hash encoding.
-- Kit select offers the smplr drum machines: TR-808 (default), Casio RZ-1, LinnDrum LM-2, MFB-512, Roland CR-8000. Per kit, the Mapping's height-to-sound table needs a sensible default (each kit names its samples differently); presets ("Height to drum" etc.) resolve per kit.
-- The kit rides in the share link; an old link without one means TR-808.
-- Before building: check the sample licences of each kit in smplr's sample repo; ship only kits whose samples may be redistributed. Record the result here.
-- Done means: switch kit while playing, hear the new kit from the next hit, no silence gap beyond its load; e2e with stubbed CDN.
+### Rulings (governor, 2026-10-30)
 
-**S · Share in reach** (Sonnet). Owns `src/app/share.ts`, `mount-share.ts`, the summary row's share button (one button in A's sheet markup), `hash.ts`.
-- A share button in the closed sheet's summary row (and in the wide layout's header): `navigator.share` where it exists (iPhone gets the native sheet), else copy to clipboard with a "Link copied" status. Removed from the bottom of the Sound tab.
-- Readable links: `#531`, `#531@140`, `#3:2/2-2x-2/2x-2` style for the common cases (pattern, ratio, tempo); the full encoded `#v1.…` form only when the Mapping differs from the kit's default. Old `#v1.…` links still open. Exact grammar decided by the stream and recorded here before code.
-- Done means: unit tests round-trip every first-minute preset through the short form; e2e taps share and reads the clipboard (Chromium).
-- Merges after K (K adds the kit to the encoding).
+1. **Sample names are roles.** The Mapping keeps naming samples in the TR-808 vocabulary (`KIT_SAMPLES`): `kick`, `snare`, `hihat-close`, ... are roles. Each kit carries a table role → its own sample name, applied when a hit reaches the browser kit; a role the kit lacks borrows the nearest (the table says which). So presets, the panel's dropdowns, `perHeight`, `byBall` and the hash are unchanged by kits; only `PartVoice.kit` changes. The hash already carries `kit` per part and `KIT_IDS` already validates it, so an old link without one is TR-808 as it was.
+2. **The Kit select sets every part.** One select, as today; it writes every part's `kit`. A per-part kit stays in the model for passing (juggler 1 on one kit, juggler 2 on another) but has no UI this wave.
+3. **Space.** Space is kept by a `select`, a text or number input and a textarea, nowhere else. A `select` blurs itself after `change`, so Space plays and pauses again at once. `[data-keeps-space]` on the whole Sound panel goes.
+4. **Short links.** `#531` and `#531@140` for one vanilla pattern at 1:1 with the default mapping and default phases; `#3:2/2-2x-2/2x-2` (`-` for the space, `@bpm` optional) for two hands at a ratio, same conditions. Anything else writes `#v2.` as today. The hash is written in the shortest form that round-trips. Stream S records the grammar in `src/app/route.ts` before code and tests every first-minute preset with two parts through it; three or more parts always take `#v2.`.
+5. **Share button.** In the head row, between the summary and Play; on a phone it is an icon with an `aria-label`, on a wide screen the icon too. `navigator.share` with `{ url }` where it exists, else the clipboard with a "Link copied" status next to it; the Sound tab's copy button goes.
 
-**F · Fixes** (Sonnet). Owns `mount-knobs.ts` key handling, `mount-sheet.ts`, `mount-ladder.ts` label, `main.ts` About glyph, `style.css` landscape.
-- Space bar: today the whole sound panel is `[data-keeps-space]`, so once a select there has focus, Space never reaches play/pause. Only a select that is open, or a text field, keeps Space; after a select's `change`, Space plays/pauses again. e2e: change Kit, press Space, playback toggles.
-- The PR 27 review backlog in `docs/plans/phone-sheet.md`: About "?" into `copy.ts`; ghost label via `sheet-model.ts`; phone landscape under 760 px fits without the sheet leaving the screen (screenshot 667×375); Home/End on the tabs.
+### Streams
+
+**F · Fixes** (Sonnet). Owns `mount-knobs.ts` key handling, `mount-sheet.ts`, `sheet-model.ts`, `mount-ladder.ts` label, `main.ts` About glyph, `style.css` and `sheet.css` landscape, `mount-sound-panel.ts` only to drop `data-keeps-space` and add the blur after `change`.
+- Ruling 3. e2e: open the Sound tab, change the Kit or a preset select, press Space, playback toggles.
+- The PR 27 review backlog in `docs/plans/phone-sheet.md`: About "?" into `copy.ts`; the ghost-strip label via `summary()` in `sheet-model.ts`; phone landscape under 760 px (screenshot 667×375: juggler, ladder and the closed sheet all on screen, no page scroll); Home/End on the tabs.
+- Done means: unit tests for the sheet-model changes; the e2e above; screenshot 667×375.
+
+**K · Kits** (Opus). Owns `src/sound/*` (rename `tr808.ts` to `drum-machine.ts` or add beside it), the Kit select in `mount-sound-panel.ts` and `sound-panel-model.ts`, the kits section of `tunables.ts`, kit names in `copy.ts`.
+- Before code: open the licence of each kit in smplr's sample source (https://github.com/smpldsnds/drum-machines, and the per-kit README or source it names); ship only kits whose samples may be redistributed; record the result and the URLs opened in this file under Rulings. Candidates: TR-808 (default), Casio RZ-1, LinnDrum LM-2, MFB-512, Roland CR-8000 (smplr ids `TR-808`, `Casio-RZ1`, `LM-2`, `MFB-512`, `Roland CR-8000`).
+- Ruling 1: a `KIT_ROLES` tunable, one table per kit, role → sample (read each kit's `dm.json` once to fill it; every TR-808 role has an entry in every kit, borrowing where the kit lacks one). `KIT_IDS` lists the shipped kits. The browser kit factory takes the kit id, keeps the one-loader-per-context queue, caches a loaded kit per context and kit so switching back is silent-free.
+- Ruling 2: the Kit select writes every part's `kit` through one action or mapping edit; `presetOf` ignores `kit` when deciding the preset name only if that is how it already works (check; record).
+- Done means: unit tests with fakes for the role tables (every kit covers every role), the factory cache, and the edit; a 3-part link plays on a second kit (unit test on `hitFor` and the kit resolution); e2e with the stubbed CDN (`e2e/sound-download.spec.ts` pattern): switch kit while playing, hear from the next hit, no error.
+
+**S · Share in reach** (Sonnet). Owns `src/app/share.ts`, `mount-share.ts`, `route.ts`, `hash.ts` (the short grammar only), the share button in the head row (`mount-knobs.ts` head markup and its CSS), removal of `#sp-copy` from `mount-sound-panel.ts`, share copy in `copy.ts`.
+- Rulings 4 and 5. Old `#v1.` and `#v2.` links still open; `#about` untouched.
+- Done means: unit tests round-trip every two-part first-minute preset through the short form and prove a changed mapping or phase falls back to `#v2.`; e2e taps share with `navigator.share` absent and reads the clipboard (Chromium); screenshot of the head row at 390 wide.
+
+Merge order: F, K, S (S rebases over F's head-row and sound-panel edits; K and S do not meet in the hash). Then checkpoint: governor smokes headless, then posts a short smoke for Nico.
 
 ## Wave 2: passing
 
