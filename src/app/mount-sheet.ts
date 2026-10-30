@@ -7,10 +7,10 @@
 // the tabs and the handle (the summary button in mount-knobs.ts and "Make your own" write it
 // too). The panels' content comes from mount-knobs.ts (Pattern, Rhythm, and the head with
 // the summary and Play) and mount-sound-panel.ts (Sound). The logic is in sheet-model.ts.
-import { LADDER, SHEET } from '../tunables';
+import { SHEET } from '../tunables';
 import { copy } from '../ui/copy';
 import type { Mount } from './mount';
-import { dragEnd, pressTab, shownTab, stepTab, TABS } from './sheet-model';
+import { dragEnd, edgeTab, ladderHeightPx, pressTab, shownTab, stepTab, TABS } from './sheet-model';
 import type { SheetTab } from './state';
 import './sheet.css';
 
@@ -27,8 +27,12 @@ export const mountSheet: Mount = (root, { store }) => {
   const panels = TABS.map((t) => $<HTMLDivElement>(`#panel-${t}`));
 
   const wideQuery = window.matchMedia(`(min-width: ${SHEET.wideMinWidthPx}px)`);
+  const landscapeQuery = window.matchMedia(
+    `(max-width: ${SHEET.wideMinWidthPx - 1}px) and (max-height: ${SHEET.landscape.maxHeightPx}px) and (orientation: landscape)`,
+  );
   let last: SheetTab = 'pattern';
   app.style.setProperty('--sheet-column', `${SHEET.columnPx}px`);
+  app.style.setProperty('--sheet-landscape-column', `${SHEET.landscape.columnPx}px`);
   app.style.setProperty('--sheet-open-height', `${SHEET.openHeightDvh}dvh`);
 
   function render() {
@@ -36,12 +40,11 @@ export const mountSheet: Mount = (root, { store }) => {
     const open = store.get().sheetTab;
     if (open) last = open;
     const shown = shownTab(open, last, wide);
+    const landscape = !wide && landscapeQuery.matches;
     app.classList.toggle('is-wide', wide);
+    app.classList.toggle('is-landscape', landscape);
     app.classList.toggle('sheet-open', shown !== null);
-    app.style.setProperty(
-      '--ladder-height',
-      `${wide ? LADDER.heightPx : shown === null ? SHEET.ladderPx.closed : SHEET.ladderPx.open}px`,
-    );
+    app.style.setProperty('--ladder-height', `${ladderHeightPx(wide, landscape, shown)}px`);
     TABS.forEach((t, i) => {
       const tab = tabs[i] as HTMLButtonElement;
       const on = t === shown;
@@ -63,9 +66,10 @@ export const mountSheet: Mount = (root, { store }) => {
     tab.addEventListener('keydown', (e) => {
       const back = e.key === 'ArrowLeft';
       const forward = e.key === 'ArrowRight';
-      if (!(back || forward) || e.ctrlKey || e.metaKey || e.altKey) return;
+      const edge = e.key === 'Home' ? 'first' : e.key === 'End' ? 'last' : null;
+      if (!(back || forward || edge) || e.ctrlKey || e.metaKey || e.altKey) return;
       e.preventDefault();
-      const next = stepTab(t, back ? -1 : 1);
+      const next = edge ? edgeTab(edge) : stepTab(t, back ? -1 : 1);
       setTab(next);
       (tabs[TABS.indexOf(next)] as HTMLButtonElement).focus();
     });
@@ -106,6 +110,7 @@ export const mountSheet: Mount = (root, { store }) => {
   });
 
   wideQuery.addEventListener('change', render);
+  landscapeQuery.addEventListener('change', render);
   store.subscribe((state, previous) => {
     if (state.sheetTab !== previous.sheetTab) render();
   });

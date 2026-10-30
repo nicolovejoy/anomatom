@@ -21,7 +21,7 @@ if (app) {
   app.innerHTML = `
     <header class="topbar">
       <h1 class="wordmark">${copy.title}</h1>
-      <a href="#about" class="about-link" aria-label="${copy.aboutButtonLabel}">?</a>
+      <a href="#about" class="about-link" aria-label="${copy.aboutButtonLabel}">${copy.aboutButtonGlyph}</a>
     </header>
     <div class="play-view">
       <div class="stage">

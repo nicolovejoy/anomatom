@@ -7,8 +7,8 @@
 // preloads what the new mapping needs and is read on the next look-ahead tick), so a
 // Mapping restored from a share link reaches the sound the same way a panel edit does.
 //
-// Everything inside the panel is `[data-keeps-space]`: Space belongs to the focused select,
-// checkbox or button there, not to play and pause.
+// A select hands focus to Play after `change`, so Space plays and pauses again at once (a
+// focused select keeps Space; see keepsSpace in sheet-model.ts).
 import {
   PAD_CHORD_IDS,
   PAD_INSTRUMENT_IDS,
@@ -56,7 +56,7 @@ export const mountSoundPanel: Mount = (root, { store, player }) => {
     ).join('');
 
   root.innerHTML = `
-    <div id="sound-panel" class="sound-panel" data-keeps-space>
+    <div id="sound-panel" class="sound-panel">
       <div class="sp-row">
         <label for="sp-kit">${copy.kitLabel}</label>
         <select id="sp-kit">${['TR-808'].map((k) => `<option value="${k}">${copy.kitNames[k as 'TR-808']}</option>`).join('')}</select>
@@ -182,6 +182,12 @@ export const mountSoundPanel: Mount = (root, { store, player }) => {
     padInstrument.value = m.pad.instrument;
     padChord.value = m.pad.chord;
   }
+
+  // A select hands focus to Play once a choice is made, so Space plays and pauses again at once.
+  // (On Windows and Linux an Arrow key on a closed select fires `change`, so it moves focus too; accepted.)
+  root.addEventListener('change', (e) => {
+    if (e.target instanceof HTMLSelectElement) document.getElementById('play')?.focus();
+  });
 
   // Controls -> edits.
   preset.addEventListener('change', () => edit({ kind: 'preset', name: preset.value as PresetName }));
