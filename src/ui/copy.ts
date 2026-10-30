@@ -140,6 +140,69 @@ export const copy = {
     'From your pattern I build a list of Events: a throw or a catch, in a hand, at a whole-number pulse. I turn pulses into seconds only when I schedule a sound or draw a frame.',
     'The Mapping decides what each Event sounds like: which drum, how long, how loud, and which side. The sound panel edits the Mapping and nothing else does.',
   ],
+  /**
+   * One section per layer of the model (docs/plans/model-rethink.md §3). Numbers in brackets are
+   * the bibliography's. Only entries opened and checked are cited: 1, 5, 13, 16, 18, 19, 20, 22.
+   */
+  aboutLayers: [
+    {
+      heading: 'Time and the lattice',
+      paragraphs: [
+        'I count time in whole pulses. A pulse is the largest step that every hand’s beats fall on, so I never use a fraction of one.',
+        'I turn pulses into seconds only when I schedule a sound or draw a frame. If you ask a hand to start between two pulses, I make the pulses finer until it fits.',
+      ],
+    },
+    {
+      heading: 'Grids: ratio and displacement',
+      paragraphs: [
+        'A hand throws on a grid: beats a fixed number of pulses apart, starting at a phase. Two grids with different spacing are a polyrhythm in the strict sense, such as 3 against 2.',
+        'Two grids with the same spacing and a different phase are a displacement, as in Clapping Music. Krebs separates the two as grouping dissonance, layers that do not fit, and displacement dissonance, layers that fit and are not aligned [19]. So 1:1 can mean two different things, and I treat them as one setting.',
+        'My grids are even. Beats that are unevenly spaced are not something I play.',
+      ],
+    },
+    {
+      heading: 'Lines, necklaces and Euclidean rhythms',
+      paragraphs: [
+        'A line is the pattern of hits on a grid, repeated. A line that repeats has no first beat, so turning it gives the same necklace [16, 18].',
+        'Some well-known lines are Euclidean: E(k, n) spreads k hits over n pulses as evenly as it can. Toussaint shows E(3, 8) as the tresillo, E(4, 9) as Brubeck’s Rondo a la Turk, E(7, 12) as a common West African bell pattern and E(5, 16) as the bossa-nova necklace [16].',
+        'Son clave is not one of them. Its gaps are 3, 3, 4, 2 and 4, three different lengths, so it is nearly even and not maximally even. It stays a preset.',
+      ],
+    },
+    {
+      heading: 'Flights, objects and k balls',
+      paragraphs: [
+        'A hit can be a throw. It flies to a later hit, in the same hand or the other, and carries one ball. The balls are the paths those flights make, and I count them.',
+        'For a pattern I can juggle, the average of the digits is the number of balls. Buhler and his co-authors treat juggling sequences this way [1], and so does Polster’s survey [5].',
+        'So any line of hits is a pattern I can juggle with one ball: each throw is as long as the gap to the next hit. Give a hand k balls and each throw flies k hits ahead. That changes my picture and not my sound.',
+      ],
+    },
+    {
+      heading: 'Parts, streams and inherent patterns',
+      paragraphs: [
+        'A part is a hand: a grid, a line and a phase. Listeners do not hear parts. They hear streams, notes the ear gathers into one line. Bregman’s book introduces the auditory stream [20].',
+        'Kubik described how, in East and Central African instrumental music, the ear groups notes into patterns that conflict with each other, and no player plays them [22]. The mbira card is the one to listen to for that: two hands interlock and a third line appears.',
+      ],
+    },
+    {
+      heading: 'Notation',
+      paragraphs: [
+        'I write a pattern three ways. Vanilla siteswap, as in 531, for two hands. Digits for each hand, as in 2 2x 2 / 2x 2: a digit is a flight length in that hand’s own beats, a 0 is a beat with no throw and an x sends the throw to the other hand.',
+        'The third is Multihand Notation, which Juggling Lab keeps inside: a matrix of hands and event times, named for Ed Carstens [13]. It has no standard text form. I do not read it yet.',
+      ],
+    },
+  ] as readonly { heading: string; paragraphs: readonly string[] }[],
+  aboutPresetsHeading: 'Where the cards come from',
+  aboutPresets: [
+    'Each rhythm card is the skeleton that musicians and ethnomusicologists agree defines the style. It is not a transcription of a recording. The tempi are my starting points.',
+    'Where a card names a page, I opened that page. Where it says standard grid, the positions come from the common reference grids, such as the ones in Toussaint’s book [18], and I opened no page for that card.',
+    'I play every card on a TR-808. Where a rhythm wants a kalimba or a pluck, a cowbell, a clave or a conga stands in until I have more kits.',
+  ],
+  aboutPresetSourceNone: 'No page opened: standard grid',
+  aboutColotomyHeading: 'A note on the gong cycle',
+  aboutColotomy: [
+    'Javanese and Balinese music nests its time: the big gong once per cycle, kempul and kenong at halves and quarters, kethuk at finer points. That is called colotomic structure.',
+    'It is not a polyrhythm, because every level is a power of two. But my cycle marker and my downbeat accent are a colotomy with two levels.',
+  ],
   aboutReadingHeading: 'What I read',
   aboutReadingIntro: 'The numbers are the ones the math notes cite.',
   aboutCreditsHeading: 'Credits',
@@ -277,18 +340,47 @@ export const copy = {
 
   firstMinute: {
     line: 'I juggle a pattern and play every throw as a drum. Pick one.',
-    names: {
-      cascade: 'Cascade',
-      pause: 'Three balls, a pause',
-      classic: 'High, middle, low',
-      ramp: 'Five balls, a ramp',
-      polyrhythm: 'Two hands, 3 against 2',
-    } as Record<string, string>,
     playingSuffix: ' · playing',
     makeYourOwn: 'Make your own',
     pause: 'Pause',
+    more: 'More rhythms',
+    fewer: 'Fewer rhythms',
+    /** The control's screen-reader label: how many cards it reveals. */
+    moreLabel: (count: number) => `Show ${count} more rhythms from around the world`,
+    fewerLabel: 'Show only the first rhythms',
+    bpm: (bpm: number) => `${bpm} bpm`,
     cardLabel: (pattern: string, name: string, playing: boolean) => `${pattern}, ${name}${playing ? ', playing' : ''}`,
   },
+
+  // -------------------------------------------------------------------------------------------
+  // Presets: the sourcebook's rows (docs/POLYRHYTHMS.md), keyed by Preset.id. `source` is a noun
+  // phrase for a card's footer; `listen` is the one thing to listen for.
+  // -------------------------------------------------------------------------------------------
+
+  presets: {
+    cascade: { name: 'Cascade', source: 'Siteswap notation', listen: 'Three balls, one throw at a time.' },
+    pause: { name: 'Three balls, a pause', source: 'Siteswap notation', listen: 'Two high throws, then a low one.' },
+    classic: { name: 'High, middle, low', source: 'Siteswap notation', listen: 'Three heights, three drums.' },
+    ramp: { name: 'Five balls, a ramp', source: 'Siteswap notation', listen: 'Five balls stepping down.' },
+    polyrhythm: { name: 'Two hands, 3 against 2', source: 'Siteswap notation', listen: 'The crosses land only where the two grids meet.' },
+    bell: { name: 'Standard bell', source: 'Ewe gankogui bell and clap', listen: 'The bell flips between a two feel and a three feel.' },
+    'son-clave': { name: 'Son clave 3-2', source: 'Son clave, via Ethan Hein', listen: 'The first three hits lean toward triple against the straight four.' },
+    clapping: { name: 'Clapping Music', source: 'Steve Reich, 1972', listen: 'Hand 2 is three pulses late, one of the two famous positions.' },
+    afrobeat: { name: 'Afrobeat hat and kick', source: 'Tony Allen, via Modern Drummer', listen: 'The hat’s 3+3+2 fights the kick’s four.' },
+    rumba: { name: 'Rumba clave', source: 'Afro-Cuban rumba clave, standard grid', listen: 'One hit later than son, and more tension.' },
+    cascara: { name: 'Cascara over clave', source: 'Cuban timbales, standard grid', listen: 'Two sixteen-pulse lines interlock. The ladder shows the mesh.' },
+    kotekan: { name: 'Kotekan telu', source: 'Balinese kotekan, via Wikipedia', listen: 'Every pulse is struck, the shared one by both hands, and it sounds like one line.' },
+    hocket: { name: 'Hocket', source: 'Kotekan nyog cag, via Wikipedia', listen: 'The simplest interlock: one hand, then the other.' },
+    nadai: { name: 'Nadai 5:4', source: 'Carnatic nadai, standard exercise', listen: 'A pure ratio, like konnakol practice.' },
+    tihai: { name: 'Tihai on 16', source: 'Hindustani and Carnatic tihai, standard figure', listen: 'Three equal phrases, the last landing on the first beat.' },
+    mbira: { name: 'Mbira interlock', source: 'Shona mbira, via Afropop', listen: 'A third pattern that neither hand plays. I have no kalimba yet: a cowbell and a tom stand in.' },
+    trance: { name: 'Trance arp over four', source: 'N-Trance and Aphex Twin, via Zoe Blade', listen: 'A dotted-eighth feel. A clave stands in for the pluck.' },
+    acid: { name: 'Acid polymetre', source: 'Hawtin and Autechre, via Zoe Blade', listen: 'The short loop walks across the bar and realigns every three bars. A clave stands in for the pluck.' },
+    'blue-rondo': { name: 'Blue Rondo', source: 'Dave Brubeck, with Toussaint’s E(4,9)', listen: '2+2+2+3 against 3+3+3.' },
+    pyramid: { name: 'Pyramid Song', source: 'Radiohead, common knowledge', listen: '3+3+4+3+3 against a straight four.' },
+    elvin: { name: 'Elvin triplet ride', source: 'Elvin Jones, common knowledge', listen: 'A three feel over a two.' },
+    discipline: { name: 'Discipline', source: 'King Crimson, common knowledge', listen: 'A 35-pulse cycle of interlocking guitars. A clave and a cowbell stand in.' },
+  } as Record<string, { name: string; source: string; listen: string }>,
 };
 
 /**
