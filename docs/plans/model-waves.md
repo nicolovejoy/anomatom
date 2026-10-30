@@ -2,7 +2,7 @@
 
 Implements `docs/plans/model-rethink.md` (the design; read it first, it is the contract). Process as in `docs/plans/v1-parallel.md` "Roles and process": governor Fable; implementers Opus or Sonnet as marked, one worktree and branch per stream, implementers never spawn agents; one review per stream at its end, final whole-branch review by Fable; merge on green CI without asking; rebase only at a stream's end. Every stream keeps `npm run typecheck`, `npm test` (100% lines per file, `vitest.config.ts`) and `npm run e2e` green at every commit, and `npm run build` building; legacy functions may stay as thin wrappers over new ones until the stream that retires them. Every stream runs its own headless checks and returns screenshot paths; Nico gets one short smoke test at each checkpoint.
 
-Status: written 2026-10-29 (Fable, session 1187). Waves 0 and 1 merged 2026-10-29 (PRs 32-37); wave 2 dispatched.
+Status: waves 0, 1 and 2 merged 2026-10-29 (PRs 32-39, Fable session 1187); awaiting Nico's checkpoint smoke test. Next: the v2 kits stream on the per-part Mapping, share-in-reach on the v2 hash, the space-bar fix, then the mixer-style UI plan (design §12).
 
 ## Waves
 
@@ -190,6 +190,8 @@ Default preset "Voice per part"; "Height to drum" and "Height to pitch" keep rea
 **F · Presets** (Sonnet, wave 2). Sourcebook table into presets (onset sets, parts, voices, bpm, source), first-minute "more" control, About page sections per layer with the verified citations from D.
 
 ## Rulings
+
+- 2026-10-29 (Fable, wave 2): `JUGGLER.uniformTopMetres` lowered to 1.5 so a cascade is not tiny; one uniform scale for both juggler axes, squeezing only above it. Backspace joins two inputs only for a vanilla pair or a split typed in this session. Juggling cards carry no bpm and leave the tempo alone. Eno drift waits for a sustained voice. About cites only opened sources; Buhler et al. and Polster were re-opened for the average theorem.
 
 - 2026-10-29 (Fable): `Event.height` is always `flight / unit`, for faulted parts too. Kotekan telu shares pulses between the hands, so the one-ball crossing test case is the hocket `2 0` / `0 2` versus `1x 0` / `0 1x`. `AppState.notice` is transient UI state, not an action result.
 
