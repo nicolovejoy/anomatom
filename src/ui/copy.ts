@@ -23,7 +23,7 @@ export const copy = {
   title: 'anomatom',
   placeholder: 'I am anomatom, a juggling robot. Type a pattern and press Play: I juggle it and play every throw on a TR-808.',
   patternLabel: 'Pattern',
-  handLabel: (hand: 0 | 1) => `Hand ${hand + 1} pattern`,
+  handLabel: (hand: number) => `Hand ${hand + 1} pattern`,
   ratioLabel: 'Ratio',
   ratioChip: (a: number, b: number) => `${a}:${b}`,
   play: 'Play',
@@ -277,12 +277,20 @@ export const copy = {
   hitsStepLabel: (hand: number, up: boolean) => `${up ? 'More' : 'Fewer'} hits for hand ${hand + 1}`,
   /** A manual group has no ball knob: its count, which may span both hands, and Reset. */
   groupBalls: (balls: number | null, hands: number) =>
-    balls === null ? 'can’t juggle' : hands > 1 ? `${balls} ball${balls === 1 ? '' : 's'} between both hands` : String(balls),
+    balls === null
+      ? 'can’t juggle'
+      : hands > 1
+        ? `${balls} ball${balls === 1 ? '' : 's'} between ${hands === 2 ? 'both' : hands} hands`
+        : String(balls),
   resetGroup: 'Reset',
   resetGroupLabel: (hands: readonly number[]) =>
-    hands.length === 1 ? `Reset hand ${(hands[0] as number) + 1} to 1 ball` : 'Reset both hands to 1 ball each',
+    hands.length === 1
+      ? `Reset hand ${(hands[0] as number) + 1} to 1 ball`
+      : hands.length === 2
+        ? 'Reset both hands to 1 ball each'
+        : `Reset hands ${andList(hands.map((h) => String(h + 1)))} to 1 ball each`,
   rhythmHint:
-    'Phase moves a hand later, a pulse at a time. Balls is how many I keep in the air over the same hits. Hits spreads that many throws evenly over the hand’s beats.',
+    'Rate is how many beats a hand plays while a rate-1 hand plays one. Steps is how many beats before its line repeats; tap a step to throw on it or rest. Phase moves a hand later, a pulse at a time. Balls is how many I keep in the air over the same hits. Hits spreads that many throws evenly over the steps.',
   fixesNone: 'I found no pattern nearby that I can juggle.',
   fixLabel: (texts: readonly string[]) => texts.join(' / '),
   /** The samples, beside Play. Loading is quiet; failed says what it means for the reader and offers the retry. */
@@ -331,6 +339,30 @@ export const copy = {
   tempoHand: (hand: 0 | 1, bpm: number) => `Hand ${hand + 1} · ${bpm} bpm`,
   tempoEach: (bpm: number) => `Each hand · ${bpm} bpm`,
   tempoShared: (bpm: number) => `Shared beat · ${bpm} bpm`,
+
+  // -------------------------------------------------------------------------------------------
+  // Lanes (docs/plans/lanes.md, stream B): the Rhythm tab as one lane per hand
+  // -------------------------------------------------------------------------------------------
+
+  rateLabel: 'Rate',
+  stepsLabel: 'Steps',
+  rateStepLabel: (hand: number, up: boolean) => `${up ? 'More' : 'Fewer'} beats for hand ${hand + 1} per rate-1 beat`,
+  stepsStepLabel: (hand: number, up: boolean) => `${up ? 'More' : 'Fewer'} steps for hand ${hand + 1}`,
+  /** A step cell: pressed when the hand throws on that beat. Beats count from 1. */
+  cellLabel: (hand: number, beat: number) => `Hand ${hand + 1}, step ${beat + 1}`,
+  /** The lane's sound, from the Mapping; tapping it opens the Sound tab. */
+  voiceLabel: (hand: number, voice: string) => `Hand ${hand + 1} sound: ${voice}. Open the Sound tab`,
+  voiceByHeight: 'By height',
+  voiceByBall: 'By ball',
+  removeLane: '×',
+  removeLaneLabel: (hand: number) => `Remove hand ${hand + 1}`,
+  addLane: 'Add a hand',
+  /** In the later lanes of a manual group, where the ball knob would be: the count is in the group's first lane. */
+  groupWith: (first: number) => `Balls shared with hand ${first + 1}`,
+  lanesLabel: 'Hands, one lane each',
+  /** The Pattern tab with more hands than one input writes: one input per hand, in its own beats. */
+  lanesHint:
+    'With more than two hands, each hand has its own pattern, counted in its own beats: 2 is that hand’s two-ball fountain, not a hold. A digit, x and a hand number throws across: 3x2 lands in hand 2.',
 
   // -------------------------------------------------------------------------------------------
   // F: Sound panel and share
