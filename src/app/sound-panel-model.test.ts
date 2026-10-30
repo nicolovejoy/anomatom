@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'vitest';
-import { applyPreset, presetOf, type Mapping } from '../sound/mapping';
+import { applyPreset, presetOf, withPartCount, type Mapping } from '../sound/mapping';
 import { CROSS_BOOST_RANGE, DEFAULT_MAPPING, FILTER_HZ_RANGE, KIT_SAMPLES } from '../tunables';
 import {
   applyEdit,
@@ -150,5 +150,32 @@ describe('ensureVoices', () => {
     expect(ensureVoices(m, 3).parts).toHaveLength(3);
     expect(ensureVoices(m, 2)).toBe(m);
     expect(ensureVoices(m, 1)).toBe(m);
+  });
+});
+
+describe('kit (v2 wave 1, ruling 2)', () => {
+  const kits = (mapping: Mapping) => mapping.parts.map((v) => v.kit);
+
+  test('the Kit select writes every part\'s kit, and nothing else; the preset keeps its name', () => {
+    const three = withPartCount(applyPreset('height-drum'), 3);
+    const lm2 = edit(three, { kind: 'kit', kit: 'LM-2' });
+    expect(kits(lm2)).toEqual(['LM-2', 'LM-2', 'LM-2']);
+    expect({ ...lm2, parts: lm2.parts.map((v) => ({ ...v, kit: 'TR-808' })) }).toEqual(three);
+    expect(presetOf(lm2)).toBe('height-drum');
+    const mixed: Mapping = { ...m, parts: [m.parts[0] as Mapping['parts'][0], { ...(m.parts[1] as Mapping['parts'][0]), kit: 'MFB-512' }] };
+    expect(kits(edit(mixed, { kind: 'kit', kit: 'Casio-RZ1' }))).toEqual(['Casio-RZ1', 'Casio-RZ1']);
+  });
+
+  test('an unknown kit is refused; the same kit changes nothing', () => {
+    expect(edit(m, { kind: 'kit', kit: 'nope' })).toBe(m);
+    expect(edit(m, { kind: 'kit', kit: 'TR-808' })).toBe(m);
+  });
+
+  test('choosing a preset, or resetting to one, keeps the kit', () => {
+    const lm2 = edit(edit(m, { kind: 'padOn', on: true }), { kind: 'kit', kit: 'LM-2' });
+    const chosen = edit(lm2, { kind: 'preset', name: 'height-pitch' });
+    expect(kits(chosen)).toEqual(['LM-2', 'LM-2']);
+    expect(presetOf(chosen)).toBe('height-pitch');
+    expect(kits(edit(lm2, { kind: 'preset', name: resetTarget(lm2, 'voice-per-part') }))).toEqual(['LM-2', 'LM-2']);
   });
 });

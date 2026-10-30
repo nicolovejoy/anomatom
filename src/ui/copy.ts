@@ -110,7 +110,14 @@ export const copy = {
     'ball-pitch': 'Ball to pitch',
     custom: 'Custom',
   },
-  kitNames: { 'TR-808': 'TR-808' },
+  /** By KIT_IDS id. */
+  kitNames: {
+    'TR-808': 'Roland TR-808',
+    'Casio-RZ1': 'Casio RZ-1',
+    'LM-2': 'LinnDrum LM-2',
+    'MFB-512': 'MFB-512',
+    'Roland CR-8000': 'Roland CR-8000',
+  } as Record<string, string>,
   padInstrumentNames: { mellotron: 'Mellotron', soundfont: 'Soundfont pad' },
   padChordNames: { Dm9: 'Dm9', Am7: 'Am7', Cmaj7: 'Cmaj7', F69: 'F6/9', open5: 'Open fifth' } as Record<string, string>,
   /** The kit's sounds, by smplr's group name. */

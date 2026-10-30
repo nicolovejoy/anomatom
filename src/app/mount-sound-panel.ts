@@ -18,7 +18,16 @@ import {
   type PresetName,
   type Sample,
 } from '../sound/mapping';
-import { CROSS_BOOST_RANGE, FILTER_HZ_RANGE, GAIN_RANGE, KIT_SAMPLES, MAX_HEIGHT, PAN_RANGE, SOUND_PANEL } from '../tunables';
+import {
+  CROSS_BOOST_RANGE,
+  FILTER_HZ_RANGE,
+  GAIN_RANGE,
+  KIT_IDS,
+  KIT_SAMPLES,
+  MAX_HEIGHT,
+  PAN_RANGE,
+  SOUND_PANEL,
+} from '../tunables';
 import { copy } from '../ui/copy';
 import type { Mount } from './mount';
 import {
@@ -59,7 +68,7 @@ export const mountSoundPanel: Mount = (root, { store, player }) => {
     <div id="sound-panel" class="sound-panel" data-keeps-space>
       <div class="sp-row">
         <label for="sp-kit">${copy.kitLabel}</label>
-        <select id="sp-kit">${['TR-808'].map((k) => `<option value="${k}">${copy.kitNames[k as 'TR-808']}</option>`).join('')}</select>
+        <select id="sp-kit">${KIT_IDS.map((k) => `<option value="${k}">${copy.kitNames[k] ?? k}</option>`).join('')}</select>
       </div>
       <p class="sp-note">${copy.soundBallCountNote}</p>
       <div class="sp-row">
@@ -120,6 +129,7 @@ export const mountSoundPanel: Mount = (root, { store, player }) => {
   `;
 
   const $ = <T extends Element>(selector: string) => root.querySelector(selector) as T;
+  const kit = $<HTMLSelectElement>('#sp-kit');
   const preset = $<HTMLSelectElement>('#sp-preset');
   const heightSelects = heights.map((h) => $<HTMLSelectElement>(`#sp-height-${h}`));
   const partsBox = $<HTMLFieldSetElement>('#sp-parts');
@@ -152,6 +162,7 @@ export const mountSoundPanel: Mount = (root, { store, player }) => {
     const name = presetOf(m);
     if (name !== 'custom') lastPreset = name;
     preset.value = name;
+    kit.value = m.parts[0]?.kit ?? KIT_IDS[0] ?? '';
     heights.forEach((h, i) => ((heightSelects[i] as HTMLSelectElement).value = sampleValue(m.perHeight[h] ?? null)));
     if (m.parts.length !== partCount) {
       partCount = m.parts.length;
@@ -184,6 +195,7 @@ export const mountSoundPanel: Mount = (root, { store, player }) => {
   }
 
   // Controls -> edits.
+  kit.addEventListener('change', () => edit({ kind: 'kit', kit: kit.value }));
   preset.addEventListener('change', () => edit({ kind: 'preset', name: preset.value as PresetName }));
   heightSelects.forEach((select, i) =>
     select.addEventListener('change', () =>

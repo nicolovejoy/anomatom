@@ -16,6 +16,17 @@ const custom: Mapping = {
 };
 
 describe('encodeMapping', () => {
+  test('a preset on other kits is its name and its kits: one id for every part, or one per part', () => {
+    const on = (m: Mapping, kits: string[]): Mapping => ({ ...m, parts: m.parts.map((v, i) => ({ ...v, kit: kits[i] ?? v.kit })) });
+    const lm2 = on(withPartCount(applyPreset('height-drum'), 3), ['LM-2', 'LM-2', 'LM-2']);
+    expect(encodeMapping(lm2)).toEqual({ n: 'height-drum', k: 'LM-2' });
+    expect(decodeMapping(encodeMapping(lm2), 3)).toEqual(lm2);
+    const mixed = on(DEFAULT_MAPPING, ['Casio-RZ1', 'Roland CR-8000']);
+    expect(encodeMapping(mixed)).toEqual({ n: 'voice-per-part', k: ['Casio-RZ1', 'Roland CR-8000'] });
+    expect(decodeMapping(encodeMapping(mixed), 2)).toEqual(mixed);
+    expect(decodeMapping(encodeMapping(mixed))).toEqual(mixed);
+  });
+
   test('a preset is its name; anything else is an object of short keys', () => {
     for (const name of PRESET_NAMES) expect(encodeMapping(applyPreset(name))).toBe(name);
     const e = encodeMapping(custom) as Record<string, unknown>;
@@ -122,5 +133,20 @@ describe('a preset grown to N voices is still the preset', () => {
     expect(decodeMapping('height-drum', 3)).toEqual(grown);
     expect(decodeMapping('nope', 3)).toEqual(withPartCount(DEFAULT_MAPPING, 3));
     expect(presetOf(withPartCount({ ...grown, byBall: ['kick'] }, 3))).toBe('custom');
+  });
+});
+
+describe('decodeMapping: a preset on kits', () => {
+  test('an unknown kit keeps the part\'s kit; an unknown or missing preset name is the default; a short list leaves the rest', () => {
+    expect(decodeMapping({ n: 'height-drum', k: 'nope' })).toBe(applyPreset('height-drum'));
+    expect(decodeMapping({ n: 'height-drum' })).toBe(applyPreset('height-drum'));
+    expect(decodeMapping({ n: 'nope', k: 'LM-2' }).parts.map((v) => v.kit)).toEqual(['LM-2', 'LM-2']);
+    expect(decodeMapping({ n: 5 })).toBe(DEFAULT_MAPPING);
+    expect(decodeMapping({ n: 'ball-pitch', k: ['MFB-512', 7] }, 3).parts.map((v) => v.kit)).toEqual([
+      'MFB-512',
+      'TR-808',
+      'TR-808',
+    ]);
+    expect(presetOf(decodeMapping({ n: 'ball-pitch', k: ['MFB-512'] }, 3))).toBe('ball-pitch');
   });
 });
