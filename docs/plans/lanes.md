@@ -2,7 +2,7 @@
 
 Implements design §12 of `docs/plans/model-rethink.md` (the mixer hint). Nico, 2026-10-29: "rethink the UX on the Rhythm section and allow layering polyrhythms"; he skipped the design questions ("just go, sdd, far as you can"), so every choice below is the governor's call, open to his correction at the checkpoint. Process as in `docs/plans/model-waves.md`: governor Opus this session, final whole-branch review by Fable; implementers Opus or Sonnet as marked, one worktree and branch per stream, implementers never spawn agents; one review per stream; merge on green CI without asking. Every stream keeps `npm run typecheck`, `npm test` (100% lines per file in `vitest.config.ts`), `npm run e2e` and `npm run build` green, runs its own headless checks and returns screenshot paths (390×844).
 
-Status: waves 1 and 2 merged 2026-10-29 (PRs 42-46, governor Opus session 1189, final review of 46 by Fable). Follow-up: compact lanes on a phone (`lanes-compact`). Awaiting Nico's checkpoint smoke test.
+Status: waves 1 and 2 merged 2026-10-29 (PRs 42-46, governor Opus session 1189, final review of 46 by Fable). Follow-up: compact lanes on a phone (`lanes-compact`). Checkpoint smoke run headless by the governor (Fable, session 1191) against anomatom.com on 2026-10-30, 390×844 and 1280×800: add to four lanes, rates 3:4:5, steps, cell toggle, More, playhead outline in every lane, Pattern tab with four inputs, remove a lane, link round trip; no console or network errors. Passed. Nico has not smoked it by hand.
 
 ## Why
 
