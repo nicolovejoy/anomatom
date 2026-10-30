@@ -2,15 +2,6 @@
 import { mod } from '../core/math';
 import type { Event, PartIndex, Schedule } from '../core/types';
 
-/** A hand on screen: the picture draws two, hand 1 (part 0) on the left and hand 2 on the right. */
-export type Hand = 0 | 1;
-
-/**
- * The hand a part is drawn as. This wave shows two hands; a part past them (which the editor
- * cannot make, but a link could) is drawn as hand 2, so every coordinate stays finite.
- */
-export const handOf = (part: PartIndex): Hand => (part === 0 ? 0 : 1);
-
 /** True when `part`'s grid has a beat on this pulse. */
 export function onBeat(grids: Schedule['grids'], part: number, pulse: number): boolean {
   const g = grids[part];

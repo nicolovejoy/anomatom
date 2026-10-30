@@ -1,5 +1,6 @@
 // Draws a juggler frame on a canvas. Reads nothing but the frame and the tunables.
 import { BALL_COLOURS, JUGGLER } from '../tunables';
+import { partColour } from '../view/colours';
 import { sceneScale, type JugglerFrame } from '../view/juggler';
 
 export function drawJuggler(canvas: HTMLCanvasElement, frame: JugglerFrame) {
@@ -28,12 +29,14 @@ export function drawJuggler(canvas: HTMLCanvasElement, frame: JugglerFrame) {
   const r = Math.max(JUGGLER.radius * Math.min(sx, sy), JUGGLER.minRadiusPx);
 
   // The hands: a bar under each hand's span, from its catch point to its throw point, just
-  // under a held ball, never past the canvas.
+  // under a held ball, never past the canvas. Grey for one figure; with three or more parts
+  // each in its part's colour, as its ladder lane, so a hand can be found in both.
   const handY = Math.min(py(0) + r + JUGGLER.handGapPx, height - JUGGLER.handBarPx);
-  ctx.fillStyle = JUGGLER.hand;
-  for (const h of [0, 1] as const) {
-    const mid = px((JUGGLER.catchX[h] + JUGGLER.throwX[h]) / 2);
-    const w = Math.min(Math.abs(px(JUGGLER.catchX[h]) - px(JUGGLER.throwX[h])) + 2 * r, JUGGLER.handMaxPx);
+  const tinted = frame.hands.length > 2;
+  for (const h of frame.hands) {
+    ctx.fillStyle = tinted ? partColour(h.part) : JUGGLER.hand;
+    const mid = px((h.catchX + h.throwX) / 2);
+    const w = Math.min(Math.abs(px(h.catchX) - px(h.throwX)) + 2 * r, JUGGLER.handMaxPx);
     const bar = JUGGLER.handBarPx;
     ctx.beginPath();
     ctx.roundRect(mid - w / 2, handY, w, bar, bar / 2);

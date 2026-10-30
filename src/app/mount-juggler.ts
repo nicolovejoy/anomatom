@@ -15,7 +15,6 @@ export const mountJuggler: Mount = (root, { store }) => {
   const canvas = document.createElement('canvas');
   canvas.className = 'juggler';
   canvas.setAttribute('role', 'img');
-  canvas.setAttribute('aria-label', copy.jugglerLabel);
   const note = document.createElement('p');
   note.className = 'juggler-note';
   note.textContent = copy.notHumanThrow(JUGGLER.humanAirtimeSeconds);
@@ -26,7 +25,10 @@ export const mountJuggler: Mount = (root, { store }) => {
   const flights = new WeakMap<Schedule, readonly Flight[]>();
   const remember = () => {
     const { schedule } = store.derived();
-    if (!flights.has(schedule)) flights.set(schedule, flightsOf(store.get().parts));
+    const { parts } = store.get();
+    if (!flights.has(schedule)) flights.set(schedule, flightsOf(parts));
+    const label = parts.length > 2 ? copy.jugglersLabel(parts.length) : copy.jugglerLabel;
+    if (canvas.getAttribute('aria-label') !== label) canvas.setAttribute('aria-label', label);
   };
   remember();
   store.subscribe(remember);
