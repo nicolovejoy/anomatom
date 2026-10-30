@@ -420,6 +420,9 @@ export const mountKnobs: Mount = (root, { store, player, sound }) => {
   const rhythmNotice = $<HTMLParagraphElement>('.rhythm-notice');
   /** Each lane's disclosure on a phone (hits, balls, phase): closed until opened; a wide column shows them always. */
   const laneOpen: boolean[] = LANES.map(() => false);
+  /** The lane count the disclosures were last drawn for, and the lane × just removed (null otherwise). */
+  let openFor = -1;
+  let removing: number | null = null;
   /** Each lane's step under the playhead as drawn, so a frame touches the DOM only when it moves. */
   const shownPlayhead: (number | null)[] = LANES.map(() => null);
   /** Each lane's steps, for the playhead (read in the frame loop without deriving). */
@@ -429,6 +432,16 @@ export const mountKnobs: Mount = (root, { store, player, sound }) => {
   function renderRhythm(state: AppState) {
     const rhythm = laneRows(state, derived(state));
     laneSteps = rhythm.map((r) => r.steps);
+    // A new lane count: after ×, the lanes below move up a place with their disclosures; by any
+    // other path (Add, a link, a preset, an edit) every disclosure closes, so none comes back stale.
+    if (rhythm.length !== openFor) {
+      if (openFor >= 0 && removing !== null && rhythm.length === openFor - 1) {
+        laneOpen.splice(removing, 1);
+        laneOpen.push(false);
+      } else laneOpen.fill(false);
+      openFor = rhythm.length;
+    }
+    removing = null;
     ratioBox.hidden = !ratioChipsShown(rhythm.length);
     addLaneButton.disabled = !canAddLane(state);
     rhythmNotice.textContent = state.notice ?? '';
@@ -794,12 +807,10 @@ export const mountKnobs: Mount = (root, { store, player, sound }) => {
     });
     lane.remove.addEventListener('click', () => {
       const before = store.get().parts;
+      removing = h;
       laneDispatch(h, removeAction);
+      removing = null;
       if (store.get().parts === before) return;
-      // The lanes below move up a place, and their disclosures with them.
-      laneOpen.splice(h, 1);
-      laneOpen.push(false);
-      render(store.get(), store.get());
       // The tapped × hid with its lane: focus goes to the lane above's header, or Add.
       const to = focusAfterRemove(h);
       (to === 'add' ? addLaneButton : (lanes[to] as (typeof lanes)[number]).voice).focus();

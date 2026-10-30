@@ -84,8 +84,13 @@ test('lanes: add a hand, rates 3:4:5, toggle cells, remove a hand, the link roun
   await openTab(page, 'rhythm');
 
   // Add a fourth, then remove it: back to three, and Add a hand stops at four.
+  // A disclosure left open closes when the lane count changes other than by ×.
+  await lane(page, 0).locator('.lane-more-toggle').click();
+  await expect(lane(page, 0).locator('.lane-more-toggle')).toHaveAttribute('aria-label', /^More: hand 1/);
+  await expect(lane(page, 0).locator('.lane-more-toggle')).toHaveAttribute('aria-expanded', 'true');
   // Add disables under focus at four: focus moves to the new lane's header. Remove: to the lane above.
   await page.locator('.add-lane').click();
+  await expect(lane(page, 0).locator('.lane-more-toggle')).toHaveAttribute('aria-expanded', 'false');
   await expect(lanes).toHaveCount(4);
   await expect(page.locator('.add-lane')).toBeDisabled();
   await expect(lane(page, 3).locator('.lane-voice')).toBeFocused();
