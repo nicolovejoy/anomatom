@@ -18,11 +18,17 @@ const CLAPPING = link([line('111011010110'), line('111011010110')]);
 const cell = (page: Page, kind: 'phase' | 'balls' | 'hits', hand: 0 | 1) => page.locator(`.rstep[data-kind="${kind}"][data-hand="${hand}"]`);
 const step = (page: Page, kind: 'phase' | 'balls' | 'hits', hand: 0 | 1, delta: 1 | -1) =>
   cell(page, kind, hand).locator(`[data-delta="${delta}"]`).click();
+/** The Rhythm tab with every lane's hits, balls and phase unfolded (a phone folds them under More). */
+async function openRhythm(page: Page) {
+  await openTab(page, 'rhythm');
+  const closed = page.locator('.lane-more-toggle[aria-expanded="false"]:visible');
+  while ((await closed.count()) > 0) await closed.first().click();
+}
 const samples = (page: Page) => page.locator('[data-cycle-samples]').getAttribute('data-cycle-samples');
 
 test('Clapping Music: the phase stepper keeps the cycle at 12 at every step', async ({ page }) => {
   await page.goto(CLAPPING);
-  await openTab(page, 'rhythm');
+  await openRhythm(page);
   const phase = cell(page, 'phase', 1).locator('output');
   await expect(phase).toHaveAttribute('data-phase', '0');
   await expect(phase).toHaveAttribute('data-cycle', '12');
@@ -41,7 +47,7 @@ test('Clapping Music: the phase stepper keeps the cycle at 12 at every step', as
 
 test('the ball stepper changes the summary’s ball count and not the sound', async ({ page }) => {
   await page.goto(CLAPPING);
-  await openTab(page, 'rhythm');
+  await openRhythm(page);
   await expect(page.locator('.summary-meta')).toHaveText(/^2 balls\b/);
   const before = await samples(page);
   expect(before?.split(' ')).toHaveLength(16);
@@ -60,7 +66,7 @@ test('a manual group shows its count and Reset; Reset brings the steppers back',
   await page.goto('/#v1.e30');
   await openTab(page, 'pattern');
   await page.locator('#hand-0').fill('531');
-  await openTab(page, 'rhythm');
+  await openRhythm(page);
   // One vanilla siteswap is one group over both hands: one count, no knob.
   await expect(page.locator('.group-balls[data-hand="0"]')).toContainText('3 balls between both hands');
   await expect(page.locator('.group-balls[data-hand="1"]')).toBeHidden();
@@ -77,7 +83,7 @@ test('a manual group shows its count and Reset; Reset brings the steppers back',
 
 test('the hits stepper runs the Euclidean generator over the hand’s period', async ({ page }) => {
   await page.goto(CLAPPING);
-  await openTab(page, 'rhythm');
+  await openRhythm(page);
   const hits = cell(page, 'hits', 0).locator('output');
   await expect(hits).toHaveText('8');
   for (let i = 0; i < 3; i++) await step(page, 'hits', 0, -1);
@@ -120,7 +126,7 @@ test('split at 1:1: a `/` in hand 1 leaves hand 2 alone; Backspace never joins p
   await page.locator('#hand-1').fill('');
   await page.locator('#hand-1').press('Backspace');
   await expect(page.locator('#hand-1')).toBeVisible();
-  await openTab(page, 'rhythm');
+  await openRhythm(page);
   await expect(cell(page, 'phase', 1).locator('output')).toHaveAttribute('data-phase', '3');
   await expect(cell(page, 'phase', 1).locator('output')).toHaveAttribute('data-cycle', '12');
 });
@@ -137,7 +143,7 @@ test('a pattern I can’t juggle: the fault drawn, the fixes under their heading
   await page.waitForTimeout(400);
   await shot(page, 'pattern-fault');
   // A phase step on a manual group of two resets it: the notice is the last line, muted.
-  await openTab(page, 'rhythm');
+  await openRhythm(page);
   await step(page, 'phase', 0, 1);
   await openTab(page, 'pattern');
   const notice = page.locator('#status p.notice');

@@ -29,8 +29,24 @@ export function voiceName(mapping: Mapping, part: number): string {
   return sample === null ? copy.noSample : (copy.sampleNames[sample] ?? sample);
 }
 
-/** Step cells per row on a wide column: the whole period, never fewer than a phone's row. */
-export const wideColumns = (steps: number): number => Math.max(LANES_UI.phoneColumns, steps);
+/**
+ * Step cells per row. A short period fills its row (never under `minColumns`, so one step is not
+ * one wide bar); on a phone a row holds at most `phoneColumns` and a longer period wraps; a wide
+ * column holds the whole period in one row.
+ */
+export function cellColumns(steps: number, wide: boolean): number {
+  const atLeast = Math.max(LANES_UI.minColumns, steps);
+  return wide ? atLeast : Math.min(LANES_UI.phoneColumns, atLeast);
+}
+
+/** Where focus goes once lane `removed` is gone: the lane above's header, or Add a hand when it was the first. */
+export const focusAfterRemove = (removed: number): number | 'add' => (removed > 0 ? removed - 1 : 'add');
+
+/**
+ * Where focus goes after Add a hand: it stays on Add while Add still applies (null); at the
+ * last lane Add disables under focus, so focus moves to the newest lane's header.
+ */
+export const focusAfterAdd = (lanes: number, canAdd: boolean): number | null => (canAdd ? null : lanes - 1);
 
 /** The segment the picture is in at `view.now`: the first not yet ended, else the last. */
 function segmentAt(view: PlayerView): Segment | null {

@@ -50,11 +50,21 @@ test('lanes: add a hand, rates 3:4:5, toggle cells, remove a hand, the link roun
   await lane(page, 1).locator('.rstep[data-kind="steps"] [data-delta="1"]').click();
   const cells = lane(page, 1).locator('.cell:visible');
   await expect(cells).toHaveCount(3);
+  // Three steps read as a row: four columns, not three stubs in eight.
+  await expect(lane(page, 1).locator('.cells')).toHaveAttribute('style', /--columns: 4;/);
   const cell = cells.nth(2);
   await expect(cell).toHaveAttribute('aria-pressed', 'false');
   await cell.click();
   await expect(cell).toHaveAttribute('aria-pressed', 'true');
-  await expect(lane(page, 1).locator('.rstep[data-kind="hits"] output')).toHaveText('2');
+  // Hits, balls and phase fold under More on a phone.
+  const hits = lane(page, 1).locator('.rstep[data-kind="hits"]');
+  await expect(hits).toBeHidden();
+  await lane(page, 1).locator('.lane-more-toggle').click();
+  await expect(lane(page, 1).locator('.lane-more-toggle')).toHaveAttribute('aria-expanded', 'true');
+  await expect(hits.locator('output')).toHaveText('2');
+  await expect(lane(page, 0).locator('.rstep[data-kind="hits"]')).toBeHidden();
+  await lane(page, 1).locator('.lane-more-toggle').click();
+  await expect(hits).toBeHidden();
   await cell.click();
   await expect(cell).toHaveAttribute('aria-pressed', 'false');
   await cell.click();
@@ -65,18 +75,29 @@ test('lanes: add a hand, rates 3:4:5, toggle cells, remove a hand, the link roun
   await expect(page.locator('.lane:visible .cell.now')).toHaveCount(3);
   await page.locator('#play').click();
 
-  // The voice name opens the Sound tab.
-  await lane(page, 0).locator('.lane-voice').click();
+  // The voice name opens the Sound tab on that hand's sound, which flashes.
+  await lane(page, 2).locator('.lane-voice').click();
   await expect(page.locator('#tab-sound')).toHaveAttribute('aria-selected', 'true');
+  await expect(page.locator('#sp-part-sample-2')).toBeFocused();
+  await expect(page.locator('#sp-part-sample-2')).toBeInViewport();
+  await expect(page.locator('.sp-row.sp-flash')).toHaveCount(3);
   await openTab(page, 'rhythm');
 
   // Add a fourth, then remove it: back to three, and Add a hand stops at four.
+  // A disclosure left open closes when the lane count changes other than by ×.
+  await lane(page, 0).locator('.lane-more-toggle').click();
+  await expect(lane(page, 0).locator('.lane-more-toggle')).toHaveAttribute('aria-label', /^More: hand 1/);
+  await expect(lane(page, 0).locator('.lane-more-toggle')).toHaveAttribute('aria-expanded', 'true');
+  // Add disables under focus at four: focus moves to the new lane's header. Remove: to the lane above.
   await page.locator('.add-lane').click();
+  await expect(lane(page, 0).locator('.lane-more-toggle')).toHaveAttribute('aria-expanded', 'false');
   await expect(lanes).toHaveCount(4);
   await expect(page.locator('.add-lane')).toBeDisabled();
+  await expect(lane(page, 3).locator('.lane-voice')).toBeFocused();
   await lane(page, 3).locator('.lane-remove').click();
   await expect(lanes).toHaveCount(3);
   await expect(page.locator('.add-lane')).toBeEnabled();
+  await expect(lane(page, 2).locator('.lane-voice')).toBeFocused();
 
   // The link round trip: a fresh load of the URL shows the same lanes.
   await expect.poll(() => page.url()).toContain('#v2.');
@@ -104,4 +125,8 @@ test('lanes: add a hand, rates 3:4:5, toggle cells, remove a hand, the link roun
   await lane(page, 1).locator('.lane-remove').click();
   await expect(lanes).toHaveCount(1);
   await expect(lane(page, 0).locator('.lane-remove')).toBeHidden();
+  // Removing the first lane: focus goes to Add a hand.
+  await page.locator('.add-lane').click();
+  await lane(page, 0).locator('.lane-remove').click();
+  await expect(page.locator('.add-lane')).toBeFocused();
 });

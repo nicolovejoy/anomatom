@@ -4,7 +4,7 @@ import { DEFAULT_MAPPING, LANES_UI } from '../tunables';
 import { copy } from '../ui/copy';
 import { partColour } from '../view/colours';
 import type { PlayerView, Segment } from '../view/types';
-import { laneDot, playheadSteps, ratioChipsShown, voiceName, wideColumns } from './lanes-view';
+import { cellColumns, focusAfterAdd, focusAfterRemove, laneDot, playheadSteps, ratioChipsShown, voiceName } from './lanes-view';
 
 describe('laneDot', () => {
   test('no dot at one or two lanes; the part colour from three', () => {
@@ -39,9 +39,20 @@ describe('voiceName', () => {
   });
 });
 
-test('a wide row holds the whole period, never fewer cells than a phone row', () => {
-  expect(wideColumns(3)).toBe(LANES_UI.phoneColumns);
-  expect(wideColumns(16)).toBe(16);
+test('cell columns: clamp(4, steps, 8) on a phone; the whole period, at least 4, on a wide column', () => {
+  expect([LANES_UI.minColumns, LANES_UI.phoneColumns]).toEqual([4, 8]);
+  expect([1, 3, 4, 5, 8, 12, 16].map((n) => cellColumns(n, false))).toEqual([4, 4, 4, 5, 8, 8, 8]);
+  expect([1, 3, 5, 8, 12, 16].map((n) => cellColumns(n, true))).toEqual([4, 4, 5, 8, 12, 16]);
+});
+
+test('focus after remove: the lane above, or Add when the first lane went', () => {
+  expect(focusAfterRemove(2)).toBe(1);
+  expect(focusAfterRemove(0)).toBe('add');
+});
+
+test('focus after add: stays on Add while it applies; the newest lane once Add disables', () => {
+  expect(focusAfterAdd(3, true)).toBeNull();
+  expect(focusAfterAdd(4, false)).toBe(3);
 });
 
 describe('playheadSteps', () => {

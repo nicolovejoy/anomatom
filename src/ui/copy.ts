@@ -357,6 +357,9 @@ export const copy = {
   removeLane: '×',
   removeLaneLabel: (hand: number) => `Remove hand ${hand + 1}`,
   addLane: 'Add a hand',
+  /** A lane's disclosure on a phone: hits, balls and phase fold away under it. */
+  laneMore: 'More',
+  laneMoreLabel: (hand: number) => `More: hand ${hand + 1} hits, balls and phase`,
   /** In the later lanes of a manual group, where the ball knob would be: the count is in the group's first lane. */
   groupWith: (first: number) => `Balls shared with hand ${first + 1}`,
   lanesLabel: 'Hands, one lane each',

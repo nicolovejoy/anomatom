@@ -278,7 +278,9 @@
 }
 
 /* Lanes (docs/plans/lanes.md): one per hand, divided by rules. A lane's colour (--lane-colour,
-   the part's at three or more lanes) fills its onset cells and its dot. */
+   the part's at three or more lanes) fills its onset cells and its dot. Compact on a phone: the
+   controls are drawn at 36px and reach 44px through an invisible margin (::after), and hits,
+   balls and phase fold under the lane's More. */
 .lanes {
   display: flex;
   flex-direction: column;
@@ -287,8 +289,8 @@
   --lane-colour: var(--text-2);
   display: flex;
   flex-direction: column;
-  gap: 10px;
-  padding: 12px 0 14px;
+  gap: 8px;
+  padding: 8px 0 10px;
   border-top: 1px solid var(--rule);
 }
 .lane:last-child {
@@ -297,11 +299,22 @@
 .lane[hidden] {
   display: none;
 }
+.lane button {
+  position: relative;
+}
+/* The touch target: 44px around a 36px control. The lane's 8px gaps hold two 4px margins, so
+   neighbouring targets meet and never overlap. */
+.lane-head button::after,
+.rstep button::after {
+  content: '';
+  position: absolute;
+  inset: -4px;
+}
 .lane-head {
   display: flex;
   align-items: center;
-  gap: 10px;
-  min-height: 44px;
+  gap: 8px;
+  height: 36px;
 }
 .lane-dot {
   flex: 0 0 auto;
@@ -318,56 +331,81 @@
   text-transform: uppercase;
   color: var(--text);
 }
-.lane-voice {
+.lane-voice,
+.lane-more-toggle {
   display: inline-flex;
   align-items: center;
   gap: 6px;
-  min-width: 0;
-  height: 44px;
-  padding: 0 4px 0 6px;
+  height: 36px;
+  padding: 0 6px;
   border: 0;
+  border-radius: 10px;
   background: transparent;
   font: 15px var(--font-ui);
   color: var(--text-2);
+}
+.lane-voice {
+  min-width: 0;
 }
 .lane-voice-name {
   overflow: hidden;
   white-space: nowrap;
   text-overflow: ellipsis;
 }
-.lane-voice svg {
+.lane-voice svg,
+.lane-more-toggle svg {
   flex: 0 0 auto;
   color: var(--muted);
 }
+.lane-more-toggle {
+  flex: 0 0 auto;
+  margin-left: auto;
+  font-size: 13px;
+  color: var(--muted);
+}
+.lane-more-toggle svg {
+  transition: transform 0.15s ease;
+}
+.lane-more-toggle[aria-expanded='true'] svg {
+  transform: rotate(180deg);
+}
 .lane-remove {
   flex: 0 0 auto;
-  width: 44px;
-  height: 44px;
-  margin-left: auto;
+  width: 36px;
+  height: 36px;
   border: 0;
-  border-radius: 12px;
+  border-radius: 10px;
   background: transparent;
-  font-size: 24px;
+  font-size: 22px;
   line-height: 1;
   color: var(--muted);
 }
 .lane-remove[hidden] {
   display: none;
 }
+/* A wide column has room: hits, balls and phase always show, and there is no More. */
+.is-wide .lane-more-toggle {
+  display: none;
+}
+.is-wide .lane-remove {
+  margin-left: auto;
+}
+#app:not(.is-wide) .lane:not(.open) .lane-more {
+  display: none;
+}
 
-/* Step cells: eight to a row on a phone, wrapping; the whole period in one row on a wide column. */
+/* Step cells: a row of clamp(4, steps, 8) on a phone, wrapping past 8 (--columns); the whole
+   period in one row on a wide column (--wide-columns). */
 .cells {
   display: grid;
-  grid-template-columns: repeat(8, minmax(0, 1fr));
+  grid-template-columns: repeat(var(--columns, 8), minmax(0, 1fr));
   gap: 5px;
 }
 .is-wide .cells {
   grid-template-columns: repeat(var(--wide-columns, 8), minmax(0, 1fr));
   gap: 4px;
 }
-.is-wide .cell {
-  height: 34px;
-}
+/* Cells are their own targets: 40px tall on a phone. */
 .cell {
   height: 40px;
   padding: 0;
@@ -389,12 +427,15 @@
 .cell[hidden] {
   display: none;
 }
+.is-wide .cell {
+  height: 34px;
+}
 
 /* A lane's steppers, two to a row: rate and steps above the cells, hits, balls and phase under. */
 .lane-knobs {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 8px 12px;
+  gap: 10px 12px;
 }
 .rstep {
   display: flex;
@@ -405,13 +446,13 @@
   display: none;
 }
 .rstep button {
-  flex: 0 0 44px;
-  width: 44px;
-  height: 44px;
+  flex: 0 0 36px;
+  width: 36px;
+  height: 36px;
   border: 0;
-  border-radius: 12px;
+  border-radius: 10px;
   background: var(--raised);
-  font-size: 22px;
+  font-size: 20px;
 }
 .rmid {
   flex: 1 1 auto;
@@ -419,13 +460,12 @@
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 1px;
 }
 .rstep output {
   display: flex;
   align-items: baseline;
   gap: 3px;
-  font: 19px/1.1 var(--font-mono);
+  font: 17px/1.1 var(--font-mono);
 }
 .rstep output .rof {
   font-size: 12px;
@@ -437,19 +477,22 @@
   text-transform: uppercase;
   color: var(--muted);
 }
+.lane-more .rstep[data-kind='phase'] {
+  grid-column: 1 / -1;
+}
 .group-balls {
   display: flex;
   align-items: center;
   justify-content: space-between;
   gap: 8px;
-  min-height: 44px;
+  min-height: 36px;
   font: 14px/1.2 var(--font-ui);
   color: var(--text-2);
 }
 .group-note {
   display: flex;
   align-items: center;
-  min-height: 44px;
+  min-height: 36px;
   font-size: 13px;
   color: var(--muted);
 }
@@ -474,9 +517,6 @@
   box-shadow: inset 0 0 0 1.5px var(--rule);
   font: 15px var(--font-ui);
   color: var(--text-2);
-}
-.lane-content .rstep[data-kind='phase'] {
-  grid-column: 1 / -1;
 }
 .add-plus {
   margin-right: 8px;
