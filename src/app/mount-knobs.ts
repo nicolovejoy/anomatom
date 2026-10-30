@@ -56,7 +56,7 @@ import {
   stepsAction,
   type LaneRow,
 } from './lanes-model';
-import { laneDot, playheadSteps, ratioChipsShown, voiceName, wideColumns } from './lanes-view';
+import { cellColumns, focusAfterAdd, focusAfterRemove, laneDot, playheadSteps, ratioChipsShown, voiceName } from './lanes-view';
 import type { Mount } from './mount';
 import { fillPercent, hasChip, summary, tempoLines } from './sheet-model';
 import type { AppState } from './state';
@@ -112,14 +112,15 @@ const laneMarkup = (h: number) => `
             <span class="lane-dot" aria-hidden="true"></span>
             <span class="lane-name">${copy.rhythmHand(h)}</span>
             <button type="button" class="lane-voice"><span class="lane-voice-name"></span><svg aria-hidden="true" width="12" height="12" viewBox="0 0 12 12"><path d="M4 2l4 4-4 4" fill="none" stroke="currentColor" stroke-width="1.6"/></svg></button>
+            <button type="button" class="lane-more-toggle" aria-expanded="false" aria-controls="lane-more-${h}" aria-label="${copy.laneMoreLabel(h)}">${copy.laneMore}<svg aria-hidden="true" width="12" height="12" viewBox="0 0 12 12"><path d="M2 4l4 4 4-4" fill="none" stroke="currentColor" stroke-width="1.6"/></svg></button>
             <button type="button" class="lane-remove" aria-label="${copy.removeLaneLabel(h)}">${copy.removeLane}</button>
           </div>
-          <div class="lane-knobs lane-grid">${rstep('rate', h)}${rstep('steps', h)}
+          <div class="lane-knobs">${rstep('rate', h)}${rstep('steps', h)}
           </div>
           <div class="cells" role="group" aria-label="${copy.rhythmHand(h)}">
             ${CELLS.map((b) => `<button type="button" class="cell" data-beat="${b}" aria-label="${copy.cellLabel(h, b)}" aria-pressed="false"></button>`).join('')}
           </div>
-          <div class="lane-knobs lane-content">${rstep('hits', h)}${rstep('balls', h)}
+          <div class="lane-knobs lane-more" id="lane-more-${h}">${rstep('hits', h)}${rstep('balls', h)}
             <span class="group-balls" data-hand="${h}" hidden>
               <span class="group-count"></span>
               <button type="button" class="reset-group">${copy.resetGroup}</button>
@@ -199,8 +200,8 @@ export const mountKnobs: Mount = (root, { store, player, sound }) => {
   slot<HTMLDivElement>('#panel-rhythm').innerHTML = `
     <form class="knobs knobs-rhythm">
       <div class="group">
-        <div class="section-label" id="ratio-label">${copy.handsHeadingRhythm}</div>
         <div class="ratio-box">
+        <div class="section-label" id="ratio-label">${copy.handsHeadingRhythm}</div>
         <div class="ratio-chips" role="group" aria-labelledby="ratio-label">
           ${RATIO_CHIPS.map(([a, b]) => `<button type="button" class="chip" data-a="${a}" data-b="${b}">${copy.ratioChip(a, b)}</button>`).join('')}
           <button type="button" class="chip-more" aria-expanded="false" aria-controls="ratio-steppers" aria-label="${copy.ratioMoreLabel}">${copy.ratioMore}</button>
@@ -404,6 +405,7 @@ export const mountKnobs: Mount = (root, { store, player, sound }) => {
       voice: q<HTMLButtonElement>('.lane-voice'),
       voiceName: q<HTMLSpanElement>('.lane-voice-name'),
       remove: q<HTMLButtonElement>('.lane-remove'),
+      moreToggle: q<HTMLButtonElement>('.lane-more-toggle'),
       cellBox: q<HTMLDivElement>('.cells'),
       cells: Array.from(el.querySelectorAll<HTMLButtonElement>('.cell')),
       steppers: Object.fromEntries(RHYTHM_KINDS.map((kind) => [kind, q<HTMLSpanElement>(`.rstep[data-kind="${kind}"]`)])) as Record<
@@ -416,6 +418,8 @@ export const mountKnobs: Mount = (root, { store, player, sound }) => {
   });
   const addLaneButton = $<HTMLButtonElement>('.add-lane');
   const rhythmNotice = $<HTMLParagraphElement>('.rhythm-notice');
+  /** Each lane's disclosure on a phone (hits, balls, phase): closed until opened; a wide column shows them always. */
+  const laneOpen: boolean[] = LANES.map(() => false);
   /** Each lane's step under the playhead as drawn, so a frame touches the DOM only when it moves. */
   const shownPlayhead: (number | null)[] = LANES.map(() => null);
   /** Each lane's steps, for the playhead (read in the frame loop without deriving). */
@@ -441,7 +445,10 @@ export const mountKnobs: Mount = (root, { store, player, sound }) => {
       lane.voiceName.textContent = voice;
       lane.voice.setAttribute('aria-label', copy.voiceLabel(h, voice));
       lane.remove.hidden = removeAction(row) === null;
-      lane.cellBox.style.setProperty('--wide-columns', String(wideColumns(row.steps)));
+      lane.cellBox.style.setProperty('--columns', String(cellColumns(row.steps, false)));
+      lane.cellBox.style.setProperty('--wide-columns', String(cellColumns(row.steps, true)));
+      lane.el.classList.toggle('open', laneOpen[h] === true);
+      lane.moreToggle.setAttribute('aria-expanded', String(laneOpen[h] === true));
       lane.cells.forEach((cell, beat) => {
         cell.hidden = beat >= row.steps;
         cell.setAttribute('aria-pressed', String(row.onsets[beat] === true));
@@ -780,10 +787,51 @@ export const mountKnobs: Mount = (root, { store, player, sound }) => {
     }
     lane.cells.forEach((cell, beat) => cell.addEventListener('click', () => laneDispatch(h, (row) => cellAction(row, beat))));
     lane.group.querySelector('.reset-group')?.addEventListener('click', () => store.dispatch({ type: 'resetGroup', part: h }));
-    lane.voice.addEventListener('click', () => store.set({ sheetTab: 'sound' }));
-    lane.remove.addEventListener('click', () => laneDispatch(h, removeAction));
+    lane.voice.addEventListener('click', () => showVoice(h));
+    lane.moreToggle.addEventListener('click', () => {
+      laneOpen[h] = !laneOpen[h];
+      render(store.get(), store.get());
+    });
+    lane.remove.addEventListener('click', () => {
+      const before = store.get().parts;
+      laneDispatch(h, removeAction);
+      if (store.get().parts === before) return;
+      // The lanes below move up a place, and their disclosures with them.
+      laneOpen.splice(h, 1);
+      laneOpen.push(false);
+      render(store.get(), store.get());
+      // The tapped × hid with its lane: focus goes to the lane above's header, or Add.
+      const to = focusAfterRemove(h);
+      (to === 'add' ? addLaneButton : (lanes[to] as (typeof lanes)[number]).voice).focus();
+    });
   });
-  addLaneButton.addEventListener('click', () => store.dispatch({ type: 'addLane' }));
+  addLaneButton.addEventListener('click', () => {
+    store.dispatch({ type: 'addLane' });
+    // At the last lane Add disables under focus: focus moves to the newest lane's header.
+    const to = focusAfterAdd(store.get().parts.length, canAddLane(store.get()));
+    if (to !== null) lanes[to]?.voice.focus();
+  });
+
+  /**
+   * The voice name: the Sound tab, scrolled to that hand's sound, pan and gain, which flash once
+   * (sound-panel.css). The sound select takes focus, so the keyboard lands where the eye does.
+   */
+  function showVoice(h: number) {
+    store.set({ sheetTab: 'sound' });
+    const select = document.getElementById(`sp-part-sample-${h}`);
+    if (!select) return;
+    select.closest('.sp-row')?.scrollIntoView({ block: 'start' });
+    (select as HTMLSelectElement).focus({ preventScroll: true });
+    for (const field of document.querySelectorAll(`.sound-panel [data-part="${h}"]`)) {
+      const row = field.closest('.sp-row');
+      if (!row) continue;
+      // Restarts the animation when the same hand is shown twice.
+      row.classList.remove('sp-flash');
+      void (row as HTMLElement).offsetWidth;
+      row.classList.add('sp-flash');
+      row.addEventListener('animationend', () => row.classList.remove('sp-flash'), { once: true });
+    }
+  }
 
   moreButton.addEventListener('click', () => {
     moreOpen = !moreOpen;

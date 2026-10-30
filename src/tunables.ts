@@ -219,6 +219,8 @@ export const MAX_RATE = MAX_RATIO;
 export const LANES_UI = {
   /** Step cells per row on a phone: a longer period wraps to a second row. A wide column holds the whole period in one row. */
   phoneColumns: 8,
+  /** The fewest step cells to a row: a shorter period's cells stretch to fill this many columns' width. */
+  minColumns: 4,
   /** A lane's colour dot shows from this many lanes, as the ladder and the juggler tint parts only at three or more. */
   dotsFromLanes: 3,
 } as const;

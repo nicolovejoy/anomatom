@@ -26,6 +26,27 @@
   align-items: center;
   gap: 8px 12px;
   margin: 6px 0;
+  scroll-margin-top: 12px;
+}
+/* A hand's rows, flashed once when its lane's voice name opens this tab (mount-knobs.ts). */
+.sound-panel .sp-row.sp-flash {
+  border-radius: 8px;
+  animation: sp-flash 1.6s ease-out;
+}
+@keyframes sp-flash {
+  from {
+    background: color-mix(in srgb, var(--accent) 22%, transparent);
+    box-shadow: 0 0 0 6px color-mix(in srgb, var(--accent) 22%, transparent);
+  }
+  to {
+    background: transparent;
+    box-shadow: 0 0 0 6px transparent;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .sound-panel .sp-row.sp-flash {
+    animation-duration: 0.01s;
+  }
 }
 .sound-panel .sp-row > label:first-child:not(:only-child) {
   flex: 0 0 9em;
