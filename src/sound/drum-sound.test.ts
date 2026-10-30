@@ -1,4 +1,4 @@
-import { expect, test, vi } from 'vitest';
+import { describe, expect, test, vi } from 'vitest';
 import { DEFAULT_MAPPING, PARAM_SMOOTH_SECONDS } from '../tunables';
 import { createDrumSound, type Kit } from './drum-sound';
 import type { Hit } from './mapping';
@@ -319,4 +319,153 @@ test('the playback audio session is also set when the context is made', () => {
   const sound = createDrumSound(() => fakeContext(), async () => fakeKit() as Kit, undefined, () => session);
   sound.preload(DEFAULT_MAPPING);
   expect(session.type).toBe('playback');
+});
+
+describe('kits (v2 wave 1, ruling 1)', () => {
+  const onKit = (kit: string, parts = DEFAULT_MAPPING.parts) => ({
+    ...DEFAULT_MAPPING,
+    parts: parts.map((v) => ({ ...v, kit })),
+  });
+
+  /** A loadKit that makes one fake kit per (part, kit) call, kept so the test can resolve them. */
+  function kitsByCall() {
+    const made: { part: number; kit: string; fake: ReturnType<typeof fakeKit> }[] = [];
+    const loadKit = vi.fn(async (_c: AudioContext, part: number, _d: AudioNode, kit: string) => {
+      const fake = fakeKit();
+      made.push({ part, kit, fake });
+      return fake as Kit;
+    });
+    const find = (part: number, kit: string) => made.filter((m) => m.part === part && m.kit === kit).at(-1)?.fake;
+    return { made, loadKit, find };
+  }
+
+  test('each part loads its own kit; a kit change loads the new kit while the old one keeps playing, then the new one plays', async () => {
+    const { loadKit, find } = kitsByCall();
+    const sound = createDrumSound(() => fakeContext(), loadKit);
+    sound.preload(DEFAULT_MAPPING);
+    await settle();
+    expect(loadKit.mock.calls.map((c) => [c[1], c[3]])).toEqual([
+      [0, 'TR-808'],
+      [1, 'TR-808'],
+    ]);
+    find(0, 'TR-808')?.resolve();
+    find(1, 'TR-808')?.resolve();
+    await settle();
+    sound.preload(onKit('LM-2'));
+    sound.preload(onKit('LM-2'));
+    await settle();
+    expect(loadKit.mock.calls.map((c) => [c[1], c[3]]).slice(2)).toEqual([
+      [0, 'LM-2'],
+      [1, 'LM-2'],
+    ]);
+    // The LM-2 is still loading: the TR-808 plays.
+    sound.play(hit(0), 2, 0.25);
+    expect(find(0, 'TR-808')?.started).toHaveLength(1);
+    find(0, 'LM-2')?.resolve();
+    await settle();
+    sound.play(hit(0), 3, 0.25);
+    expect(find(0, 'LM-2')?.started).toEqual([{ note: 'kick', velocity: 100, time: 3, duration: 0.5 }]);
+    expect(find(0, 'TR-808')?.started).toHaveLength(1);
+    // The old kit is kept (for switching back), not disposed.
+    expect(find(0, 'TR-808')?.disposed).toBe(false);
+    expect(sound.status()).toBe('loading');
+  });
+
+  test('a kit that arrives after the part has moved on is kept, not played; switching back to it needs no load', async () => {
+    const { loadKit, find } = kitsByCall();
+    const sound = createDrumSound(() => fakeContext(), loadKit);
+    sound.preload(DEFAULT_MAPPING);
+    await settle();
+    find(0, 'TR-808')?.resolve();
+    await settle();
+    sound.preload(onKit('LM-2'));
+    sound.preload(onKit('MFB-512'));
+    await settle();
+    find(0, 'LM-2')?.resolve();
+    await settle();
+    sound.play(hit(0), 1, 0.25);
+    expect(find(0, 'LM-2')?.started).toEqual([]);
+    expect(find(0, 'TR-808')?.started).toHaveLength(1);
+    find(0, 'MFB-512')?.resolve();
+    await settle();
+    sound.play(hit(0), 2, 0.25);
+    expect(find(0, 'MFB-512')?.started).toHaveLength(1);
+    const heard: string[] = [];
+    sound.subscribe(() => heard.push(sound.status()));
+    // Part 0 back to the LM-2; part 1 stays on the MFB-512 it is loading, so nothing new loads.
+    sound.preload({ ...DEFAULT_MAPPING, parts: [{ ...voice(0), kit: 'LM-2' }, { ...voice(1), kit: 'MFB-512' }] });
+    // At once: no load, no "loading" flicker, and the LM-2 plays the next hit.
+    sound.play(hit(0), 3, 0.25);
+    expect(find(0, 'LM-2')?.started).toHaveLength(1);
+    expect(heard.filter((s) => s === 'loading')).toEqual([]);
+    expect(loadKit.mock.calls.filter((c) => c[1] === 0).map((c) => c[3])).toEqual(['TR-808', 'LM-2', 'MFB-512']);
+  });
+
+  test('a factory that hands back the same cached kit (switched away and back while loading) plays it once in', async () => {
+    const cache = new Map<string, Promise<Kit>>();
+    const fakes = new Map<string, ReturnType<typeof fakeKit>>();
+    const loadKit = vi.fn((_c: AudioContext, part: number, _d: AudioNode, kit: string) => {
+      const key = `${part}/${kit}`;
+      if (!cache.has(key)) {
+        const fake = fakeKit();
+        fakes.set(key, fake);
+        cache.set(key, Promise.resolve(fake as Kit));
+      }
+      return cache.get(key) as Promise<Kit>;
+    });
+    const sound = createDrumSound(() => fakeContext(), loadKit);
+    const one = onKit('TR-808', DEFAULT_MAPPING.parts.slice(0, 1));
+    sound.preload(one);
+    sound.preload(onKit('LM-2', one.parts));
+    sound.preload(one);
+    await settle();
+    expect(loadKit.mock.calls.map((c) => c[3])).toEqual(['TR-808', 'LM-2', 'TR-808']);
+    fakes.get('0/TR-808')?.resolve();
+    fakes.get('0/LM-2')?.resolve();
+    await settle();
+    expect(sound.status()).toBe('ready');
+    sound.play(hit(0), 1, 0.25);
+    expect(fakes.get('0/TR-808')?.started).toHaveLength(1);
+    expect(fakes.get('0/LM-2')?.started).toHaveLength(0);
+    sound.close();
+    expect(fakes.get('0/TR-808')?.disposed).toBe(true);
+    expect(fakes.get('0/LM-2')?.disposed).toBe(true);
+  });
+
+  test('a superseded kit that fails is not a failure; the wanted kit that fails is, and is retried', async () => {
+    const { loadKit, find } = kitsByCall();
+    const sound = createDrumSound(() => fakeContext(), loadKit);
+    const one = onKit('TR-808', DEFAULT_MAPPING.parts.slice(0, 1));
+    sound.preload(one);
+    await settle();
+    find(0, 'TR-808')?.resolve();
+    await settle();
+    sound.preload(onKit('LM-2', one.parts));
+    sound.preload(onKit('MFB-512', one.parts));
+    await settle();
+    find(0, 'LM-2')?.reject(new Error('offline'));
+    find(0, 'MFB-512')?.reject(new Error('offline'));
+    await settle();
+    expect(find(0, 'LM-2')?.disposed).toBe(true);
+    expect(sound.status()).toBe('failed');
+    sound.retry();
+    await settle();
+    expect(loadKit.mock.calls.map((c) => c[3])).toEqual(['TR-808', 'LM-2', 'MFB-512', 'MFB-512']);
+    // The TR-808 played on through all of it.
+    sound.play(hit(0), 1, 0.25);
+    expect(find(0, 'TR-808')?.started).toHaveLength(1);
+  });
+
+  test('close disposes every kit a part has had', async () => {
+    const { loadKit, made } = kitsByCall();
+    const sound = createDrumSound(() => fakeContext(), loadKit);
+    sound.preload(DEFAULT_MAPPING);
+    await settle();
+    sound.preload(onKit('LM-2'));
+    await settle();
+    for (const m of made) m.fake.resolve();
+    await settle();
+    sound.close();
+    expect(made.map((m) => m.fake.disposed)).toEqual([true, true, true, true]);
+  });
 });

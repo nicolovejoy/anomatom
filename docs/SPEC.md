@@ -113,6 +113,8 @@ A drawer over the play view. Every control edits one field of the Mapping. Defau
 
 (v2, 2026-10-29) The preset list gains "Voice per part", the new default for a fresh state (§6), and item 4 becomes per hand: kit, sample, pan and gain. The Sound tab copy says that the sound is invariant under ball count unless the preset reads flight length.
 
+(v2 wave 1, 2026-10-30) Item 1 lists five kits: TR-808 (default), Casio RZ-1, LinnDrum LM-2, MFB-512, Roland CR-8000, and sets every part's kit. Sound names stay the TR-808's; each kit plays each on its own sample, borrowing the nearest where it has none (`KIT_ROLES`). The kit is not part of a preset: choosing a kit keeps the preset's name, and choosing a preset keeps the kit.
+
 The share link encodes pattern, ratio, tempo and the whole Mapping in the URL hash. Opening such a link restores all of it and does not auto-play.
 
 ### 4.4 About

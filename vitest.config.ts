@@ -16,7 +16,6 @@ export default defineConfig({
     coverage: {
       provider: 'v8',
       include: covered,
-      // tr808.ts is the browser side of the drums (real Web Audio, smplr).
       // Browser-side modules are named `*.browser.ts` and excluded; the e2e smoke test covers them.
       exclude: [
         '**/*.test.ts',
@@ -24,7 +23,6 @@ export default defineConfig({
         'src/app/mount*.ts',
         'src/app/*-canvas.ts',
         'src/app/*.css',
-        'src/sound/tr808.ts',
       ],
       thresholds: { lines: 100, perFile: true },
       reporter: ['text'],

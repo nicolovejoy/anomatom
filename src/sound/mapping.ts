@@ -67,17 +67,39 @@ export interface Hit {
 export type PresetName = keyof typeof PRESET_MAPPINGS;
 export const PRESET_NAMES = Object.keys(PRESET_MAPPINGS) as readonly PresetName[];
 
-/** The preset a mapping equals field for field, or 'custom'. Derived, never stored, so it cannot go stale. */
+/**
+ * The preset a mapping equals field for field, kits aside, or 'custom'. Derived, never stored, so it
+ * cannot go stale. The kit is not part of a preset (v2 wave 1, ruling 2): the Kit select changes every
+ * part's kit and the preset's name stays. So "equals a preset" does not mean "is the preset's mapping":
+ * `isPresetMapping` says that.
+ */
 export function presetOf(mapping: Mapping): PresetName | 'custom' {
   // A preset grown or shrunk to the mapping's voice count is still that preset (lanes ruling 5).
   return (
-    PRESET_NAMES.find((name) => deepEqual(withPartCount(PRESET_MAPPINGS[name], mapping.parts.length), mapping)) ?? 'custom'
+    PRESET_NAMES.find((name) =>
+      deepEqual(withKitsOf(withPartCount(PRESET_MAPPINGS[name], mapping.parts.length), mapping), mapping),
+    ) ?? 'custom'
   );
 }
 
-/** The preset's mapping; choosing a preset rewrites every field (SPEC §4.3). */
+/** True when the mapping is the named preset's, its kits too (grown or shrunk to the mapping's voice count). */
+export function isPresetMapping(mapping: Mapping, name: PresetName): boolean {
+  return deepEqual(withPartCount(PRESET_MAPPINGS[name], mapping.parts.length), mapping);
+}
+
+/** The preset's mapping; choosing a preset rewrites every field but the kits (SPEC §4.3; see `withKitsOf`). */
 export function applyPreset(name: PresetName): Mapping {
   return PRESET_MAPPINGS[name];
+}
+
+/**
+ * `mapping` with the kits of `from`: part i takes `from`'s part i's kit, a part past `from`'s last its
+ * first part's (the kit selector sets every part). The same object when no kit changes.
+ */
+export function withKitsOf(mapping: Mapping, from: Mapping): Mapping {
+  const kitAt = (i: number) => (from.parts[i] ?? from.parts[0])?.kit;
+  if (mapping.parts.every((v, i) => (kitAt(i) ?? v.kit) === v.kit)) return mapping;
+  return { ...mapping, parts: mapping.parts.map((v, i) => ({ ...v, kit: kitAt(i) ?? v.kit })) };
 }
 
 function deepEqual(a: unknown, b: unknown): boolean {

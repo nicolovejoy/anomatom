@@ -21,7 +21,7 @@ export const copy = {
   // -------------------------------------------------------------------------------------------
 
   title: 'anomatom',
-  placeholder: 'I am anomatom, a juggling robot. Type a pattern and press Play: I juggle it and play every throw on a TR-808.',
+  placeholder: 'I am anomatom, a juggling robot. Type a pattern and press Play: I juggle it and play every throw on a drum machine, a Roland TR-808 unless you pick another kit.',
   patternLabel: 'Pattern',
   handLabel: (hand: number) => `Hand ${hand + 1} pattern`,
   ratioLabel: 'Ratio',
@@ -110,7 +110,14 @@ export const copy = {
     'ball-pitch': 'Ball to pitch',
     custom: 'Custom',
   },
-  kitNames: { 'TR-808': 'TR-808' },
+  /** By KIT_IDS id. */
+  kitNames: {
+    'TR-808': 'Roland TR-808',
+    'Casio-RZ1': 'Casio RZ-1',
+    'LM-2': 'LinnDrum LM-2',
+    'MFB-512': 'MFB-512',
+    'Roland CR-8000': 'Roland CR-8000',
+  } as Record<string, string>,
   padInstrumentNames: { mellotron: 'Mellotron', soundfont: 'Soundfont pad' },
   padChordNames: { Dm9: 'Dm9', Am7: 'Am7', Cmaj7: 'Cmaj7', F69: 'F6/9', open5: 'Open fifth' } as Record<string, string>,
   /** The kit's sounds, by smplr's group name. */
@@ -204,7 +211,7 @@ export const copy = {
   aboutPresets: [
     'The sourcebook I work from reduces each rhythm to its skeleton, and each card is that skeleton. It is not a transcription of a recording. The tempi are my starting points.',
     'Where a card names a page, I opened that page. Where it says standard grid, the positions are the common reference grids. The sourcebook marks them as unquoted, and I opened no page for that card.',
-    'I play every card on a TR-808. Where a rhythm wants a kalimba or a pluck, a cowbell, a clave or a conga stands in until I have more kits.',
+    'I play every card on a Roland TR-808 unless you pick another kit. My kits are all drum machines, so where a rhythm wants a kalimba or a pluck, a cowbell, a clave or a conga stands in.',
   ],
   aboutPresetSourceNone: 'No page opened: standard grid',
   aboutColotomyHeading: 'A note on the gong cycle',
