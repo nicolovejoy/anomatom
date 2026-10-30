@@ -2,6 +2,8 @@
 
 Shipped on the About page. Papers first, then practitioner sources and prior art. Numbers are the ones `MATH.md` cites.
 
+The About page (stream F, 2026-10-29) cites only entries opened and checked: 1, 5, 13, 16, 18, 19, 20 and 22. Entries 2, 17 and 23 carry the not-yet-opened marker and stay off it until opened. Entries 1 and 5 were not re-opened in this stream; the page says only that they treat juggling sequences and the average of the digits.
+
 ## Papers
 
 1. Buhler, J., Eisenbud, D., Graham, R., Wright, C. (1994). Juggling Drops and Descents. *American Mathematical Monthly* 101(6), 507–519. https://www.cecm.sfu.ca/organics/papers/buhler/paper/html/node1.html
