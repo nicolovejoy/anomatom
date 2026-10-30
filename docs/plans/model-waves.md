@@ -4,6 +4,8 @@ Implements `docs/plans/model-rethink.md` (the design; read it first, it is the c
 
 Status: waves 0, 1 and 2 merged 2026-10-29 (PRs 32-39, Fable session 1187); awaiting Nico's checkpoint smoke test. Next: the v2 kits stream on the per-part Mapping, share-in-reach on the v2 hash, the space-bar fix, then the mixer-style UI plan (design §12).
 
+The mixer-style UI is now `docs/plans/lanes.md` (2026-10-29, ahead of the kits stream at Nico's request).
+
 ## Waves
 
 - **Wave 0** (parallel): A · Core model (Opus), D · Docs (Opus). Checkpoint: tests only; no visible change.
