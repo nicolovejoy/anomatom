@@ -96,11 +96,18 @@ test('switching the kit while playing: the next hits are the new kit\'s, with no
   };
   await expect.poll(mapping, { timeout: 5_000 }).toEqual({ n: 'voice-per-part', k: 'LM-2' });
   await page.screenshot({ path: 'test-results/kits-lm2.png', fullPage: true });
-  // Opening the link restores the kit.
-  await page.goto(`/${await page.evaluate(() => location.hash)}`);
-  await page.reload();
-  await openTab(page, 'sound');
-  await expect(page.locator('#sp-kit')).toHaveValue('LM-2');
-  await expect(page.locator('#sp-preset')).toHaveValue('voice-per-part');
+  expect(errors).toEqual([]);
+
+  // Opening the link in a new tab restores the kit. (A new tab, not a reload: WebKit logs a fetch that
+  // a reload cancels as an access-control error.)
+  const link = await page.evaluate(() => location.hash);
+  const fresh = await context.newPage();
+  fresh.on('console', (m) => m.type() === 'error' && errors.push(m.text()));
+  fresh.on('pageerror', (e) => errors.push(e.message));
+  await fresh.goto(`/${link}`);
+  await openTab(fresh, 'sound');
+  await expect(fresh.locator('#sp-kit')).toHaveValue('LM-2');
+  await expect(fresh.locator('#sp-preset')).toHaveValue('voice-per-part');
+  await expect(fresh.locator('.sound-status')).toHaveAttribute('data-state', 'ready');
   expect(errors).toEqual([]);
 });
