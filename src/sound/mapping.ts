@@ -69,7 +69,10 @@ export const PRESET_NAMES = Object.keys(PRESET_MAPPINGS) as readonly PresetName[
 
 /** The preset a mapping equals field for field, or 'custom'. Derived, never stored, so it cannot go stale. */
 export function presetOf(mapping: Mapping): PresetName | 'custom' {
-  return PRESET_NAMES.find((name) => deepEqual(PRESET_MAPPINGS[name], mapping)) ?? 'custom';
+  // A preset grown or shrunk to the mapping's voice count is still that preset (lanes ruling 5).
+  return (
+    PRESET_NAMES.find((name) => deepEqual(withPartCount(PRESET_MAPPINGS[name], mapping.parts.length), mapping)) ?? 'custom'
+  );
 }
 
 /** The preset's mapping; choosing a preset rewrites every field (SPEC §4.3). */

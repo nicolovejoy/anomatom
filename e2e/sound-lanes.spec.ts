@@ -23,6 +23,7 @@ test('a three-part link lists three voices in the Sound tab', async ({ page }) =
   await expect(page.locator('#sp-part-sample-0')).toHaveValue('kick');
   await expect(page.locator('#sp-part-sample-1')).toHaveValue('snare');
   await expect(page.locator('#sp-part-sample-2')).toHaveValue('hihat-close');
+  await expect(page.locator('#sp-preset')).toHaveValue('voice-per-part');
   await page.locator('#sp-parts').scrollIntoViewIfNeeded();
   await page.screenshot({ path: `${SHOTS}/sound-tab-3-parts-390x844.png` });
 });

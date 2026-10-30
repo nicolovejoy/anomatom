@@ -1,6 +1,6 @@
 import { describe, expect, test } from 'vitest';
 import { DEFAULT_MAPPING, MAX_MAPPING_PARTS } from '../tunables';
-import { applyPreset, PRESET_NAMES, voiceForNewPart, withPartCount, type Mapping } from './mapping';
+import { applyPreset, presetOf, PRESET_NAMES, voiceForNewPart, withPartCount, type Mapping } from './mapping';
 import { decodeMapping, encodeMapping } from './mapping-hash';
 
 const custom: Mapping = {
@@ -102,8 +102,8 @@ describe('three and four voices', () => {
   test('a grown mapping round trips through a link', () => {
     for (const n of [3, 4]) {
       const m = withPartCount(DEFAULT_MAPPING, n);
-      const back = decodeMapping(JSON.parse(JSON.stringify(encodeMapping(m))));
-      expect(back).toEqual(m);
+      const back = decodeMapping(JSON.parse(JSON.stringify(encodeMapping({ ...m, byBall: ['kick'] }))));
+      expect(back).toEqual({ ...m, byBall: ['kick'] });
       expect(back.parts).toHaveLength(n);
     }
   });
@@ -111,5 +111,16 @@ describe('three and four voices', () => {
   test('a junk voice past the defaults takes the rotation, not the second voice', () => {
     const m = decodeMapping({ p: [['TR-808', 'kick', 0, 1], 'junk', 'junk', 'junk'] });
     expect(m.parts.map((v) => v.sample)).toEqual(['kick', 'snare', 'hihat-close', 'clap']);
+  });
+});
+
+describe('a preset grown to N voices is still the preset', () => {
+  test('presetOf and encodeMapping name it; decoding with the part count rebuilds the voices', () => {
+    const grown = withPartCount(applyPreset('height-drum'), 3);
+    expect(presetOf(grown)).toBe('height-drum');
+    expect(encodeMapping(grown)).toBe('height-drum');
+    expect(decodeMapping('height-drum', 3)).toEqual(grown);
+    expect(decodeMapping('nope', 3)).toEqual(withPartCount(DEFAULT_MAPPING, 3));
+    expect(presetOf(withPartCount({ ...grown, byBall: ['kick'] }, 3))).toBe('custom');
   });
 });
