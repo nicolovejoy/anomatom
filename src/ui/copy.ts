@@ -270,7 +270,7 @@ export const copy = {
   hitsStepLabel: (hand: number, up: boolean) => `${up ? 'More' : 'Fewer'} hits for hand ${hand + 1}`,
   /** A manual group has no ball knob: its count, which may span both hands, and Reset. */
   groupBalls: (balls: number | null, hands: number) =>
-    balls === null ? 'can’t juggle' : hands > 1 ? `${balls} between both` : String(balls),
+    balls === null ? 'can’t juggle' : hands > 1 ? `${balls} ball${balls === 1 ? '' : 's'} between both hands` : String(balls),
   resetGroup: 'Reset',
   resetGroupLabel: (hands: readonly number[]) =>
     hands.length === 1 ? `Reset hand ${(hands[0] as number) + 1} to 1 ball` : 'Reset both hands to 1 ball each',

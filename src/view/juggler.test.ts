@@ -3,8 +3,8 @@ import { buildSchedule, flightsOf, partsFromOnsets } from '../core';
 import type { Event, Parts, Schedule } from '../core';
 import { scheduleOf, vanillaParts } from '../test/schedules';
 import { JUGGLER } from '../tunables';
-import { jugglerFrame } from './juggler';
-import type { JugglerBall, JugglerLayout } from './juggler';
+import { jugglerFrame, sceneScale } from './juggler';
+import type { JugglerBall, JugglerLayout, SceneScale } from './juggler';
 import type { Segment } from './types';
 
 const layout: JugglerLayout = JUGGLER;
@@ -470,6 +470,36 @@ describe('the fault, drawn as arcs (design §6)', () => {
     const { schedule, lookup } = known(vanillaParts('432'));
     const f = jugglerFrame([single(schedule, 1)], START, layout, lookup);
     expect(f.faults.filter((a) => a.inhuman).length).toBeGreaterThan(0);
+  });
+});
+
+describe('the axes (sceneScale)', () => {
+  const at390 = (s: Schedule, pulseLen = LEN) => sceneScale(frame([single(s, pulseLen)], START + 1).bounds, 390, 300, JUGGLER);
+  const handsY = (k: SceneScale, bottom: number) => k.floor - (0 - bottom) * k.sy;
+
+  test('short patterns share one uniform scale, the hands at one height', () => {
+    const three = at390(vanilla('3'));
+    const one = at390(vanilla('1'));
+    const bottom = frame([single(vanilla('3'))], START + 1).bounds.bottom;
+    for (const k of [three, one]) expect(k.sy / k.sx).toBe(1);
+    expect(handsY(one, bottom)).toBe(handsY(three, bottom));
+    expect(one).toEqual(three);
+  });
+
+  test('a tall apex squeezes only the height, and stays on the canvas', () => {
+    const line = buildSchedule(partsFromOnsets([Array.from({ length: 16 }, (_, i) => i === 0)], [1]));
+    const f = frame([single(line, 0.5)], START + 1);
+    const k = sceneScale(f.bounds, 390, 300, JUGGLER);
+    const short = at390(vanilla('3'));
+    expect(k.sx).toBe(short.sx);
+    expect(k.sy).toBeLessThan(k.sx);
+    expect(k.floor - (f.bounds.top - f.bounds.bottom) * k.sy).toBeCloseTo(JUGGLER.minRadiusPx, 9);
+  });
+
+  test('a narrow canvas fits across first; the height never scales past it', () => {
+    const k = sceneScale(frame([single(vanilla('3'))], START + 1).bounds, 60, 800, JUGGLER);
+    expect(k.sy).toBe(k.sx);
+    expect(k.x0).toBeCloseTo(JUGGLER.minRadiusPx, 9);
   });
 });
 

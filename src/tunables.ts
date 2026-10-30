@@ -132,11 +132,11 @@ export const JUGGLER = {
   flashRingRadii: 1.6,
   flashRingPx: 3,
   /**
-   * The vertical axis fits the tallest apex on screen to the top (SPEC §4.1 v2). Up to an apex
-   * this tall, in metres, the across scale follows it, so a parabola keeps its shape; above it
-   * the across scale stays as it was here and only the height squeezes.
+   * The juggler's axes (SPEC §4.1 v2, `sceneScale`): up to an apex this tall, in metres, one
+   * scale serves both axes, fitted to a scene this tall, so the hands keep one height; a taller
+   * apex squeezes only the height so it stays on the canvas. 531 at 120 bpm peaks under it.
    */
-  uniformTopMetres: 2.5,
+  uniformTopMetres: 1.5,
   /** A flight over HUMAN_AIRTIME_SECONDS: its ball drawn at this opacity. */
   inhumanAlpha: 0.4,
   /** A faulted group's flights (design §6): arcs in the warning colour (--warn), this wide, meeting at a ring on the landing. */

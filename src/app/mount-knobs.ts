@@ -32,6 +32,7 @@ import {
   handState,
   hitsAction,
   inputText,
+  joinAction,
   phaseAction,
   pieces,
   reduceRatio,
@@ -250,6 +251,8 @@ export const mountKnobs: Mount = (root, { store, player, sound }) => {
   let shownState: PlayerView['state'] = 'stopped';
   /** Where the digit pad types: the last focused input, and each input's caret (null: the end). */
   let activeHand: Hand = 0;
+  /** At 1:1, the inputs were split by a `/` typed in this session (so Backspace may join them back). */
+  let typedSplit = false;
   const carets: (Caret | null)[] = [null, null];
 
   // -------------------------------------------------------------------------------------------
@@ -411,6 +414,8 @@ export const mountKnobs: Mount = (root, { store, player, sound }) => {
     const vanilla = oneInput(state.ratio);
     // At 1:1, `a / b` shows as two inputs (form 2); a vanilla siteswap as one.
     const two = !vanilla || splitInputs(state);
+    // A split typed here lasts while the pattern stays split.
+    if (!two) typedSplit = false;
     HANDS.forEach((h) => {
       const text = !two && h > 0 ? '' : inputText(state, derived(state), h);
       const input = inputs[h] as HTMLInputElement;
@@ -577,6 +582,7 @@ export const mountKnobs: Mount = (root, { store, player, sound }) => {
       remember();
       // A `/` typed at 1:1 splits the pattern in two inputs: typing goes on in hand 2's.
       if (h === 0 && !wasSplit && splitInputs(store.get())) {
+        typedSplit = true;
         const next = inputs[1] as HTMLInputElement;
         next.focus();
         next.setSelectionRange(0, 0);
@@ -584,11 +590,13 @@ export const mountKnobs: Mount = (root, { store, player, sound }) => {
     });
     // Enter plays, or resumes; it never pauses.
     input.addEventListener('keydown', (e) => {
-      // Backspace in an empty hand 2 at 1:1 joins the pattern back into one input.
-      if (h === 1 && e.key === 'Backspace' && input.value === '' && splitInputs(store.get())) {
+      // Backspace in an empty hand 2 at 1:1 joins the pattern back into one input, when that
+      // changes no grid (`joinAction`).
+      const join = h === 1 && e.key === 'Backspace' && input.value === '' ? joinAction(store.get(), store.derived(), typedSplit) : null;
+      if (join) {
         e.preventDefault();
         const first = inputs[0] as HTMLInputElement;
-        store.dispatch({ type: 'editDraft', part: 0, text: first.value });
+        store.dispatch(join);
         first.focus();
         first.setSelectionRange(first.value.length, first.value.length);
         return;

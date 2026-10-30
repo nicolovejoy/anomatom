@@ -64,11 +64,27 @@ export function splitText(text: string): [string, string] {
 /** The one draft two inputs make at 1:1; `splitText` gives them back exactly. */
 export const joinInputs = (a: string, b: string): string => `${a} / ${b}`;
 
-/** The edit typing `text` into input `input` makes: at 1:1 split, both inputs joined into the one draft. */
+/**
+ * The edit typing `text` into input `input` makes: at 1:1 split, both inputs joined into the one
+ * draft. There a `/` typed in hand 1 is dropped: the draft splits at its first `/`, so keeping it
+ * would move hand 2's text. (One typed in hand 2 stays, and reads as a third pattern, refused.)
+ */
 export function draftAction(state: AppState, d: Derived, input: number, text: string): Action {
   if (!splitInputs(state)) return { type: 'editDraft', part: input, text };
-  const [a, b] = [0, 1].map((i) => (i === input ? text : inputText(state, d, i))) as [string, string];
+  const own = input === 0 ? text.replaceAll('/', '') : text;
+  const [a, b] = [0, 1].map((i) => (i === input ? own : inputText(state, d, i))) as [string, string];
   return { type: 'editDraft', part: 0, text: joinInputs(a, b) };
+}
+
+/**
+ * Backspace in an empty hand 2 input at 1:1: join the pattern back into one input, hand 1's text
+ * as one vanilla siteswap. Only when that cannot change a grid: the parts are a vanilla pair, or
+ * the split was made by typing `/` (`typedSplit`) over a pattern the one input held. Otherwise
+ * (two parts of their own, a phase among them) nothing: drafts edit flights, never grids.
+ */
+export function joinAction(state: AppState, d: Derived, typedSplit: boolean): Action | null {
+  if (!splitInputs(state) || !(typedSplit || isVanillaPair(state.parts))) return null;
+  return { type: 'editDraft', part: 0, text: inputText(state, d, 0) };
 }
 
 /** A side of `a / b` that does not read on its own, as its hand's own text. */

@@ -50,6 +50,10 @@ test('the ball stepper changes the summary’s ball count and not the sound', as
   await expect(cell(page, 'balls', 0).locator('output')).toHaveText('2');
   await expect(page.locator('.summary-meta')).toHaveText(/^3 balls\b/);
   expect(await samples(page)).toBe(before);
+  // The hook does see a change in the sound: a Hits step moves it.
+  await step(page, 'hits', 0, -1);
+  await expect(cell(page, 'hits', 0).locator('output')).toHaveText('7');
+  await expect(page.locator('[data-cycle-samples]')).not.toHaveAttribute('data-cycle-samples', before as string);
 });
 
 test('a manual group shows its count and Reset; Reset brings the steppers back', async ({ page }) => {
@@ -58,7 +62,7 @@ test('a manual group shows its count and Reset; Reset brings the steppers back',
   await page.locator('#hand-0').fill('531');
   await openTab(page, 'rhythm');
   // One vanilla siteswap is one group over both hands: one count, no knob.
-  await expect(page.locator('.group-balls[data-hand="0"]')).toContainText('3 between both');
+  await expect(page.locator('.group-balls[data-hand="0"]')).toContainText('3 balls between both hands');
   await expect(page.locator('.group-balls[data-hand="1"]')).toBeHidden();
   await expect(cell(page, 'balls', 0)).toBeHidden();
   await expect(cell(page, 'balls', 1)).toBeHidden();
@@ -102,6 +106,23 @@ test('form 2 at 1:1: a slash splits the pattern in two inputs; backspace in an e
   await expect(page.locator('#hand-1')).toBeHidden();
   await expect(page.locator('#hand-0')).toBeFocused();
   await expect(page.locator('#status')).toHaveText('I have 3 balls.');
+});
+
+test('split at 1:1: a `/` in hand 1 leaves hand 2 alone; Backspace never joins parts of their own', async ({ page }) => {
+  await page.goto(link([line('111011010110'), line('111011010110', 3)]));
+  await openTab(page, 'pattern');
+  const hand2 = await page.locator('#hand-1').inputValue();
+  await page.locator('#hand-0').press('End');
+  await page.locator('#hand-0').press('/');
+  await expect(page.locator('#hand-1')).toHaveValue(hand2);
+  await expect(page.locator('#hand-0')).not.toHaveValue(/\//);
+  // Hand 2 at phase 3, its input cleared, then Backspace: still two inputs, the phase kept.
+  await page.locator('#hand-1').fill('');
+  await page.locator('#hand-1').press('Backspace');
+  await expect(page.locator('#hand-1')).toBeVisible();
+  await openTab(page, 'rhythm');
+  await expect(cell(page, 'phase', 1).locator('output')).toHaveAttribute('data-phase', '3');
+  await expect(cell(page, 'phase', 1).locator('output')).toHaveAttribute('data-cycle', '12');
 });
 
 test('a pattern I can’t juggle: the fault drawn, the fixes under their heading, the notice muted', async ({ page }) => {

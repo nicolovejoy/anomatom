@@ -27,6 +27,7 @@ import {
   hand2Bpm,
   handState,
   inputText,
+  joinAction,
   pieces,
   reduceRatio,
   siteCovering,
@@ -197,6 +198,31 @@ describe('analyse and the fix state', () => {
     const s = typed(['3 / 3']);
     expect(draftAction(s, derived(s), 1, '4 2')).toEqual({ type: 'editDraft', part: 0, text: '3 / 4 2' });
     expect(draftAction(s, derived(s), 0, '')).toEqual({ type: 'editDraft', part: 0, text: ' / 3' });
+  });
+
+  test('draftAction: a `/` typed in hand 1 while split is dropped, hand 2’s text stays put', () => {
+    const s = typed(['3 / 3']);
+    const action = draftAction(s, derived(s), 0, '3/4');
+    expect(action).toEqual({ type: 'editDraft', part: 0, text: '34 / 3' });
+    const after = reduce(s, action);
+    expect([0, 1].map((i) => inputText(after, derived(after), i))).toEqual(['34', '3']);
+  });
+
+  test('joinAction: only a vanilla pair or a split typed here joins back; never two parts of their own', () => {
+    const v = typed(['531 /']);
+    expect(joinAction(v, derived(v), false)).toEqual({ type: 'editDraft', part: 0, text: '531' });
+    const s = typed(['3 / 3']);
+    expect(joinAction(s, derived(s), true)).toEqual({ type: 'editDraft', part: 0, text: '3' });
+    expect(joinAction(s, derived(s), false)).toBeNull();
+    // Clapping Music, hand 2 at phase 3, hand 2's input cleared: Backspace changes no part.
+    const clap = [true, true, true, false, true, true, false, true, false, true, true, false];
+    let c: AppState = { ...defaultState(), parts: partsFromOnsets([clap, clap], [1, 1]), drafts: [null, null] };
+    c = reduce(c, { type: 'setPhase', part: 1, phase: 3 });
+    const parts = c.parts;
+    c = reduce(c, draftAction(c, derived(c), 1, ''));
+    expect(c.parts).toBe(parts);
+    expect(joinAction(c, derived(c), false)).toBeNull();
+    expect(joinAction(typed(['531']), derived(typed(['531'])), true)).toBeNull();
   });
 
   test('editChanged: the player hears a new schedule, tempo or ratio, even when the schedule object is the same', () => {

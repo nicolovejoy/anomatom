@@ -1,6 +1,6 @@
 // Draws a juggler frame on a canvas. Reads nothing but the frame and the tunables.
 import { BALL_COLOURS, JUGGLER } from '../tunables';
-import type { JugglerFrame } from '../view/juggler';
+import { sceneScale, type JugglerFrame } from '../view/juggler';
 
 export function drawJuggler(canvas: HTMLCanvasElement, frame: JugglerFrame) {
   const ctx = canvas.getContext('2d');
@@ -19,19 +19,10 @@ export function drawJuggler(canvas: HTMLCanvasElement, frame: JugglerFrame) {
   ctx.fillStyle = JUGGLER.background;
   ctx.fillRect(0, 0, width, height);
 
-  // The vertical axis fits the tallest apex on screen to the top margin (SPEC §4.1 v2), standing
-  // on the bottom edge so the hands never move vertically. Across, the scene is centred at the
-  // same scale while the apex is at most JUGGLER.uniformTopMetres, so a parabola keeps its shape
-  // (and never wider than the canvas); a taller scene keeps that across scale and only squeezes
-  // in height, so a 16-beat throw does not shrink the hands to a dot. A margin of the smallest
-  // drawn radius keeps a ball drawn larger than the scene's whole.
-  const { left, right, bottom, top } = frame.bounds;
-  const pad = JUGGLER.minRadiusPx;
-  // Room under the scene for the hands.
-  const floor = height - pad - JUGGLER.handGapPx - JUGGLER.handBarPx;
-  const sy = (floor - pad) / (top - bottom);
-  const sx = Math.min((width - 2 * pad) / (right - left), (floor - pad) / (Math.min(top, JUGGLER.uniformTopMetres) - bottom));
-  const x0 = (width - (right - left) * sx) / 2;
+  // The axes (`sceneScale`, SPEC §4.1 v2): one scale while the tallest apex is at most
+  // JUGGLER.uniformTopMetres, the hands at a fixed height; above it only the height squeezes.
+  const { left, bottom } = frame.bounds;
+  const { sx, sy, x0, floor } = sceneScale(frame.bounds, width, height, JUGGLER);
   const px = (x: number) => x0 + (x - left) * sx;
   const py = (y: number) => floor - (y - bottom) * sy;
   const r = Math.max(JUGGLER.radius * Math.min(sx, sy), JUGGLER.minRadiusPx);

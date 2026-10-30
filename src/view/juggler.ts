@@ -463,6 +463,43 @@ function previousCross(segments: readonly Segment[], i: number, ball: number, la
 
 const clamp01 = (x: number): number => Math.min(Math.max(x, 0), 1);
 
+/** What `sceneScale` needs of the layout, in pixels and metres. */
+export interface ScaleLayout {
+  /** Margin round the scene: the smallest drawn radius, so a ball is drawn whole. */
+  readonly minRadiusPx: number;
+  /** Room under the scene for the hands. */
+  readonly handGapPx: number;
+  readonly handBarPx: number;
+  readonly radius: number;
+  readonly uniformTopMetres: number;
+}
+
+/** Pixels per metre across (`sx`) and up (`sy`), where the scene's left edge is drawn (`x0`) and the pixel row of its bottom (`floor`). */
+export interface SceneScale {
+  readonly sx: number;
+  readonly sy: number;
+  readonly x0: number;
+  readonly floor: number;
+}
+
+/**
+ * The juggler's axes (SPEC §4.1 v2). The scene stands on the canvas's bottom edge. While its
+ * tallest apex is at most `uniformTopMetres`, one scale serves both axes, the one that fits a
+ * scene that tall (and no wider than the canvas): parabolas keep their shape, and the hands stay
+ * at the same height whatever the pattern. A taller apex keeps that scale across and squeezes
+ * only the height, so the apex stays on the canvas. The vertical scale never exceeds the
+ * horizontal one.
+ */
+export function sceneScale(bounds: SceneBounds, width: number, height: number, layout: ScaleLayout): SceneScale {
+  const { left, right, bottom, top } = bounds;
+  const pad = layout.minRadiusPx;
+  const floor = height - pad - layout.handGapPx - layout.handBarPx;
+  const fit = (t: number) => (floor - pad) / (t - bottom);
+  const sx = Math.min((width - 2 * pad) / (right - left), fit(layout.uniformTopMetres + layout.radius));
+  const sy = Math.min(sx, fit(top));
+  return { sx, sy, x0: (width - (right - left) * sx) / 2, floor };
+}
+
 /**
  * The scene: both hands' outer points across, from the deepest scoop to the highest apex up,
  * each widened by a ball radius. The height is the largest of the segments on screen, each
