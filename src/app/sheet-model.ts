@@ -32,6 +32,18 @@ export function dragEnd(open: SheetTab | null, last: SheetTab, dy: number, thres
   return open === null ? last : null;
 }
 
+/** Whether Space belongs to a focused control: a select, a text or number input, a textarea. */
+export function keepsSpace(tagName: string, inputType: string | null): boolean {
+  const tag = tagName.toLowerCase();
+  if (tag === 'select' || tag === 'textarea') return true;
+  return tag === 'input' && (inputType === 'text' || inputType === 'number');
+}
+
+/** Home and End in the tab list: the first or last tab. */
+export function edgeTab(edge: 'first' | 'last'): SheetTab {
+  return TABS[edge === 'first' ? 0 : TABS.length - 1] as SheetTab;
+}
+
 /** Arrow keys in the tab list: the next or previous tab, wrapping. */
 export function stepTab(tab: SheetTab, step: 1 | -1): SheetTab {
   const i = TABS.indexOf(tab);

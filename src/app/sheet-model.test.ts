@@ -2,7 +2,7 @@ import { describe, expect, test } from 'vitest';
 import { RATIO_CHIPS } from '../tunables';
 import { typed } from '../test/schedules';
 import { analyse } from './knobs-model';
-import { dragEnd, fillPercent, hasChip, pressTab, shownTab, stepTab, summary, tempoLines, TABS } from './sheet-model';
+import { dragEnd, edgeTab, fillPercent, hasChip, keepsSpace, pressTab, shownTab, stepTab, summary, tempoLines, TABS } from './sheet-model';
 
 const one = { a: 1, b: 1 };
 const threeTwo = { a: 3, b: 2 };
@@ -47,6 +47,22 @@ test('arrow keys walk the tabs, wrapping', () => {
   expect(stepTab('sound', 1)).toBe('pattern');
   expect(stepTab('pattern', -1)).toBe('sound');
   expect(TABS).toEqual(['pattern', 'rhythm', 'sound']);
+});
+
+test('Home and End go to the first and last tab', () => {
+  expect(edgeTab('first')).toBe('pattern');
+  expect(edgeTab('last')).toBe('sound');
+});
+
+test('Space belongs to selects, text and number inputs and textareas only', () => {
+  expect(keepsSpace('SELECT', null)).toBe(true);
+  expect(keepsSpace('TEXTAREA', null)).toBe(true);
+  expect(keepsSpace('INPUT', 'text')).toBe(true);
+  expect(keepsSpace('INPUT', 'number')).toBe(true);
+  expect(keepsSpace('INPUT', 'range')).toBe(false);
+  expect(keepsSpace('INPUT', 'checkbox')).toBe(false);
+  expect(keepsSpace('BUTTON', null)).toBe(false);
+  expect(keepsSpace('DIV', null)).toBe(false);
 });
 
 describe('the summary', () => {
