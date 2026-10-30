@@ -26,7 +26,7 @@
 // pattern.
 import { cycleOf, isVanillaPair, mod, normalise, parseThrows, partsFromLines, partsFromVanilla, ratioOf, textOf } from '../core';
 import type { Part, PartFlights, Parts, Ratio, Throw } from '../core';
-import { applyPreset, PRESET_NAMES, presetOf, withPartCount } from '../sound/mapping';
+import { applyPreset, isPresetMapping, PRESET_NAMES, presetOf, withPartCount } from '../sound/mapping';
 import { decodeMapping, encodeMapping } from '../sound/mapping-hash';
 import {
   BPM_RANGE,
@@ -133,7 +133,8 @@ function shortCandidate(state: Shared): string | null {
   const { parts, ratio } = state;
   if (parts.length !== 2) return null;
   const name = presetOf(state.mapping);
-  if (name === 'custom') return null;
+  // A preset on another kit is not the preset's mapping: it has no short form.
+  if (name === 'custom' || !isPresetMapping(state.mapping, name)) return null;
   const tempo = (name === presetOf(DEFAULT_MAPPING) ? '' : `~${name}`) + (state.bpm === DEFAULT_BPM ? '' : `@${state.bpm}`);
   if (oneInput(ratio)) return isVanillaPair(parts) ? `#${textOf(parts[0] as Part, parts)}${tempo}` : null;
   const lines = parts.map((p) => textOf(p, parts).replace(/ /g, '-'));

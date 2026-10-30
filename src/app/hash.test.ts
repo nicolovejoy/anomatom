@@ -412,6 +412,18 @@ describe('short links (grammar in route.ts)', () => {
     v2({ ...base, parts: partsFromOnsets([[true, false], [true]], [1, 1]) });
   });
 
+  test('a preset on another kit has no short form and round-trips through #v2. with the kit intact', () => {
+    const base = { ...shared(defaultState()), parts: vanillaParts('531') };
+    const lm2: Mapping = { ...base.mapping, parts: base.mapping.parts.map((v) => ({ ...v, kit: 'LM-2' })) };
+    const state = { ...base, mapping: lm2 };
+    expect(presetOf(lm2)).toBe('voice-per-part');
+    const hash = encodeHash(state);
+    expect(hash.startsWith('#v2.')).toBe(true);
+    const back = decodeState(hash.slice('#v2.'.length));
+    expect(back?.mapping.parts.map((v) => v.kit)).toEqual(['LM-2', 'LM-2']);
+    expect(encodeState(back as NonNullable<typeof back>)).toBe(encodeState(state));
+  });
+
   test('a short link is decoded by the parsers the Pattern tab uses', () => {
     const typed = decodeState('531', 'short');
     expect(typed?.parts).toEqual(vanillaParts('531'));
