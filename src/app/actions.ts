@@ -315,11 +315,19 @@ export function rescale(parts: Parts, spacings: readonly number[]): Parts {
     parts.map((p, i): Part => {
       const spacing = (spacings[i] as number) * f;
       const [n, d] = phases[i] as [number, number];
+      // A whole factor scales the part as it is (a rate that does not change keeps its flights);
+      // otherwise its digits are re-read in one-hand counting at the new spacing.
+      const q = spacing / p.spacing;
+      const keep = !vanilla && Number.isInteger(q);
+      const unit = keep ? p.unit * q : spacing;
       const flights =
         p.flights.kind === 'default'
           ? p.flights
-          : { kind: 'manual' as const, throws: p.flights.throws.map((t) => ({ height: (t.height / p.unit) * spacing, to: t.to })) };
-      return { spacing, phase: f === r ? (n * f) / d : 0, unit: spacing, flights };
+          : {
+              kind: 'manual' as const,
+              throws: p.flights.throws.map((t) => ({ height: keep ? t.height * q : (t.height / p.unit) * spacing, to: t.to })),
+            };
+      return { spacing, phase: f === r ? (n * f) / d : 0, unit, flights };
     }),
   );
 }
@@ -337,17 +345,17 @@ function setRatio(s: AppState, ratio: Ratio): AppState {
   const [o0, o1] = ratioSpacings(s.ratio);
   if (s0 === o0 && s1 === o1) return { ...s, ratio: next };
   const spaced = respace(s, [s0, s1]);
-  return spaced === s ? s : { ...spaced, ratio: next };
+  return spaced.parts === s.parts ? spaced : { ...spaced, ratio: next };
 }
 
 /**
  * The parts at new spacings (`rescale`), each keeping its digits and onsets. A manual group where
  * a cross can no longer land on an onset is reset, with a notice; any other group is kept. A
- * cycle past MAX_LINK_CYCLE, which no link could carry, is refused.
+ * cycle past MAX_LINK_CYCLE, which no link could carry, is refused with a notice.
  */
 function respace(s: AppState, spacings: readonly number[]): AppState {
   const scaled = rescale(s.parts, spacings);
-  if (cycleOf(scaled) > MAX_LINK_CYCLE) return s;
+  if (cycleOf(scaled) > MAX_LINK_CYCLE) return { ...s, notice: copy.cycleTooLong };
   const verdict = judge(scaled);
   const lost = verdict.groups.filter(
     (g) =>
@@ -417,7 +425,7 @@ function setRate(s: AppState, part: PartIndex, rate: number): AppState {
 /**
  * Part `part`'s period to `steps` beats (1 to MAX_PERIOD): rests added at the end, or the tail
  * dropped. Its onsets change, so a manual group is reset with a notice (`changeOnsets`). The
- * phase wraps into the new period; a cycle past MAX_LINK_CYCLE is refused.
+ * phase wraps into the new period; a cycle past MAX_LINK_CYCLE is refused with a notice.
  */
 function setSteps(s: AppState, part: PartIndex, steps: number): AppState {
   const p = s.parts[part];
@@ -427,7 +435,7 @@ function setSteps(s: AppState, part: PartIndex, steps: number): AppState {
   const onsets = Array.from({ length: n }, (_, beat) => was[beat] ?? false);
   const wrapped = s.parts.map((q, i) => (i === part ? { ...q, phase: mod(q.phase, q.spacing * n) } : q));
   const next = changeOnsets({ ...s, parts: wrapped }, part, onsets);
-  return cycleOf(next.parts) > MAX_LINK_CYCLE ? s : next;
+  return cycleOf(next.parts) > MAX_LINK_CYCLE ? { ...s, notice: copy.cycleTooLong } : next;
 }
 
 /** The vanilla digits as the one input shows them: the draft's, when it reads as vanilla, else the parts'. */

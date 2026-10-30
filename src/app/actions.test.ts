@@ -452,7 +452,9 @@ describe('lanes (docs/plans/lanes.md)', () => {
     expect(reduce(lone, { type: 'setRate', part: 0, rate: 3 })).toBe(lone);
     const long = on('x...............');
     const wide = at(partsFromOnsets([long, long, long, long], [280, 315, 360, 1]));
-    expect(reduce(wide, { type: 'setRate', part: 3, rate: 5 })).toBe(wide);
+    const tooLong = reduce(wide, { type: 'setRate', part: 3, rate: 5 });
+    expect(tooLong.parts).toBe(wide.parts);
+    expect(tooLong.notice).toBe('That would make the cycle too long for me.');
   });
 
   test('setRate on a vanilla pair resets it, with a notice, as setRatio does; a manual lone part keeps its digits', () => {
@@ -467,6 +469,24 @@ describe('lanes (docs/plans/lanes.md)', () => {
     expect(kind(next, 0)).toBe('manual');
     expect(texts(next.parts)).toEqual(['3 0 0', '1']);
     expect(next.notice).toBeNull();
+  });
+
+  test('setRate on a third lane keeps a vanilla-born pair’s flights; on lane 1 only what no longer lands is reset', () => {
+    const s = reduce(defaultState(), { type: 'addLane' });
+    const third = reduce(s, { type: 'setRate', part: 2, rate: 2 });
+    expect(ratesOf(third.parts)).toEqual([1, 1, 2]);
+    expect(texts(third.parts).slice(0, 2)).toEqual(['3x2', '3x1']);
+    expect(judge(third.parts).ok).toBe(true);
+    expect(third.notice).toBeNull();
+    // Lane 1 at rate 2: its crosses no longer land on hand 2, so that group is reset, with the notice; lane 3 is kept.
+    const first = reduce(s, { type: 'setRate', part: 0, rate: 2 });
+    expect(ratesOf(first.parts)).toEqual([2, 1, 1]);
+    expect(first.notice).toBe('I reset hands 1 and 2 to 1 ball each.');
+    expect(first.parts[2]?.flights).toEqual(s.parts[2]?.flights);
+    // A manual part whose rate does not change keeps its digits in its own unit.
+    const kept = reduce(at([...s.parts.slice(0, 2), ...partsFromOnsets([on('x')], [1])]), { type: 'setRate', part: 2, rate: 3 });
+    expect(texts(kept.parts).slice(0, 2)).toEqual(['3x2', '3x1']);
+    expect(kept.notice).toBeNull();
   });
 
   test('setSteps pads with rests and drops the tail; a default part keeps its k; the phase wraps', () => {
@@ -490,7 +510,13 @@ describe('lanes (docs/plans/lanes.md)', () => {
     expect(reduce(s, { type: 'setSteps', part: 0, steps: 3 })).toBe(s);
     expect(reduce(s, { type: 'setSteps', part: 1, steps: 3 })).toBe(s);
     const wide = at(partsFromOnsets([on('x...............'), on('x')], [7, 9]));
-    expect(reduce(wide, { type: 'setSteps', part: 1, steps: 15 })).toBe(wide);
+    expect(reduce(wide, { type: 'setSteps', part: 1, steps: 15 })).toEqual({ ...wide, notice: 'That would make the cycle too long for me.' });
+    // setRatio too: 16 and 15 beats at 7:9 is a cycle of 5040 pulses.
+    const ratio = at(partsFromOnsets([on('x...............'), on('x..............')], [1, 1]));
+    const refused = reduce(ratio, { type: 'setRatio', ratio: { a: 7, b: 9 } });
+    expect(refused.parts).toBe(ratio.parts);
+    expect(refused.ratio).toEqual(one);
+    expect(refused.notice).toBe('That would make the cycle too long for me.');
   });
 
   test('the ratio follows the parts after every action; the mapping has a voice per part', () => {
