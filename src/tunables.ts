@@ -229,7 +229,10 @@ export const LANES_UI = {
 // C: Mapping and sound
 // ---------------------------------------------------------------------------------------------
 
-/** Every sample of smplr's TR-808 (its dm.json groups), for the sound panel's dropdowns and for validating a shared link. */
+/**
+ * Every sample of smplr's TR-808 (its dm.json groups), for the sound panel's dropdowns and for validating a
+ * shared link. These are roles: another kit plays each on its own sample (KIT_ROLES).
+ */
 export const KIT_SAMPLES: readonly string[] = [
   'clap',
   'clave',
@@ -249,8 +252,100 @@ export const KIT_SAMPLES: readonly string[] = [
   'tom-low',
 ];
 
-/** The kits a part may name (the kits stream adds more); the hash accepts only these. */
-export const KIT_IDS: readonly string[] = ['TR-808'];
+/**
+ * The kits a part may name, by smplr's DrumMachine instrument id; the hash accepts only these, and the
+ * Kit select lists them in this order. Licences: docs/plans/v2-share-kits-passing.md, ruling 7.
+ */
+export const KIT_IDS: readonly string[] = ['TR-808', 'Casio-RZ1', 'LM-2', 'MFB-512', 'Roland CR-8000'];
+
+/**
+ * Samples are roles (docs/plans/v2-share-kits-passing.md, ruling 1). The Mapping names sounds in the
+ * TR-808's vocabulary (KIT_SAMPLES); each kit plays a role on its own sample, named as in its dm.json
+ * (smplr accepts a full sample name as a note). A role the kit lacks borrows the nearest sound, marked
+ * "borrowed". Every kit has every role (unit tested).
+ */
+export const KIT_ROLES: Readonly<Record<string, Readonly<Record<string, string>>>> = {
+  // The vocabulary itself: every role is a TR-808 group (smplr plays a group's first variation).
+  'TR-808': Object.fromEntries(KIT_SAMPLES.map((s) => [s, s])),
+  // Twelve sounds. Toms 1-3 run high to low (measured: about 140, 118 and 92 Hz).
+  'Casio-RZ1': {
+    clap: 'clap',
+    clave: 'clave',
+    'conga-hi': 'tom-1', // borrowed: no congas
+    'conga-low': 'tom-3', // borrowed
+    'conga-mid': 'tom-2', // borrowed
+    cowbell: 'cowbell',
+    cymbal: 'crash',
+    'hihat-close': 'hihat-closed',
+    'hihat-open': 'hihat-open',
+    kick: 'kick',
+    maraca: 'hihat-closed', // borrowed: the nearest short noise
+    'mid-tom': 'tom-2',
+    rimshot: 'clave', // borrowed: the nearest short click
+    snare: 'snare',
+    'tom-hi': 'tom-1',
+    'tom-low': 'tom-3',
+  },
+  // Twenty-nine sounds; the middle of each family where it has several.
+  'LM-2': {
+    clap: 'clap',
+    clave: 'stick-h', // borrowed: no clave; the high side stick
+    'conga-hi': 'conga-h',
+    'conga-low': 'conga-l',
+    'conga-mid': 'conga-m',
+    cowbell: 'cowbell',
+    cymbal: 'crash',
+    'hihat-close': 'hhclosed',
+    'hihat-open': 'hhopen',
+    kick: 'kick',
+    maraca: 'cabasa', // borrowed: the shaker it has
+    'mid-tom': 'tom-m',
+    rimshot: 'stick-m', // borrowed: a side stick
+    snare: 'snare-m',
+    'tom-hi': 'tom-h',
+    'tom-low': 'tom-l',
+  },
+  // Nine sounds: no congas, clave, rimshot, maraca or cowbell. Roles that share a sample choke each
+  // other (smplr cuts a sample's last hit when it plays again), so clave, maraca and the closed hat
+  // each get their own where the kit allows.
+  'MFB-512': {
+    clap: 'clap',
+    clave: 'tom-hi', // borrowed: the nearest short pitched hit; shares the high tom's sample
+    'conga-hi': 'tom-hi', // borrowed
+    'conga-low': 'tom-low', // borrowed
+    'conga-mid': 'tom-mid', // borrowed
+    cowbell: 'hihat-closed', // borrowed: short metal, as a cowbell is; shares the closed hat's sample
+    cymbal: 'cymbal',
+    'hihat-close': 'hihat-closed',
+    'hihat-open': 'hihat-open',
+    kick: 'kick',
+    maraca: 'clap', // borrowed: a short noise burst; shares the clap's sample
+    'mid-tom': 'tom-mid',
+    rimshot: 'snare', // borrowed: a rimshot is a snare stroke
+    snare: 'snare',
+    'tom-hi': 'tom-hi',
+    'tom-low': 'tom-low',
+  },
+  // Thirteen sounds: two congas and two toms, no mid of either, no maraca.
+  'Roland CR-8000': {
+    clap: 'clap',
+    clave: 'clave',
+    'conga-hi': 'conga-high',
+    'conga-low': 'conga-low',
+    'conga-mid': 'conga-high', // borrowed: no mid conga
+    cowbell: 'cowbell',
+    cymbal: 'cymball', // sic: the file's name
+    'hihat-close': 'hihat-closed',
+    'hihat-open': 'hihat-open',
+    kick: 'kick',
+    maraca: 'hihat-closed', // borrowed: the nearest short noise
+    'mid-tom': 'tom-low', // borrowed: no mid tom
+    rimshot: 'rimshot',
+    snare: 'snare',
+    'tom-hi': 'tom-high',
+    'tom-low': 'tom-low',
+  },
+};
 /** Most voices a mapping holds or a link may carry. */
 export const MAX_MAPPING_PARTS = 8;
 
@@ -434,6 +529,11 @@ export const SHEET = {
   openHeightDvh: 62,
   /** The ladder strip's height on a phone, sheet closed and open; a wide screen uses LADDER.heightPx. */
   ladderPx: { closed: 112, open: 92 },
+  /**
+   * A phone on its side (narrower than wideMinWidthPx, at most maxHeightPx tall): the stage and
+   * the sheet sit side by side, the sheet a column of columnPx, the ladder ladderPx tall.
+   */
+  landscape: { maxHeightPx: 480, columnPx: 360, ladderPx: 96 },
   /** A drag on the handle longer than this opens or closes the sheet; shorter is a tap. */
   dragPx: 24,
   /** A pattern this long or longer is drawn smaller in the closed sheet's summary. */

@@ -14,6 +14,7 @@ import {
   applyPreset,
   filterCutoff,
   hitFor,
+  isPresetMapping,
   PAD_CHORD_IDS,
   PAD_INSTRUMENT_IDS,
   padHitsAt,
@@ -21,6 +22,8 @@ import {
   PRESET_NAMES,
   type Mapping,
   type PadChord,
+  withKitsOf,
+  withPartCount,
 } from './mapping';
 
 const voice = (i: number) => DEFAULT_MAPPING.parts[i] as Mapping['parts'][0];
@@ -54,7 +57,6 @@ describe('presets', () => {
       { ...DEFAULT_MAPPING, perHeight: { ...DEFAULT_MAPPING.perHeight, 3: 'clap' } },
       { ...DEFAULT_MAPPING, parts: [{ ...voice(0), pan: -0.5 }, voice(1)] },
       { ...DEFAULT_MAPPING, parts: [{ ...voice(0), sample: 'clap' }, voice(1)] },
-      { ...DEFAULT_MAPPING, parts: [{ ...voice(0), kit: 'other' }, voice(1)] },
       { ...DEFAULT_MAPPING, parts: [voice(0), { ...voice(1), sample: 'clave' }, voice(0)] },
       { ...DEFAULT_MAPPING, byHeight: false, perHeight: { ...DEFAULT_MAPPING.perHeight, 1: 'kick' } },
       { ...DEFAULT_MAPPING, catches: { on: true, sample: 'rimshot' } },
@@ -72,6 +74,31 @@ describe('presets', () => {
     expect(presetOf(back)).toBe('voice-per-part');
     // Arrays against objects are never equal.
     expect(presetOf({ ...DEFAULT_MAPPING, parts: { 0: voice(0), 1: voice(1), length: 2 } as unknown as Mapping['parts'] })).toBe('custom');
+  });
+
+  test('the kit is not part of a preset: a preset on other kits keeps its name (v2 wave 1, ruling 2)', () => {
+    const lm2 = (m: Mapping): Mapping => ({ ...m, parts: m.parts.map((v) => ({ ...v, kit: 'LM-2' })) });
+    for (const name of PRESET_NAMES) {
+      expect(presetOf(lm2(applyPreset(name)))).toBe(name);
+      expect(isPresetMapping(lm2(applyPreset(name)), name)).toBe(false);
+      expect(isPresetMapping(applyPreset(name), name)).toBe(true);
+    }
+    const mixed = { ...DEFAULT_MAPPING, parts: [voice(0), { ...voice(1), kit: 'MFB-512' }] };
+    expect(presetOf(mixed)).toBe('voice-per-part');
+    // Grown to three parts, the third on the first part's kit, is still the preset.
+    expect(presetOf(withPartCount(lm2(DEFAULT_MAPPING), 3))).toBe('voice-per-part');
+    // A kit change alongside any other edit is still custom.
+    expect(presetOf({ ...lm2(DEFAULT_MAPPING), byBall: ['kick'] })).toBe('custom');
+  });
+
+  test('withKitsOf: part i takes part i\'s kit, a part past the end the first part\'s; the same object when nothing changes', () => {
+    const from: Mapping = { ...DEFAULT_MAPPING, parts: [{ ...voice(0), kit: 'LM-2' }] };
+    const three = withPartCount(DEFAULT_MAPPING, 3);
+    expect(withKitsOf(three, from).parts.map((v) => v.kit)).toEqual(['LM-2', 'LM-2', 'LM-2']);
+    expect(withKitsOf(three, three)).toBe(three);
+    expect(withKitsOf(three, { ...DEFAULT_MAPPING, parts: [] })).toBe(three);
+    const two: Mapping = { ...DEFAULT_MAPPING, parts: [voice(0), { ...voice(1), kit: 'MFB-512' }] };
+    expect(withKitsOf(three, two).parts.map((v) => v.kit)).toEqual(['TR-808', 'MFB-512', 'TR-808']);
   });
 
   test('height to pitch gives nine distinct sounds, the highest throw the lowest', () => {

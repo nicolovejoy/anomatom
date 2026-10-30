@@ -13,12 +13,23 @@ import {
   type PadInstrument,
   type PresetName,
   type Sample,
+  withKitsOf,
   withPartCount,
 } from '../sound/mapping';
-import { CROSS_BOOST_RANGE, FILTER_HZ_RANGE, GAIN_RANGE, KIT_SAMPLES, MAX_HEIGHT, PAN_RANGE, SOUND_PANEL } from '../tunables';
+import {
+  CROSS_BOOST_RANGE,
+  FILTER_HZ_RANGE,
+  GAIN_RANGE,
+  KIT_IDS,
+  KIT_SAMPLES,
+  MAX_HEIGHT,
+  PAN_RANGE,
+  SOUND_PANEL,
+} from '../tunables';
 
 export type MappingEdit =
   | { readonly kind: 'preset'; readonly name: PresetName }
+  | { readonly kind: 'kit'; readonly kit: string }
   | { readonly kind: 'height'; readonly height: number; readonly sample: Sample }
   | { readonly kind: 'partSample'; readonly part: number; readonly sample: Sample }
   | { readonly kind: 'pan'; readonly part: number; readonly value: number }
@@ -50,7 +61,11 @@ export function applyEdit(m: Mapping, edit: MappingEdit): Mapping {
 function edited(m: Mapping, edit: MappingEdit): Mapping | undefined {
   switch (edit.kind) {
     case 'preset':
-      return PRESET_NAMES.includes(edit.name) ? applyPreset(edit.name) : undefined;
+      // The kit is not part of a preset (v2 wave 1, ruling 2): choosing one keeps the parts' kits.
+      return PRESET_NAMES.includes(edit.name) ? withKitsOf(applyPreset(edit.name), m) : undefined;
+    case 'kit':
+      // The one Kit select sets every part (ruling 2); a per-part kit stays in the model for passing.
+      return KIT_IDS.includes(edit.kit) ? { ...m, parts: m.parts.map((v) => ({ ...v, kit: edit.kit })) } : undefined;
     case 'height': {
       const sample = knownSample(edit.sample);
       if (sample === undefined || !Number.isInteger(edit.height) || edit.height < 1 || edit.height > MAX_HEIGHT) {

@@ -1,5 +1,6 @@
-// The mapping's share-link form (design §8): a preset name when the mapping equals one, else an
-// object of short keys. Pure. Decoding trusts nothing: junk is repaired field by field (unknown
+// The mapping's share-link form (design §8): a preset name when the mapping is one, kits and all;
+// `{ n: name, k: kits }` when it is a preset on other kits (`k` one kit id for every part, or one per
+// part); else an object of short keys. Pure. Decoding trusts nothing: junk is repaired field by field (unknown
 // fields ignored, missing or mistyped ones taken from the defaults, numbers clamped, sample and kit
 // names checked), so a link can never produce a mapping the player cannot play.
 //
@@ -26,6 +27,7 @@ import {
 } from '../tunables';
 import {
   applyPreset,
+  isPresetMapping,
   PAD_CHORD_IDS,
   PAD_INSTRUMENT_IDS,
   presetOf,
@@ -39,7 +41,11 @@ import {
 
 export function encodeMapping(m: Mapping): unknown {
   const name = presetOf(m);
-  if (name !== 'custom') return name;
+  if (name !== 'custom') {
+    if (isPresetMapping(m, name)) return name;
+    const kits = m.parts.map((v) => v.kit);
+    return { n: name, k: kits.every((k) => k === kits[0]) ? kits[0] : kits };
+  }
   return {
     h: Array.from({ length: MAX_HEIGHT }, (_, i) => m.perHeight[i + 1] ?? null),
     b: m.byBall,
@@ -60,6 +66,8 @@ export function decodeMapping(value: unknown, partCount?: number): Mapping {
     return partCount === undefined ? base : withPartCount(base, partCount);
   }
   if (!isRecord(value)) return DEFAULT_MAPPING;
+  // Only a string: a nested `n` would recurse as deep as the link is long.
+  if (typeof value.n === 'string') return withKits(decodeMapping(value.n, partCount), value.k);
   const d = DEFAULT_MAPPING;
   const sample = (v: unknown, fallback: Sample): Sample =>
     v === null ? null : typeof v === 'string' && KIT_SAMPLES.includes(v) ? v : fallback;
@@ -131,6 +139,16 @@ export function decodeMapping(value: unknown, partCount?: number): Mapping {
       chord: pick(chord, PAD_CHORD_IDS, d.pad.chord),
     },
   };
+}
+
+/** A preset's mapping on the link's kits: one kit id for every part, or one per part; an unknown id keeps the part's kit. */
+function withKits(base: Mapping, k: unknown): Mapping {
+  const kitAt = (i: number): unknown => (Array.isArray(k) ? k[i] : k);
+  const parts = base.parts.map((v, i) => {
+    const kit = KIT_IDS.find((id) => id === kitAt(i));
+    return kit === undefined || kit === v.kit ? v : { ...v, kit };
+  });
+  return parts.every((v, i) => v === base.parts[i]) ? base : { ...base, parts };
 }
 
 /** `value` if it is a finite number, clamped to [min, max]; else the fallback. */

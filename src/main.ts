@@ -13,7 +13,7 @@ import { mountSheet } from './app/mount-sheet';
 import { mountAbout } from './app/mount-about';
 import { mountShare } from './app/mount-share';
 import { createDrumSound } from './sound/drum-sound';
-import { browserContext, tr808 } from './sound/tr808';
+import { browserContext, drumMachine } from './sound/drum-machine.browser';
 import { copy } from './ui/copy';
 
 const app = document.getElementById('app');
@@ -21,7 +21,7 @@ if (app) {
   app.innerHTML = `
     <header class="topbar">
       <h1 class="wordmark">${copy.title}</h1>
-      <a href="#about" class="about-link" aria-label="${copy.aboutButtonLabel}">?</a>
+      <a href="#about" class="about-link" aria-label="${copy.aboutButtonLabel}">${copy.aboutButtonGlyph}</a>
     </header>
     <div class="play-view">
       <div class="stage">
@@ -47,7 +47,7 @@ if (app) {
 
   // The smoke test (SPEC §7.8) watches this: audio output itself is not observable.
   app.dataset.eventsScheduled = '0';
-  const sound = createDrumSound(browserContext, tr808);
+  const sound = createDrumSound(browserContext, drumMachine);
   const player = createPlayer(sound, { onScheduled: (n) => (app.dataset.eventsScheduled = String(n)) });
   const store = createStore();
   const ctx: AppContext = { store, player, sound };

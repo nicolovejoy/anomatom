@@ -8,8 +8,9 @@
 //
 // Space toggles play from anywhere (one capturing handler, at the bottom), with two
 // exemptions: a pattern text input, where Space types the space that separates throws at other
-// ratios than 1:1; and any control inside `[data-keeps-space]` (a select, say). Range sliders
-// do not use Space, so they need no exemption.
+// ratios than 1:1; and any control that uses Space itself (keepsSpace in sheet-model.ts: a
+// select, a text or number input, a textarea). Ranges, checkboxes and buttons hand Space to
+// play and pause.
 import type { Schedule } from '../core';
 import { BPM_RANGE, KNOBS, MAX_EDITOR_PARTS, MAX_LANES, MAX_PERIOD, MAX_RATIO, RATIO_CHIPS, SHEET } from '../tunables';
 import { copy } from '../ui/copy';
@@ -58,7 +59,7 @@ import {
 } from './lanes-model';
 import { cellColumns, focusAfterAdd, focusAfterRemove, laneDot, playheadSteps, ratioChipsShown, voiceName } from './lanes-view';
 import type { Mount } from './mount';
-import { fillPercent, hasChip, summary, tempoLines } from './sheet-model';
+import { fillPercent, hasChip, keepsSpace, summary, tempoLines } from './sheet-model';
 import type { AppState } from './state';
 import './knobs.css';
 
@@ -878,14 +879,18 @@ export const mountKnobs: Mount = (root, { store, player, sound }) => {
   // button does not activate (a ratio chip clicked earlier keeps focus); buttons activate on
   // keyup in some browsers, so that is suppressed too. Exempt: a pattern text input, where
   // Space types a space (the separator at other ratios than 1:1), and any control inside
-  // `[data-keeps-space]`.
+  // keepsSpace.
   const isSpace = (e: KeyboardEvent) =>
     e.code === 'Space' &&
     !e.ctrlKey &&
     !e.metaKey &&
     !e.altKey &&
     !e.isComposing &&
-    !(e.target instanceof Element && e.target.closest('.pattern-field, [data-keeps-space]'));
+    !(
+      e.target instanceof Element &&
+      (e.target.closest('.pattern-field') !== null ||
+        keepsSpace(e.target.tagName, e.target instanceof HTMLInputElement ? e.target.type : null))
+    );
   document.addEventListener(
     'keydown',
     (e) => {
