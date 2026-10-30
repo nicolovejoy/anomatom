@@ -38,7 +38,7 @@ export const mountFirstMinute: Mount = (root, { store, player }) => {
         <button type="button" class="fm-card fm-wide fm-sb" data-id="${p.id}"${shownAtFirst.has(p.id) ? '' : ' hidden'}>
           <span class="fm-head">
             <span class="fm-name">${nameOf(p)}</span>
-            <span class="fm-badges"><span class="fm-ratio">${copy.ratioChip(p.ratio.a, p.ratio.b)}</span><span class="fm-bpm">${t.bpm(p.bpm ?? 0)}</span></span>
+            <span class="fm-badges"><span class="fm-ratio">${p.parts.length > 2 ? t.partsChip(p.parts.length) : copy.ratioChip(p.ratio.a, p.ratio.b)}</span><span class="fm-bpm">${t.bpm(p.bpm ?? 0)}</span></span>
           </span>
           <span class="fm-grids">${cardLines(p)
             .map((g) => `<span class="fm-grid">${g}</span>`)

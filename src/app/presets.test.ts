@@ -1,7 +1,7 @@
 import { describe, expect, test } from 'vitest';
 import bibliography from '../../docs/BIBLIOGRAPHY.md?raw';
 import polyrhythms from '../../docs/POLYRHYTHMS.md?raw';
-import { buildSchedule, cycleOf, judge, textOf } from '../core';
+import { buildSchedule, cycleOf, judge, ratioOf, textOf } from '../core';
 import { presetOf } from '../sound/mapping';
 import { KIT_SAMPLES } from '../tunables';
 import { copy } from '../ui/copy';
@@ -66,11 +66,11 @@ const TABLE: Record<string, [number, string, string]> = {
 
 describe('the sourcebook rows', () => {
   test('tempo and voices match the table', () => {
-    const rows = PRESETS.filter((p) => p.kind === 'sourcebook');
+    const rows = PRESETS.filter((p) => p.kind === 'sourcebook' && p.parts.length === 2);
     expect(rows.map((p) => p.id).sort()).toEqual(Object.keys(TABLE).sort());
     for (const p of rows) expect([p.bpm, ...p.mapping.parts.map((v) => v.sample)], p.id).toEqual(TABLE[p.id]);
   });
-  const rows = PRESETS.filter((p) => p.kind === 'sourcebook');
+  const rows = PRESETS.filter((p) => p.kind === 'sourcebook' && p.parts.length === 2);
   test('each line of hits is one ball: the digits are the gap to the next hit, so they sum to the period', () => {
     for (const p of rows) {
       expect(p.balls, p.id).toBe(2);
@@ -93,6 +93,56 @@ describe('the sourcebook rows', () => {
     expect(PRESETS.filter((p) => p.first).map((p) => p.id)).toEqual([
       'cascade', 'pause', 'classic', 'ramp', 'polyrhythm', 'bell', 'son-clave', 'clapping', 'afrobeat',
     ]);
+  });
+});
+
+describe('the layered cards', () => {
+  const layers = PRESETS.filter((p) => p.parts.length > 2);
+  const byId = (id: string) => PRESETS.find((p) => p.id === id)!;
+  test('there are four, behind "more", within the lane limit', () => {
+    expect(layers.map((p) => p.id)).toEqual(['ewe-layers', 'mbira-layers', 'clave-layers', 'stack-345']);
+    for (const p of layers) {
+      expect(p.first, p.id).toBe(false);
+      expect(p.parts.length, p.id).toBeLessThanOrEqual(4);
+      expect(judge(p.parts).ok, p.id).toBe(true);
+      expect(p.mapping.parts.length, p.id).toBe(p.parts.length);
+      expect(p.mapping.byHeight, p.id).toBe(false);
+    }
+  });
+  test('the ratio is the one the parts derive', () => {
+    for (const p of layers) expect(p.ratio, p.id).toEqual(ratioOf(p.parts));
+  });
+  test('each cites the page its two-hand sibling cites, none of its own', () => {
+    expect(byId('ewe-layers').sourceUrl).toBe(byId('bell').sourceUrl);
+    expect(byId('mbira-layers').sourceUrl).toBe(byId('mbira').sourceUrl);
+    expect(byId('clave-layers').sourceUrl).toBe(byId('son-clave').sourceUrl);
+    expect(byId('stack-345').sourceUrl).toBeNull();
+  });
+  test('mbira hand 2 throws on pulses 1, 4, 7, 10 of the twelve', () => {
+    const s = buildSchedule(byId('mbira-layers').parts);
+    const pulses = [...new Set(s.events.filter((e) => e.kind === 'throw' && e.part === 1).map((e) => e.pulse % 12))].sort((a, b) => a - b);
+    expect(Array.from({ length: 12 }, (_, i) => (pulses.includes(i) ? 'x' : '.')).join('')).toBe('.x..x..x..x.');
+  });
+  test('part counts and cycles', () => {
+    expect(layers.map((p) => [p.parts.length, p.cycle])).toEqual([[3, 12], [3, 12], [3, 16], [3, 60]]);
+  });
+  test('Ewe: the bell, a clap every three, the felt beat every four', () => {
+    const p = byId('ewe-layers');
+    expect(p.parts.map(hitGrid)).toEqual(['x.x.xx.x.x.x', 'x..x..x..x..', 'x...x...x...']);
+  });
+  test('mbira: the second hand one pulse late, the rattle on every pulse', () => {
+    const p = byId('mbira-layers');
+    expect(p.parts.map((x) => x.phase)).toEqual([0, 1, 0]);
+    expect(hitGrid(p.parts[2]!)).toBe('xxxxxxxxxxxx');
+  });
+  test('clave: son, cascara, a four-pulse count', () => {
+    const p = byId('clave-layers');
+    expect(p.parts.map(hitGrid)).toEqual(['x..x..x...x.x...', 'x.xx.x.xx.x.xx.x', 'x...x...x...x...']);
+  });
+  test('3:4:5: spacings 20, 15, 12, one hit each, all meeting at the start', () => {
+    const p = byId('stack-345');
+    expect(p.parts.map((x) => x.spacing)).toEqual([20, 15, 12]);
+    expect(p.balls).toBe(3);
   });
 });
 
