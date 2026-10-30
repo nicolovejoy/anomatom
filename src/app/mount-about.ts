@@ -46,12 +46,15 @@ function layers(): HTMLElement[] {
   return copy.aboutLayers.map((l) => section(l.heading, l.paragraphs));
 }
 
-/** Where the cards come from: the prose, then one source line per sourcebook card, rendered from presets.ts. A layered card with no opened page (the 3:4:5 stack) is not listed. */
+/** Where the cards come from: the prose, then one source line per sourcebook card, rendered from presets.ts. A page two cards share is listed once, at the first. */
 function presets(): HTMLElement {
   const s = section(copy.aboutPresetsHeading, copy.aboutPresets);
   const list = el('ul');
   list.className = 'preset-sources';
-  for (const p of PRESETS.filter((q) => q.kind === 'sourcebook' && (q.sourceUrl !== null || q.parts.length === 2))) {
+  const seen = new Set<string>();
+  for (const p of PRESETS.filter((q) => q.kind === 'sourcebook')) {
+    if (p.sourceUrl !== null && seen.has(p.sourceUrl)) continue;
+    if (p.sourceUrl !== null) seen.add(p.sourceUrl);
     const words = copy.presets[p.id];
     const item = el('li');
     item.append(el('strong', words?.name ?? p.id), `: ${words?.source ?? ''}. `);

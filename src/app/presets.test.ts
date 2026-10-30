@@ -112,6 +112,17 @@ describe('the layered cards', () => {
   test('the ratio is the one the parts derive', () => {
     for (const p of layers) expect(p.ratio, p.id).toEqual(ratioOf(p.parts));
   });
+  test('each cites the page its two-hand sibling cites, none of its own', () => {
+    expect(byId('ewe-layers').sourceUrl).toBe(byId('bell').sourceUrl);
+    expect(byId('mbira-layers').sourceUrl).toBe(byId('mbira').sourceUrl);
+    expect(byId('clave-layers').sourceUrl).toBe(byId('son-clave').sourceUrl);
+    expect(byId('stack-345').sourceUrl).toBeNull();
+  });
+  test('mbira hand 2 throws on pulses 1, 4, 7, 10 of the twelve', () => {
+    const s = buildSchedule(byId('mbira-layers').parts);
+    const pulses = [...new Set(s.events.filter((e) => e.kind === 'throw' && e.part === 1).map((e) => e.pulse % 12))].sort((a, b) => a - b);
+    expect(Array.from({ length: 12 }, (_, i) => (pulses.includes(i) ? 'x' : '.')).join('')).toBe('.x..x..x..x.');
+  });
   test('part counts and cycles', () => {
     expect(layers.map((p) => [p.parts.length, p.cycle])).toEqual([[3, 12], [3, 12], [3, 16], [3, 60]]);
   });

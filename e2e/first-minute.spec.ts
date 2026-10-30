@@ -84,7 +84,7 @@ test('About has a section per layer and a source line per sourcebook card', asyn
     'Where the cards come from',
     'A note on the gong cycle',
   ]);
-  await expect(page.locator('.preset-sources li')).toHaveCount(20);
-  await expect(page.locator('.preset-sources a[href="https://ancient-future.com/bellclap.html"]').first()).toBeVisible();
+  await expect(page.locator('.preset-sources li')).toHaveCount(16);
+  await expect(page.locator('.preset-sources a[href="https://ancient-future.com/bellclap.html"]')).toBeVisible();
   if (SHOTS) await page.screenshot({ path: `${SHOTS}/about.png`, fullPage: true });
 });
