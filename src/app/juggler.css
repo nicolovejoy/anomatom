@@ -19,6 +19,3 @@
   text-align: center;
   pointer-events: none;
 }
-.juggler-note[hidden] {
-  display: none;
-}
