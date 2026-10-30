@@ -146,6 +146,26 @@ button:disabled {
   min-height: 0;
 }
 
+/* A phone on its side (SHEET.landscape; mount-sheet.ts sets .is-landscape): the stage on the left,
+   the sheet a column on the right, so juggler, ladder and the closed sheet all fit with no scroll. */
+#app.is-landscape:not(.is-first-minute) .play-view {
+  flex-direction: row;
+}
+#app.is-landscape:not(.is-first-minute) .stage {
+  flex: 1 1 0;
+  min-width: 0;
+}
+#app.is-landscape:not(.is-first-minute) .region-juggler {
+  min-height: 0;
+}
+#app.is-landscape.sheet-open:not(.is-wide):not(.is-first-minute) .region-sheet,
+#app.is-landscape:not(.is-wide):not(.is-first-minute) .region-sheet {
+  flex: 0 0 var(--sheet-landscape-column, 360px);
+  min-height: 0;
+  overflow: hidden;
+  border-radius: 24px 0 0 0;
+}
+
 /* Desktop: the sheet is a column on the right, always open on a tab. */
 #app.is-wide {
   display: grid;

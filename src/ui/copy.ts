@@ -321,6 +321,7 @@ export const copy = {
   // -------------------------------------------------------------------------------------------
 
   aboutButtonLabel: 'About',
+  aboutButtonGlyph: '?',
   /** The sheet's tabs, in order. */
   tabNames: { pattern: 'Pattern', rhythm: 'Rhythm', sound: 'Sound' },
   sheetLabel: 'Knobs',
