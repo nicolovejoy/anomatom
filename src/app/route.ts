@@ -4,15 +4,17 @@
 //
 // Short links (docs/plans/v2-share-kits-passing.md, ruling 4). Grammar:
 //
-//   short   := vanilla | hands
-//   vanilla := SWAP [ '@' BPM ]                 one vanilla siteswap at 1:1:  #531  #531@140
-//   hands   := A ':' B '/' LINE '/' LINE [ '@' BPM ]   two hands at a ratio:  #3:2/2-2x-2/2x-2
+//   short   := (vanilla | hands) [ '~' PRESET ] [ '@' BPM ]
+//   vanilla := SWAP                              one vanilla siteswap at 1:1:  #531  #531@140
+//   hands   := A ':' B '/' LINE '/' LINE         two hands at a ratio:  #3:2/2-2x-2/2x-2
+//   PRESET  := a name from PRESET_NAMES (voice-per-part, height-drum, height-pitch, ball-pitch);
+//              absent means voice-per-part:  #531~height-drum@140
 //   SWAP    := a digit, then digits and a-z     (the Pattern tab's vanilla text, `partsFromVanilla`)
 //   LINE    := digits, a-z, 'x' and '-'          one hand's text as `partsFromLines` reads it;
 //                                                '-' stands for the space between throws
 //   A, B    := positive integers, A not equal to B;  BPM := a whole number, clamped to BPM_RANGE
 //
-// A short form means: the default mapping (voice per part), the default phases (what the parser
+// A short form means: the mapping `withPartCount(applyPreset(PRESET), parts)` (voice per part when absent; any other mapping writes `#v2.`), the default phases (what the parser
 // makes), and the default tempo when '@BPM' is absent. Decoding goes through the same parsers the
 // Pattern tab uses, so a short link plays exactly what typing it would.
 //
@@ -32,7 +34,7 @@ export interface Route {
 
 const VERSIONS = [1, 2] as const;
 /** The shape of a short link; whether it parses is `hash.ts`'s business. */
-const SHORT = /^(\d[0-9a-z]*|\d+:\d+\/[0-9a-z x-]*\/[0-9a-z x-]*)(@\d+)?$/;
+const SHORT = /^(\d[0-9a-z]*|\d+:\d+\/[0-9a-z x-]*\/[0-9a-z x-]*)(~[a-z-]+)?(@\d+)?$/;
 
 export function route(hash: string): Route {
   const h = hash.startsWith('#') ? hash.slice(1) : hash;

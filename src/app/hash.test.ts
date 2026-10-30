@@ -358,16 +358,16 @@ describe('short links (grammar in route.ts)', () => {
     expect(encodeState(back as NonNullable<typeof back>)).toBe(encodeState(state));
   };
 
-  test('every two-part first-minute card with the default sound takes its shortest form and round-trips', () => {
+  test('every two-part first-minute card with its own sound takes its shortest form and round-trips', () => {
     const short: Record<string, string> = {
-      cascade: '#3',
-      pause: '#441',
-      classic: '#531',
-      ramp: '#97531',
-      polyrhythm: '#3:2/2-2x-2/2x-2',
+      cascade: '#3~height-drum',
+      pause: '#441~height-drum',
+      classic: '#531~height-drum',
+      ramp: '#97531~height-drum',
+      polyrhythm: '#3:2/2-2x-2/2x-2~height-drum',
     };
     for (const p of PRESETS.filter((c) => c.first && c.parts.length === 2)) {
-      const state = { parts: p.parts, ratio: p.ratio, bpm: p.bpm ?? DEFAULT_BPM, mapping: DEFAULT_MAPPING };
+      const state = { parts: p.parts, ratio: p.ratio, bpm: p.bpm ?? DEFAULT_BPM, mapping: p.mapping };
       const hash = encodeHash(state);
       if (p.id in short) {
         expect(hash).toBe(short[p.id]);
@@ -384,21 +384,25 @@ describe('short links (grammar in route.ts)', () => {
     expect(encodeHash({ ...base, bpm: 140 })).toBe('#531@140');
     expect(encodeHash({ ...base, bpm: DEFAULT_BPM })).toBe('#531');
     roundTrips('#531@140', { ...base, bpm: 140 });
+    const drum = { ...base, mapping: applyPreset('height-drum'), bpm: 140 };
+    expect(encodeHash(drum)).toBe('#531~height-drum@140');
+    roundTrips('#531~height-drum@140', drum);
+    expect(decodeState('531~nope', 'short')).toBeNull();
+    expect(decodeState('531~custom', 'short')).toBeNull();
     const hands = { ...base, parts: lineParts(['2 2x 2', '2x 2'], { a: 3, b: 2 }), ratio: { a: 3, b: 2 } };
     expect(encodeHash({ ...hands, bpm: 90 })).toBe('#3:2/2-2x-2/2x-2@90');
   });
 
-  test('a card’s own sound, a changed mapping, a phase, a third part or a odd tempo fall back to #v2.', () => {
+  test('a changed mapping, a phase, a third part or a odd tempo fall back to #v2.', () => {
     const base = { ...shared(defaultState()), parts: vanillaParts('531') };
     const v2 = (s: typeof base) => expect(encodeHash(s).startsWith('#v2.')).toBe(true);
-    v2({ ...base, mapping: applyPreset('height-drum') });
     v2({ ...base, mapping: custom });
     v2({ ...base, parts: withPhase(base.parts, 1, 2, 1) });
     v2({ ...base, bpm: 100.5 });
     v2({ ...base, parts: lineParts(['3', '3', '3'], { a: 1, b: 1 }) });
     const hands = { ...base, parts: lineParts(['2 2x 2', '2x 2'], { a: 3, b: 2 }), ratio: { a: 3, b: 2 } };
     v2({ ...hands, parts: withPhase(hands.parts, 1, 2, 1) });
-    v2({ ...hands, mapping: applyPreset('height-drum') });
+    v2({ ...hands, mapping: custom });
     // Two parts at 1:1 that are not one siteswap (a hand each) have no short form.
     v2({ ...base, parts: lineParts(['3', '4'], { a: 1, b: 1 }) });
     // Default-rule parts are not written throws.

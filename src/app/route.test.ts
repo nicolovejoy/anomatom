@@ -24,3 +24,7 @@ test('a short link is the play view carrying the whole short form', () => {
   expect(route('#3:2/2-2x-2/2x-2@90')).toEqual({ view: 'play', state: '3:2/2-2x-2/2x-2@90', version: 'short' });
   expect(route('#about').view).toBe('about');
 });
+
+test('a short link may carry a preset segment', () => {
+  expect(route('#531~height-drum@140')).toEqual({ view: 'play', state: '531~height-drum@140', version: 'short' });
+});

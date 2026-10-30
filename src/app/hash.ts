@@ -26,7 +26,7 @@
 // pattern.
 import { cycleOf, isVanillaPair, mod, normalise, parseThrows, partsFromLines, partsFromVanilla, ratioOf, textOf } from '../core';
 import type { Part, PartFlights, Parts, Ratio, Throw } from '../core';
-import { withPartCount } from '../sound/mapping';
+import { applyPreset, PRESET_NAMES, presetOf, withPartCount } from '../sound/mapping';
 import { decodeMapping, encodeMapping } from '../sound/mapping-hash';
 import {
   BPM_RANGE,
@@ -98,15 +98,19 @@ const SHORT_LINE = /^[0-9a-z x-]+$/;
 /** A short link's state (grammar in route.ts), or null when it does not parse. */
 function decodeShort(payload: string): Shared | null {
   const at = payload.indexOf('@');
-  const body = at === -1 ? payload : payload.slice(0, at);
+  const head = at === -1 ? payload : payload.slice(0, at);
   const bpm = at === -1 ? DEFAULT_BPM : numberIn(Number(payload.slice(at + 1)), BPM_RANGE.min, BPM_RANGE.max, DEFAULT_BPM, true);
+  const tilde = head.indexOf('~');
+  const body = tilde === -1 ? head : head.slice(0, tilde);
+  const name = tilde === -1 ? presetOf(DEFAULT_MAPPING) : PRESET_NAMES.find((n) => n === head.slice(tilde + 1));
+  if (name === undefined || name === 'custom') return null;
   const finish = (parts: Parts, written: Ratio): Shared => {
     const r = ratioOf(parts);
     return {
       parts,
       ratio: written.a * r.b === written.b * r.a ? written : r,
       bpm,
-      mapping: withPartCount(DEFAULT_MAPPING, parts.length),
+      mapping: withPartCount(applyPreset(name), parts.length),
     };
   };
   if (!body.includes('/')) {
@@ -128,7 +132,9 @@ function decodeShort(payload: string): Shared | null {
 function shortCandidate(state: Shared): string | null {
   const { parts, ratio } = state;
   if (parts.length !== 2) return null;
-  const tempo = state.bpm === DEFAULT_BPM ? '' : `@${state.bpm}`;
+  const name = presetOf(state.mapping);
+  if (name === 'custom') return null;
+  const tempo = (name === presetOf(DEFAULT_MAPPING) ? '' : `~${name}`) + (state.bpm === DEFAULT_BPM ? '' : `@${state.bpm}`);
   if (oneInput(ratio)) return isVanillaPair(parts) ? `#${textOf(parts[0] as Part, parts)}${tempo}` : null;
   const lines = parts.map((p) => textOf(p, parts).replace(/ /g, '-'));
   return `#${ratio.a}:${ratio.b}/${lines.join('/')}${tempo}`;
