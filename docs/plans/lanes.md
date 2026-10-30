@@ -2,7 +2,7 @@
 
 Implements design §12 of `docs/plans/model-rethink.md` (the mixer hint). Nico, 2026-10-29: "rethink the UX on the Rhythm section and allow layering polyrhythms"; he skipped the design questions ("just go, sdd, far as you can"), so every choice below is the governor's call, open to his correction at the checkpoint. Process as in `docs/plans/model-waves.md`: governor Opus this session, final whole-branch review by Fable; implementers Opus or Sonnet as marked, one worktree and branch per stream, implementers never spawn agents; one review per stream; merge on green CI without asking. Every stream keeps `npm run typecheck`, `npm test` (100% lines per file in `vitest.config.ts`), `npm run e2e` and `npm run build` green, runs its own headless checks and returns screenshot paths (390×844).
 
-Status: wave 1 not started.
+Status: waves 1 and 2 merged 2026-10-29 (PRs 42-46, governor Opus session 1189, final review of 46 by Fable). Follow-up: compact lanes on a phone (`lanes-compact`). Awaiting Nico's checkpoint smoke test.
 
 ## Why
 
@@ -87,4 +87,8 @@ Exact cell sizes, wrap rule on narrow phones, how the playhead outline animates 
 
 ## Rulings
 
-(none yet)
+- 2026-10-29 (governor, D): a mapping equal to `withPartCount(preset, n)` is that preset; `decodeMapping` takes the part count so a preset name decodes with one voice per part.
+- 2026-10-29 (governor, C): with one or two parts no part colour is drawn and the picture is unchanged; part colours appear on ladder lines and hand bars from three parts. One part draws as today's pair of hand bars; a one-handed figure is only an odd last part from three up. The lanes UI shows the colour dot from three lanes, to match.
+- 2026-10-29 (governor, A): `AppState.ratio` stays stored but is resynced to `ratioOf(parts)` after every change to the parts; `setRatio` needs exactly two parts. `MAX_EDITOR_PARTS` stays 2 (the most parts one `/` input writes); from three parts each lane has its own input. `encodeState` no longer takes the ratio. `rescale` keeps a part's flights when its spacing changes by a whole factor. A refusal past `MAX_LINK_CYCLE` sets the notice `copy.cycleTooLong`. Rates are shown reduced: 2:2 is 1:1.
+- 2026-10-29 (governor, F): layered cards carry `ratioOf(parts)`; About lists each opened source once and unsourced cards (3:4:5) as "No page opened"; the every-pulse hosho is a choice made here.
+- 2026-10-29 (governor, B): rate and steps sit in a row under the lane header; phase on its own row; later lanes of a manual group read "Balls shared with hand n"; the Rhythm tab has its own notice line.
