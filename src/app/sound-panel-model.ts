@@ -13,6 +13,7 @@ import {
   type PadInstrument,
   type PresetName,
   type Sample,
+  withPartCount,
 } from '../sound/mapping';
 import { CROSS_BOOST_RANGE, FILTER_HZ_RANGE, GAIN_RANGE, KIT_SAMPLES, MAX_HEIGHT, PAN_RANGE, SOUND_PANEL } from '../tunables';
 
@@ -117,4 +118,9 @@ export function downbeatChoices(current: Sample): readonly Sample[] {
 export function resetTarget(mapping: Mapping, lastPreset: PresetName): PresetName {
   const now = presetOf(mapping);
   return now === 'custom' ? lastPreset : now;
+}
+
+/** The mapping with a voice for each of `partCount` parts: grown from the rotation, never shrunk (a link's extra voices stay). */
+export function ensureVoices(mapping: Mapping, partCount: number): Mapping {
+  return partCount > mapping.parts.length ? withPartCount(mapping, partCount) : mapping;
 }

@@ -4,6 +4,7 @@ import { CROSS_BOOST_RANGE, DEFAULT_MAPPING, FILTER_HZ_RANGE, KIT_SAMPLES } from
 import {
   applyEdit,
   downbeatChoices,
+  ensureVoices,
   resetTarget,
   sampleFromValue,
   sampleValue,
@@ -142,4 +143,12 @@ test('the downbeat dropdown offers clap, cowbell and none, plus whatever a link 
 test('reset goes back to the preset the mapping equals, else the last one the panel saw', () => {
   expect(resetTarget(applyPreset('ball-pitch'), 'height-drum')).toBe('ball-pitch');
   expect(resetTarget(edit(m, { kind: 'padOn', on: true }), 'height-pitch')).toBe('height-pitch');
+});
+
+describe('ensureVoices', () => {
+  test('grows to the part count, never shrinks, and is the same object when nothing changes', () => {
+    expect(ensureVoices(m, 3).parts).toHaveLength(3);
+    expect(ensureVoices(m, 2)).toBe(m);
+    expect(ensureVoices(m, 1)).toBe(m);
+  });
 });

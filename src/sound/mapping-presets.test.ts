@@ -55,7 +55,7 @@ describe('presets', () => {
       { ...DEFAULT_MAPPING, parts: [{ ...voice(0), pan: -0.5 }, voice(1)] },
       { ...DEFAULT_MAPPING, parts: [{ ...voice(0), sample: 'clap' }, voice(1)] },
       { ...DEFAULT_MAPPING, parts: [{ ...voice(0), kit: 'other' }, voice(1)] },
-      { ...DEFAULT_MAPPING, parts: [voice(0)] },
+      { ...DEFAULT_MAPPING, parts: [voice(0), { ...voice(1), sample: 'clave' }, voice(0)] },
       { ...DEFAULT_MAPPING, byHeight: false, perHeight: { ...DEFAULT_MAPPING.perHeight, 1: 'kick' } },
       { ...DEFAULT_MAPPING, catches: { on: true, sample: 'rimshot' } },
       { ...DEFAULT_MAPPING, crossAccent: { velocity: 21, downbeat: 'clap' } },
@@ -66,6 +66,8 @@ describe('presets', () => {
       { ...applyPreset('ball-pitch'), byBall: null },
     ];
     for (const m of edits) expect(presetOf(m)).toBe('custom');
+    // One voice is the preset for one part (lanes ruling 5).
+    expect(presetOf({ ...DEFAULT_MAPPING, parts: [voice(0)] })).toBe('voice-per-part');
     const back = { ...DEFAULT_MAPPING, perHeight: { ...DEFAULT_MAPPING.perHeight, 3: 'snare' } };
     expect(presetOf(back)).toBe('voice-per-part');
     // Arrays against objects are never equal.

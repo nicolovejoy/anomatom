@@ -30,6 +30,8 @@ import {
   PAD_INSTRUMENT_IDS,
   presetOf,
   PRESET_NAMES,
+  voiceForNewPart,
+  withPartCount,
   type Mapping,
   type PartVoice,
   type Sample,
@@ -50,10 +52,12 @@ export function encodeMapping(m: Mapping): unknown {
   };
 }
 
-export function decodeMapping(value: unknown): Mapping {
+/** `partCount`, when the caller knows it, gives a preset name the voices for that many parts. */
+export function decodeMapping(value: unknown, partCount?: number): Mapping {
   if (typeof value === 'string') {
     const name = PRESET_NAMES.find((n) => n === value);
-    return name ? applyPreset(name) : DEFAULT_MAPPING;
+    const base = name ? applyPreset(name) : DEFAULT_MAPPING;
+    return partCount === undefined ? base : withPartCount(base, partCount);
   }
   if (!isRecord(value)) return DEFAULT_MAPPING;
   const d = DEFAULT_MAPPING;
@@ -79,7 +83,7 @@ export function decodeMapping(value: unknown): Mapping {
         : d.byBall;
 
   const voice = (kit: unknown, smp: unknown, pan: unknown, gain: unknown, i: number): PartVoice => {
-    const f = d.parts[Math.min(i, d.parts.length - 1)] as PartVoice;
+    const f = d.parts[i] ?? voiceForNewPart(d, i);
     return {
       kit: pick(kit, KIT_IDS, f.kit),
       sample: sample(smp, f.sample),

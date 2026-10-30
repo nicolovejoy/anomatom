@@ -24,6 +24,7 @@ import type { Mount } from './mount';
 import {
   applyEdit,
   downbeatChoices,
+  ensureVoices,
   resetTarget,
   sampleFromValue,
   sampleValue,
@@ -241,10 +242,18 @@ export const mountSoundPanel: Mount = (root, { store, player }) => {
     );
   });
 
+  // A pattern with more parts than the mapping has voices (a link, a preset) gets the rotation's next voices.
+  const growVoices = (state = store.get()) => {
+    const mapping = ensureVoices(state.mapping, state.parts.length);
+    if (mapping !== state.mapping) store.set({ mapping });
+  };
+
   store.subscribe((state, previous) => {
     if (state.mapping !== previous.mapping) player.setMapping(state.mapping);
     sync(state);
+    growVoices(state);
   });
+  growVoices();
   sync();
 
   return {};

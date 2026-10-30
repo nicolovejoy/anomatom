@@ -297,6 +297,23 @@ const BALL_TO_PITCH: Mapping = {
   byBall: BALL_PITCH,
 };
 
+/**
+ * Lanes (docs/plans/lanes.md ruling 5): the voice a new part gets, by its index, repeating after the last.
+ * Kick and snare are the two parts every pattern starts with (they match HEIGHT_DRUM's); the hat and clap
+ * follow. Pan spreads the voices across the field; each lap of the rotation mirrors it, so a fifth part
+ * does not sit on top of the first.
+ */
+export const SOUND_LANES = {
+  kit: 'TR-808',
+  gain: 1,
+  voices: [
+    { sample: 'kick', pan: -0.6 },
+    { sample: 'snare', pan: 0.6 },
+    { sample: 'hihat-close', pan: -0.2 },
+    { sample: 'clap', pan: 0.2 },
+  ] as readonly { readonly sample: string; readonly pan: number }[],
+};
+
 export const PRESET_MAPPINGS = {
   'voice-per-part': VOICE_PER_PART,
   'height-drum': HEIGHT_DRUM,

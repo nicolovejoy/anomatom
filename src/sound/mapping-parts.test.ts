@@ -2,7 +2,8 @@
 import { describe, expect, test } from 'vitest';
 import { buildSchedule, partsFromLines, partsFromVanilla } from '../core';
 import type { Event, Parts, Schedule } from '../core';
-import { applyPreset, hitFor, type Mapping, type PartVoice } from './mapping';
+import { applyPreset, hitFor, voiceForNewPart, withPartCount, type Mapping, type PartVoice } from './mapping';
+import { MAX_MAPPING_PARTS } from '../tunables';
 
 function lines(texts: string[], a: number, b: number): Parts {
   const r = partsFromLines(texts, { a, b });
@@ -97,4 +98,35 @@ test('coincidence follows the grids’ phases', () => {
   const c = (pulse: number): Event => ({ kind: 'catch', pulse, part: 1, ball: 0, height: 3, flight: 3, cross: true });
   expect(vanilla.grids.map((g) => g.phase)).toEqual([0, 1]);
   for (const pulse of [0, 1, 2, 3]) expect(hitFor(c(pulse), HD, vanilla)).toBeNull();
+});
+
+describe('voices for N parts (lanes ruling 5)', () => {
+  test('the rotation is kick, snare, closed hat, clap, then again with the pan mirrored', () => {
+    const samples = Array.from({ length: 6 }, (_, i) => voiceForNewPart(VPP, i).sample);
+    expect(samples).toEqual(['kick', 'snare', 'hihat-close', 'clap', 'kick', 'snare']);
+    expect(voiceForNewPart(VPP, 0)).toEqual(voice(VPP, 0));
+    expect(voiceForNewPart(VPP, 1)).toEqual(voice(VPP, 1));
+    expect(voiceForNewPart(VPP, 4).pan).toBe(-voiceForNewPart(VPP, 0).pan);
+    expect(voiceForNewPart({ ...VPP, parts: [] }, 2).kit).toBe('TR-808');
+  });
+
+  test('withPartCount grows with the rotation and shrinks by dropping trailing voices', () => {
+    const three = withPartCount(VPP, 3);
+    expect(three.parts).toHaveLength(3);
+    expect(three.parts.slice(0, 2)).toEqual(VPP.parts);
+    expect(voice(three, 2).sample).toBe('hihat-close');
+    expect(withPartCount(three, 2)).toEqual(VPP);
+    expect(withPartCount(VPP, 2)).toBe(VPP);
+    expect(withPartCount(VPP, 0).parts).toHaveLength(1);
+    expect(withPartCount(VPP, 99).parts).toHaveLength(MAX_MAPPING_PARTS);
+    expect(withPartCount(VPP, Number.NaN)).toBe(VPP);
+  });
+
+  test('a three-part schedule plays three voices; a part past the voices still borrows safely', () => {
+    const schedule = buildSchedule(lines(['3', '2', '4'], 1, 1));
+    const m = withPartCount(VPP, 3);
+    const hit = (part: number) => hitFor(throwEvent(1, part), m, schedule);
+    expect([0, 1, 2].map((p) => hit(p)?.sample)).toEqual(['kick', 'snare', 'hihat-close']);
+    expect(hitFor(throwEvent(1, 5), VPP, schedule)?.sample).toBe('snare');
+  });
 });
