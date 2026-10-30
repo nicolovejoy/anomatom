@@ -339,30 +339,6 @@ export const SOUND_PANEL = {
 export const SHARE = { hashDebounceMs: 250 } as const;
 
 // ---------------------------------------------------------------------------------------------
-// Phone sheet, stream B: first minute (docs/plans/phone-sheet.md)
-// ---------------------------------------------------------------------------------------------
-
-/**
- * The cards on the first screen, in order. `name` indexes `copy.firstMinute.names`. Hand 2's
- * text matters only at other ratios than 1:1, so single-hand cards carry the default for it.
- * The wide card (the last) spans both columns and shows its ratio badge.
- */
-export const FIRST_MINUTE_PRESETS: readonly {
-  readonly id: string;
-  readonly patterns: readonly [string, string];
-  readonly ratio: { readonly a: number; readonly b: number };
-  readonly wide: boolean;
-  /** The mapping preset the card plays with (design §7: the juggling cards keep height to drum). A key of PRESET_MAPPINGS. */
-  readonly mapping: keyof typeof PRESET_MAPPINGS;
-}[] = [
-  { id: 'cascade', patterns: ['3', DEFAULT_PATTERN_HAND2], ratio: { a: 1, b: 1 }, wide: false, mapping: 'height-drum' },
-  { id: 'pause', patterns: ['441', DEFAULT_PATTERN_HAND2], ratio: { a: 1, b: 1 }, wide: false, mapping: 'height-drum' },
-  { id: 'classic', patterns: ['531', DEFAULT_PATTERN_HAND2], ratio: { a: 1, b: 1 }, wide: false, mapping: 'height-drum' },
-  { id: 'ramp', patterns: ['97531', DEFAULT_PATTERN_HAND2], ratio: { a: 1, b: 1 }, wide: false, mapping: 'height-drum' },
-  { id: 'polyrhythm', patterns: ['2 2x 2', '2x 2'], ratio: { a: 3, b: 2 }, wide: true, mapping: 'height-drum' },
-];
-
-// ---------------------------------------------------------------------------------------------
 // Phone sheet (docs/plans/phone-sheet.md, stream A)
 // ---------------------------------------------------------------------------------------------
 
