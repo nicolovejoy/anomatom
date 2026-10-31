@@ -4,7 +4,7 @@ import type { Part, Parts } from '../core';
 import { applyPreset, voiceForNewPart } from '../sound/mapping';
 import { lineParts, typed, vanillaParts } from '../test/schedules';
 import { BPM_RANGE, MAX_LANES, MAX_PERIOD, MAX_RATE } from '../tunables';
-import { groupOf, isManualGroup, parseDraft, reduce, rescale, type Action } from './actions';
+import { groupOf, inputPerPart, isManualGroup, parseDraft, reduce, rescale, type Action } from './actions';
 import { derived } from './derived';
 import { fixActions } from './knobs-model';
 import { defaultState, type AppState } from './state';
@@ -530,5 +530,32 @@ describe('lanes (docs/plans/lanes.md)', () => {
     // Fewer parts than voices: the tail goes.
     const three = withVoices(at(partsFromOnsets([on('x'), on('x'), on('x')], [1, 1, 1])), 'kick', 'snare', 'clap');
     expect(reduce(three, { type: 'loadPreset', parts, ratio: threeTwo }).mapping.parts.map((p) => p.sample)).toEqual(['kick', 'snare']);
+  });
+});
+
+describe('a passing set at 1:1 (ruling 7)', () => {
+  const passing = () => reduce(defaultState(), { type: 'editDraft', part: 0, text: '<3p 3|3p 3>' });
+  test('typing <3p 3|3p 3> into input 0 gives four parts and one null draft per part', () => {
+    const s = passing();
+    expect(s.parts).toHaveLength(4);
+    expect(texts(s.parts)).toEqual(Array(4).fill('<3p 3|3p 3>'));
+    expect(s.drafts).toEqual([ '<3p 3|3p 3>', null, null, null ]);
+    expect(inputPerPart(s)).toBe(false);
+    expect(judge(s.parts).ok).toBe(true);
+  });
+  test('a text with | reads as passing over any parts; an error names no input but the one', () => {
+    expect(parseDraft(passing(), 0, '<3p 3|3p 3|3p 3>').ok).toBe(false);
+    const bad = parseDraft(defaultState(), 0, '<3p 3|x>');
+    expect(bad.ok).toBe(false);
+  });
+  test('typing 531 over the passing set gives the vanilla pair', () => {
+    const s = reduce(passing(), { type: 'editDraft', part: 0, text: '531' });
+    expect(s.parts).toEqual(vanillaParts('531'));
+    expect(s.drafts).toEqual(['531', null]);
+  });
+  test('a / typed over the passing set starts from fresh grids, not the passing ones', () => {
+    const r = parseDraft(passing(), 0, '3 / 3');
+    expect(r.ok).toBe(true);
+    expect(r.ok && r.parts.map((p) => p.spacing)).toEqual([1, 1]);
   });
 });
