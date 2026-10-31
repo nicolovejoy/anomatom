@@ -330,13 +330,13 @@ describe('setBpm and loadPreset', () => {
     expect(reduce(defaultState(), { type: 'setBpm', bpm: 1 }).bpm).toBe(BPM_RANGE.min);
   });
 
-  test('loadPreset replaces the parts, ratio and, when given, tempo and mapping', () => {
+  test('loadPreset replaces the parts and ratio, and the mapping when given', () => {
     const s = { ...typed(['4#']), notice: 'x' };
     const parts = lineParts(['2 2x 2', '2x 2'], threeTwo);
     const next = reduce(s, { type: 'loadPreset', parts, ratio: threeTwo });
     expect(next).toMatchObject({ parts, ratio: threeTwo, bpm: s.bpm, mapping: s.mapping, drafts: [null, null], notice: null });
     const m = applyPreset('height-drum');
-    expect(reduce(s, { type: 'loadPreset', parts, ratio: threeTwo, bpm: 90, mapping: m })).toMatchObject({ bpm: 90, mapping: m });
+    expect(reduce(s, { type: 'loadPreset', parts, ratio: threeTwo, mapping: m })).toMatchObject({ mapping: m });
   });
 });
 

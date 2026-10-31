@@ -359,7 +359,7 @@ describe('short links (grammar in route.ts)', () => {
     expect(encodeState(back as NonNullable<typeof back>)).toBe(encodeState(state));
   };
 
-  test('every two-part first-minute card with its own sound takes its shortest form and round-trips', () => {
+  test('every two-part card takes its shortest form and round-trips', () => {
     const short: Record<string, string> = {
       cascade: '#3~height-drum',
       pause: '#441~height-drum',
@@ -368,21 +368,15 @@ describe('short links (grammar in route.ts)', () => {
       polyrhythm: '#3:2/2-2x-2/2x-2~height-drum',
     };
     const seen: string[] = [];
-    for (const p of PRESETS.filter((c) => c.first && c.parts.length === 2)) {
+    for (const p of PRESETS.filter((c) => c.parts.length === 2)) {
       seen.push(p.id);
-      const state = { parts: p.parts, ratio: p.ratio, bpm: p.bpm ?? DEFAULT_BPM, mapping: p.mapping };
+      const state = { parts: p.parts, ratio: p.ratio, bpm: DEFAULT_BPM, mapping: p.mapping };
       const hash = encodeHash(state);
-      if (p.id in short) {
-        expect(hash).toBe(short[p.id]);
-        roundTrips(hash, state);
-      } else {
-        // A sourcebook card is hit rules, not written throws: it has no short form.
-        expect(hash.startsWith('#v2.')).toBe(true);
-      }
+      if (p.id in short) expect(hash).toBe(short[p.id]);
+      roundTrips(hash, state);
     }
     expect(Object.keys(short).every((id) => seen.includes(id))).toBe(true);
   });
-
   test('the tempo rides after @ unless it is the default', () => {
     const base = { ...shared(defaultState()), parts: vanillaParts('531') };
     expect(encodeHash({ ...base, bpm: 140 })).toBe('#531@140');

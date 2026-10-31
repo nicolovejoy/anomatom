@@ -1,12 +1,11 @@
-// The first screen (docs/plans/phone-sheet.md, stream B; presets from the sourcebook, model
-// waves stream F), headless: when it shows, which cards, what a card loads, which card is
+// The first screen (docs/plans/phone-sheet.md, stream B; v3 stream C1), headless: when it shows, which cards, what a card loads, which card is
 // playing. Pure: no DOM, no timers. `mount-first-minute.ts` is the elements.
 import { textOf } from '../core';
 import type { Parts, Schedule } from '../core';
 import { type Action } from './actions';
 import { derived } from './derived';
-import { hitGrid, isPresetParts, PRESETS } from './presets';
-import type { Preset } from './presets';
+import { isPresetParts, PRESETS } from './presets';
+import type { CardGroup, Preset } from './presets';
 import { route } from './route';
 import type { AppState } from './state';
 
@@ -18,27 +17,19 @@ export function showsFirstMinute(hash: string): boolean {
   return r.view === 'play' && r.state === null && (hash === '' || hash === '#');
 }
 
-/** The cards on show: the default set, or every card once "more" is open. */
-export function cardsShown(expanded: boolean): readonly Preset[] {
-  return expanded ? PRESETS : PRESETS.filter((p) => p.first);
+/** The card screen in order: a group per ball count, then passing. Every card is in exactly one. */
+export function cardGroups(): readonly { id: CardGroup; presets: readonly Preset[] }[] {
+  return (['3', '4', '5', 'passing'] as const).map((id) => ({ id, presets: PRESETS.filter((p) => p.group === id) }));
 }
 
-/** How many cards "more" reveals. */
-export const moreCount = (): number => PRESETS.length - cardsShown(false).length;
-
-/** What tapping a card does: loads its parts, ratio, mapping and, for a sourcebook card, tempo (design §7). */
+/** What tapping a card does: loads its parts, ratio and mapping; the reader's tempo stays (design §7). */
 export function presetPatch(preset: Preset): Action {
-  return { type: 'loadPreset', parts: preset.parts, ratio: { ...preset.ratio }, ...(preset.bpm === null ? {} : { bpm: preset.bpm }), mapping: preset.mapping };
+  return { type: 'loadPreset', parts: preset.parts, ratio: { ...preset.ratio }, mapping: preset.mapping };
 }
 
 /** The pattern a juggling card shows: hand 1's text, or both hands' at other ratios than 1:1. */
 export function cardPattern(preset: Preset): string {
   return preset.ratio.a === preset.ratio.b ? (preset.texts[0] as string) : preset.texts.join(' / ');
-}
-
-/** The lines a card draws: a juggling card's pattern text, a sourcebook card's hit grid per hand. */
-export function cardLines(preset: Preset): string[] {
-  return preset.kind === 'juggling' ? [cardPattern(preset)] : preset.parts.map(hitGrid);
 }
 
 const textsOf = (parts: Parts) => parts.map((p) => textOf(p, parts)).join(' / ');
@@ -48,9 +39,7 @@ export function playingPreset(state: Pick<AppState, 'parts' | 'ratio'>, playing:
   if (!playing) return null;
   const same = (p: Preset) => p.ratio.a === state.ratio.a && p.ratio.b === state.ratio.b;
   // The parts as built first, then as typed: the same vanilla pattern typed matches its card.
-  const found =
-    PRESETS.find((p) => same(p) && isPresetParts(p, state.parts)) ??
-    PRESETS.find((p) => same(p) && p.kind === 'juggling' && textsOf(p.parts) === textsOf(state.parts));
+  const found = PRESETS.find((p) => same(p) && isPresetParts(p, state.parts)) ?? PRESETS.find((p) => same(p) && textsOf(p.parts) === textsOf(state.parts));
   return found?.id ?? null;
 }
 

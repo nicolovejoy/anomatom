@@ -2,10 +2,12 @@ import { describe, expect, test } from 'vitest';
 import { applyPreset } from '../sound/mapping';
 import { lineParts, typed, vanillaParts } from '../test/schedules';
 import { reduce } from './actions';
-import { cardLines, cardPattern, cardsShown, moreCount, playingPreset, presetPatch, scheduleFor, showsFirstMinute } from './first-minute';
+import { cardGroups, cardPattern, playingPreset, presetPatch, scheduleFor, showsFirstMinute } from './first-minute';
+import { judge } from '../core';
 import { PRESETS } from './presets';
 import { analyse } from './knobs-model';
 import { defaultState } from './state';
+import { copy } from '../ui/copy';
 
 /** The state after tapping a card. */
 const tapped = (id: string) => reduce(defaultState(), presetPatch(preset(id)));
@@ -26,7 +28,7 @@ describe('showsFirstMinute', () => {
 
 describe('presets', () => {
   test('every juggling card is a juggleable pattern', () => {
-    for (const p of PRESETS.filter((q) => q.kind === 'juggling')) expect(analyse(tapped(p.id)).balls, p.id).not.toBeNull();
+    for (const p of PRESETS) expect(analyse(tapped(p.id)).balls, p.id).not.toBeNull();
   });
   test('tapping the passing card gives four parts, six balls and a kit for each juggler', () => {
     const s = tapped('passing');
@@ -46,20 +48,12 @@ describe('presets', () => {
     expect(cardPattern(preset('pause'))).toBe('441');
   });
   test('the juggling cards play height to drum (design §7), whatever the default', () => {
-    for (const p of PRESETS.filter((q) => q.kind === 'juggling' && q.parts.length === 2)) expect(tapped(p.id).mapping, p.id).toBe(applyPreset('height-drum'));
+    for (const p of PRESETS.filter((q) => q.parts.length === 2)) expect(tapped(p.id).mapping, p.id).toBe(applyPreset('height-drum'));
   });
   test('a juggling card leaves the reader’s tempo alone', () => {
     const s = reduce({ ...defaultState(), bpm: 77 }, presetPatch(preset('classic')));
     expect(s.bpm).toBe(77);
     expect(presetPatch(preset('classic'))).not.toHaveProperty('bpm');
-  });
-  test('a sourcebook card loads its parts, ratio, tempo and its own voices', () => {
-    const s = tapped('clapping');
-    expect(s.parts).toBe(preset('clapping').parts);
-    expect(s.bpm).toBe(160);
-    expect(s.mapping.byHeight).toBe(false);
-    expect(s.mapping.parts.map((v) => v.sample)).toEqual(['clap', 'clap']);
-    expect(scheduleFor(s).events.length).toBeGreaterThan(0);
   });
   test('a patch is a copy of the ratio; the parts are made once', () => {
     const patch = presetPatch(preset('pause'));
@@ -69,21 +63,36 @@ describe('presets', () => {
   });
 });
 
-describe('the cards on show', () => {
-  test('the default set is the six juggling cards and the sourcebook’s first four', () => {
-    expect(cardsShown(false).map((p) => p.id)).toEqual([
-      'cascade', 'pause', 'classic', 'ramp', 'polyrhythm', 'passing', 'bell', 'son-clave', 'clapping', 'afrobeat',
-    ]);
+describe('cardGroups', () => {
+  const groups = cardGroups();
+  test('are 3, 4, 5 balls and passing, in screen order', () => {
+    expect(groups.map((g) => g.id)).toEqual(['3', '4', '5', 'passing']);
   });
-  test('“more” shows every card, and says how many it adds', () => {
-    expect(cardsShown(true)).toBe(PRESETS);
-    expect(moreCount()).toBe(PRESETS.length - 10);
+  test('hold every preset exactly once', () => {
+    const ids = groups.flatMap((g) => g.presets.map((p) => p.id));
+    expect(ids).toHaveLength(PRESETS.length);
+    expect(new Set(ids)).toEqual(new Set(PRESETS.map((p) => p.id)));
   });
-  test('a juggling card draws its text, a sourcebook card a hit grid per hand', () => {
-    expect(cardLines(preset('classic'))).toEqual(['531']);
-    expect(cardLines(preset('hocket'))).toEqual(['x.', '.x']);
-    expect(cardLines(preset('passing'))).toEqual(['<3p 3|3p 3>']);
+  test('the 3:2 card is in 4 balls', () => {
+    expect(groups.find((g) => g.id === '4')!.presets.map((p) => p.id)).toContain('polyrhythm');
+  });
+  test('every card’s parts are juggleable with the ball count its group states', () => {
+    for (const g of groups.filter((x) => x.id !== 'passing')) {
+      for (const p of g.presets) {
+        expect(judge(p.parts).ok, p.id).toBe(true);
+        expect(scheduleFor(tapped(p.id)).balls, p.id).toBe(Number(g.id));
+      }
+    }
+  });
+  test('every group has a heading and cards', () => {
+    for (const g of groups) {
+      expect(copy.firstMinute.groups[g.id], g.id).toBeTruthy();
+      expect(g.presets.length, g.id).toBeGreaterThan(0);
+    }
+  });
+  test('a card draws its pattern text', () => {
     expect(cardPattern(preset('passing'))).toBe('<3p 3|3p 3>');
+    expect(cardPattern(preset('three-count'))).toBe('<3p 3 3|3p 3 3>');
   });
 });
 
@@ -105,13 +114,8 @@ describe('playingPreset', () => {
     expect(playingPreset(typedIn, true)).toBe('passing');
     expect(playingPreset(reduce(typedIn, { type: 'editDraft', part: 0, text: '<4p 3|3 4p>' }), true)).toBeNull();
   });
-  test('a sourcebook card matches its parts, not a lookalike with another phase', () => {
-    const clap = tapped('clapping');
-    expect(playingPreset(clap, true)).toBe('clapping');
-    expect(playingPreset({ ...clap, parts: [clap.parts[0]!, { ...clap.parts[1]!, phase: 0 }] }, true)).toBeNull();
-  });
   test('a pattern of the reader’s own matches no card', () => {
-    expect(playingPreset(typed(['4']), true)).toBeNull();
+    expect(playingPreset(typed(['66']), true)).toBeNull();
     expect(playingPreset({ ...defaultState(), ratio: { a: 4, b: 3 } }, true)).toBeNull();
   });
 });
