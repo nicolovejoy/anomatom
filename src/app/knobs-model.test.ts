@@ -505,7 +505,20 @@ describe('a sync set in the editor (v3 ruling 5)', () => {
     const odd = analyse(sync('(4,3)'));
     expect(odd.errors[0]).toEqual({ kind: 'bad-sync', index: 3, open: false });
     expect(badChar(odd, 0)).toBe(3);
+    // The odd digit is a throw (it has a site), and pieces still colours it.
+    const shown = pieces('(4,3)', new Set(), new Set(), badChar(odd, 0));
+    expect(shown.map((q) => [q.text, q.site, q.warn])).toEqual([
+      ['(', null, false],
+      ['4', 0, false],
+      [',', null, false],
+      ['3', 1, true],
+      [')', null, false],
+    ]);
     expect(odd.lines[0]).toContain('even');
+    const stray = analyse(sync('(4;4)'));
+    expect(badChar(stray, 0)).toBe(2);
+    expect(stray.lines[0]).toContain('parentheses, commas');
+    expect(analyse(reduce(defaultState(), { type: 'editDraft', part: 0, text: '4?' })).lines[0]).toContain('digits, x and p');
     const open = analyse(sync('(4,2x)(2x'));
     expect(badChar(open, 0)).toBeNull();
     expect(open.lines[0]).toContain('closes');

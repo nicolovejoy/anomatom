@@ -3,7 +3,8 @@ import type { PartIndex, Throw } from './types';
 
 export type ParseError =
   | { readonly kind: 'empty' }
-  | { readonly kind: 'bad-char'; readonly index: number }
+  /** `form: 'sync'` when the text was read as sync siteswap (form 5), whose characters differ. */
+  | { readonly kind: 'bad-char'; readonly index: number; readonly form?: 'sync' }
   | { readonly kind: 'too-long'; readonly max: number }
   /** An `x` or a `p` with no part to go to: one part, a bare `x` among three or more, or a wrong number. */
   | { readonly kind: 'bad-target'; readonly index: number }

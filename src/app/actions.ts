@@ -29,7 +29,6 @@ import {
   euclid,
   gcd,
   isPassingSet,
-  isSyncSet,
   isVanillaPair,
   judge,
   lcm,
@@ -103,7 +102,9 @@ export type DraftResult = { readonly ok: true; readonly parts: Parts } | { reado
  * spacing, phase and unit, so a refined lattice stays refined; a part the text adds comes in at
  * phase 0 on the last part's spacing, and a part it drops is removed. Only a vanilla pair's grids
  * belong to its notation: vanilla text lays out its own, and `a / b` typed over a vanilla pair
- * starts from spacing 1, phase 0, unit 1. The editor writes at most MAX_EDITOR_PARTS parts.
+ * starts from spacing 1, phase 0, unit 1. A sync set's grids are kept (a set that only reads as
+ * sync, such as vanilla `4` with hand 2 moved to phase 0, has grids of its own to lose). The
+ * editor writes at most MAX_EDITOR_PARTS parts.
  */
 export function parseDraft(state: Pick<AppState, 'parts' | 'ratio'>, part: PartIndex, text: string): DraftResult {
   if (!inputPerPart(state)) {
@@ -125,7 +126,7 @@ export function parseDraft(state: Pick<AppState, 'parts' | 'ratio'>, part: PartI
     const r = parseThrows(text);
     if (!r.ok) return r;
     if (r.parts > MAX_EDITOR_PARTS) return { ok: false, error: { kind: 'too-many-parts', max: MAX_EDITOR_PARTS } };
-    const base: Parts = isVanillaPair(state.parts) || isPassingSet(state.parts) || isSyncSet(state.parts) ? [] : state.parts;
+    const base: Parts = isVanillaPair(state.parts) || isPassingSet(state.parts) ? [] : state.parts;
     const spacing = base[base.length - 1]?.spacing ?? 1;
     const grid = (i: number) => base[i] ?? { spacing, phase: 0, unit: spacing };
     return {

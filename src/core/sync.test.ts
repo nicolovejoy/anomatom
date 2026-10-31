@@ -43,13 +43,13 @@ describe('parseSync', () => {
     expect(parseSync('(4')).toEqual({ ok: false, error: { kind: 'bad-sync', index: 2, open: true } });
   });
   test('anything out of place is bad-char; 0x a bad-target; nothing at all empty', () => {
-    expect(parseSync('(4;4)')).toEqual({ ok: false, error: { kind: 'bad-char', index: 2 } });
-    expect(parseSync('(x,4)')).toEqual({ ok: false, error: { kind: 'bad-char', index: 1 } });
-    expect(parseSync('(,4)')).toEqual({ ok: false, error: { kind: 'bad-char', index: 1 } });
-    expect(parseSync('4,4')).toEqual({ ok: false, error: { kind: 'bad-char', index: 0 } });
-    expect(parseSync('*')).toEqual({ ok: false, error: { kind: 'bad-char', index: 0 } });
-    expect(parseSync('(4,4)**')).toEqual({ ok: false, error: { kind: 'bad-char', index: 6 } });
-    expect(parseSync('(4,4)*(4,4)')).toEqual({ ok: false, error: { kind: 'bad-char', index: 6 } });
+    expect(parseSync('(4;4)')).toEqual({ ok: false, error: { kind: 'bad-char', index: 2, form: 'sync' } });
+    expect(parseSync('(x,4)')).toEqual({ ok: false, error: { kind: 'bad-char', index: 1, form: 'sync' } });
+    expect(parseSync('(,4)')).toEqual({ ok: false, error: { kind: 'bad-char', index: 1, form: 'sync' } });
+    expect(parseSync('4,4')).toEqual({ ok: false, error: { kind: 'bad-char', index: 0, form: 'sync' } });
+    expect(parseSync('*')).toEqual({ ok: false, error: { kind: 'bad-char', index: 0, form: 'sync' } });
+    expect(parseSync('(4,4)**')).toEqual({ ok: false, error: { kind: 'bad-char', index: 6, form: 'sync' } });
+    expect(parseSync('(4,4)*(4,4)')).toEqual({ ok: false, error: { kind: 'bad-char', index: 6, form: 'sync' } });
     expect(parseSync('(0x,4)')).toEqual({ ok: false, error: { kind: 'bad-target', index: 2 } });
     expect(parseSync('  ')).toEqual({ ok: false, error: { kind: 'empty' } });
   });

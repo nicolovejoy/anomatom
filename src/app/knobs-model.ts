@@ -318,7 +318,8 @@ export function pieces(
   const piece = (c: string, at: number | null, i: number): Piece => ({
     text: c,
     site: at,
-    warn: at === null ? i === bad : warn.has(at),
+    // `bad` may point at a throw itself (a sync draft's odd height), not only at a character between throws.
+    warn: i === bad || (at !== null && warn.has(at)),
     selected: at !== null && selected.has(at),
   });
   for (let i = 0; i < text.length; i++) {

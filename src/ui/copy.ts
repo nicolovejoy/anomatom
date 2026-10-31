@@ -46,7 +46,9 @@ export const copy = {
       case 'empty':
         return 'I need a pattern.';
       case 'bad-char':
-        return `I only read digits, x and p; character ${error.index + 1} isn’t one.`;
+        return error.form === 'sync'
+          ? `In sync I read pairs like (4,2x): even digits, x, parentheses, commas and a * at the end; character ${error.index + 1} doesn’t fit.`
+          : `I only read digits, x and p; character ${error.index + 1} isn’t one.`;
       case 'too-long':
         return `I read at most ${error.max} throws per hand.`;
       case 'too-many-parts':

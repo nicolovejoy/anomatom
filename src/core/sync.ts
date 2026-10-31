@@ -42,7 +42,7 @@ export function parseSync(text: string): SyncResult {
     if (i >= text.length) return open();
     const c = text[i] as string;
     const height = digitValue(c);
-    if (height === null || c === 'x') return { kind: 'bad-char', index: i };
+    if (height === null || c === 'x') return { kind: 'bad-char', index: i, form: 'sync' };
     if (height % 2 === 1) return { kind: 'bad-sync', index: i, open: false };
     i++;
     skip();
@@ -54,7 +54,7 @@ export function parseSync(text: string): SyncResult {
       skip();
     }
     if (i >= text.length) return open();
-    if (text[i] !== close) return { kind: 'bad-char', index: i };
+    if (text[i] !== close) return { kind: 'bad-char', index: i, form: 'sync' };
     i++;
     return { height, cross };
   };
@@ -67,7 +67,7 @@ export function parseSync(text: string): SyncResult {
       i++;
       continue;
     }
-    if (c !== '(' || mirror) return fail({ kind: 'bad-char', index: i });
+    if (c !== '(' || mirror) return fail({ kind: 'bad-char', index: i, form: 'sync' });
     i++;
     const left = one(',');
     if (!('height' in left)) return fail(left);

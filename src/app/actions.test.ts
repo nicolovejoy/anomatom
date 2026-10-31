@@ -587,8 +587,17 @@ describe('a sync set at 1:1 (v3 ruling 5)', () => {
     expect(s.drafts[0]).toBe('(3,4)');
     expect(parseDraft(box(), 0, '(4,2x)(2x')).toEqual({ ok: false, error: { kind: 'bad-sync', index: 9, open: true } });
   });
-  test('a / typed over the box starts from fresh grids, not the sync ones', () => {
-    const r = parseDraft(box(), 0, '4 / 4');
-    expect(r.ok && r.parts.map((p) => p.spacing)).toEqual([1, 1]);
+  test('a / typed over the box keeps its grids: drafts edit flights, never grids', () => {
+    const r = parseDraft(box(), 0, '4 / 2');
+    expect(r.ok && r.parts.map((p) => [p.spacing, p.phase, p.unit])).toEqual([[2, 0, 1], [2, 0, 1]]);
+  });
+  test('vanilla 4 with hand 2 at phase 0 reads as (4,4), and a / draft over it keeps those grids', () => {
+    const moved = reduce(reduce(defaultState(), { type: 'editDraft', part: 0, text: '4' }), { type: 'setPhase', part: 1, phase: 0 });
+    expect(texts(moved.parts)).toEqual(['(4,4)', '(4,4)']);
+    const grids = moved.parts.map((p) => [p.spacing, p.phase, p.unit]);
+    const s = reduce(moved, { type: 'editDraft', part: 0, text: '4 / 2' });
+    expect(s.drafts[0]).toBe('4 / 2');
+    expect(s.parts.map((p) => [p.spacing, p.phase, p.unit])).toEqual(grids);
+    expect(s.parts.map((p) => throwsOf(p).map((t) => t.height))).toEqual([[4], [2]]);
   });
 });
