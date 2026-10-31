@@ -490,3 +490,51 @@ describe('a passing set in the editor (ruling 7)', () => {
     expect(swapAction(passing(), 0, 0, 1)).toBeNull();
   });
 });
+
+describe('a sync set in the editor (v3 ruling 5)', () => {
+  const sync = (text = '(4,2x)(2x,4)') => reduce(defaultState(), { type: 'editDraft', part: 0, text });
+  test('one input, never split, one text', () => {
+    const s = { ...sync('(4,2x)*'), drafts: [null, null] };
+    expect(derived(s).texts).toEqual(['(4,2x)(2x,4)']);
+    expect(splitInputs(s)).toBe(false);
+    const a = analyse(s);
+    expect(a.inputs).toEqual(['(4,2x)(2x,4)']);
+    expect(a.balls).toBe(3);
+  });
+  test('an odd height points at its digit; an open pair at nothing', () => {
+    const odd = analyse(sync('(4,3)'));
+    expect(odd.errors[0]).toEqual({ kind: 'bad-sync', index: 3, open: false });
+    expect(badChar(odd, 0)).toBe(3);
+    // The odd digit is a throw (it has a site), and pieces still colours it.
+    const shown = pieces('(4,3)', new Set(), new Set(), badChar(odd, 0));
+    expect(shown.map((q) => [q.text, q.site, q.warn])).toEqual([
+      ['(', null, false],
+      ['4', 0, false],
+      [',', null, false],
+      ['3', 1, true],
+      [')', null, false],
+    ]);
+    expect(odd.lines[0]).toContain('even');
+    const stray = analyse(sync('(4;4)'));
+    expect(badChar(stray, 0)).toBe(2);
+    expect(stray.lines[0]).toContain('parentheses, commas');
+    expect(analyse(reduce(defaultState(), { type: 'editDraft', part: 0, text: '4?' })).lines[0]).toContain('digits, x and p');
+    const open = analyse(sync('(4,2x)(2x'));
+    expect(badChar(open, 0)).toBeNull();
+    expect(open.lines[0]).toContain('closes');
+  });
+  test('faults mark the sites of the one input, pair by pair', () => {
+    const a = analyse(sync('(4,2x)(4,2x)'));
+    expect(a.balls).toBeNull();
+    expect(a.warn).toHaveLength(1);
+    expect([...a.warn[0]!].every((i) => i >= 0 && i < 4)).toBe(true);
+    expect(a.warn[0]!.size).toBeGreaterThan(0);
+    expect(a.fixable).toBe(true);
+  });
+  test('a fix is written in sync notation: (4,2x)(2x,2) offers the box', () => {
+    expect(derived(sync('(4,2x)(2x,2)')).fixTexts).toContainEqual(['(4,2x)(2x,4)']);
+  });
+  test('no swap over a sync set this wave', () => {
+    expect(swapAction(sync(), 0, 0, 2)).toBeNull();
+  });
+});

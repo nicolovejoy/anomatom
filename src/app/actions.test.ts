@@ -559,3 +559,45 @@ describe('a passing set at 1:1 (ruling 7)', () => {
     expect(r.ok && r.parts.map((p) => p.spacing)).toEqual([1, 1]);
   });
 });
+
+describe('a sync set at 1:1 (v3 ruling 5)', () => {
+  const box = (from: AppState = defaultState()) => reduce(from, { type: 'editDraft', part: 0, text: '(4,2x)(2x,4)' });
+  const over531 = () => reduce(defaultState(), { type: 'editDraft', part: 0, text: '531' });
+  test('typing (4,2x)(2x,4) over 531 gives the box', () => {
+    const s = box(over531());
+    expect(s.parts).toHaveLength(2);
+    expect(texts(s.parts)).toEqual(['(4,2x)(2x,4)', '(4,2x)(2x,4)']);
+    expect(s.parts.map((p) => [p.spacing, p.phase, p.unit])).toEqual([[2, 0, 1], [2, 0, 1]]);
+    expect(s.drafts).toEqual(['(4,2x)(2x,4)', null]);
+    expect(inputPerPart(s)).toBe(false);
+    expect(judge(s.parts).ok).toBe(true);
+    expect(derived(s).schedule.balls).toBe(3);
+  });
+  test('typing 531 over the box gives 531 back', () => {
+    const s = reduce(box(over531()), { type: 'editDraft', part: 0, text: '531' });
+    expect(s.parts).toEqual(vanillaParts('531'));
+    expect(s.drafts).toEqual(['531', null]);
+  });
+  test('the * form reads as the box; a leading space still reads as sync', () => {
+    expect(reduce(defaultState(), { type: 'editDraft', part: 0, text: ' (4,2x)*' }).parts).toEqual(box().parts);
+  });
+  test('a broken sync draft keeps the draft and the parts', () => {
+    const s = reduce(box(), { type: 'editDraft', part: 0, text: '(3,4)' });
+    expect(s.parts).toEqual(box().parts);
+    expect(s.drafts[0]).toBe('(3,4)');
+    expect(parseDraft(box(), 0, '(4,2x)(2x')).toEqual({ ok: false, error: { kind: 'bad-sync', index: 9, open: true } });
+  });
+  test('a / typed over the box keeps its grids: drafts edit flights, never grids', () => {
+    const r = parseDraft(box(), 0, '4 / 2');
+    expect(r.ok && r.parts.map((p) => [p.spacing, p.phase, p.unit])).toEqual([[2, 0, 1], [2, 0, 1]]);
+  });
+  test('vanilla 4 with hand 2 at phase 0 reads as (4,4), and a / draft over it keeps those grids', () => {
+    const moved = reduce(reduce(defaultState(), { type: 'editDraft', part: 0, text: '4' }), { type: 'setPhase', part: 1, phase: 0 });
+    expect(texts(moved.parts)).toEqual(['(4,4)', '(4,4)']);
+    const grids = moved.parts.map((p) => [p.spacing, p.phase, p.unit]);
+    const s = reduce(moved, { type: 'editDraft', part: 0, text: '4 / 2' });
+    expect(s.drafts[0]).toBe('4 / 2');
+    expect(s.parts.map((p) => [p.spacing, p.phase, p.unit])).toEqual(grids);
+    expect(s.parts.map((p) => throwsOf(p).map((t) => t.height))).toEqual([[4], [2]]);
+  });
+});

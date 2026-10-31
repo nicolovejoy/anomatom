@@ -3,14 +3,17 @@ import type { PartIndex, Throw } from './types';
 
 export type ParseError =
   | { readonly kind: 'empty' }
-  | { readonly kind: 'bad-char'; readonly index: number }
+  /** `form: 'sync'` when the text was read as sync siteswap (form 5), whose characters differ. */
+  | { readonly kind: 'bad-char'; readonly index: number; readonly form?: 'sync' }
   | { readonly kind: 'too-long'; readonly max: number }
   /** An `x` or a `p` with no part to go to: one part, a bare `x` among three or more, or a wrong number. */
   | { readonly kind: 'bad-target'; readonly index: number }
   /** More parts than the editor shows (the app's rule, never the parser's: stream B ruling). */
   | { readonly kind: 'too-many-parts'; readonly max: number }
   /** More jugglers than a passing siteswap may write (MAX_JUGGLERS, wave 2 ruling 2). */
-  | { readonly kind: 'too-many-jugglers'; readonly max: number };
+  | { readonly kind: 'too-many-jugglers'; readonly max: number }
+  /** Sync notation (form 5) broken: an odd height at `index`, or (`open`) a pair left open at the end. */
+  | { readonly kind: 'bad-sync'; readonly index: number; readonly open: boolean };
 
 export type ThrowsResult =
   | { readonly ok: true; readonly throws: Throw[][]; readonly parts: number }

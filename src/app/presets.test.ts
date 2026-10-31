@@ -1,6 +1,6 @@
 import { describe, expect, test } from 'vitest';
 import bibliography from '../../docs/BIBLIOGRAPHY.md?raw';
-import { buildSchedule, cycleOf, isPassingSet, judge } from '../core';
+import { buildSchedule, cycleOf, isPassingSet, isSyncSet, judge } from '../core';
 import { KIT_IDS, KIT_SAMPLES, PASSING_CARD } from '../tunables';
 import { copy } from '../ui/copy';
 import { isPresetParts, PRESETS } from './presets';
@@ -48,6 +48,14 @@ describe('the cards', () => {
       expect(p.mapping.parts.map((v) => [v.kit, v.pan]), p.id).toEqual([['TR-808', -0.8], ['TR-808', -0.4], ['LM-2', 0.4], ['LM-2', 0.8]]);
     }
     expect(PRESETS.find((q) => q.id === 'passing')!.texts).toEqual(['<3p 3|3p 3>']);
+  });
+  test('the sync cards (v3 ruling 5): the box in 3 balls, the synchronous fountain in 4, each one sync text', () => {
+    const box = PRESETS.find((q) => q.id === 'box')!;
+    const fountain = PRESETS.find((q) => q.id === 'sync-fountain')!;
+    expect([box.group, box.texts, isSyncSet(box.parts)]).toEqual(['3', ['(4,2x)(2x,4)'], true]);
+    expect([fountain.group, fountain.texts, isSyncSet(fountain.parts)]).toEqual(['4', ['(4,4)'], true]);
+    expect(copy.presets.box?.name).toBe('Box');
+    expect(copy.presets['sync-fountain']?.name).toBe('Synchronous fountain');
   });
   test('ids are unique', () => {
     expect(new Set(PRESETS.map((p) => p.id)).size).toBe(PRESETS.length);

@@ -46,7 +46,9 @@ export const copy = {
       case 'empty':
         return 'I need a pattern.';
       case 'bad-char':
-        return `I only read digits, x and p; character ${error.index + 1} isn’t one.`;
+        return error.form === 'sync'
+          ? `In sync I read pairs like (4,2x): even digits, x, parentheses, commas and a * at the end; character ${error.index + 1} doesn’t fit.`
+          : `I only read digits, x and p; character ${error.index + 1} isn’t one.`;
       case 'too-long':
         return `I read at most ${error.max} throws per hand.`;
       case 'too-many-parts':
@@ -55,6 +57,10 @@ export const copy = {
         return `I pass between at most ${error.max} jugglers; write at most ${error.max} patterns, with a | between them.`;
       case 'bad-target':
         return `I can’t send the x or p at character ${error.index + 1} anywhere: it follows a 0, or there is no other hand or juggler for it.`;
+      case 'bad-sync':
+        return error.open
+          ? 'In sync, every pair closes: (left,right), like (4,2x).'
+          : `In sync, every throw is even; the one at character ${error.index + 1} isn’t.`;
     }
   },
   /** A fractional mean (MATH.md §9.4), the cheaper of two presentations of one fault. */
@@ -462,11 +468,13 @@ export const copy = {
     'two-in-ones': { name: 'Two-in-ones, alternating' },
     boston: { name: 'Boston shuffle' },
     flash: { name: 'Flash' },
+    box: { name: 'Box' },
     fountain: { name: 'Fountain' },
     'half-shower': { name: 'Half-shower' },
     'high-low-fountain': { name: 'High, low, fountain' },
     'tower-4': { name: 'Four balls, stepping down' },
     polyrhythm: { name: 'Two hands, 3 against 2' },
+    'sync-fountain': { name: 'Synchronous fountain' },
     'five-cascade': { name: 'Cascade' },
     'five-744': { name: 'Five balls, one high throw' },
     'five-645': { name: 'Five balls, three heights' },

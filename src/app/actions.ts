@@ -5,7 +5,7 @@
 // - Every action clears `notice` first; only a reset sets it again.
 // - Editing a draft parses it and edits flights, never grids (see `parseDraft`). At 1:1 the one
 //   input is vanilla siteswap over two parts, or form 2 (`a / b`) when it holds a `/` (or the
-//   state has one part); at other ratios each input is one hand in one-hand counting. A parse that
+//   state has one part), passing (form 4) with a `|`, sync (form 5) when it starts with `(`; at other ratios each input is one hand in one-hand counting. A parse that
 //   fails keeps the draft and leaves the parts alone; one that succeeds writes manual throws for
 //   the edited part's cross group (a default part an `x` now lands in becomes manual with the
 //   throws its default rule had).
@@ -37,6 +37,7 @@ import {
   onsetsOf,
   parseThrows,
   partsFromPassing,
+  partsFromSync,
   partsFromVanilla,
   periodOf,
   ratesOf,
@@ -101,10 +102,17 @@ export type DraftResult = { readonly ok: true; readonly parts: Parts } | { reado
  * spacing, phase and unit, so a refined lattice stays refined; a part the text adds comes in at
  * phase 0 on the last part's spacing, and a part it drops is removed. Only a vanilla pair's grids
  * belong to its notation: vanilla text lays out its own, and `a / b` typed over a vanilla pair
- * starts from spacing 1, phase 0, unit 1. The editor writes at most MAX_EDITOR_PARTS parts.
+ * starts from spacing 1, phase 0, unit 1. A sync set's grids are kept (a set that only reads as
+ * sync, such as vanilla `4` with hand 2 moved to phase 0, has grids of its own to lose). The
+ * editor writes at most MAX_EDITOR_PARTS parts.
  */
 export function parseDraft(state: Pick<AppState, 'parts' | 'ratio'>, part: PartIndex, text: string): DraftResult {
   if (!inputPerPart(state)) {
+    // A draft starting with `(` is sync siteswap (form 5), over any parts.
+    if (text.trimStart().startsWith('(')) {
+      const r = partsFromSync(text);
+      return r.ok ? r : { ok: false, error: r.error };
+    }
     // A `|` is passing siteswap (form 4), over any parts.
     if (text.includes('|')) {
       const r = partsFromPassing(text);

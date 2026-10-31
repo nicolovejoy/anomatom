@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'vitest';
-import { buildSchedule, partsFromOnsets, partsFromPassing, withPhase } from '../core';
+import { buildSchedule, isSyncSet, partsFromOnsets, partsFromPassing, partsFromSync, withPhase } from '../core';
 import type { Parts } from '../core';
 import { applyPreset, PRESET_NAMES, presetOf, withPartCount, type Mapping } from '../sound/mapping';
 import { lineParts, vanillaParts } from '../test/schedules';
@@ -368,7 +368,14 @@ describe('short links (grammar in route.ts)', () => {
       polyrhythm: '#3:2/2-2x-2/2x-2~height-drum',
     };
     const seen: string[] = [];
-    for (const p of PRESETS.filter((c) => c.parts.length === 2)) {
+    // A sync card has no short form this wave (v3 ruling 5): it writes #v2. and round-trips.
+    for (const p of PRESETS.filter((c) => c.parts.length === 2 && isSyncSet(c.parts))) {
+      const state = { parts: p.parts, ratio: p.ratio, bpm: DEFAULT_BPM, mapping: p.mapping };
+      const hash = encodeHash(state);
+      expect(hash.startsWith('#v2.'), p.id).toBe(true);
+      expect(encodeState(decodeState(route(hash).state as string) as NonNullable<ReturnType<typeof decodeState>>)).toBe(encodeState(state));
+    }
+    for (const p of PRESETS.filter((c) => c.parts.length === 2 && !isSyncSet(c.parts))) {
       seen.push(p.id);
       const state = { parts: p.parts, ratio: p.ratio, bpm: DEFAULT_BPM, mapping: p.mapping };
       const hash = encodeHash(state);
@@ -504,5 +511,17 @@ describe('short passing links (ruling 6)', () => {
     expect(decodeState('3p-3|3p-3/3', 'short')).toBeNull();
     expect(decodeState(`3|${'3'.repeat(80)}`, 'short')).toBeNull();
     expect(decodeState('3p-3|3p-3~nope', 'short')).toBeNull();
+  });
+});
+
+describe('sync links (v3 ruling 5)', () => {
+  test('the box is a #v2. link that round-trips', () => {
+    const r = partsFromSync('(4,2x)(2x,4)');
+    if (!r.ok) throw new Error('box');
+    const state = { parts: r.parts, ratio: { a: 1, b: 1 }, bpm: DEFAULT_BPM, mapping: withPartCount(DEFAULT_MAPPING, 2) };
+    const hash = encodeHash(state);
+    expect(hash.startsWith('#v2.')).toBe(true);
+    const back = decodeState(route(hash).state as string);
+    expect(back?.parts).toEqual(r.parts);
   });
 });

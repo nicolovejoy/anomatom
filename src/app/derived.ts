@@ -2,14 +2,14 @@
 // §12a): computed once per state, keyed on the state's identity, and read by every mount. Pure.
 // The values depend on the parts alone, so a change to anything else (tempo, volume, a tab)
 // reuses them.
-import { ballCount, buildSchedule, isPassingSet, isVanillaPair, passingText, searchFixes, textOf } from '../core';
+import { ballCount, buildSchedule, isPassingSet, isSyncSet, isVanillaPair, passingText, searchFixes, syncText, textOf } from '../core';
 import type { CrossGroup, Part, Parts, Schedule } from '../core';
 import type { AppState } from './state';
 
 export interface Derived {
   /** The one Schedule: events for every onset, ball ids for fault-free groups, and the verdict. */
   readonly schedule: Schedule;
-  /** Each part as written (`textOf`); a vanilla pair is one text, its siteswap, and a passing set one, its passing siteswap. */
+  /** Each part as written (`textOf`); a vanilla pair is one text, its siteswap, and a passing set one, its passing siteswap, and a sync set one, its sync siteswap. */
   readonly texts: readonly string[];
   /** The cross groups with their faults and ball counts (`schedule.verdict.groups`). */
   readonly groups: readonly CrossGroup[];
@@ -39,7 +39,7 @@ export function derived(state: AppState): Derived {
 function compute(parts: Parts): Derived {
   const schedule = buildSchedule(parts);
   const groups = schedule.verdict.groups;
-  const texts = isVanillaPair(parts) || isPassingSet(parts) ? [textOf(parts[0] as Part, parts)] : parts.map((p) => textOf(p, parts));
+  const texts = isVanillaPair(parts) || isPassingSet(parts) || isSyncSet(parts) ? [textOf(parts[0] as Part, parts)] : parts.map((p) => textOf(p, parts));
   let fixes: { fixes: Parts[]; texts: string[][] } | null = null;
   const fixed = () => (fixes ??= fixesOf(parts, groups));
   return {
@@ -75,7 +75,9 @@ function fixesOf(parts: Parts, groups: readonly CrossGroup[]): { fixes: Parts[];
       ? [((digits[i] as (typeof digits)[number])[0] ?? []).map((d) => String(d.digit)).join('')]
       : isPassingSet(fix)
         ? [passingText(fix)]
-        : fix.map((p) => textOf(p, fix)),
+        : isSyncSet(fix)
+          ? [syncText(fix)]
+          : fix.map((p) => textOf(p, fix)),
   );
   return { fixes, texts };
 }

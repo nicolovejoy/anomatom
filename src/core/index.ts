@@ -27,6 +27,8 @@ export {
 export type { PartsResult } from './parts';
 export { isPass, isPassingSet, jugglerOf, parsePassing, partsFromPassing, passingText } from './passing';
 export type { PassingResult, PassThrow } from './passing';
+export { isSyncSet, parseSync, partsFromSync, syncText } from './sync';
+export type { SyncPair, SyncResult, SyncThrow } from './sync';
 export { euclid, rotate } from './euclid';
 export { beatsOf, flightsOf } from './flights';
 export { ballCount, crossGroups, judge, onsetPulses } from './judge';
