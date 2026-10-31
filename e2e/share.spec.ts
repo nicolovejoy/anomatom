@@ -35,6 +35,28 @@ test('share copies the live short link when navigator.share is absent', async ({
   await expect(other.locator('#hand-0')).toHaveValue('441');
 });
 
+test('typing passing siteswap writes the short link #3p-3|3p-3, and the link reopens it', async ({ page }) => {
+  await page.goto('/#3');
+  await page.locator('#tab-pattern').click();
+  await expect(page.locator('.key-pass')).toBeHidden();
+  await page.locator('#hand-0').fill('<3p 3|3p 3>');
+  await expect(page.locator('.key-pass')).toBeVisible();
+  await expect(page.locator('#status')).toContainText('6');
+  await expect.poll(() => new URL(page.url()).hash).toMatch(/^#3p-3(\||%7C)3p-3$/i);
+  await page.goto('/#3p-3|3p-3');
+  await expect(page.locator('#hand-0')).toHaveValue('<3p 3|3p 3>');
+  await page.goto('/#3p3');
+  await expect(page.locator('#hand-0')).toHaveValue('3p3');
+});
+
+test('the p key types a pass mark at the caret', async ({ page }) => {
+  await page.goto('/#3p-3|3p-3');
+  await page.locator('#tab-pattern').click();
+  await page.locator('#hand-0').fill('<3|3>');
+  await page.locator('.key-pass').click();
+  await expect(page.locator('#hand-0')).toHaveValue('<3|3>p');
+});
+
 test('the Sound tab no longer has a copy button', async ({ page }) => {
   await page.goto('/#531');
   await page.locator('#tab-sound').click();

@@ -514,6 +514,20 @@ export const LADDER_E = {
   inhumanAlpha: 0.4,
 } as const;
 
+/**
+ * The passing card (docs/plans/v2-share-kits-passing.md, wave 2 ruling 5): height to drum grown to four
+ * voices, juggler 1 (parts 0 and 1) on one kit and juggler 2 (parts 2 and 3) on another, panned apart
+ * so a pass is call and response. Kit ids are KIT_IDS'.
+ */
+export const PASSING_CARD = {
+  voices: [
+    { kit: 'TR-808', pan: -0.8 },
+    { kit: 'TR-808', pan: -0.4 },
+    { kit: 'LM-2', pan: 0.4 },
+    { kit: 'LM-2', pan: 0.8 },
+  ] as readonly { readonly kit: string; readonly pan: number }[],
+} as const;
+
 // ---------------------------------------------------------------------------------------------
 // F: Sound panel and share
 // ---------------------------------------------------------------------------------------------

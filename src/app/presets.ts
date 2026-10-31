@@ -1,10 +1,11 @@
 // The preset cards as data (docs/POLYRHYTHMS.md "Preset table", docs/plans/model-rethink.md §10):
-// the five juggling cards, then the sourcebook's rows. Pure: no DOM, no timers. Reader-facing
+// the six juggling cards, then the sourcebook's rows. Pure: no DOM, no timers. Reader-facing
 // words (names, source lines, "listen for") are in `copy.presets`, keyed by `id`.
-import { onsetsOf, partsFromLines, partsFromOnsets, partsFromVanilla, ratioOf, ratioSpacings, withPhase } from '../core';
+import { onsetsOf, partsFromLines, partsFromOnsets, partsFromPassing, partsFromVanilla, ratioOf, ratioSpacings, withPhase } from '../core';
 import type { Part, Parts, PartsResult, Ratio } from '../core';
 import { applyPreset, withPartCount } from '../sound/mapping';
 import type { Mapping, Sample } from '../sound/mapping';
+import { PASSING_CARD } from '../tunables';
 
 export interface Preset {
   readonly id: string;
@@ -39,6 +40,14 @@ const SITESWAP_URL = 'https://solipsys.co.uk/new/SiteSwap.html';
 function juggling(id: string, texts: readonly string[], ratio: Ratio, balls: number, cycle: number): Preset {
   const parts = ratio.a === ratio.b ? must(partsFromVanilla(texts[0] as string)) : must(partsFromLines(texts, ratio));
   return { id, kind: 'juggling', texts, parts, ratio, bpm: null, mapping: HEIGHT_DRUM, sourceUrl: SITESWAP_URL, balls, cycle, first: true };
+}
+
+/** The passing card: `<3p 3|3p 3>`, height to drum on four voices, a kit and a pan of their own for each juggler (ruling 5). */
+function passingCard(): Preset {
+  const text = '<3p 3|3p 3>';
+  const grown = withPartCount(HEIGHT_DRUM, PASSING_CARD.voices.length);
+  const mapping: Mapping = { ...grown, parts: grown.parts.map((v, i) => ({ ...v, ...(PASSING_CARD.voices[i] as (typeof PASSING_CARD.voices)[number]) })) };
+  return { id: 'passing', kind: 'juggling', texts: [text], parts: must(partsFromPassing(text)), ratio: { a: 1, b: 1 }, bpm: null, mapping, sourceUrl: null, balls: 6, cycle: 2, first: true };
 }
 
 interface Row {
@@ -178,13 +187,14 @@ const LAYERS: readonly Layers[] = [
   { id: 'stack-345', texts: ['1', '1', '1'], spacings: [20, 15, 12], bpm: 60, voices: ['kick', 'cowbell', 'clave'], sourceUrl: null, cycle: 60 },
 ];
 
-/** The cards in order: the five juggling cards, the sourcebook's first four (its fifth row is the polyrhythm card), then the rest. */
+/** The cards in order: the six juggling cards (the sixth is the passing card), the sourcebook's first four (its fifth row is the polyrhythm card), then the rest. */
 export const PRESETS: readonly Preset[] = [
   juggling('cascade', ['3'], R(1, 1), 3, 2),
   juggling('pause', ['441'], R(1, 1), 3, 6),
   juggling('classic', ['531'], R(1, 1), 3, 6),
   juggling('ramp', ['97531'], R(1, 1), 5, 10),
   juggling('polyrhythm', ['2 2x 2', '2x 2'], R(3, 2), 4, 6),
+  passingCard(),
   ...ROWS.map(sourcebook),
   ...LAYERS.map(layered),
 ];

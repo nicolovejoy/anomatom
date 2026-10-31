@@ -1,7 +1,7 @@
 import { describe, expect, test } from 'vitest';
-import { buildSchedule, partsFromOnsets, withPhase } from '../core';
+import { buildSchedule, partsFromOnsets, partsFromPassing, withPhase } from '../core';
 import type { Parts } from '../core';
-import { applyPreset, PRESET_NAMES, presetOf, type Mapping } from '../sound/mapping';
+import { applyPreset, PRESET_NAMES, presetOf, withPartCount, type Mapping } from '../sound/mapping';
 import { lineParts, vanillaParts } from '../test/schedules';
 import { BPM_RANGE, DEFAULT_BPM, DEFAULT_MAPPING, MAX_LINK_CYCLE, MAX_PARTS } from '../tunables';
 import cards from './fixtures/v1-cards.json';
@@ -447,5 +447,68 @@ describe('short links (grammar in route.ts)', () => {
       expect(decodeState(junk, 'short')).toBeNull();
     }
     expect(decodeState('5x1', 'short')).toBeNull();
+  });
+});
+
+describe('short passing links (ruling 6)', () => {
+  const passing = (text: string): Parts => {
+    const r = partsFromPassing(text);
+    if (!r.ok) throw new Error(text);
+    return r.parts;
+  };
+  const base = (): Pick<AppState, 'parts' | 'ratio' | 'bpm' | 'mapping'> => ({
+    parts: passing('<3p 3|3p 3>'),
+    ratio: { a: 1, b: 1 },
+    bpm: DEFAULT_BPM,
+    mapping: withPartCount(DEFAULT_MAPPING, 4),
+  });
+  const back = (hash: string) => {
+    const r = route(hash);
+    expect(r.version).toBe('short');
+    return decodeState(r.state as string, 'short');
+  };
+
+  test('#3p-3|3p-3 round-trips, tempo and preset included', () => {
+    const state = base();
+    expect(encodeHash(state)).toBe('#3p-3|3p-3');
+    expect(encodeState(back('#3p-3|3p-3') as NonNullable<ReturnType<typeof back>>)).toBe(encodeState(state));
+    const drum = { ...state, mapping: withPartCount(applyPreset('height-drum'), 4), bpm: 140 };
+    expect(encodeHash(drum)).toBe('#3p-3|3p-3~height-drum@140');
+    expect(encodeState(back('#3p-3|3p-3~height-drum@140') as NonNullable<ReturnType<typeof back>>)).toBe(encodeState(drum));
+  });
+  test('three jugglers write p<n>', () => {
+    const state = { ...base(), parts: passing('<3p2 3|3p3 3|3p1 3>'), mapping: withPartCount(DEFAULT_MAPPING, 6) };
+    expect(encodeHash(state)).toBe('#3p2-3|3p3-3|3p1-3');
+    expect(back('#3p2-3|3p3-3|3p1-3')?.parts).toEqual(state.parts);
+  });
+  test('a percent-encoded | still reads', () => {
+    expect(route('#3p-3%7C3p-3')).toEqual({ view: 'play', state: '3p-3|3p-3', version: 'short' });
+  });
+  test('the passing card, with its kits, writes #v2. and round-trips', () => {
+    const card = PRESETS.find((p) => p.id === 'passing')!;
+    const state = { parts: card.parts, ratio: card.ratio, bpm: DEFAULT_BPM, mapping: card.mapping };
+    const hash = encodeHash(state);
+    expect(hash.startsWith('#v2.')).toBe(true);
+    const out = decodeState(hash.slice('#v2.'.length));
+    expect(out?.mapping.parts.map((v) => v.kit)).toEqual(['TR-808', 'TR-808', 'LM-2', 'LM-2']);
+    expect(encodeState(out as NonNullable<typeof out>)).toBe(encodeState(state));
+  });
+  test('a changed mapping or phase falls back to #v2.', () => {
+    expect(encodeHash({ ...base(), mapping: custom }).startsWith('#v2.')).toBe(true);
+    expect(encodeHash({ ...base(), parts: withPhase(base().parts, 1, 2, 1) }).startsWith('#v2.')).toBe(true);
+    // Four manual parts that are not a passing set have no short form.
+    expect(encodeHash({ ...base(), parts: lineParts(['3', '3', '3', '3'], { a: 1, b: 1 }) }).startsWith('#v2.')).toBe(true);
+  });
+  test('#3p3 with no | stays vanilla, with a 25', () => {
+    expect(back('#3p3')?.parts).toEqual(vanillaParts('3p3'));
+    expect(back('#3p3')?.parts).toHaveLength(2);
+  });
+  test('junk passing links do not parse', () => {
+    expect(decodeState('3p-3|', 'short')).toBeNull();
+    expect(decodeState('3p-3|3p-3|3p-3|3p-3', 'short')).toBeNull();
+    expect(decodeState('3p-3|x', 'short')).toBeNull();
+    expect(decodeState('3p-3|3p-3/3', 'short')).toBeNull();
+    expect(decodeState(`3|${'3'.repeat(80)}`, 'short')).toBeNull();
+    expect(decodeState('3p-3|3p-3~nope', 'short')).toBeNull();
   });
 });

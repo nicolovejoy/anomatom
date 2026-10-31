@@ -3,6 +3,7 @@
 import { expect, openTab, test } from './fixtures';
 
 const SHOTS = process.env.FIRST_MINUTE_SHOTS;
+const PASSING_SHOTS = process.env.PASSING_EDITOR_SHOTS;
 const scheduled = async (page: import('./fixtures').Page) =>
   Number(await page.locator('#app').getAttribute('data-events-scheduled'));
 
@@ -11,7 +12,7 @@ test.use({ viewport: { width: 390, height: 844 } });
 test('opens on the cards, 441 plays, Make your own shows the play view and keeps playing', async ({ page }) => {
   await page.goto('/');
   await expect(page.locator('#app')).toHaveClass(/is-first-minute/);
-  await expect(page.locator('.fm-card:visible')).toHaveCount(9);
+  await expect(page.locator('.fm-card:visible')).toHaveCount(10);
   await expect(page.locator('#play')).toBeHidden();
   if (SHOTS) await page.screenshot({ path: `${SHOTS}/idle.png` });
 
@@ -45,10 +46,22 @@ test('more reveals the rest of the sourcebook, fewer folds them away', async ({ 
   await expect(page.locator('.fm-card[data-id="rumba"]')).toBeAttached();
   await page.locator('.fm-card[data-id="rumba"]').scrollIntoViewIfNeeded();
   await expect(page.locator('.fm-card[data-id="rumba"]')).toBeVisible();
-  await expect(page.locator('.fm-card:visible')).toHaveCount(26);
+  await expect(page.locator('.fm-card:visible')).toHaveCount(27);
   if (SHOTS) await page.screenshot({ path: `${SHOTS}/more-open.png` });
   await more.click();
-  await expect(page.locator('.fm-card:visible')).toHaveCount(9);
+  await expect(page.locator('.fm-card:visible')).toHaveCount(10);
+});
+
+test('the passing card plays six balls on both canvases, and Make your own shows <3p 3|3p 3> in the one input', async ({ page }) => {
+  await page.goto('/');
+  await page.locator('.fm-card[data-id="passing"]').click();
+  await expect.poll(() => scheduled(page)).toBeGreaterThan(0);
+  await expect(page.locator('.fm-card[data-id="passing"]')).toHaveClass(/fm-playing/);
+  await expect(page.locator('.juggler')).toHaveAttribute('data-balls', '6');
+  await expect(page.locator('.ladder')).toHaveAttribute('data-balls', '6');
+  await page.locator('.fm-own').click();
+  await expect(page.locator('#hand-0')).toHaveValue('<3p 3|3p 3>');
+  await expect(page.locator('#hand-1')).toBeHidden();
 });
 
 test('a sourcebook card loads its tempo, ratio and own drums, and plays', async ({ page }) => {
@@ -87,4 +100,14 @@ test('About has a section per layer and a source line per sourcebook card', asyn
   await expect(page.locator('.preset-sources li')).toHaveCount(16);
   await expect(page.locator('.preset-sources a[href="https://ancient-future.com/bellclap.html"]')).toBeVisible();
   if (SHOTS) await page.screenshot({ path: `${SHOTS}/about.png`, fullPage: true });
+});
+
+test('the Pattern tab over a passing set shows the text and the p key', async ({ page }) => {
+  await page.goto('/#3p-3|3p-3');
+  await openTab(page, 'pattern');
+  await expect(page.locator('#hand-0')).toHaveValue('<3p 3|3p 3>');
+  await expect(page.locator('.key-pass')).toBeVisible();
+  await expect(page.locator('.key-pass')).toHaveText('p');
+  await expect(page.locator('.key-pass')).toBeInViewport();
+  if (PASSING_SHOTS) await page.screenshot({ path: `${PASSING_SHOTS}/pattern-tab.png` });
 });

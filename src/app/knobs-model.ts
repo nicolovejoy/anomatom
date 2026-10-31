@@ -2,7 +2,7 @@
 // values into elements. `Analysis` is a thin view over `derived(state)` (derived.ts): what the
 // inputs show, the indicators, the warning sites, the status lines and the fixes, in the robot's
 // words.
-import { gcd, isVanillaPair, mod, parseThrows, periodOf, throwsOf, vanillaIndex } from '../core';
+import { gcd, isPassingSet, isVanillaPair, mod, parseThrows, periodOf, throwsOf, vanillaIndex } from '../core';
 import type { Fault, ParseError, Part, PartIndex, Parts, Ratio, Schedule, ThrowId } from '../core';
 import { hitFor, type Mapping } from '../sound/mapping';
 import { BPM_RANGE, MAX_EDITOR_PARTS, MAX_RATIO } from '../tunables';
@@ -47,6 +47,8 @@ export interface Analysis {
  */
 export function splitInputs(state: Pick<AppState, 'parts' | 'drafts' | 'ratio'>): boolean {
   if (inputPerPart(state)) return false;
+  // A passing set is four parts that one input holds (form 4).
+  if (isPassingSet(state.parts)) return state.drafts[0]?.includes('/') ?? false;
   const draft = state.drafts[0];
   if (draft != null) return draft.includes('/');
   return state.parts.length >= 2 && !isVanillaPair(state.parts);
@@ -102,8 +104,23 @@ export function inputText(state: AppState, d: Derived, i: number): string {
   return inputPerPart(state) ? (d.texts[i] ?? '') : d.texts.join(' / ');
 }
 
+/** Whether the digit pad shows its `p` key: while input `i` holds a `|` (passing siteswap, form 4), or the parts are a passing set. */
+export function showsPassKey(state: AppState, d: Derived, i: number): boolean {
+  return isPassingSet(state.parts) || inputText(state, d, i).includes('|');
+}
+
 /** The beat of a part that pulse `pulse` (in [0, cycle)) is, counted from 1 within the cycle. */
 const beatOf = (p: Part, pulse: number) => (pulse - mod(p.phase, p.spacing)) / p.spacing + 1;
+
+/** How many throws each juggler's sequence holds in passing text (form 4), as `pieces` numbers them. */
+function throwsPerJuggler(text: string): number[] {
+  const sites: Set<number>[] = [new Set()];
+  for (const q of pieces(text, new Set(), new Set(), null)) {
+    if (q.text === '|') sites.push(new Set());
+    else if (q.site !== null) (sites[sites.length - 1] as Set<number>).add(q.site);
+  }
+  return sites.map((set) => Math.max(1, set.size));
+}
 
 /** How many throws `text` holds, as `pieces` numbers them. */
 const siteCount = (text: string) => pieces(text, new Set(), new Set(), null).reduce((n, p) => Math.max(n, (p.site ?? -1) + 1), 0);
@@ -130,11 +147,21 @@ export function analyse(state: AppState, d: Derived = derived(state)): Analysis 
   if (d.schedule.verdict.ok) return { ...base, balls: d.schedule.balls, lines: [copy.valid(d.schedule.balls), ...notice] };
 
   const { parts } = state;
-  const pair = isVanillaPair(parts);
+  const passing = !split && isPassingSet(parts);
+  const pair = isVanillaPair(parts) || passing;
   const { cycle } = d.schedule;
   const length = Math.max(1, siteCount(inputs[0] as string));
-  /** A throw as the reader counts it: a vanilla pair's by its siteswap position, otherwise in its own hand. */
-  const ref = (t: ThrowId): ThrowRef => (pair ? { hand: 0, index: vanillaIndex(t.part, t.index, length) } : { hand: t.part, index: t.index });
+  // A passing set's text, juggler by juggler: where each juggler's throws start and how many it shows.
+  const shown = passing ? throwsPerJuggler(inputs[0] as string) : [];
+  const starts = shown.map((_, j) => shown.slice(0, j).reduce((a, b) => a + b, 0));
+  /** A passing throw's place across the text: its position in the juggler's sequence (the two parts interleave, a halved odd sequence shows its first half), after the jugglers before. */
+  const passingIndex = (t: ThrowId): number => {
+    const j = Math.floor(t.part / 2);
+    return (starts[j] ?? 0) + ((2 * t.index + (t.part % 2)) % (shown[j] ?? 1));
+  };
+  /** A throw as the reader counts it: a vanilla pair's by its siteswap position, a passing set's across the whole text, otherwise in its own hand. */
+  const ref = (t: ThrowId): ThrowRef =>
+    passing ? { hand: 0, index: passingIndex(t) } : pair ? { hand: 0, index: vanillaIndex(t.part, t.index, length) } : { hand: t.part, index: t.index };
   /**
    * Colours the throw's site in the input that shows it: its hand's own (at 1:1 a vanilla pair's
    * one input, or a part past hand 2, which a link can make, in hand 2's).
@@ -277,19 +304,40 @@ export function pieces(
   let site = -1;
   // An `x` marks the last throw, whitespace between them or not, once.
   let crossable = false;
+  // A `|` makes the text passing siteswap (form 4): there `p` is the pass mark, as `x` is the cross mark, and the digit after it
+  // belongs to the throw when it names another juggler (as `parsePassing` reads it).
+  const passing = text.includes('|');
+  const jugglers = passing ? text.split('|').length : 0;
+  let juggler = 0;
+  let target = false;
+  const piece = (c: string, at: number | null, i: number): Piece => ({
+    text: c,
+    site: at,
+    warn: at === null ? i === bad : warn.has(at),
+    selected: at !== null && selected.has(at),
+  });
   for (let i = 0; i < text.length; i++) {
     const c = text[i] as string;
-    const throwChar = (c >= '0' && c <= '9') || (c >= 'a' && c <= 'z' && c !== 'x');
-    if (throwChar || (c === 'x' && crossable)) {
+    const named = target;
+    target = false;
+    if (passing && named && c >= '1' && c <= '9' && Number(c) <= jugglers && Number(c) - 1 !== juggler) {
+      out.push(piece(c, site, i));
+      continue;
+    }
+    const throwChar = (c >= '0' && c <= '9') || (c >= 'a' && c <= 'z' && c !== 'x' && !(passing && c === 'p'));
+    if (passing && c === 'p' && crossable) {
+      crossable = false;
+      target = true;
+      out.push(piece(c, site, i));
+    } else if (throwChar || (c === 'x' && crossable)) {
       if (throwChar) site++;
       crossable = throwChar;
-      out.push({ text: c, site, warn: warn.has(site), selected: selected.has(site) });
-    } else if (c === ' ' || c === '\t' || c === '/') {
-      if (c === '/') crossable = false;
-      out.push({ text: c, site: null, warn: i === bad, selected: false });
+      out.push(piece(c, site, i));
     } else {
-      crossable = false;
-      out.push({ text: c, site: null, warn: i === bad, selected: false });
+      if (c === '|') juggler++;
+      if (c === '/') crossable = false;
+      if (c !== ' ' && c !== '\t' && c !== '/') crossable = false;
+      out.push(piece(c, null, i));
     }
   }
   return out;
@@ -356,6 +404,7 @@ export function toggleSite(sel: SiteSelection | null, hand: number, site: number
 export function swapAction(state: AppState, input: number, i: number, j: number): Action | null {
   if (inputPerPart(state) || splitInputs(state)) return { type: 'swapSites', part: input, i, j };
   if (isVanillaPair(state.parts)) return { type: 'swapSites', part: 0, i, j };
+  if (isPassingSet(state.parts)) return null;
   let offset = 0;
   for (const [part, p] of state.parts.entries()) {
     const n = periodOf(p);

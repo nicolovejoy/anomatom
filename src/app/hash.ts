@@ -12,7 +12,7 @@
 // it, and on reading kept only when it agrees with the spacings (2:2 over 1:1 parts), else replaced.
 // The mapping is `encodeMapping`'s (src/sound/mapping-hash.ts).
 //
-// Short links: grammar in route.ts. `encodeHash` writes the shortest form that round-trips, `decodeState`
+// Short links: grammar in route.ts (vanilla, passing `3p-3|3p-3`, hands). `encodeHash` writes the shortest form that round-trips, `decodeState`
 // reads a short payload with version 'short'.
 //
 // Scheme v1 (old links, still read): { p: [pattern1, pattern2], r, t, m }, pattern text as typed:
@@ -24,7 +24,7 @@
 // the defaults, numbers clamped to their ranges). Parts that do not make a sound model (a wrong
 // type, a height off its unit, a cross to no part, a cycle past MAX_LINK_CYCLE) give the default
 // pattern.
-import { cycleOf, isVanillaPair, mod, normalise, parseThrows, partsFromLines, partsFromVanilla, ratioOf, textOf } from '../core';
+import { cycleOf, isPassingSet, isVanillaPair, mod, normalise, parseThrows, partsFromLines, partsFromPassing, partsFromVanilla, passingText, ratioOf, textOf } from '../core';
 import type { Part, PartFlights, Parts, Ratio, Throw } from '../core';
 import { applyPreset, isPresetMapping, PRESET_NAMES, presetOf, withPartCount } from '../sound/mapping';
 import { decodeMapping, encodeMapping } from '../sound/mapping-hash';
@@ -113,6 +113,11 @@ function decodeShort(payload: string): Shared | null {
       mapping: withPartCount(applyPreset(name), parts.length),
     };
   };
+  if (body.includes('|')) {
+    // Passing siteswap (form 4): `-` for the space, no brackets.
+    const r = body.length <= MAX_PATTERN_CHARS && /^\d[0-9a-z|-]*$/.test(body) ? partsFromPassing(body.replace(/-/g, ' ')) : null;
+    return r?.ok ? finish(r.parts, { a: 1, b: 1 }) : null;
+  }
   if (!body.includes('/')) {
     const r = body.length <= MAX_PATTERN_CHARS && /^\d[0-9a-z]*$/.test(body) ? partsFromVanilla(body) : null;
     return r?.ok ? finish(r.parts, { a: 1, b: 1 }) : null;
@@ -131,11 +136,12 @@ function decodeShort(payload: string): Shared | null {
 /** The short form of `state` (with its `#`), or null when it has none; not yet checked to round-trip. */
 function shortCandidate(state: Shared): string | null {
   const { parts, ratio } = state;
-  if (parts.length !== 2) return null;
+  if (parts.length !== 2 && !(oneInput(ratio) && isPassingSet(parts))) return null;
   const name = presetOf(state.mapping);
   // A preset on another kit is not the preset's mapping: it has no short form.
   if (name === 'custom' || !isPresetMapping(state.mapping, name)) return null;
   const tempo = (name === presetOf(DEFAULT_MAPPING) ? '' : `~${name}`) + (state.bpm === DEFAULT_BPM ? '' : `@${state.bpm}`);
+  if (isPassingSet(parts)) return `#${passingText(parts).slice(1, -1).replace(/ /g, '-')}${tempo}`;
   if (oneInput(ratio)) return isVanillaPair(parts) ? `#${textOf(parts[0] as Part, parts)}${tempo}` : null;
   const lines = parts.map((p) => textOf(p, parts).replace(/ /g, '-'));
   return `#${ratio.a}:${ratio.b}/${lines.join('/')}${tempo}`;

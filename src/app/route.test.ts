@@ -33,3 +33,11 @@ test('a percent-encoded short link is decoded; undecodable junk is no state', ()
 test('a short link may carry a preset segment', () => {
   expect(route('#531~height-drum@140')).toEqual({ view: 'play', state: '531~height-drum@140', version: 'short' });
 });
+
+test('a passing link: | between jugglers, - for the space (ruling 6)', () => {
+  expect(route('#3p-3|3p-3')).toEqual({ view: 'play', state: '3p-3|3p-3', version: 'short' });
+  expect(route('#3p-3|3p-3~height-drum@140')).toEqual({ view: 'play', state: '3p-3|3p-3~height-drum@140', version: 'short' });
+  expect(route('#3p2-3|3p1-3').version).toBe('short');
+  expect(route('#|3').state).toBeNull();
+  expect(route('#3p-3|3p-3/2').state).toBeNull();
+});

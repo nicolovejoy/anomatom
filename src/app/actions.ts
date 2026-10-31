@@ -28,6 +28,7 @@ import {
   cycleOf,
   euclid,
   gcd,
+  isPassingSet,
   isVanillaPair,
   judge,
   lcm,
@@ -35,6 +36,7 @@ import {
   normalise,
   onsetsOf,
   parseThrows,
+  partsFromPassing,
   partsFromVanilla,
   periodOf,
   ratesOf,
@@ -85,10 +87,11 @@ export const oneInput = (ratio: Ratio): boolean => ratio.a === ratio.b;
 /**
  * Whether the editor has one input per part, in one-hand counting: at any ratio but 1:1, and
  * with more parts than one input writes (MAX_EDITOR_PARTS; ruling 3 of docs/plans/lanes.md).
+ * A passing set (form 4, `<3p 3|3p 3>`) is the exception: four parts that one input holds.
  * Otherwise one input holds the whole pattern (vanilla, or `a / b`).
  */
 export const inputPerPart = (state: Pick<AppState, 'parts' | 'ratio'>): boolean =>
-  !oneInput(state.ratio) || state.parts.length > MAX_EDITOR_PARTS;
+  !oneInput(state.ratio) || (state.parts.length > MAX_EDITOR_PARTS && !isPassingSet(state.parts));
 
 export type DraftResult = { readonly ok: true; readonly parts: Parts } | { readonly ok: false; readonly error: ParseError };
 
@@ -102,15 +105,20 @@ export type DraftResult = { readonly ok: true; readonly parts: Parts } | { reado
  */
 export function parseDraft(state: Pick<AppState, 'parts' | 'ratio'>, part: PartIndex, text: string): DraftResult {
   if (!inputPerPart(state)) {
-    // A single string is vanilla over two parts; over one part it is that part's line.
-    if (!text.includes('/') && state.parts.length === 2) {
+    // A `|` is passing siteswap (form 4), over any parts.
+    if (text.includes('|')) {
+      const r = partsFromPassing(text);
+      return r.ok ? r : { ok: false, error: r.error };
+    }
+    // A single string is vanilla over two parts, or over a passing set (back to one juggler); over one part it is that part's line.
+    if (!text.includes('/') && (state.parts.length === 2 || isPassingSet(state.parts))) {
       const r = partsFromVanilla(text);
       return r.ok ? r : { ok: false, error: r.error };
     }
     const r = parseThrows(text);
     if (!r.ok) return r;
     if (r.parts > MAX_EDITOR_PARTS) return { ok: false, error: { kind: 'too-many-parts', max: MAX_EDITOR_PARTS } };
-    const base: Parts = isVanillaPair(state.parts) ? [] : state.parts;
+    const base: Parts = isVanillaPair(state.parts) || isPassingSet(state.parts) ? [] : state.parts;
     const spacing = base[base.length - 1]?.spacing ?? 1;
     const grid = (i: number) => base[i] ?? { spacing, phase: 0, unit: spacing };
     return {
