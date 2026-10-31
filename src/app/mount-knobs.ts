@@ -34,6 +34,7 @@ import {
   joinAction,
   pieces,
   reduceRatio,
+  showsPassKey,
   siteCovering,
   splitInputs,
   statusLines,
@@ -72,7 +73,7 @@ const LANES = INPUTS;
 /** A step cell per beat of the longest period, shown up to the lane's steps. */
 const CELLS = Array.from({ length: MAX_PERIOD }, (_, i) => i);
 /** The pad in the order it is laid out, four to a row. */
-const PAD_KEYS = ['1', '2', '3', 'backspace', '4', '5', '6', 'x', '7', '8', '9', '0'];
+const PAD_KEYS = ['1', '2', '3', 'backspace', '4', '5', '6', 'x', '7', '8', '9', '0', 'p'];
 /** A lane's steppers: rate and steps above the step row, then hits, balls and phase under it. */
 const RHYTHM_KINDS = ['rate', 'steps', 'hits', 'balls', 'phase'] as const;
 type RhythmKind = (typeof RHYTHM_KINDS)[number];
@@ -189,6 +190,8 @@ export const mountKnobs: Mount = (root, { store, player, sound }) => {
       <div class="digit-pad" role="group" aria-label="${copy.digitPadLabel}">
         ${PAD_KEYS.map((k) => {
           if (k === 'x') return `<button type="button" class="key key-op" data-key="x" aria-label="${copy.crossKeyLabel}">${copy.crossKey}</button>`;
+          // The pass key sits under x and shows only for passing siteswap (`showsPassKey`).
+          if (k === 'p') return `<button type="button" class="key key-op key-pass" data-key="p" aria-label="${copy.passKeyLabel}" hidden>${copy.passKey}</button>`;
           if (k === 'backspace')
             return `<button type="button" class="key key-op" data-key="backspace" aria-label="${copy.backspaceKeyLabel}">${copy.backspaceKey}</button>`;
           return `<button type="button" class="key" data-key="${k}">${k}</button>`;
@@ -257,6 +260,7 @@ export const mountKnobs: Mount = (root, { store, player, sound }) => {
   const mirrors = rows.map((r) => r.querySelector('.mirror') as HTMLSpanElement);
   const indicators = rows.map((r) => r.querySelector('.indicator') as HTMLSpanElement);
   const hint = $<HTMLParagraphElement>('.one-hand-hint');
+  const passKey = $<HTMLButtonElement>('.key-pass');
   const status = $<HTMLDivElement>('#status');
   const fixesRow = $<HTMLDivElement>('.fixes');
   const fixesLabel = $<HTMLParagraphElement>('.fixes-label');
@@ -549,6 +553,7 @@ export const mountKnobs: Mount = (root, { store, player, sound }) => {
     // Past MAX_EDITOR_PARTS the inputs are per part at any ratio: the hint says so, not just the ratio.
     hint.textContent = state.parts.length > MAX_EDITOR_PARTS ? copy.lanesHint : copy.oneHandHint;
     if (activeHand >= shown) activeHand = 0;
+    passKey.hidden = !showsPassKey(state, derived(state), activeHand);
     renderRhythm(state);
     for (const chip of chips) {
       // Pressed only for its exact a:b: 2:2 from the steppers is not the 1:1 chip, which still normalises it.

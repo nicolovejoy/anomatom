@@ -13,6 +13,7 @@ import {
   cycleSamples,
   draftAction,
   joinInputs,
+  showsPassKey,
   splitInputs,
   splitText,
   editChanged,
@@ -476,6 +477,14 @@ describe('a passing set in the editor (ruling 7)', () => {
     const s = passing('<3p 3|3 3>');
     const d = derived(s);
     expect(d.fixTexts.every((t) => t.length === 1)).toBe(true);
+  });
+  test('the p key shows while the input holds a | or the parts are a passing set', () => {
+    const show = (s: AppState) => showsPassKey(s, derived(s), 0);
+    expect(show(typed(['531']))).toBe(false);
+    expect(show(passing())).toBe(true);
+    expect(show(reduce(defaultState(), { type: 'editDraft', part: 0, text: '3p|' }))).toBe(true);
+    // Typed over a passing set, a plain siteswap leaves the set, and the key stays while the parts are one.
+    expect(show(reduce(passing(), { type: 'editDraft', part: 0, text: '531' }))).toBe(false);
   });
   test('swap is not offered over a passing set', () => {
     expect(swapAction(passing(), 0, 0, 1)).toBeNull();

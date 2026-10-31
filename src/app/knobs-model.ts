@@ -104,6 +104,11 @@ export function inputText(state: AppState, d: Derived, i: number): string {
   return inputPerPart(state) ? (d.texts[i] ?? '') : d.texts.join(' / ');
 }
 
+/** Whether the digit pad shows its `p` key: while input `i` holds a `|` (passing siteswap, form 4), or the parts are a passing set. */
+export function showsPassKey(state: AppState, d: Derived, i: number): boolean {
+  return isPassingSet(state.parts) || inputText(state, d, i).includes('|');
+}
+
 /** The beat of a part that pulse `pulse` (in [0, cycle)) is, counted from 1 within the cycle. */
 const beatOf = (p: Part, pulse: number) => (pulse - mod(p.phase, p.spacing)) / p.spacing + 1;
 

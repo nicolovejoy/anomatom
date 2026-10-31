@@ -184,6 +184,9 @@
   background: var(--raised);
   font: 22px var(--font-mono);
 }
+.digit-pad .key-pass {
+  grid-column: 4;
+}
 .digit-pad .key-op {
   background: transparent;
   box-shadow: inset 0 0 0 1px var(--rule);
