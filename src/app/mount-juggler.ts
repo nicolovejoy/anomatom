@@ -2,6 +2,7 @@
 // player view, and the "not a human throw" label (SPEC §4.1 v2) over it while such a flight is
 // in the air. A faulted group's flights come from the model (`flightsOf` of the parts each
 // derived schedule was built from), since the Schedule keeps only stand-in flights for them.
+import { figureSpans } from '../view/juggler';
 import { flightsOf } from '../core';
 import type { Flight, Schedule } from '../core';
 import { JUGGLER } from '../tunables';
@@ -41,6 +42,9 @@ export const mountJuggler: Mount = (root, { store }) => {
       // Test hook (SPEC §7.1): how many balls are drawn, so the browser tests can compare views.
       const balls = String(frame.balls.length);
       if (canvas.dataset.balls !== balls) canvas.dataset.balls = balls;
+      // Test hook: how many figures carry a caption (0 below three parts).
+      const figures = String(frame.parts > 2 ? figureSpans(frame.parts, JUGGLER).length : 0);
+      if (canvas.dataset.figures !== figures) canvas.dataset.figures = figures;
       if (note.hidden === frame.inhuman) note.hidden = !frame.inhuman;
       drawJuggler(canvas, frame);
     },

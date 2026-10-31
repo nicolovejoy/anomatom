@@ -1,7 +1,8 @@
 // Draws a juggler frame on a canvas. Reads nothing but the frame and the tunables.
 import { BALL_COLOURS, JUGGLER } from '../tunables';
+import { copy } from '../ui/copy';
 import { partColour } from '../view/colours';
-import { sceneScale, type JugglerFrame } from '../view/juggler';
+import { captionPlace, captionRoom, figureSpans, sceneScale, type JugglerFrame } from '../view/juggler';
 
 export function drawJuggler(canvas: HTMLCanvasElement, frame: JugglerFrame) {
   const ctx = canvas.getContext('2d');
@@ -23,7 +24,11 @@ export function drawJuggler(canvas: HTMLCanvasElement, frame: JugglerFrame) {
   // The axes (`sceneScale`, SPEC §4.1 v2): one scale while the tallest apex is at most
   // JUGGLER.uniformTopMetres, the hands at a fixed height; above it only the height squeezes.
   const { left, bottom } = frame.bounds;
-  const { sx, sy, x0, floor } = sceneScale(frame.bounds, width, height, JUGGLER);
+  // Three or more parts name each figure under its hands: the scene gives up the caption's room
+  // (its gap first, never the font, when the region is short), so one or two parts are unchanged.
+  const tinted = frame.parts > 2;
+  const room = tinted ? captionRoom(height, JUGGLER) : 0;
+  const { sx, sy, x0, floor } = sceneScale(frame.bounds, width, height - room, JUGGLER);
   const px = (x: number) => x0 + (x - left) * sx;
   const py = (y: number) => floor - (y - bottom) * sy;
   const r = Math.max(JUGGLER.radius * Math.min(sx, sy), JUGGLER.minRadiusPx);
@@ -32,7 +37,6 @@ export function drawJuggler(canvas: HTMLCanvasElement, frame: JugglerFrame) {
   // under a held ball, never past the canvas. Grey for one figure; with three or more parts
   // each in its part's colour, as its ladder lane, so a hand can be found in both.
   const handY = Math.min(py(0) + r + JUGGLER.handGapPx, height - JUGGLER.handBarPx);
-  const tinted = frame.parts > 2;
   for (const h of frame.hands) {
     ctx.fillStyle = tinted ? partColour(h.part) : JUGGLER.hand;
     const mid = px((h.catchX + h.throwX) / 2);
@@ -41,6 +45,17 @@ export function drawJuggler(canvas: HTMLCanvasElement, frame: JugglerFrame) {
     ctx.beginPath();
     ctx.roundRect(mid - w / 2, handY, w, bar, bar / 2);
     ctx.fill();
+  }
+
+  if (tinted) {
+    ctx.font = `${JUGGLER.captionFontPx}px ${JUGGLER.captionFont}`;
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'top';
+    const top = captionPlace(height, handY, JUGGLER);
+    for (const f of figureSpans(frame.parts, JUGGLER)) {
+      ctx.fillStyle = partColour(f.part);
+      ctx.fillText(copy.jugglerCaption(f.figure), (px(f.left) + px(f.right)) / 2, top);
+    }
   }
 
   // A faulted group (design §6): no balls, its faulted flights as whole arcs in the warning
