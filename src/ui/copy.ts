@@ -417,7 +417,7 @@ export const copy = {
   padInstrumentLabel: 'Pad instrument',
   padChordLabel: 'Chord',
   resetToPreset: 'Reset to preset',
-  /** The sheet's way back to the card screen: a word on a wide screen, an icon with this label on a phone. */
+  /** The sheet's way back to the card screen: an icon button with this as its accessible name, at every width. */
   patternsLabel: 'Patterns',
   shareLabel: 'Share this pattern',
   linkCopied: 'Link copied',

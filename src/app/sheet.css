@@ -62,9 +62,6 @@
   color: var(--text-2);
   font-size: 14px;
 }
-.patterns-word {
-  display: none;
-}
 .summary {
   flex: 1 1 auto;
   min-width: 0;

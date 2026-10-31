@@ -139,7 +139,6 @@ export const mountKnobs: Mount = (root, { store, player, sound }) => {
     <div class="head-row">
       <button type="button" id="patterns" class="patterns" aria-label="${copy.patternsLabel}">
         <svg aria-hidden="true" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="4" width="7" height="7" rx="1.5"/><rect x="13" y="4" width="7" height="7" rx="1.5"/><rect x="4" y="13" width="7" height="7" rx="1.5"/><rect x="13" y="13" width="7" height="7" rx="1.5"/></svg>
-        <span class="patterns-word">${copy.patternsLabel}</span>
       </button>
       <button type="button" class="summary" aria-controls="panel-pattern">
         <span class="summary-text"></span>
