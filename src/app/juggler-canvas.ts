@@ -2,7 +2,7 @@
 import { BALL_COLOURS, JUGGLER } from '../tunables';
 import { copy } from '../ui/copy';
 import { partColour } from '../view/colours';
-import { figureSpans, sceneScale, type JugglerFrame } from '../view/juggler';
+import { captionPlace, captionRoom, figureSpans, sceneScale, type JugglerFrame } from '../view/juggler';
 
 export function drawJuggler(canvas: HTMLCanvasElement, frame: JugglerFrame) {
   const ctx = canvas.getContext('2d');
@@ -27,7 +27,7 @@ export function drawJuggler(canvas: HTMLCanvasElement, frame: JugglerFrame) {
   // Three or more parts name each figure under its hands: the scene gives up the caption's room
   // (its gap first, never the font, when the region is short), so one or two parts are unchanged.
   const tinted = frame.parts > 2;
-  const room = tinted ? Math.min(JUGGLER.captionFontPx + JUGGLER.captionGapPx, Math.max(JUGGLER.captionFontPx, height * (1 - JUGGLER.captionSceneShare))) : 0;
+  const room = tinted ? captionRoom(height, JUGGLER) : 0;
   const { sx, sy, x0, floor } = sceneScale(frame.bounds, width, height - room, JUGGLER);
   const px = (x: number) => x0 + (x - left) * sx;
   const py = (y: number) => floor - (y - bottom) * sy;
@@ -48,10 +48,10 @@ export function drawJuggler(canvas: HTMLCanvasElement, frame: JugglerFrame) {
   }
 
   if (tinted) {
-    ctx.font = `${JUGGLER.captionFontPx}px system-ui, sans-serif`;
+    ctx.font = `${JUGGLER.captionFontPx}px ${JUGGLER.captionFont}`;
     ctx.textAlign = 'center';
     ctx.textBaseline = 'top';
-    const top = Math.min(handY + JUGGLER.handBarPx + room - JUGGLER.captionFontPx, height - JUGGLER.captionFontPx);
+    const top = captionPlace(height, handY, JUGGLER);
     for (const f of figureSpans(frame.parts, JUGGLER)) {
       ctx.fillStyle = partColour(f.part);
       ctx.fillText(copy.jugglerCaption(f.figure), (px(f.left) + px(f.right)) / 2, top);

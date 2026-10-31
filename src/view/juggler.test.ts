@@ -3,7 +3,7 @@ import { buildSchedule, flightsOf, partsFromOnsets } from '../core';
 import type { Event, Parts, Schedule } from '../core';
 import { scheduleOf, vanillaParts } from '../test/schedules';
 import { JUGGLER } from '../tunables';
-import { figureSpans, handPlaces, jugglerFrame, sceneScale } from './juggler';
+import { captionPlace, captionRoom, figureSpans, handPlaces, jugglerFrame, sceneScale } from './juggler';
 import type { JugglerBall, JugglerLayout, SceneScale } from './juggler';
 import type { Segment } from './types';
 
@@ -551,6 +551,8 @@ describe('figureSpans', () => {
     expect(spans.map((s) => [s.figure, s.part])).toEqual([[0, 0], [1, 2]]);
     const lone = handPlaces(3, layout)[2] as { catchX: number; throwX: number };
     expect(spans[1]).toEqual({ figure: 1, part: 2, left: Math.min(lone.catchX, lone.throwX), right: Math.max(lone.catchX, lone.throwX) });
+    // The one hand stands in the middle of its figure.
+    expect(((spans[1] as { left: number }).left + (spans[1] as { right: number }).right) / 2).toBeCloseTo((c0 + c1) / 2 + stride, 10);
   });
 
   test('six parts are three figures at stride multiples', () => {
@@ -558,5 +560,27 @@ describe('figureSpans', () => {
     expect(spans.map((s) => s.part)).toEqual([0, 2, 4]);
     expect(spans.map((s) => s.left)).toEqual([c0, c0 + stride, c0 + 2 * stride]);
     expect(spans.map((s) => s.right)).toEqual([c1, c1 + stride, c1 + 2 * stride]);
+  });
+});
+
+describe('captionPlace', () => {
+  const L = JUGGLER;
+  test('a normal height keeps the whole gap under the bars', () => {
+    expect(captionRoom(300, L)).toBe(L.captionFontPx + L.captionGapPx);
+    expect(captionPlace(300, 200, L)).toBe(200 + L.handBarPx + L.captionGapPx);
+  });
+
+  test('a short height shrinks the gap, never the font, and the caption is not clipped', () => {
+    const height = 40;
+    const room = captionRoom(height, L);
+    expect(room).toBeGreaterThanOrEqual(L.captionFontPx);
+    expect(room).toBeLessThan(L.captionFontPx + L.captionGapPx);
+    // The scene, which sits above `height - room`, puts its bars at the bottom of that.
+    const handY = height - room - 6 - L.handBarPx;
+    expect(captionPlace(height, handY, L) + L.captionFontPx).toBeLessThanOrEqual(height);
+  });
+
+  test('a hand bar pushed to the very bottom still leaves the caption on the canvas', () => {
+    expect(captionPlace(40, 40 - L.handBarPx, L)).toBe(40 - L.captionFontPx);
   });
 });

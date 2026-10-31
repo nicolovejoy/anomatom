@@ -150,6 +150,8 @@ export const JUGGLER = {
    * of the canvas height.
    */
   captionFontPx: 12,
+  /** The UI's stack (--font-ui in style.css). */
+  captionFont: "'IBM Plex Sans', system-ui, -apple-system, 'Segoe UI', sans-serif",
   captionGapPx: 6,
   captionSceneShare: 0.6,
   /** The flash: a ring this many radii out, in this colour, as wide as `flashRingPx`. */

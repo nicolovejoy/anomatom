@@ -146,6 +146,28 @@ export function figureSpans(parts: number, layout: Pick<JugglerLayout, 'catchX' 
   return spans;
 }
 
+/** The caption tunables `captionRoom` and `captionPlace` read. */
+export interface CaptionLayout {
+  readonly captionFontPx: number;
+  readonly captionGapPx: number;
+  readonly captionSceneShare: number;
+  readonly handBarPx: number;
+}
+
+/**
+ * Height the scene gives up under its hands for the captions: the font and the gap, but on a
+ * short canvas the gap shrinks first (never the font), so the scene keeps `captionSceneShare` of the height.
+ */
+export function captionRoom(height: number, layout: CaptionLayout): number {
+  return Math.min(layout.captionFontPx + layout.captionGapPx, Math.max(layout.captionFontPx, height * (1 - layout.captionSceneShare)));
+}
+
+/** The pixel row of the captions' top: under the hand bars at `handY`, after the shrunk gap, never past the canvas bottom. */
+export function captionPlace(height: number, handY: number, layout: CaptionLayout): number {
+  const gap = captionRoom(height, layout) - layout.captionFontPx;
+  return Math.min(handY + layout.handBarPx + gap, height - layout.captionFontPx);
+}
+
 /** The flights of the parts a schedule was built from, for drawing its faults; undefined when unknown. */
 export type FlightLookup = (schedule: Schedule) => readonly Flight[] | undefined;
 
