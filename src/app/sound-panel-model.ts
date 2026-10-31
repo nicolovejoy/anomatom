@@ -24,12 +24,16 @@ import {
   KIT_SAMPLES,
   MAX_HEIGHT,
   PAN_RANGE,
+  PASS_BOOST_RANGE,
   SOUND_PANEL,
 } from '../tunables';
 
 export type MappingEdit =
   | { readonly kind: 'preset'; readonly name: PresetName }
   | { readonly kind: 'kit'; readonly kit: string }
+  | { readonly kind: 'jugglerKit'; readonly juggler: number; readonly kit: string }
+  | { readonly kind: 'passAccent'; readonly velocity: number }
+  | { readonly kind: 'passSample'; readonly sample: Sample }
   | { readonly kind: 'height'; readonly height: number; readonly sample: Sample }
   | { readonly kind: 'partSample'; readonly part: number; readonly sample: Sample }
   | { readonly kind: 'pan'; readonly part: number; readonly value: number }
@@ -66,6 +70,20 @@ function edited(m: Mapping, edit: MappingEdit): Mapping | undefined {
     case 'kit':
       // The one Kit select sets every part (ruling 2); a per-part kit stays in the model for passing.
       return KIT_IDS.includes(edit.kit) ? { ...m, parts: m.parts.map((v) => ({ ...v, kit: edit.kit })) } : undefined;
+    case 'jugglerKit': {
+      // Juggler j is parts 2j and 2j + 1 (passing ruling 1); the other jugglers keep their kits.
+      if (!KIT_IDS.includes(edit.kit) || !Number.isInteger(edit.juggler) || edit.juggler < 0) return undefined;
+      if (2 * edit.juggler >= m.parts.length) return undefined;
+      return { ...m, parts: m.parts.map((v, i) => (Math.floor(i / 2) === edit.juggler ? { ...v, kit: edit.kit } : v)) };
+    }
+    case 'passAccent':
+      return Number.isFinite(edit.velocity)
+        ? { ...m, pass: { ...m.pass, velocity: Math.round(within(edit.velocity, PASS_BOOST_RANGE)) } }
+        : undefined;
+    case 'passSample': {
+      const sample = knownSample(edit.sample);
+      return sample === undefined ? undefined : { ...m, pass: { ...m.pass, sample } };
+    }
     case 'height': {
       const sample = knownSample(edit.sample);
       if (sample === undefined || !Number.isInteger(edit.height) || edit.height < 1 || edit.height > MAX_HEIGHT) {
@@ -139,3 +157,13 @@ export function resetTarget(mapping: Mapping, lastPreset: PresetName): PresetNam
 export function ensureVoices(mapping: Mapping, partCount: number): Mapping {
   return partCount > mapping.parts.length ? withPartCount(mapping, partCount) : mapping;
 }
+
+/**
+ * How many Kit selects the panel shows for `partCount` parts: none (the one select) up to two
+ * parts, else one per juggler, a juggler being a pair of parts (passing ruling 4).
+ */
+export const kitRows = (partCount: number): number => (partCount >= 3 ? Math.ceil(partCount / 2) : 0);
+
+/** The kit of each of the first `jugglers` jugglers: that of its first part. */
+export const jugglerKits = (mapping: Mapping, jugglers: number): readonly string[] =>
+  Array.from({ length: jugglers }, (_, j) => (mapping.parts[2 * j] ?? mapping.parts[0])?.kit ?? KIT_IDS[0] ?? '');

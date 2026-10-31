@@ -384,6 +384,13 @@ export const copy = {
   // -------------------------------------------------------------------------------------------
 
   kitLabel: 'Kit',
+  /** With three or more parts the Kit row is one select per juggler; `juggler` counts from 0. */
+  jugglerKitLabel: (juggler: number) => `Juggler ${juggler + 1} kit`,
+  passesHeading: 'Passes',
+  passAccentLabel: 'Accent',
+  passSampleLabel: 'Pass sound',
+  /** The pass sound select's no-sample option: the pass keeps the sound it would have had. */
+  passSampleOwn: 'Its own sound',
   presetLabel: 'Preset',
   perHeightHeading: 'Sound for each throw height',
   heightLabel: (height: number) => `Height ${height}`,
