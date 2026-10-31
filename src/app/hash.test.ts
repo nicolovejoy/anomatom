@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'vitest';
-import { buildSchedule, partsFromOnsets, partsFromPassing, withPhase } from '../core';
+import { buildSchedule, partsFromOnsets, partsFromPassing, partsFromSync, withPhase } from '../core';
 import type { Parts } from '../core';
 import { applyPreset, PRESET_NAMES, presetOf, withPartCount, type Mapping } from '../sound/mapping';
 import { lineParts, vanillaParts } from '../test/schedules';
@@ -504,5 +504,17 @@ describe('short passing links (ruling 6)', () => {
     expect(decodeState('3p-3|3p-3/3', 'short')).toBeNull();
     expect(decodeState(`3|${'3'.repeat(80)}`, 'short')).toBeNull();
     expect(decodeState('3p-3|3p-3~nope', 'short')).toBeNull();
+  });
+});
+
+describe('sync links (v3 ruling 5)', () => {
+  test('the box is a #v2. link that round-trips', () => {
+    const r = partsFromSync('(4,2x)(2x,4)');
+    if (!r.ok) throw new Error('box');
+    const state = { parts: r.parts, ratio: { a: 1, b: 1 }, bpm: DEFAULT_BPM, mapping: withPartCount(DEFAULT_MAPPING, 2) };
+    const hash = encodeHash(state);
+    expect(hash.startsWith('#v2.')).toBe(true);
+    const back = decodeState(route(hash).state as string);
+    expect(back?.parts).toEqual(r.parts);
   });
 });

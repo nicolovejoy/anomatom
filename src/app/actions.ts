@@ -5,7 +5,7 @@
 // - Every action clears `notice` first; only a reset sets it again.
 // - Editing a draft parses it and edits flights, never grids (see `parseDraft`). At 1:1 the one
 //   input is vanilla siteswap over two parts, or form 2 (`a / b`) when it holds a `/` (or the
-//   state has one part); at other ratios each input is one hand in one-hand counting. A parse that
+//   state has one part), passing (form 4) with a `|`, sync (form 5) when it starts with `(`; at other ratios each input is one hand in one-hand counting. A parse that
 //   fails keeps the draft and leaves the parts alone; one that succeeds writes manual throws for
 //   the edited part's cross group (a default part an `x` now lands in becomes manual with the
 //   throws its default rule had).
@@ -29,6 +29,7 @@ import {
   euclid,
   gcd,
   isPassingSet,
+  isSyncSet,
   isVanillaPair,
   judge,
   lcm,
@@ -37,6 +38,7 @@ import {
   onsetsOf,
   parseThrows,
   partsFromPassing,
+  partsFromSync,
   partsFromVanilla,
   periodOf,
   ratesOf,
@@ -105,6 +107,11 @@ export type DraftResult = { readonly ok: true; readonly parts: Parts } | { reado
  */
 export function parseDraft(state: Pick<AppState, 'parts' | 'ratio'>, part: PartIndex, text: string): DraftResult {
   if (!inputPerPart(state)) {
+    // A draft starting with `(` is sync siteswap (form 5), over any parts.
+    if (text.trimStart().startsWith('(')) {
+      const r = partsFromSync(text);
+      return r.ok ? r : { ok: false, error: r.error };
+    }
     // A `|` is passing siteswap (form 4), over any parts.
     if (text.includes('|')) {
       const r = partsFromPassing(text);
@@ -118,7 +125,7 @@ export function parseDraft(state: Pick<AppState, 'parts' | 'ratio'>, part: PartI
     const r = parseThrows(text);
     if (!r.ok) return r;
     if (r.parts > MAX_EDITOR_PARTS) return { ok: false, error: { kind: 'too-many-parts', max: MAX_EDITOR_PARTS } };
-    const base: Parts = isVanillaPair(state.parts) || isPassingSet(state.parts) ? [] : state.parts;
+    const base: Parts = isVanillaPair(state.parts) || isPassingSet(state.parts) || isSyncSet(state.parts) ? [] : state.parts;
     const spacing = base[base.length - 1]?.spacing ?? 1;
     const grid = (i: number) => base[i] ?? { spacing, phase: 0, unit: spacing };
     return {

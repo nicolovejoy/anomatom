@@ -55,6 +55,10 @@ export const copy = {
         return `I pass between at most ${error.max} jugglers; write at most ${error.max} patterns, with a | between them.`;
       case 'bad-target':
         return `I can’t send the x or p at character ${error.index + 1} anywhere: it follows a 0, or there is no other hand or juggler for it.`;
+      case 'bad-sync':
+        return error.open
+          ? 'In sync, every pair closes: (left,right), like (4,2x).'
+          : `In sync, every throw is even; the one at character ${error.index + 1} isn’t.`;
     }
   },
   /** A fractional mean (MATH.md §9.4), the cheaper of two presentations of one fault. */

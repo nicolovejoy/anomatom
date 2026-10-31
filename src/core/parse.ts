@@ -10,7 +10,9 @@ export type ParseError =
   /** More parts than the editor shows (the app's rule, never the parser's: stream B ruling). */
   | { readonly kind: 'too-many-parts'; readonly max: number }
   /** More jugglers than a passing siteswap may write (MAX_JUGGLERS, wave 2 ruling 2). */
-  | { readonly kind: 'too-many-jugglers'; readonly max: number };
+  | { readonly kind: 'too-many-jugglers'; readonly max: number }
+  /** Sync notation (form 5) broken: an odd height at `index`, or (`open`) a pair left open at the end. */
+  | { readonly kind: 'bad-sync'; readonly index: number; readonly open: boolean };
 
 export type ThrowsResult =
   | { readonly ok: true; readonly throws: Throw[][]; readonly parts: number }

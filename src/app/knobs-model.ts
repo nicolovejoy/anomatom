@@ -2,7 +2,7 @@
 // values into elements. `Analysis` is a thin view over `derived(state)` (derived.ts): what the
 // inputs show, the indicators, the warning sites, the status lines and the fixes, in the robot's
 // words.
-import { gcd, isPassingSet, isVanillaPair, mod, parseThrows, periodOf, throwsOf, vanillaIndex } from '../core';
+import { gcd, isPassingSet, isSyncSet, isVanillaPair, mod, parseThrows, periodOf, throwsOf, vanillaIndex } from '../core';
 import type { Fault, ParseError, Part, PartIndex, Parts, Ratio, Schedule, ThrowId } from '../core';
 import { hitFor, type Mapping } from '../sound/mapping';
 import { BPM_RANGE, MAX_EDITOR_PARTS, MAX_RATIO } from '../tunables';
@@ -41,9 +41,9 @@ export interface Analysis {
 
 /**
  * At 1:1, whether the pattern shows as two inputs, one per part (form 2, `a / b`): from the
- * moment the draft holds a `/`, and whenever the parts are two that are not one vanilla
+ * moment the draft holds a `/`, and whenever the parts are two that are not one vanilla or sync
  * siteswap. A single string is vanilla only over two hands at 1:1 (ruling 2026-10-29), so the
- * one input stays for a vanilla pair, a lone part, and a draft without a `/`.
+ * one input stays for a vanilla pair, a sync set (form 5), a lone part, and a draft without a `/`.
  */
 export function splitInputs(state: Pick<AppState, 'parts' | 'drafts' | 'ratio'>): boolean {
   if (inputPerPart(state)) return false;
@@ -51,7 +51,7 @@ export function splitInputs(state: Pick<AppState, 'parts' | 'drafts' | 'ratio'>)
   if (isPassingSet(state.parts)) return state.drafts[0]?.includes('/') ?? false;
   const draft = state.drafts[0];
   if (draft != null) return draft.includes('/');
-  return state.parts.length >= 2 && !isVanillaPair(state.parts);
+  return state.parts.length >= 2 && !isVanillaPair(state.parts) && !isSyncSet(state.parts);
 }
 
 /** The two inputs of `a / b`: the text either side of the first `/`, less the one space `joinInputs` puts beside it. */
@@ -148,6 +148,8 @@ export function analyse(state: AppState, d: Derived = derived(state)): Analysis 
 
   const { parts } = state;
   const passing = !split && isPassingSet(parts);
+  // A sync set names its throws by hand and beat, as two hands of their own do; only its sites are the one input's.
+  const sync = !split && isSyncSet(parts);
   const pair = isVanillaPair(parts) || passing;
   const { cycle } = d.schedule;
   const length = Math.max(1, siteCount(inputs[0] as string));
@@ -167,6 +169,8 @@ export function analyse(state: AppState, d: Derived = derived(state)): Analysis 
    * one input, or a part past hand 2, which a link can make, in hand 2's).
    */
   const mark = (t: ThrowId) => {
+    // A sync set's one input shows its pairs in order, left then right: throw j of part k is site 2j + k.
+    if (sync) return void (warn[0] as Set<number>).add((2 * t.index + t.part) % length);
     const r = ref(t);
     (warn[Math.min(r.hand, warn.length - 1)] as Set<number>).add(r.index);
   };
@@ -238,6 +242,7 @@ export function warnSites(a: Analysis, input: number): ReadonlySet<number> {
 /** The character a parse error points at in one input, or null. */
 export function badChar(a: Analysis, input: number): number | null {
   const e = a.errors[input];
+  if (e?.kind === 'bad-sync') return e.open ? null : e.index;
   return e?.kind === 'bad-char' ? e.index : null;
 }
 
@@ -404,7 +409,7 @@ export function toggleSite(sel: SiteSelection | null, hand: number, site: number
 export function swapAction(state: AppState, input: number, i: number, j: number): Action | null {
   if (inputPerPart(state) || splitInputs(state)) return { type: 'swapSites', part: input, i, j };
   if (isVanillaPair(state.parts)) return { type: 'swapSites', part: 0, i, j };
-  if (isPassingSet(state.parts)) return null;
+  if (isPassingSet(state.parts) || isSyncSet(state.parts)) return null;
   let offset = 0;
   for (const [part, p] of state.parts.entries()) {
     const n = periodOf(p);

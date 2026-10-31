@@ -2,6 +2,7 @@ import { MAX_PHASE_REFINEMENT } from '../tunables';
 import { gcd, lcm, mod } from './math';
 import { digitText, parseThrows } from './parse';
 import { isPassingSet, passingText } from './passing';
+import { isSyncSet, syncText } from './sync';
 import type { ParseError } from './parse';
 import type { Part, PartIndex, Parts, Ratio, Throw } from './types';
 
@@ -231,6 +232,7 @@ export function partsFromOnsets(lines: readonly (readonly boolean[])[], spacings
 export function textOf(part: Part, parts: Parts): string {
   if (parts.includes(part) && isPassingSet(parts)) return passingText(parts);
   if (parts.includes(part) && isVanillaPair(parts)) return vanillaDigits(parts).map(digitText).join('');
+  if (parts.includes(part) && isSyncSet(parts)) return syncText(parts);
   return throwsOf(part)
     .map((t) => {
       const mark = t.to === null ? '' : parts.length === 2 ? 'x' : `x${t.to + 1}`;
