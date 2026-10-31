@@ -28,7 +28,7 @@ v2, the model waves (2026-10-29). What a user can do in addition:
 5. Load presets from the sourcebook (`POLYRHYTHMS.md`), each with its source. The Euclidean generator E(hits, pulses) (`MATH.md` §9.7) is in the core and the actions from wave 1; its control in the Rhythm tab is not in the wave 2 interface list and needs a ruling before it is promised.
 6. Give each hand its own voice (the new default) or keep a height preset.
 
-Still not in v2's model waves: the mixer-style interface (`docs/plans/model-rethink.md` §12), more than two hands on screen, passing on screen, multiplex, galloped (non-isochronous) grids, MIDI, accounts.
+(v2 wave 2, 2026-10-30) Passing: `<3p 3|3p 3>` in the pattern box, a passing card, the short link `#3p-3|3p-3`, one kit per juggler and an accent on passes (`docs/plans/v2-share-kits-passing.md` wave 2, `MATH.md` §10). Still not in v2's model waves: the mixer-style interface (`docs/plans/model-rethink.md` §12), more than two hands on screen (lanes plan: now up to four), multiplex, galloped (non-isochronous) grids, MIDI, accounts.
 
 ## 3. Definitions
 
@@ -82,6 +82,8 @@ Knob panel, in this order:
 8. About link.
 
 Live changes: a knob changed during play takes effect at the next cycle boundary. The indicator shows "next cycle" until then.
+
+(v2 wave 2, 2026-10-30) A juggler is a pair of hands. With three or more hands the juggler draws one figure per pair side by side, a pass as an arc between figures, a caption under each; the Pattern view accepts passing siteswap `<3p 3|3p 3>` (`MATH.md` §10) as one input; the Sound panel's Kit becomes one select per juggler and gains a Passes section.
 
 (v2, 2026-10-29) The model waves rewire today's sheet minimally (`docs/plans/model-rethink.md` §14, option b); the mixer-style layout comes later in its own plan. Play is always on. The Rhythm tab gains, per hand, a phase stepper in pulses and a ball stepper k; on a hand in a manual cross group the ball stepper is replaced by the group's derived count and "reset". A one-line notice shows the result of the last action and clears on the next. The Pattern view accepts `a / b` at 1:1 (two lines, both at phase 0) as well as the vanilla siteswap, `x<n>` for a cross to hand n, and the letters `a`-`z` for heights 10-35. Still two hands on screen.
 
