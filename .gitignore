@@ -8,3 +8,4 @@ coverage/
 .playwright-mcp/
 test-results/
 playwright-report/
+e2e/shots/

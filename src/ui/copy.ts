@@ -213,11 +213,9 @@ export const copy = {
   ] as readonly { heading: string; paragraphs: readonly string[] }[],
   aboutPresetsHeading: 'Where the cards come from',
   aboutPresets: [
-    'The sourcebook I work from reduces each rhythm to its skeleton, and each card is that skeleton. It is not a transcription of a recording. The tempi are my starting points.',
-    'Where a card names a page, I opened that page. Where it says standard grid, the positions are the common reference grids. The sourcebook marks them as unquoted, and I opened no page for that card.',
-    'I play every card on a Roland TR-808 unless you pick another kit. My kits are all drum machines, so where a rhythm wants a kalimba or a pluck, a cowbell, a clave or a conga stands in.',
+    'Every card is a pattern jugglers already know, and I play it on the tempo you set. The names are the ones Juggling Lab, the Library of Juggling and Wikipedia’s list of siteswaps use. Where I found no name for a pattern, the card says what it is instead.',
+    'I play every card on a Roland TR-808 unless you pick another kit. The passing cards give each juggler a kit of their own.',
   ],
-  aboutPresetSourceNone: 'No page opened: standard grid',
   aboutColotomyHeading: 'A note on the gong cycle',
   aboutColotomy: [
     'I hear the gong cycle of Javanese and Balinese music as nested grids: the big gong once per cycle, kempul and kenong at halves and quarters, kethuk at finer points. That is called colotomic structure.',
@@ -432,50 +430,38 @@ export const copy = {
     playingSuffix: ' · playing',
     makeYourOwn: 'Make your own',
     pause: 'Pause',
-    more: 'More rhythms',
-    fewer: 'Fewer rhythms',
-    /** The control's screen-reader label: how many cards it reveals. */
-    moreLabel: (count: number) => `Show ${count} more rhythms from around the world`,
-    fewerLabel: 'Show only the first rhythms',
-    bpm: (bpm: number) => `${bpm} bpm`,
-    partsChip: (n: number) => `${n} parts`,
+    /** Group headings on the card screen, in screen order. */
+    groups: { '3': '3 balls', '4': '4 balls', '5': '5 balls', passing: 'Passing' } as Record<string, string>,
     cardLabel: (pattern: string, name: string, playing: boolean) => `${pattern}, ${name}${playing ? ', playing' : ''}`,
   },
 
   // -------------------------------------------------------------------------------------------
-  // Presets: the sourcebook's rows (docs/POLYRHYTHMS.md), keyed by Preset.id. `source` is a noun
-  // phrase for a card's footer; `listen` is the one thing to listen for.
+  // Presets: the juggling classics, keyed by Preset.id. `name` is a name a source uses, or a plain
+  // description where none was found (v3 stream C1; the sources are listed in its PR).
   // -------------------------------------------------------------------------------------------
 
   presets: {
-    cascade: { name: 'Cascade', source: 'Siteswap notation', listen: 'Three balls, one throw at a time.' },
-    pause: { name: 'Three balls, a pause', source: 'Siteswap notation', listen: 'Two high throws, then a low one.' },
-    classic: { name: 'High, middle, low', source: 'Siteswap notation', listen: 'Three heights, three drums.' },
-    ramp: { name: 'Five balls, a ramp', source: 'Siteswap notation', listen: 'Five balls stepping down.' },
-    polyrhythm: { name: 'Two hands, 3 against 2', source: 'Siteswap notation', listen: 'The crosses land only where the two grids meet.' },
-    passing: { name: 'Two jugglers, passing', source: 'Passing siteswap notation', listen: 'Each juggler has a drum kit, and every pass answers the other side.' },
-    bell: { name: 'Standard bell', source: 'Ewe gankogui bell and clap', listen: 'The bell flips between a two feel and a three feel.' },
-    'son-clave': { name: 'Son clave 3-2', source: 'Son clave, via Ethan Hein', listen: 'The first three hits lean toward triple against the straight four.' },
-    clapping: { name: 'Clapping Music', source: 'Steve Reich, 1972', listen: 'Hand 2 is three pulses late, one of the two famous positions.' },
-    afrobeat: { name: 'Afrobeat hat and kick', source: 'Tony Allen, via Modern Drummer', listen: 'The hat’s 3+3+2 fights the kick’s four.' },
-    rumba: { name: 'Rumba clave', source: 'Afro-Cuban rumba clave, standard grid', listen: 'One hit later than son, and more tension.' },
-    cascara: { name: 'Cascara over clave', source: 'Cuban timbales, standard grid', listen: 'Two sixteen-pulse lines interlock. The ladder shows the mesh.' },
-    kotekan: { name: 'Kotekan telu', source: 'Balinese kotekan, via Wikipedia', listen: 'Every pulse is struck, the shared one by both hands, and it sounds like one line.' },
-    hocket: { name: 'Hocket', source: 'Kotekan nyog cag, via Wikipedia', listen: 'The simplest interlock: one hand, then the other.' },
-    nadai: { name: 'Nadai 5:4', source: 'Carnatic nadai, standard exercise', listen: 'A pure ratio, like konnakol practice.' },
-    tihai: { name: 'Tihai on 16', source: 'Hindustani and Carnatic tihai, standard figure', listen: 'Three equal phrases, the last landing on the first beat.' },
-    mbira: { name: 'Mbira interlock', source: 'Shona mbira, via Afropop', listen: 'A third pattern that neither hand plays. I have no kalimba yet: a cowbell and a tom stand in.' },
-    trance: { name: 'Trance arp over four', source: 'N-Trance and Aphex Twin, via Zoe Blade', listen: 'A dotted-eighth feel. A clave stands in for the pluck.' },
-    acid: { name: 'Acid polymetre', source: 'Hawtin and Autechre, via Zoe Blade', listen: 'The short loop walks across the bar and realigns every three bars. A clave stands in for the pluck.' },
-    'blue-rondo': { name: 'Blue Rondo', source: 'Dave Brubeck, with Toussaint’s E(4,9)', listen: '2+2+2+3 against 3+3+3.' },
-    pyramid: { name: 'Pyramid Song', source: 'Radiohead, common knowledge', listen: '3+3+4+3+3 against a straight four.' },
-    elvin: { name: 'Elvin triplet ride', source: 'Elvin Jones, common knowledge', listen: 'A three feel over a two.' },
-    discipline: { name: 'Discipline', source: 'King Crimson, common knowledge', listen: 'A 35-pulse cycle of interlocking guitars. A clave and a cowbell stand in.' },
-    'ewe-layers': { name: 'Ewe bell, clap and felt three', source: 'Ewe bell and clap, via ancient-future.com', listen: 'The bell, a clap every three pulses and a felt beat every four: one twelve, three ways.' },
-    'mbira-layers': { name: 'Mbira pair with hosho', source: 'Shona mbira, via Afropop', listen: 'Two interlocking hands and a steady rattle under them. A cowbell and a tom stand in for the mbira.' },
-    'clave-layers': { name: 'Clave, cascara and the count', source: 'Son clave, via Ethan Hein', listen: 'Clave and cascara mesh over a four-pulse count.' },
-    'stack-345': { name: 'Three, four and five', source: 'A plain rate stack, common knowledge', listen: 'Three, four and five beats in the same span. They all meet only once, at the start.' },
-  } as Record<string, { name: string; source: string; listen: string }>,
+    cascade: { name: 'Cascade' },
+    shower: { name: 'Shower' },
+    pause: { name: 'Half box' },
+    classic: { name: 'High, middle, low' },
+    'two-in-ones': { name: 'Two-in-ones, alternating' },
+    boston: { name: 'Boston shuffle' },
+    flash: { name: 'Flash' },
+    fountain: { name: 'Fountain' },
+    'half-shower': { name: 'Half-shower' },
+    'high-low-fountain': { name: 'High, low, fountain' },
+    'tower-4': { name: 'Four-ball tower' },
+    polyrhythm: { name: 'Two hands, 3 against 2' },
+    'five-cascade': { name: 'Cascade' },
+    'five-744': { name: 'Five balls, one high throw' },
+    'five-645': { name: 'Five balls, three heights' },
+    ramp: { name: 'Five balls, a ramp' },
+    passing: { name: 'Two-count' },
+    ultimates: { name: 'Ultimates' },
+    'three-count': { name: 'Three-count' },
+    'four-count': { name: 'Four-count' },
+  } as Record<string, { name: string }>,
 };
 
 /**

@@ -4,7 +4,6 @@ import bibliographySource from '../../docs/BIBLIOGRAPHY.md?raw';
 import { copy } from '../ui/copy';
 import { parseBibliography, segments } from '../view/bibliography';
 import type { Mount } from './mount';
-import { PRESETS } from './presets';
 import './about.css';
 
 function el<K extends keyof HTMLElementTagNameMap>(tag: K, text?: string): HTMLElementTagNameMap[K] {
@@ -44,26 +43,6 @@ function section(heading: string, paragraphs: readonly string[]): HTMLElement {
 /** One section per layer of the model, in my voice, each citing only the bibliography's checked entries. */
 function layers(): HTMLElement[] {
   return copy.aboutLayers.map((l) => section(l.heading, l.paragraphs));
-}
-
-/** Where the cards come from: the prose, then one source line per sourcebook card, rendered from presets.ts. A page two cards share is listed once, at the first. */
-function presets(): HTMLElement {
-  const s = section(copy.aboutPresetsHeading, copy.aboutPresets);
-  const list = el('ul');
-  list.className = 'preset-sources';
-  const seen = new Set<string>();
-  for (const p of PRESETS.filter((q) => q.kind === 'sourcebook')) {
-    if (p.sourceUrl !== null && seen.has(p.sourceUrl)) continue;
-    if (p.sourceUrl !== null) seen.add(p.sourceUrl);
-    const words = copy.presets[p.id];
-    const item = el('li');
-    item.append(el('strong', words?.name ?? p.id), `: ${words?.source ?? ''}. `);
-    if (p.sourceUrl) item.append(external(p.sourceUrl, linkLabel(p.sourceUrl)));
-    else item.append(copy.aboutPresetSourceNone);
-    list.append(item);
-  }
-  s.append(list);
-  return s;
 }
 
 function bibliography(): HTMLElement {
@@ -119,7 +98,7 @@ export const mountAbout: Mount = (root, { store }) => {
     section(copy.aboutIdeaHeading, copy.aboutIdea),
     section(copy.aboutSoundHeading, copy.aboutSound),
     ...layers(),
-    presets(),
+    section(copy.aboutPresetsHeading, copy.aboutPresets),
     section(copy.aboutColotomyHeading, copy.aboutColotomy),
     bibliography(),
     credits(),
