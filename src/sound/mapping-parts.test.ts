@@ -23,7 +23,7 @@ const VPP = applyPreset('voice-per-part');
 const voice = (m: Mapping, i: number) => m.parts[i] as PartVoice;
 
 function throwEvent(height: number, part = 0): Event {
-  return { kind: 'throw', pulse: 0, part, ball: 0, height, flight: height * 2, cross: false };
+  return { kind: 'throw', pulse: 0, part, to: part, ball: 0, height, flight: height * 2, cross: false };
 }
 
 describe('voice per part', () => {
@@ -47,7 +47,7 @@ describe('voice per part', () => {
   });
 
   test('catches follow the catch rule as in any preset', () => {
-    const c: Event = { kind: 'catch', pulse: 4, part: 0, ball: 0, height: 2, flight: 4, cross: false };
+    const c: Event = { kind: 'catch', pulse: 4, part: 0, to: 0, ball: 0, height: 2, flight: 4, cross: false };
     expect(hitFor(c, VPP, threeTwo)).toBeNull();
     expect(hitFor(c, { ...VPP, catches: { on: true, sample: 'rimshot' } }, threeTwo)).toMatchObject({ sample: 'rimshot', part: 0 });
   });
@@ -88,14 +88,14 @@ describe('a faulted group (ball null)', () => {
 });
 
 test('coincidence is every part having a beat on that pulse, negative pulses included', () => {
-  const c = (pulse: number): Event => ({ kind: 'catch', pulse, part: 1, ball: 0, height: 2, flight: 4, cross: true });
+  const c = (pulse: number): Event => ({ kind: 'catch', pulse, part: 1, to: 1, ball: 0, height: 2, flight: 4, cross: true });
   for (const pulse of [6, 0, -6]) expect(hitFor(c(pulse), HD, threeTwo)?.sample).toBe('clap');
   for (const pulse of [2, -2]) expect(hitFor(c(pulse), HD, threeTwo)).toBeNull();
 });
 
 test('coincidence follows the grids’ phases', () => {
   // Vanilla: part 1 is a pulse behind, so no pulse is shared.
-  const c = (pulse: number): Event => ({ kind: 'catch', pulse, part: 1, ball: 0, height: 3, flight: 3, cross: true });
+  const c = (pulse: number): Event => ({ kind: 'catch', pulse, part: 1, to: 1, ball: 0, height: 3, flight: 3, cross: true });
   expect(vanilla.grids.map((g) => g.phase)).toEqual([0, 1]);
   for (const pulse of [0, 1, 2, 3]) expect(hitFor(c(pulse), HD, vanilla)).toBeNull();
 });

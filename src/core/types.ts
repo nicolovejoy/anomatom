@@ -83,6 +83,8 @@ export interface Event {
   readonly kind: EventKind;
   readonly pulse: number;
   readonly part: PartIndex;
+  /** The part that catches the flight (wave 2 ruling 3): `part` itself for a catch and for a faulted group's stand-in flight. */
+  readonly to: PartIndex;
   /** Stable within the period; null for parts in a group with faults. */
   readonly ball: number | null;
   /** The digit: flight / the part's unit. What height-to-drum reads; MAX_HEIGHT clamps it. */

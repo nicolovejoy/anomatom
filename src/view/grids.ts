@@ -13,20 +13,11 @@ export function isCoincident(grids: Schedule['grids'], pulse: number): boolean {
   return grids.every((_, part) => onBeat(grids, part, pulse));
 }
 
-const catchers = new WeakMap<Schedule, Map<string, PartIndex>>();
-
 /**
- * The part that catches throw `e`, read off its catch event (same ball, at its pulse plus its
- * flight), never worked out from the throwing part. A throw with no ball (a faulted group's
- * stand-in flight) lands in its own part.
+ * The part that catches throw `e`: its `to`, set by buildSchedule from the flight (wave 2 ruling
+ * 3), never worked out from the throwing part. A catch is its own part, and so is the landing of a
+ * faulted group's stand-in flight.
  */
-export function catchPart(schedule: Schedule, e: Event): PartIndex {
-  if (e.kind === 'catch' || e.ball === null) return e.part;
-  let index = catchers.get(schedule);
-  if (!index) {
-    index = new Map();
-    for (const c of schedule.events) if (c.kind === 'catch' && c.ball !== null) index.set(`${c.ball}:${c.pulse}`, c.part);
-    catchers.set(schedule, index);
-  }
-  return index.get(`${e.ball}:${e.pulse + e.flight}`) ?? e.part;
+export function catchPart(_schedule: Schedule, e: Event): PartIndex {
+  return e.to;
 }
