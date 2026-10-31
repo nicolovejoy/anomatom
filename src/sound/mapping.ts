@@ -5,6 +5,7 @@
 // mapping on every look-ahead tick and an edit is heard from the next window (about
 // LOOKAHEAD_SECONDS), not at the next cycle boundary. Events already handed to the sampler
 // keep the sound they were given.
+import { isPass } from '../core/passing';
 import type { Event, PartIndex, Schedule } from '../core/types';
 import {
   BASE_VELOCITY,
@@ -41,6 +42,8 @@ export interface Mapping {
   readonly catches: { readonly on: boolean; readonly sample: Sample };
   /** Velocity added to a cross throw, and the sound of a cross caught on the downbeat. */
   readonly crossAccent: { readonly velocity: number; readonly downbeat: Sample };
+  /** A pass (a throw into another juggler's part): velocity added to it, and the sound it plays in place of its own (null: its own). */
+  readonly pass: { readonly velocity: number; readonly sample: Sample };
   /** Crossings to filter: a low-pass whose cutoff follows the pattern's crossing count, low to high Hz. */
   readonly filter: { readonly on: boolean; readonly low: number; readonly high: number };
   /** A chord on the downbeat of every cycle. */
@@ -192,10 +195,11 @@ export function hitFor(event: Event, mapping: Mapping, schedule: Schedule): Hit 
   const sample = sampleFor(event, mapping, schedule, voice);
   if (sample === null) return null;
   const accent = event.cross ? mapping.crossAccent.velocity : 0;
+  const passes = event.kind === 'throw' && isPass(event.part, event.to);
   return {
-    sample,
+    sample: passes && mapping.pass.sample !== null ? mapping.pass.sample : sample,
     part: event.part,
-    velocity: Math.min(MAX_VELOCITY, BASE_VELOCITY + accent),
+    velocity: Math.min(MAX_VELOCITY, BASE_VELOCITY + accent + (passes ? mapping.pass.velocity : 0)),
     pan: voice.pan,
     gain: voice.gain,
     durationPulses: event.flight,
