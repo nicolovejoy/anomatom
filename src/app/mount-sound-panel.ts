@@ -92,6 +92,7 @@ export const mountSoundPanel: Mount = (root, { store, player }) => {
   root.innerHTML = `
     <div id="sound-panel" class="sound-panel">
       <div id="sp-kits"></div>
+      <div id="sp-passes"></div>
       <p class="sp-note">${copy.soundBallCountNote}</p>
       <div class="sp-row">
         <label for="sp-preset">${copy.presetLabel}</label>
@@ -126,7 +127,6 @@ export const mountSoundPanel: Mount = (root, { store, player }) => {
         <div class="sp-row"><label for="sp-downbeat">${copy.downbeatLabel}</label>
           <select id="sp-downbeat"></select></div>
       </fieldset>
-      <div id="sp-passes"></div>
       <fieldset>
         <legend>${copy.filterHeading}</legend>
         <div class="sp-row"><label><input id="sp-filter-on" type="checkbox" /> ${copy.filterOn}</label></div>
