@@ -421,3 +421,63 @@ describe('ratio, tempo and time', () => {
     expect(cyclePosition(view(3.5, [seg(0, 3), seg(3, null, three)]))).toEqual({ pulse: 1, cycle: 2 });
   });
 });
+
+describe('a passing set in the editor (ruling 7)', () => {
+  const passing = (text = '<3p 3|3p 3>') => reduce(defaultState(), { type: 'editDraft', part: 0, text });
+  test('one input, never split, one text', () => {
+    const s = passing();
+    expect(derived(s).texts).toEqual(['<3p 3|3p 3>']);
+    expect(splitInputs(s)).toBe(false);
+    const a = analyse(s);
+    expect(a.vanilla).toBe(true);
+    expect(a.inputs).toEqual(['<3p 3|3p 3>']);
+    expect(a.balls).toBe(6);
+    expect(a.errors).toEqual([null]);
+  });
+  test('the input shows the passing text after the draft is cleared', () => {
+    const s = { ...passing('<3p3|3p3>'), drafts: [null, null, null, null] };
+    expect(analyse(s).inputs).toEqual(['<3p 3|3p 3>']);
+  });
+  test('an error under the one input', () => {
+    const a = analyse(passing('<3p 3|3p 3|3p 3|3p 3>'));
+    expect(a.errors[0]).toEqual({ kind: 'too-many-jugglers', max: 3 });
+    expect(a.inputs).toHaveLength(1);
+    const b = analyse(passing('<3p 3|3? 3>'));
+    expect(b.errors[0]).toMatchObject({ kind: 'bad-char' });
+  });
+  test('faults name the throw by its position across the whole text', () => {
+    // 3p from part 0 collides in part 3 with juggler 2's own 3 (throws 1 and 3 of the text); throw 2 is the unfed hand's.
+    const a = analyse(passing('<3p 3|3 3>'));
+    expect(a.balls).toBeNull();
+    expect(a.warn).toHaveLength(1);
+    expect([...a.warn[0]!].sort()).toEqual([0, 1, 2]);
+    expect(a.lines.length).toBeGreaterThan(0);
+    expect(a.fixable).toBe(true);
+  });
+  test('an odd-length sequence read twice puts each position once on each hand', () => {
+    const a = analyse(passing('<4p 3 3|3 3 4p>'));
+    expect(a.errors).toEqual([null]);
+  });
+  test('pieces: a p after a digit belongs to its throw, as x does; < > | are separators', () => {
+    const p = pieces('<3p 3|3p 3>', new Set(), new Set(), null);
+    expect(p.map((q) => q.site)).toEqual([null, 0, 0, null, 1, null, 2, 2, null, 3, null]);
+  });
+  test('pieces: p<n> names the target only when it is another existing juggler', () => {
+    expect(pieces('<3p2 3|3p1 3>', new Set(), new Set(), null).map((q) => q.site)).toEqual([null, 0, 0, 0, null, 1, null, 2, 2, 2, null, 3, null]);
+    // 3p3 with two jugglers: the 3 is the next throw.
+    expect(pieces('3p3|3', new Set(), new Set(), null).map((q) => q.site)).toEqual([0, 0, 1, null, 2]);
+    // A bare p, or one after a space, with no digit before it, is unreadable.
+    expect(pieces('3|p 3', new Set(), new Set(), null).map((q) => q.site)).toEqual([0, null, null, null, 1]);
+  });
+  test('pieces: outside passing text p is the letter 25', () => {
+    expect(pieces('3p', new Set(), new Set(), null).map((q) => q.site)).toEqual([0, 1]);
+  });
+  test('a fix typed into the one input', () => {
+    const s = passing('<3p 3|3 3>');
+    const d = derived(s);
+    expect(d.fixTexts.every((t) => t.length === 1)).toBe(true);
+  });
+  test('swap is not offered over a passing set', () => {
+    expect(swapAction(passing(), 0, 0, 1)).toBeNull();
+  });
+});
