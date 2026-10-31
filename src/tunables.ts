@@ -14,6 +14,8 @@ export const MAX_PERIOD = 16;
 /** Tempo of hand 1's beats. */
 export const DEFAULT_BPM = 120;
 export const BPM_RANGE = { min: 40, max: 240 } as const;
+/** What the card screen's tempo stepper adds or takes away per press. */
+export const TEMPO_STEP = 5;
 
 /** Master volume when the page opens, 0 to 1. */
 export const DEFAULT_VOLUME = 1;

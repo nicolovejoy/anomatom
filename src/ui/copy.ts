@@ -417,6 +417,8 @@ export const copy = {
   padInstrumentLabel: 'Pad instrument',
   padChordLabel: 'Chord',
   resetToPreset: 'Reset to preset',
+  /** The sheet's way back to the card screen: an icon button with this as its accessible name, at every width. */
+  patternsLabel: 'Patterns',
   shareLabel: 'Share this pattern',
   linkCopied: 'Link copied',
   linkNotCopied: 'Link not copied',
@@ -432,6 +434,18 @@ export const copy = {
     pause: 'Pause',
     /** Group headings on the card screen, in screen order. */
     groups: { '3': '3 balls', '4': '4 balls', '5': '5 balls', passing: 'Passing' } as Record<string, string>,
+    /** The now-playing strip above the bar. */
+    strip: {
+      label: 'Now playing controls',
+      kit: 'Kit',
+      sound: 'Sound',
+      tempo: 'Tempo',
+      mixed: 'Mixed',
+      custom: 'Custom',
+      slower: 'Slower',
+      faster: 'Faster',
+      allSound: 'All sound settings',
+    },
     cardLabel: (pattern: string, name: string, playing: boolean) => `${pattern}, ${name}${playing ? ', playing' : ''}`,
   },
 
