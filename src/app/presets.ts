@@ -1,7 +1,7 @@
 // The preset cards as data (docs/plans/v3-classics-controls.md, stream C1): the juggling classics,
 // grouped by ball count, and the passing cards. Pure: no DOM, no timers. Reader-facing words
 // (names, what to listen for) are in `copy.presets`, keyed by `id`.
-import { partsFromLines, partsFromPassing, partsFromVanilla } from '../core';
+import { partsFromLines, partsFromPassing, partsFromSync, partsFromVanilla } from '../core';
 import type { Parts, PartsResult, Ratio } from '../core';
 import { applyPreset, withPartCount } from '../sound/mapping';
 import type { Mapping } from '../sound/mapping';
@@ -38,6 +38,11 @@ function juggling(id: string, texts: readonly string[], ratio: Ratio, balls: num
   return { id, group: String(balls) as CardGroup, texts, parts, ratio, mapping: HEIGHT_DRUM, balls, cycle };
 }
 
+/** A sync card (form 5, MATH.md §11): both hands throw together, height to drum. */
+function syncCard(id: string, text: string, balls: number, cycle: number): Preset {
+  return { id, group: String(balls) as CardGroup, texts: [text], parts: must(partsFromSync(text)), ratio: R(1, 1), mapping: HEIGHT_DRUM, balls, cycle };
+}
+
 /** A passing card: height to drum on one voice per hand, a kit and a pan of their own for each juggler (ruling 5). */
 function passingCard(id: string, text: string, balls: number, cycle: number): Preset {
   const parts = must(partsFromPassing(text));
@@ -57,11 +62,13 @@ export const PRESETS: readonly Preset[] = [
   juggling('two-in-ones', ['423'], R(1, 1), 3, 6),
   juggling('boston', ['52512'], R(1, 1), 3, 10),
   juggling('flash', ['55500'], R(1, 1), 3, 10),
+  syncCard('box', '(4,2x)(2x,4)', 3, 4),
   juggling('fountain', ['4'], R(1, 1), 4, 2),
   juggling('half-shower', ['53'], R(1, 1), 4, 2),
   juggling('high-low-fountain', ['534'], R(1, 1), 4, 6),
   juggling('tower-4', ['7531'], R(1, 1), 4, 4),
   juggling('polyrhythm', ['2 2x 2', '2x 2'], R(3, 2), 4, 6),
+  syncCard('sync-fountain', '(4,4)', 4, 2),
   juggling('five-cascade', ['5'], R(1, 1), 5, 2),
   juggling('five-744', ['744'], R(1, 1), 5, 6),
   juggling('five-645', ['645'], R(1, 1), 5, 6),

@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'vitest';
-import { buildSchedule, partsFromOnsets, partsFromPassing, partsFromSync, withPhase } from '../core';
+import { buildSchedule, isSyncSet, partsFromOnsets, partsFromPassing, partsFromSync, withPhase } from '../core';
 import type { Parts } from '../core';
 import { applyPreset, PRESET_NAMES, presetOf, withPartCount, type Mapping } from '../sound/mapping';
 import { lineParts, vanillaParts } from '../test/schedules';
@@ -368,7 +368,14 @@ describe('short links (grammar in route.ts)', () => {
       polyrhythm: '#3:2/2-2x-2/2x-2~height-drum',
     };
     const seen: string[] = [];
-    for (const p of PRESETS.filter((c) => c.parts.length === 2)) {
+    // A sync card has no short form this wave (v3 ruling 5): it writes #v2. and round-trips.
+    for (const p of PRESETS.filter((c) => c.parts.length === 2 && isSyncSet(c.parts))) {
+      const state = { parts: p.parts, ratio: p.ratio, bpm: DEFAULT_BPM, mapping: p.mapping };
+      const hash = encodeHash(state);
+      expect(hash.startsWith('#v2.'), p.id).toBe(true);
+      expect(encodeState(decodeState(route(hash).state as string) as NonNullable<ReturnType<typeof decodeState>>)).toBe(encodeState(state));
+    }
+    for (const p of PRESETS.filter((c) => c.parts.length === 2 && !isSyncSet(c.parts))) {
       seen.push(p.id);
       const state = { parts: p.parts, ratio: p.ratio, bpm: DEFAULT_BPM, mapping: p.mapping };
       const hash = encodeHash(state);

@@ -93,6 +93,8 @@ describe('cardGroups', () => {
   test('a card draws its pattern text', () => {
     expect(cardPattern(preset('passing'))).toBe('<3p 3|3p 3>');
     expect(cardPattern(preset('three-count'))).toBe('<3p 3 3|3p 3 3>');
+    expect(cardPattern(preset('box'))).toBe('(4,2x)(2x,4)');
+    expect(cardPattern(preset('sync-fountain'))).toBe('(4,4)');
   });
 });
 
@@ -107,6 +109,10 @@ describe('playingPreset', () => {
     const poly = tapped('polyrhythm');
     expect(playingPreset(poly, true)).toBe('polyrhythm');
     expect(playingPreset(reduce(poly, { type: 'editDraft', part: 1, text: '2' }), true)).toBeNull();
+  });
+  test('the box card matches when tapped and when (4,2x)* is typed', () => {
+    expect(playingPreset(tapped('box'), true)).toBe('box');
+    expect(playingPreset(reduce(defaultState(), { type: 'editDraft', part: 0, text: '(4,2x)*' }), true)).toBe('box');
   });
   test('the passing card matches by its parts and when <3p 3|3p 3> is typed', () => {
     expect(playingPreset(tapped('passing'), true)).toBe('passing');
