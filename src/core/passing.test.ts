@@ -40,18 +40,22 @@ describe('parsePassing', () => {
     };
     expect(parsePassing('<3p 3|3p 3>')).toEqual(want);
     expect(parsePassing('3p 3|3p  3')).toEqual(want);
+    expect(parsePassing('<3p3|3p3>')).toEqual(want);
     expect(parsePassing(' < 3p 3 | 3p\t3 > ')).toEqual(want);
   });
 
-  test('p<n> names its target, 1-based, with two jugglers too; a bare p with two is the other one', () => {
+  test('the digit after p is its target iff it names another existing juggler; otherwise p is bare and the digit the next throw', () => {
     expect(parsePassing('<3p2 3|3p3 3|3p1 3>')).toMatchObject({ ok: true, sequences: [[{ to: 1 }, {}], [{ to: 2 }, {}], [{ to: 0 }, {}]] });
     expect(parsePassing('<3p2 3|3p1 3>')).toEqual(parsePassing('<3p 3|3p 3>'));
-    expect(parsePassing('<3p1 3|3p 3>')).toEqual({ ok: false, juggler: 0, error: { kind: 'bad-target', index: 2 } });
-    expect(parsePassing('<3p 3|3p3 3>')).toEqual({ ok: false, juggler: 1, error: { kind: 'bad-target', index: 7 } });
-    expect(parsePassing('<3p0 3|3p 3>')).toMatchObject({ ok: false, error: { kind: 'bad-target', index: 2 } });
+    expect(parsePassing('<3p3|3p3>')).toEqual(parsePassing('<3p 3|3p 3>'));
+    // From juggler 1, 1 is the thrower: a bare p, then a 1.
+    expect(parsePassing('<3p1|3p3>')).toMatchObject({ ok: true, sequences: [[{ height: 3, to: 1 }, { height: 1, to: null }], [{}, {}]] });
+    expect(parsePassing('<3p0|3p>')).toMatchObject({ ok: true, sequences: [[{ to: 1 }, { height: 0, to: null }], [{ to: 0 }]] });
     // A letter after p is a height, not a target.
-    expect(parsePassing('3pa|3p3')).toMatchObject({ ok: false, juggler: 1 });
     expect(parsePassing('3pa|3pa')).toMatchObject({ ok: true, sequences: [[{ height: 3, to: 1 }, { height: 10, to: null }], [{}, {}]] });
+    // Three jugglers: 3p3 from juggler 3 is a bare p, a bad-target; 3p2 from juggler 3 goes to juggler 2.
+    expect(parsePassing('<3p2 3|3p3 3|3p3 3>')).toEqual({ ok: false, juggler: 2, error: { kind: 'bad-target', index: 14 } });
+    expect(parsePassing('<3p2 3|3p3 3|3p2 3>')).toMatchObject({ ok: true, sequences: [[{ to: 1 }, {}], [{ to: 2 }, {}], [{ to: 1 }, {}]] });
   });
 
   test('a bare p among three, a p to oneself, a p with no partner or after a 0 is a bad-target', () => {

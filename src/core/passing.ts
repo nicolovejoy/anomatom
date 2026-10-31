@@ -30,8 +30,10 @@ export function isPass(from: PartIndex, to: PartIndex): boolean {
 
 /**
  * Passing siteswap as written (form 4): `<3p 3|3p 3>`, one sequence per juggler between `|`. A
- * digit followed by `p` is a pass to the juggler named by the digit after it, 1-based, as Juggling
- * Lab reads it; a bare `p` (no digit after it) is allowed with two jugglers and means the other one. One leading
+ * digit followed by `p` is a pass. The digit after the `p` is its target, 1-based, as Juggling Lab
+ * reads it, iff it names an existing juggler other than the thrower; otherwise the `p` is bare and
+ * the digit is the next throw. A bare `p` means the other juggler with two, and is a `bad-target`
+ * with three or more. So with two jugglers `3p3`, `3p 3` and (from juggler 1) `3p2 3` are alike. One leading
  * `<` and one trailing `>` are optional; spaces are ignored. Inside this form `p` is never a height
  * (25 cannot be written) and `x` has no place (a vanilla sequence crosses by parity), so either one
  * where it cannot mark a throw is an error. Error indices are into `text`.
@@ -66,9 +68,9 @@ export function parsePassing(text: string): PassingResult {
         let to: number | null = null;
         if (c === 'p') {
           const n = digitValue(text[index + 1] ?? '');
-          if (n !== null && n <= 9) {
-            if (n >= 1 && n <= of && n - 1 !== juggler) to = n - 1;
-            if (to !== null) index++;
+          if (n !== null && n >= 1 && n <= of && n - 1 !== juggler) {
+            to = n - 1;
+            index++;
           } else if (of === 2) to = 1 - juggler;
         }
         // A zero is no throw, so it has no destination.
