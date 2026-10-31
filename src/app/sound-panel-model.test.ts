@@ -1,10 +1,12 @@
 import { describe, expect, test } from 'vitest';
 import { applyPreset, presetOf, withPartCount, type Mapping } from '../sound/mapping';
-import { CROSS_BOOST_RANGE, DEFAULT_MAPPING, FILTER_HZ_RANGE, KIT_SAMPLES } from '../tunables';
+import { CROSS_BOOST_RANGE, DEFAULT_MAPPING, FILTER_HZ_RANGE, KIT_SAMPLES, PASS_BOOST_RANGE } from '../tunables';
 import {
   applyEdit,
   downbeatChoices,
   ensureVoices,
+  jugglerKits,
+  kitRows,
   resetTarget,
   sampleFromValue,
   sampleValue,
@@ -177,5 +179,46 @@ describe('kit (v2 wave 1, ruling 2)', () => {
     expect(kits(chosen)).toEqual(['LM-2', 'LM-2']);
     expect(presetOf(chosen)).toBe('height-pitch');
     expect(kits(edit(lm2, { kind: 'preset', name: resetTarget(lm2, 'voice-per-part') }))).toEqual(['LM-2', 'LM-2']);
+  });
+});
+
+describe('passing (wave 2, ruling 4)', () => {
+  const four = withPartCount(m, 4);
+  const kits = (mapping: Mapping) => mapping.parts.map((v) => v.kit);
+
+  test('jugglerKit sets the kit of parts 2j and 2j + 1 and no other', () => {
+    expect(kits(edit(four, { kind: 'jugglerKit', juggler: 1, kit: 'LM-2' }))).toEqual(['TR-808', 'TR-808', 'LM-2', 'LM-2']);
+    expect(kits(edit(four, { kind: 'jugglerKit', juggler: 0, kit: 'LM-2' }))).toEqual(['LM-2', 'LM-2', 'TR-808', 'TR-808']);
+  });
+
+  test('with five voices juggler 2 owns only the last; a juggler past the voices, an unknown kit or a bad index is refused', () => {
+    const five = withPartCount(m, 5);
+    expect(kits(edit(five, { kind: 'jugglerKit', juggler: 2, kit: 'LM-2' }))).toEqual(['TR-808', 'TR-808', 'TR-808', 'TR-808', 'LM-2']);
+    expect(edit(four, { kind: 'jugglerKit', juggler: 2, kit: 'LM-2' })).toBe(four);
+    expect(edit(four, { kind: 'jugglerKit', juggler: -1, kit: 'LM-2' })).toBe(four);
+    expect(edit(four, { kind: 'jugglerKit', juggler: 0.5, kit: 'LM-2' })).toBe(four);
+    expect(edit(four, { kind: 'jugglerKit', juggler: 1, kit: 'nope' })).toBe(four);
+  });
+
+  test('passAccent clamps and rounds; passSample takes a kit sound or none and refuses others', () => {
+    expect(edit(m, { kind: 'passAccent', velocity: 99 }).pass.velocity).toBe(PASS_BOOST_RANGE.max);
+    expect(edit(m, { kind: 'passAccent', velocity: -5 }).pass.velocity).toBe(PASS_BOOST_RANGE.min);
+    expect(edit(m, { kind: 'passAccent', velocity: 12.6 }).pass.velocity).toBe(13);
+    expect(edit(m, { kind: 'passAccent', velocity: Number.NaN })).toBe(m);
+    expect(edit(m, { kind: 'passSample', sample: 'cowbell' }).pass).toEqual({ velocity: m.pass.velocity, sample: 'cowbell' });
+    expect(edit(edit(m, { kind: 'passSample', sample: 'cowbell' }), { kind: 'passSample', sample: null }).pass.sample).toBeNull();
+    expect(edit(m, { kind: 'passSample', sample: 'kazoo' })).toBe(m);
+    expect(presetOf(edit(m, { kind: 'passSample', sample: 'cowbell' }))).toBe('custom');
+  });
+
+  test('the Kit row is per juggler from three parts: juggler count and each juggler\'s kit', () => {
+    expect(kitRows(1)).toBe(0);
+    expect(kitRows(2)).toBe(0);
+    expect(kitRows(3)).toBe(2);
+    expect(kitRows(4)).toBe(2);
+    expect(kitRows(6)).toBe(3);
+    const mixed = edit(four, { kind: 'jugglerKit', juggler: 1, kit: 'LM-2' });
+    expect(jugglerKits(mixed, 2)).toEqual(['TR-808', 'LM-2']);
+    expect(jugglerKits(withPartCount(m, 3), 2)).toEqual(['TR-808', 'TR-808']);
   });
 });

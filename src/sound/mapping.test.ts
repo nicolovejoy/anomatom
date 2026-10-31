@@ -1,5 +1,6 @@
 import { expect, test } from 'vitest';
-import { buildSchedule, partsFromLines, partsFromVanilla } from '../core';
+import { buildSchedule, partsFromLines, partsFromPassing, partsFromVanilla } from '../core';
+import { BASE_VELOCITY, MAX_VELOCITY } from '../tunables';
 import type { Event, Parts, Schedule } from '../core';
 import { applyPreset, hitFor } from './mapping';
 
@@ -71,4 +72,48 @@ test('a cross caught off the coincidence is an ordinary catch', () => {
   expect(hitFor(c, HD, vanilla)).toBeNull();
   const audible = { ...HD, catches: { on: true, sample: 'rimshot' } };
   expect(hitFor(c, audible, vanilla)).toMatchObject({ sample: 'rimshot' });
+});
+
+// Passing (wave 2, ruling 4): a pass throw gets the pass accent and, when set, the pass sound.
+const passing = (() => {
+  const r = partsFromPassing('<3p 3|3p 3>');
+  if (!r.ok) throw new Error('passing');
+  return scheduleOf(r.parts);
+})();
+const throwOf = (part: number) => passing.events.find((e) => e.kind === 'throw' && e.part === part) as Event;
+
+test('a pass throw adds the cross and pass velocities; a throw within a juggler does not', () => {
+  const m = applyPreset('voice-per-part');
+  const pass = hitFor(throwOf(0), m, passing);
+  const self = hitFor(throwOf(1), m, passing);
+  expect(throwOf(0).to).toBe(3);
+  expect(self?.velocity).toBe(BASE_VELOCITY + (throwOf(1).cross ? m.crossAccent.velocity : 0));
+  expect(pass?.velocity).toBe(
+    Math.min(MAX_VELOCITY, BASE_VELOCITY + (throwOf(0).cross ? m.crossAccent.velocity : 0) + m.pass.velocity),
+  );
+  expect(pass?.velocity).toBeGreaterThan(self?.velocity ?? 0);
+});
+
+test('pass.sample replaces the sound under height-to-drum and voice-per-part; null keeps it', () => {
+  for (const name of ['height-drum', 'voice-per-part'] as const) {
+    const base = applyPreset(name);
+    const cow = { ...base, pass: { ...base.pass, sample: 'cowbell' } };
+    expect(hitFor(throwOf(0), cow, passing)?.sample).toBe('cowbell');
+    expect(hitFor(throwOf(1), cow, passing)?.sample).not.toBe('cowbell');
+    expect(hitFor(throwOf(0), base, passing)?.sample).not.toBe('cowbell');
+  }
+});
+
+test('the pass velocity is clamped into MAX_VELOCITY', () => {
+  const m = applyPreset('height-drum');
+  expect(hitFor(throwOf(0), { ...m, pass: { velocity: 40, sample: null } }, passing)?.velocity).toBeLessThanOrEqual(
+    MAX_VELOCITY,
+  );
+});
+
+test('a pass of height 0 is silent and a catch is never a pass sound', () => {
+  const m = { ...applyPreset('height-drum'), pass: { velocity: 20, sample: 'cowbell' } };
+  expect(hitFor({ ...throwEvent(0), to: 3 }, m, passing)).toBeNull();
+  const c: Event = { kind: 'catch', pulse: 4, part: 3, to: 3, ball: 0, height: 3, flight: 3, cross: true };
+  expect(hitFor(c, { ...m, catches: { on: true, sample: 'rimshot' } }, passing)?.sample).toBe('rimshot');
 });

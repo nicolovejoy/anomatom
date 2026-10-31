@@ -1,6 +1,6 @@
 import { describe, expect, test } from 'vitest';
 import { DEFAULT_MAPPING, MAX_MAPPING_PARTS } from '../tunables';
-import { applyPreset, presetOf, PRESET_NAMES, voiceForNewPart, withPartCount, type Mapping } from './mapping';
+import { applyPreset, isPresetMapping, presetOf, PRESET_NAMES, voiceForNewPart, withPartCount, type Mapping } from './mapping';
 import { decodeMapping, encodeMapping } from './mapping-hash';
 
 const custom: Mapping = {
@@ -36,7 +36,7 @@ describe('encodeMapping', () => {
       ['TR-808', 'clave', 0, 1],
     ]);
     expect(e.y).toBe(1);
-    expect(Object.keys(e).sort()).toEqual(['a', 'b', 'c', 'd', 'f', 'h', 'p', 'y']);
+    expect(Object.keys(e).sort()).toEqual(['a', 'b', 'c', 'd', 'f', 'h', 'p', 'q', 'y']);
   });
 
   test('byHeight false encodes as 0 and survives', () => {
@@ -156,5 +156,37 @@ describe('decodeMapping: a preset on kits', () => {
     expect(decodeMapping(deep)).toEqual(DEFAULT_MAPPING);
     // A record as `n` is not decoded as a mapping either.
     expect(decodeMapping({ n: { y: 1 } })).toEqual(DEFAULT_MAPPING);
+  });
+});
+
+describe('pass key q', () => {
+  const custom = (m: Mapping): Mapping => ({ ...m, byBall: ['kick'], filter: { ...m.filter, on: true } });
+
+  test('a custom mapping round-trips its pass accent and sample', () => {
+    const m = { ...custom(applyPreset('height-drum')), pass: { velocity: 7, sample: 'cowbell' } };
+    expect(presetOf(m)).toBe('custom');
+    const wire = encodeMapping(m) as Record<string, unknown>;
+    expect(wire.q).toEqual([7, 'cowbell']);
+    expect(decodeMapping(JSON.parse(JSON.stringify(wire)))).toEqual(m);
+  });
+
+  test('an old link without q repairs to the default; junk repairs field by field', () => {
+    const wire = { ...(encodeMapping(custom(applyPreset('height-drum'))) as Record<string, unknown>) };
+    delete wire.q;
+    expect(decodeMapping(wire).pass).toEqual(DEFAULT_MAPPING.pass);
+    expect(decodeMapping({ ...wire, q: [999, 'bogus'] }).pass).toEqual({ velocity: 40, sample: DEFAULT_MAPPING.pass.sample });
+    expect(decodeMapping({ ...wire, q: 'x' }).pass).toEqual(DEFAULT_MAPPING.pass);
+    expect(decodeMapping({ ...wire, q: [3, null] }).pass).toEqual({ velocity: 3, sample: null });
+  });
+
+  test('a preset with a changed pass is custom, and presets are not written with q', () => {
+    for (const name of PRESET_NAMES) {
+      const m = applyPreset(name);
+      expect(presetOf(m)).toBe(name);
+      expect(encodeMapping(m)).toBe(name);
+      const changed = { ...m, pass: { ...m.pass, sample: 'cowbell' } };
+      expect(presetOf(changed)).toBe('custom');
+      expect(isPresetMapping(changed, name)).toBe(false);
+    }
   });
 });

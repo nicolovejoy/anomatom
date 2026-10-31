@@ -12,6 +12,7 @@
 //   d  [cross accent velocity, downbeat sample]
 //   f  [filter on (0|1), low Hz, high Hz]
 //   a  [pad on (0|1), instrument, chord]
+//   q  [pass accent velocity, pass sample]; absent in a link from before passing
 // Old `#v1.` links carry `v: [[pan, gain], [pan, gain]]` for the two hands instead of `p` and `y`;
 // they decode to parts of the TR-808 with the default's sample per part, and read height as they did.
 import {
@@ -24,6 +25,7 @@ import {
   MAX_HEIGHT,
   MAX_MAPPING_PARTS,
   PAN_RANGE,
+  PASS_BOOST_RANGE,
 } from '../tunables';
 import {
   applyPreset,
@@ -55,6 +57,7 @@ export function encodeMapping(m: Mapping): unknown {
     d: [m.crossAccent.velocity, m.crossAccent.downbeat],
     f: [m.filter.on ? 1 : 0, m.filter.low, m.filter.high],
     a: [m.pad.on ? 1 : 0, m.pad.instrument, m.pad.chord],
+    q: [m.pass.velocity, m.pass.sample],
   };
 }
 
@@ -117,6 +120,7 @@ export function decodeMapping(value: unknown, partCount?: number): Mapping {
   const [velocity, downbeat] = arr(value.d);
   const [filterOn, low, high] = arr(value.f);
   const [padOn, instrument, chord] = arr(value.a);
+  const [passVelocity, passSample] = arr(value.q);
   return {
     parts,
     // A link from before parts read height, as every mapping then did.
@@ -132,6 +136,10 @@ export function decodeMapping(value: unknown, partCount?: number): Mapping {
       on: bool(filterOn, d.filter.on),
       low: numberIn(low, FILTER_HZ_RANGE.min, FILTER_HZ_RANGE.max, d.filter.low),
       high: numberIn(high, FILTER_HZ_RANGE.min, FILTER_HZ_RANGE.max, d.filter.high),
+    },
+    pass: {
+      velocity: numberIn(passVelocity, PASS_BOOST_RANGE.min, PASS_BOOST_RANGE.max, d.pass.velocity),
+      sample: sample(passSample, d.pass.sample),
     },
     pad: {
       on: bool(padOn, d.pad.on),

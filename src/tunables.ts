@@ -366,6 +366,8 @@ export const MAX_MAPPING_PARTS = 8;
 export const PAN_RANGE = { min: -1, max: 1 } as const;
 export const GAIN_RANGE = { min: 0, max: 1 } as const;
 export const CROSS_BOOST_RANGE = { min: 0, max: 40 } as const;
+/** The pass accent's range: the same as the cross accent's. */
+export const PASS_BOOST_RANGE = CROSS_BOOST_RANGE;
 
 /**
  * Crossings to filter (MATH §5, SPEC §6). The low-pass cutoff runs from `low` at no crossings to
@@ -425,6 +427,7 @@ const HEIGHT_DRUM: Mapping = {
   ],
   catches: { on: false, sample: 'rimshot' },
   crossAccent: { velocity: 20, downbeat: 'clap' },
+  pass: { velocity: 20, sample: null },
   filter: { on: false, ...DEFAULT_FILTER_HZ },
   pad: { on: false, instrument: 'mellotron', chord: 'Dm9' },
 };

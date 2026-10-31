@@ -23,6 +23,7 @@ const custom: Mapping = {
   ],
   catches: { on: true, sample: 'rimshot' },
   crossAccent: { velocity: 33, downbeat: null },
+  pass: { velocity: 11, sample: 'cowbell' },
   filter: { on: true, low: 250, high: 9000 },
   pad: { on: true, instrument: 'soundfont', chord: 'F69' },
 };
