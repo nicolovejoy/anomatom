@@ -1,7 +1,7 @@
 import { describe, expect, test } from 'vitest';
 import bibliography from '../../docs/BIBLIOGRAPHY.md?raw';
 import polyrhythms from '../../docs/POLYRHYTHMS.md?raw';
-import { buildSchedule, cycleOf, judge, ratioOf, textOf } from '../core';
+import { buildSchedule, cycleOf, isPassingSet, judge, ratioOf, textOf } from '../core';
 import { presetOf } from '../sound/mapping';
 import { KIT_SAMPLES } from '../tunables';
 import { copy } from '../ui/copy';
@@ -91,13 +91,13 @@ describe('the sourcebook rows', () => {
   });
   test('the table’s “first five” are the polyrhythm card and four rows', () => {
     expect(PRESETS.filter((p) => p.first).map((p) => p.id)).toEqual([
-      'cascade', 'pause', 'classic', 'ramp', 'polyrhythm', 'bell', 'son-clave', 'clapping', 'afrobeat',
+      'cascade', 'pause', 'classic', 'ramp', 'polyrhythm', 'passing', 'bell', 'son-clave', 'clapping', 'afrobeat',
     ]);
   });
 });
 
 describe('the layered cards', () => {
-  const layers = PRESETS.filter((p) => p.parts.length > 2);
+  const layers = PRESETS.filter((p) => p.parts.length > 2 && p.kind === 'sourcebook');
   const byId = (id: string) => PRESETS.find((p) => p.id === id)!;
   test('there are four, behind "more", within the lane limit', () => {
     expect(layers.map((p) => p.id)).toEqual(['ewe-layers', 'mbira-layers', 'clave-layers', 'stack-345']);
@@ -148,13 +148,22 @@ describe('the layered cards', () => {
 
 describe('the juggling cards', () => {
   test('come first, in order, and play height to drum', () => {
-    expect(PRESETS.slice(0, 5).map((p) => [p.id, p.kind, p.mapping.byHeight])).toEqual([
+    expect(PRESETS.slice(0, 6).map((p) => [p.id, p.kind, p.mapping.byHeight])).toEqual([
       ['cascade', 'juggling', true],
       ['pause', 'juggling', true],
       ['classic', 'juggling', true],
       ['ramp', 'juggling', true],
       ['polyrhythm', 'juggling', true],
+      ['passing', 'juggling', true],
     ]);
+  });
+  test('the passing card (ruling 5): <3p 3|3p 3>, six balls, a kit and pans for each juggler', () => {
+    const p = PRESETS.find((q) => q.id === 'passing')!;
+    expect(p.texts).toEqual(['<3p 3|3p 3>']);
+    expect([p.balls, p.cycle, p.first, p.parts.length, p.bpm]).toEqual([6, 2, true, 4, null]);
+    expect(p.mapping.parts.map((v) => [v.kit, v.pan])).toEqual([['TR-808', -0.8], ['TR-808', -0.4], ['LM-2', 0.4], ['LM-2', 0.8]]);
+    expect(p.mapping.byHeight).toBe(true);
+    expect(isPassingSet(p.parts)).toBe(true);
   });
   test('ids are unique', () => {
     expect(new Set(PRESETS.map((p) => p.id)).size).toBe(PRESETS.length);

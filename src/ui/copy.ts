@@ -206,7 +206,7 @@ export const copy = {
     {
       heading: 'Notation',
       paragraphs: [
-        'I write a pattern three ways. Vanilla siteswap, as in 531, for two hands. Digits for each hand, as in 2 2x 2 / 2x 2: a digit is a flight length in that hand’s own beats, a 0 is a beat with no throw and an x sends the throw to the other hand.',
+        'I write a pattern three ways. Vanilla siteswap, as in 531, for two hands. Two or three jugglers write passing siteswap, as in <3p 3|3p 3>: a sequence for each juggler between bars, and a p after a throw sends it to the other juggler. Digits for each hand, as in 2 2x 2 / 2x 2: a digit is a flight length in that hand’s own beats, a 0 is a beat with no throw and an x sends the throw to the other hand.',
         'The third is Multihand Notation, which Juggling Lab keeps inside: a matrix of hands and event times, named for Ed Carstens [13]. It has no standard text form. I do not read it yet.',
       ],
     },
@@ -245,6 +245,9 @@ export const copy = {
   digitPadLabel: 'Type a throw',
   crossKey: 'x',
   crossKeyLabel: 'Mark the throw before the cursor as crossing',
+  /** Passing siteswap's mark: the throw before it goes to the other juggler. Shown while the pattern has a |. */
+  passKey: 'p',
+  passKeyLabel: 'Mark the throw before the cursor as a pass to the other juggler',
   backspaceKey: '⌫',
   backspaceKeyLabel: 'Backspace',
   /** The validity indicator beside each input: a mark, and what it says to a screen reader. */
@@ -443,6 +446,7 @@ export const copy = {
     classic: { name: 'High, middle, low', source: 'Siteswap notation', listen: 'Three heights, three drums.' },
     ramp: { name: 'Five balls, a ramp', source: 'Siteswap notation', listen: 'Five balls stepping down.' },
     polyrhythm: { name: 'Two hands, 3 against 2', source: 'Siteswap notation', listen: 'The crosses land only where the two grids meet.' },
+    passing: { name: 'Two jugglers, passing', source: 'Passing siteswap notation', listen: 'Each juggler has a drum kit, and every pass answers the other side.' },
     bell: { name: 'Standard bell', source: 'Ewe gankogui bell and clap', listen: 'The bell flips between a two feel and a three feel.' },
     'son-clave': { name: 'Son clave 3-2', source: 'Son clave, via Ethan Hein', listen: 'The first three hits lean toward triple against the straight four.' },
     clapping: { name: 'Clapping Music', source: 'Steve Reich, 1972', listen: 'Hand 2 is three pulses late, one of the two famous positions.' },
