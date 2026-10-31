@@ -6,7 +6,7 @@ import type { Event, Flight, PartIndex, Parts, Schedule } from './types';
 
 /**
  * Every event of one period, for every onset of every part. Never throws (design §6): the sound
- * plays whatever the flights say.
+ * plays whatever the flights say. Every event carries `to`, the part that catches its flight.
  *
  * Parts in a fault-free cross group get stable ball ids. Following each landing to the throw made
  * from that part on that pulse partitions their flights into orbits; an orbit whose flights add
@@ -36,8 +36,8 @@ export function buildSchedule(parts: Parts): Schedule {
           const pulse = mod(start + at, period);
           const flight = f.land - f.launch;
           const shared = { ball, height: flight / unit(f.from), flight, cross: f.cross };
-          events.push({ kind: 'throw', pulse, part: f.from, ...shared });
-          events.push({ kind: 'catch', pulse: pulse + flight, part: f.to, ...shared });
+          events.push({ kind: 'throw', pulse, part: f.from, to: f.to, ...shared });
+          events.push({ kind: 'catch', pulse: pulse + flight, part: f.to, to: f.to, ...shared });
         }
       }
     }
@@ -49,8 +49,8 @@ export function buildSchedule(parts: Parts): Schedule {
       const flight = (onsets[i + 1] ?? (onsets[0] as number) + cycle) - o;
       const shared = { ball: null, height: flight / unit(part), flight, cross: false };
       for (let pulse = o; pulse < period; pulse += cycle) {
-        events.push({ kind: 'throw', pulse, part, ...shared });
-        events.push({ kind: 'catch', pulse: pulse + flight, part, ...shared });
+        events.push({ kind: 'throw', pulse, part, to: part, ...shared });
+        events.push({ kind: 'catch', pulse: pulse + flight, part, to: part, ...shared });
       }
     });
   });

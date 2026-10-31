@@ -5,10 +5,12 @@ export type ParseError =
   | { readonly kind: 'empty' }
   | { readonly kind: 'bad-char'; readonly index: number }
   | { readonly kind: 'too-long'; readonly max: number }
-  /** An `x` with no part to go to: one part, a bare `x` among three or more, or a wrong number. */
+  /** An `x` or a `p` with no part to go to: one part, a bare `x` among three or more, or a wrong number. */
   | { readonly kind: 'bad-target'; readonly index: number }
   /** More parts than the editor shows (the app's rule, never the parser's: stream B ruling). */
-  | { readonly kind: 'too-many-parts'; readonly max: number };
+  | { readonly kind: 'too-many-parts'; readonly max: number }
+  /** More jugglers than a passing siteswap may write (MAX_JUGGLERS, wave 2 ruling 2). */
+  | { readonly kind: 'too-many-jugglers'; readonly max: number };
 
 export type ThrowsResult =
   | { readonly ok: true; readonly throws: Throw[][]; readonly parts: number }
@@ -25,6 +27,13 @@ export function digitValue(c: string): number | null {
   if (c >= '0' && c <= '9') return c.charCodeAt(0) - 48;
   if (c >= 'a' && c <= 'z') return c.charCodeAt(0) - 87;
   return null;
+}
+
+/** A digit as written: 0-9, then a-z for 10-35; anything larger in braces, which no parser reads. */
+export function digitText(n: number): string {
+  if (n < 10) return String(n);
+  if (n < 36) return String.fromCharCode(87 + n);
+  return `{${n}}`;
 }
 
 /**

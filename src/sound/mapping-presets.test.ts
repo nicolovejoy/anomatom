@@ -30,7 +30,7 @@ const voice = (i: number) => DEFAULT_MAPPING.parts[i] as Mapping['parts'][0];
 const vanilla = buildSchedule((partsFromVanilla('3') as { parts: Parts }).parts);
 
 function throwEvent(height: number, ball = 0): Event {
-  return { kind: 'throw', pulse: 0, part: 0, ball, height, flight: height * 2, cross: false };
+  return { kind: 'throw', pulse: 0, part: 0, to: 0, ball, height, flight: height * 2, cross: false };
 }
 
 const withFilter = (on: boolean, low: number, high: number): Mapping => ({

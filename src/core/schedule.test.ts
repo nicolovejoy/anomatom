@@ -2,8 +2,10 @@ import { describe, expect, test } from 'vitest';
 import { flightsOf } from './flights';
 import { crossGroups, judge } from './judge';
 import { onsetsOf, partsFromLines, partsFromOnsets, partsFromVanilla } from './parts';
+import { partsFromPassing } from './passing';
 import { buildSchedule } from './schedule';
 import type { Event, Parts, Schedule } from './types';
+import { lineParts, scheduleOf } from '../test/schedules';
 
 function vanilla(text: string): Parts {
   const r = partsFromVanilla(text);
@@ -13,6 +15,11 @@ function vanilla(text: string): Parts {
 function lines(texts: string[], a: number, b: number): Parts {
   const r = partsFromLines(texts, { a, b });
   if (!r.ok) throw new Error(texts.join('/'));
+  return r.parts;
+}
+function passing(text: string): Parts {
+  const r = partsFromPassing(text);
+  if (!r.ok) throw new Error(text);
   return r.parts;
 }
 const throwsOf = (s: Schedule): Event[] => s.events.filter((e) => e.kind === 'throw');
@@ -96,7 +103,7 @@ describe('faulted groups still sound (design §6)', () => {
       { kind: 'unfed', part: 0, pulse: 0 },
     ]);
     const s = buildSchedule(parts);
-    expect(throwsOf(s)).toEqual([{ kind: 'throw', pulse: 0, part: 0, ball: null, height: 2, flight: 2, cross: false }]);
+    expect(throwsOf(s)).toEqual([{ kind: 'throw', pulse: 0, part: 0, to: 0, ball: null, height: 2, flight: 2, cross: false }]);
   });
 });
 
@@ -137,5 +144,33 @@ describe('review rulings (stream A review)', () => {
     expect(onsetsOf(parts[0] as Parts[number])).toEqual([false, true]);
     expect(flightsOf(parts).map((f) => [f.launch, f.land])).toEqual([[1, 4]]);
     expect(throwsOf(buildSchedule(parts)).map((e) => e.pulse)).toEqual([1]);
+  });
+});
+
+describe('Event.to (wave 2 ruling 3)', () => {
+  /** The pictures' old catchPart: a throw's landing part read off its catch event, its own part otherwise. */
+  function oldCatchPart(s: Schedule, e: Event): number {
+    if (e.kind === 'catch' || e.ball === null) return e.part;
+    const c = s.events.find((x) => x.kind === 'catch' && x.ball === e.ball && x.pulse === e.pulse + e.flight);
+    return c?.part ?? e.part;
+  }
+  const schedules: [string, Schedule][] = [
+    ...['3', '531', '441', '51', '501', '432', '7531'].map((t): [string, Schedule] => [t, scheduleOf(t)]),
+    ['2 2x 2 / 2x 2 at 3:2', scheduleOf(['2 2x 2', '2x 2'], { a: 3, b: 2 })],
+    ['1 3 2 / 3 at 1:2', buildSchedule(lineParts(['1 3 2', '3'], { a: 1, b: 2 }))],
+    ['ring of three', buildSchedule(lineParts(['1x2', '1x3', '1x1'], { a: 1, b: 1 }))],
+    ['clapping', buildSchedule(partsFromOnsets([[true, true, false], [true, false, true]], [1, 1], [1, 2]))],
+    ...['<3p 3|3p 3>', '<4p 3|3 4p>', '<3p2 3|3p3 3|3p1 3>', '<3p 3|3 3>'].map((t): [string, Schedule] => [t, buildSchedule(passing(t))]),
+  ];
+  test.each(schedules)('%s: every event has `to` equal to the old catchPart', (_, s) => {
+    expect(s.events.length).toBeGreaterThan(0);
+    for (const e of s.events) expect(e.to).toBe(oldCatchPart(s, e));
+  });
+
+  test('a catch is caught by its own part; a stand-in flight lands in its own part', () => {
+    const s = buildSchedule(vanilla('432'));
+    for (const e of s.events) expect(e.to).toBe(e.part);
+    const ok = buildSchedule(vanilla('531'));
+    for (const e of ok.events.filter((x) => x.kind === 'catch')) expect(e.to).toBe(e.part);
   });
 });

@@ -1,6 +1,7 @@
 import { MAX_PHASE_REFINEMENT } from '../tunables';
 import { gcd, lcm, mod } from './math';
-import { parseThrows } from './parse';
+import { digitText, parseThrows } from './parse';
+import { isPassingSet, passingText } from './passing';
 import type { ParseError } from './parse';
 import type { Part, PartIndex, Parts, Ratio, Throw } from './types';
 
@@ -220,20 +221,15 @@ export function partsFromOnsets(lines: readonly (readonly boolean[])[], spacings
   );
 }
 
-/** A digit as written: 0-9, then a-z for 10-35; anything larger in braces, which no parser reads. */
-function digitText(n: number): string {
-  if (n < 10) return String(n);
-  if (n < 36) return String.fromCharCode(87 + n);
-  return `{${n}}`;
-}
-
 /**
  * A part as written (design §8): its digits (height / unit), letters above 9, `x` for a cross
  * between two parts or `x<n>` (1-based) among more, separated by spaces, as in `2 2x 2`. A default
  * part is written with the digits of its default rule. Either part of a vanilla pair is written as
- * the pair's one siteswap, digits run together, as in `531`.
+ * the pair's one siteswap, digits run together, as in `531`; any part of a passing set as the
+ * set's passing siteswap, as in `<3p 3|3p 3>`.
  */
 export function textOf(part: Part, parts: Parts): string {
+  if (parts.includes(part) && isPassingSet(parts)) return passingText(parts);
   if (parts.includes(part) && isVanillaPair(parts)) return vanillaDigits(parts).map(digitText).join('');
   return throwsOf(part)
     .map((t) => {

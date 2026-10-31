@@ -23,6 +23,13 @@ test('the core API of model-waves.md is exported from src/core', () => {
     'buildSchedule',
     'carryOver',
     'fixesFor',
+    'jugglerOf',
+    'isPass',
+    'parsePassing',
+    'partsFromPassing',
+    'isPassingSet',
+    'passingText',
+    'digitText',
   ];
   for (const name of api) expect(typeof (core as Record<string, unknown>)[name]).toBe('function');
   // End to end through the index: vanilla 3 is three balls.

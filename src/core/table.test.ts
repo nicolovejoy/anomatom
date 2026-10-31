@@ -200,7 +200,7 @@ describe('worked cases of the design (model-rethink.md §4, §5)', () => {
     expect(s.verdict.ok).toBe(true);
     expect(s.balls).toBe(1);
     expect(s.events.filter((e) => e.kind === 'throw')).toEqual([
-      { kind: 'throw', pulse: 0, part: 0, ball: 0, height: 16, flight: 16, cross: false },
+      { kind: 'throw', pulse: 0, part: 0, to: 0, ball: 0, height: 16, flight: 16, cross: false },
     ]);
   });
 });
