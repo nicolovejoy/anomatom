@@ -30,8 +30,8 @@ export function isPass(from: PartIndex, to: PartIndex): boolean {
 
 /**
  * Passing siteswap as written (form 4): `<3p 3|3p 3>`, one sequence per juggler between `|`. A
- * digit followed by `p` is a pass: with two jugglers to the other one (a digit after the `p` is the
- * next throw), with three or more to the juggler named by the digit after it, 1-based. One leading
+ * digit followed by `p` is a pass to the juggler named by the digit after it, 1-based, as Juggling
+ * Lab reads it; a bare `p` (no digit after it) is allowed with two jugglers and means the other one. One leading
  * `<` and one trailing `>` are optional; spaces are ignored. Inside this form `p` is never a height
  * (25 cannot be written) and `x` has no place (a vanilla sequence crosses by parity), so either one
  * where it cannot mark a throw is an error. Error indices are into `text`.
@@ -52,7 +52,7 @@ export function parsePassing(text: string): PassingResult {
     }
   }
   const of = segments.length;
-  if (of > MAX_JUGGLERS) return { ok: false, juggler: MAX_JUGGLERS, error: { kind: 'too-many-jugglers', max: MAX_JUGGLERS } };
+  if (of > MAX_JUGGLERS) return { ok: false, juggler: 0, error: { kind: 'too-many-jugglers', max: MAX_JUGGLERS } };
 
   const sequences: PassThrow[][] = [];
   for (const [juggler, seg] of segments.entries()) {
@@ -64,13 +64,12 @@ export function parsePassing(text: string): PassingResult {
       const prev = out[out.length - 1];
       if ((c === 'p' || c === 'x') && prev !== undefined && prev.to === null) {
         let to: number | null = null;
-        if (c === 'p' && of === 2) to = 1 - juggler;
-        else if (c === 'p' && of > 2) {
+        if (c === 'p') {
           const n = digitValue(text[index + 1] ?? '');
           if (n !== null && n <= 9) {
             if (n >= 1 && n <= of && n - 1 !== juggler) to = n - 1;
             if (to !== null) index++;
-          }
+          } else if (of === 2) to = 1 - juggler;
         }
         // A zero is no throw, so it has no destination.
         if (to === null || prev.height === 0) return fail({ kind: 'bad-target', index });
@@ -129,7 +128,7 @@ const throwsIn = (p: Part): readonly Throw[] => (p.flights as { readonly throws:
 /**
  * True for the shape `partsFromPassing` makes of two or more jugglers, so it can be written as one
  * passing siteswap: an even number (4 up to 2 × MAX_JUGGLERS) of manual parts, each pair in vanilla
- * layout with equal lengths, every throw landing where `landingPart` says for the juggler it aims at.
+ * layout with equal lengths, every throw landing in the set, where `landingPart` says for the juggler it aims at.
  */
 export function isPassingSet(parts: Parts): boolean {
   if (parts.length < 4 || parts.length % 2 === 1 || parts.length > 2 * MAX_JUGGLERS) return false;
@@ -138,6 +137,7 @@ export function isPassingSet(parts: Parts): boolean {
     if (p.flights.throws.length !== throwsIn(parts[part ^ 1] as Part).length) return false;
     return p.flights.throws.every((t) => {
       if (t.height === 0) return t.to === null;
+      if (t.to !== null && t.to >= parts.length) return false;
       return t.to !== part && t.to === landingPart(part, t.height, jugglerOf(t.to ?? part));
     });
   });

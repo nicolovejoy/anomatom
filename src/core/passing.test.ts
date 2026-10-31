@@ -39,13 +39,19 @@ describe('parsePassing', () => {
       ],
     };
     expect(parsePassing('<3p 3|3p 3>')).toEqual(want);
-    expect(parsePassing('3p3|3p3')).toEqual(want);
+    expect(parsePassing('3p 3|3p  3')).toEqual(want);
     expect(parsePassing(' < 3p 3 | 3p\t3 > ')).toEqual(want);
   });
 
-  test('with three jugglers p names its target, 1-based; with two a digit after p is the next throw', () => {
+  test('p<n> names its target, 1-based, with two jugglers too; a bare p with two is the other one', () => {
     expect(parsePassing('<3p2 3|3p3 3|3p1 3>')).toMatchObject({ ok: true, sequences: [[{ to: 1 }, {}], [{ to: 2 }, {}], [{ to: 0 }, {}]] });
-    expect(parsePassing('3p3|3p3')).toMatchObject({ ok: true, sequences: [[{ height: 3, to: 1 }, { height: 3, to: null }], [{}, {}]] });
+    expect(parsePassing('<3p2 3|3p1 3>')).toEqual(parsePassing('<3p 3|3p 3>'));
+    expect(parsePassing('<3p1 3|3p 3>')).toEqual({ ok: false, juggler: 0, error: { kind: 'bad-target', index: 2 } });
+    expect(parsePassing('<3p 3|3p3 3>')).toEqual({ ok: false, juggler: 1, error: { kind: 'bad-target', index: 7 } });
+    expect(parsePassing('<3p0 3|3p 3>')).toMatchObject({ ok: false, error: { kind: 'bad-target', index: 2 } });
+    // A letter after p is a height, not a target.
+    expect(parsePassing('3pa|3p3')).toMatchObject({ ok: false, juggler: 1 });
+    expect(parsePassing('3pa|3pa')).toMatchObject({ ok: true, sequences: [[{ height: 3, to: 1 }, { height: 10, to: null }], [{}, {}]] });
   });
 
   test('a bare p among three, a p to oneself, a p with no partner or after a 0 is a bad-target', () => {
@@ -74,7 +80,7 @@ describe('parsePassing', () => {
   test(`more than ${MAX_JUGGLERS} jugglers is too-many-jugglers`, () => {
     expect(parsePassing('<3p 3|3p 3|3p 3|3p 3>')).toEqual({
       ok: false,
-      juggler: MAX_JUGGLERS,
+      juggler: 0,
       error: { kind: 'too-many-jugglers', max: MAX_JUGGLERS },
     });
   });
@@ -145,10 +151,10 @@ describe('partsFromPassing (ruling 2, MATH.md §10)', () => {
     expect([s.verdict.ok, s.balls]).toEqual([true, 6]);
   });
 
-  test(`too many jugglers is refused at juggler ${MAX_JUGGLERS}'s first part`, () => {
+  test('too many jugglers is refused at part 0, an input the editor has', () => {
     expect(partsFromPassing('<3p 3|3p 3|3p 3|3p 3>')).toEqual({
       ok: false,
-      part: 2 * MAX_JUGGLERS,
+      part: 0,
       error: { kind: 'too-many-jugglers', max: MAX_JUGGLERS },
     });
   });
@@ -173,7 +179,8 @@ describe('passingText and isPassingSet', () => {
   );
 
   test('the text is canonical: brackets and single spaces; a repeated half is written once, as vanillaDigits writes 33 as 3', () => {
-    expect(passingText(parts('3p3|3p3'))).toBe('<3p 3|3p 3>');
+    expect(passingText(parts('3p 3|3p  3'))).toBe('<3p 3|3p 3>');
+    expect(passingText(parts('<3p2 3|3p1 3>'))).toBe('<3p 3|3p 3>');
     // <3p 3|3 3> and <3p 3|3> are the same parts.
     expect(parts('<3p 3|3 3>')).toEqual(parts('<3p 3|3>'));
     expect(passingText(parts('<3p 3|3 3>'))).toBe('<3p 3|3>');
@@ -206,6 +213,8 @@ describe('passingText and isPassingSet', () => {
     expect(isPassingSet([{ ...(ps[0] as Part), unit: 2 }, ...ps.slice(1)])).toBe(false);
     const long: Part = { ...(ps[0] as Part), flights: { kind: 'manual', throws: [{ height: 3, to: 3 }, { height: 3, to: 3 }] } };
     expect(isPassingSet([long, ...ps.slice(1)])).toBe(false);
+    const away: Part = { ...(ps[0] as Part), flights: { kind: 'manual', throws: [{ height: 3, to: 5 }] } };
+    expect(isPassingSet([away, ...ps.slice(1)])).toBe(false);
     const zero: Part = { ...(ps[0] as Part), flights: { kind: 'manual', throws: [{ height: 0, to: 3 }] } };
     expect(isPassingSet([zero, ...ps.slice(1)])).toBe(false);
   });
