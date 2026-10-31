@@ -51,8 +51,10 @@ export const copy = {
         return `I read at most ${error.max} throws per hand.`;
       case 'too-many-parts':
         return `I have ${error.max} hands; write at most ${error.max} patterns, with a / between them.`;
+      case 'too-many-jugglers':
+        return `I pass between at most ${error.max} jugglers; write at most ${error.max} patterns, with a | between them.`;
       case 'bad-target':
-        return `I can’t send the x at character ${error.index + 1} anywhere: it follows a 0, or there is no other hand for it.`;
+        return `I can’t send the x or p at character ${error.index + 1} anywhere: it follows a 0, or there is no other hand or juggler for it.`;
     }
   },
   /** A fractional mean (MATH.md §9.4), the cheaper of two presentations of one fault. */

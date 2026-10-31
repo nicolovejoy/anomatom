@@ -203,6 +203,8 @@ export const MAX_EDITOR_PARTS = 2;
 export const MAX_PARTS = 8;
 /** Longest cycle, in pulses, a share link may ask for; a longer one falls back to the default pattern. */
 export const MAX_LINK_CYCLE = 4096;
+/** Most jugglers a passing siteswap (`<3p 3|3p 3>`, form 4) may write; juggler j is parts 2j and 2j + 1. */
+export const MAX_JUGGLERS = 3;
 
 // ---------------------------------------------------------------------------------------------
 // Lanes: the Rhythm tab as a mixer (docs/plans/lanes.md)

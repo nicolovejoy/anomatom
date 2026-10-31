@@ -2,6 +2,7 @@ import { describe, expect, test } from 'vitest';
 import { flightsOf } from './flights';
 import { crossGroups, judge } from './judge';
 import { onsetsOf, partsFromLines, partsFromOnsets, partsFromVanilla } from './parts';
+import { partsFromPassing } from './passing';
 import { buildSchedule } from './schedule';
 import type { Event, Parts, Schedule } from './types';
 import { lineParts, scheduleOf } from '../test/schedules';
@@ -14,6 +15,11 @@ function vanilla(text: string): Parts {
 function lines(texts: string[], a: number, b: number): Parts {
   const r = partsFromLines(texts, { a, b });
   if (!r.ok) throw new Error(texts.join('/'));
+  return r.parts;
+}
+function passing(text: string): Parts {
+  const r = partsFromPassing(text);
+  if (!r.ok) throw new Error(text);
   return r.parts;
 }
 const throwsOf = (s: Schedule): Event[] => s.events.filter((e) => e.kind === 'throw');
@@ -154,6 +160,7 @@ describe('Event.to (wave 2 ruling 3)', () => {
     ['1 3 2 / 3 at 1:2', buildSchedule(lineParts(['1 3 2', '3'], { a: 1, b: 2 }))],
     ['ring of three', buildSchedule(lineParts(['1x2', '1x3', '1x1'], { a: 1, b: 1 }))],
     ['clapping', buildSchedule(partsFromOnsets([[true, true, false], [true, false, true]], [1, 1], [1, 2]))],
+    ...['<3p 3|3p 3>', '<4p 3|3 4p>', '<3p2 3|3p3 3|3p1 3>', '<3p 3|3 3>'].map((t): [string, Schedule] => [t, buildSchedule(passing(t))]),
   ];
   test.each(schedules)('%s: every event has `to` equal to the old catchPart', (_, s) => {
     expect(s.events.length).toBeGreaterThan(0);

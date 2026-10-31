@@ -2,7 +2,7 @@
 // The two-hand model (src/core/legacy) was retired by stream B: every caller reads parts.
 export * from './types';
 export { gcd, lcm, mod } from './math';
-export { digitValue, parseThrows } from './parse';
+export { digitText, digitValue, parseThrows } from './parse';
 export type { ParseError, PartContext, ThrowsResult } from './parse';
 export {
   cycleOf,
@@ -25,6 +25,8 @@ export {
   withPhase,
 } from './parts';
 export type { PartsResult } from './parts';
+export { isPass, isPassingSet, jugglerOf, parsePassing, partsFromPassing, passingText } from './passing';
+export type { PassingResult, PassThrow } from './passing';
 export { euclid, rotate } from './euclid';
 export { beatsOf, flightsOf } from './flights';
 export { ballCount, crossGroups, judge, onsetPulses } from './judge';
