@@ -389,6 +389,8 @@ export const copy = {
   passesHeading: 'Passes',
   passAccentLabel: 'Accent',
   passSampleLabel: 'Pass sound',
+  /** The pass sound select's no-sample option: the pass keeps the sound it would have had. */
+  passSampleOwn: 'Its own sound',
   presetLabel: 'Preset',
   perHeightHeading: 'Sound for each throw height',
   heightLabel: (height: number) => `Height ${height}`,

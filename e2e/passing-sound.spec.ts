@@ -89,12 +89,18 @@ test('two jugglers on two kits: both are heard; juggler 2 changes kit while play
   await expect(page.locator('#sp-kit-1')).toHaveValue('LM-2');
   await expect(page.locator('#sp-kit')).toHaveCount(0);
 
-  // Juggler 2 to the TR-808: from the next window on, only short buffers.
+  // Juggler 1 to the LM-2 (both on it), then juggler 2 back to the TR-808: only juggler 2 changes, so
+  // juggler 1 is still heard long and juggler 2 short. A jugglerKit that set every part would leave
+  // the tail all short.
+  await page.locator('#sp-kit-0').selectOption('LM-2');
+  await expect(page.locator('#sp-kit-1')).toHaveValue('LM-2');
   await page.locator('#sp-kit-1').selectOption('TR-808');
+  await expect(page.locator('#sp-kit-0')).toHaveValue('LM-2');
   const mark = (await starts(page)).length;
-  await expect.poll(async () => (await starts(page)).length, { timeout: 10_000 }).toBeGreaterThan(mark + 8);
-  const tail = (await starts(page)).slice(-4);
-  expect(tail.every((d) => d > 0 && d < LONGER_THAN)).toBe(true);
+  await expect.poll(async () => (await starts(page)).length, { timeout: 10_000 }).toBeGreaterThan(mark + 12);
+  const tail = (await starts(page)).slice(-6);
+  expect(tail.some((d) => d > LONGER_THAN)).toBe(true);
+  expect(tail.some((d) => d > 0 && d < LONGER_THAN)).toBe(true);
   await expect(page.locator('#play')).toContainText('Pause');
   expect(errors).toEqual([]);
 });
@@ -114,6 +120,13 @@ test('the Sound tab at 390 wide: a Kit select per juggler and the Passes section
   await expect(page.locator('#sp-pass-sample')).toHaveValue('');
   const wide = await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth);
   expect(wide).toBe(true);
+  // A link with two parts puts the single Kit select back and takes the Passes section away.
+  await page.goto('/#531');
+  await expect(page.locator('#sp-kit')).toHaveValue('TR-808');
+  await expect(page.locator('#sp-kit-0')).toHaveCount(0);
+  await expect(page.locator('#sp-passes-box')).toHaveCount(0);
+  await page.goto(`/${link}`);
+  await expect(page.locator('#sp-kit-1')).toHaveValue('LM-2');
   if (SHOTS) await page.screenshot({ path: `${SHOTS}/sound-tab.png` });
   // Choosing the pass sound is an edit like any other: the preset reads custom.
   await page.locator('#sp-pass-sample').selectOption('cowbell');

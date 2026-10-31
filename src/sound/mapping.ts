@@ -42,7 +42,11 @@ export interface Mapping {
   readonly catches: { readonly on: boolean; readonly sample: Sample };
   /** Velocity added to a cross throw, and the sound of a cross caught on the downbeat. */
   readonly crossAccent: { readonly velocity: number; readonly downbeat: Sample };
-  /** A pass (a throw into another juggler's part): velocity added to it, and the sound it plays in place of its own (null: its own). */
+  /**
+   * A pass (a throw into another juggler's part): velocity added to it, and the sound it plays in place of
+   * its own (null: its own). A pass whose own sound is silent (a null height or voice, or a 0) stays silent
+   * even with a pass sample set.
+   */
   readonly pass: { readonly velocity: number; readonly sample: Sample };
   /** Crossings to filter: a low-pass whose cutoff follows the pattern's crossing count, low to high Hz. */
   readonly filter: { readonly on: boolean; readonly low: number; readonly high: number };

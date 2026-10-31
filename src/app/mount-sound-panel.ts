@@ -48,8 +48,8 @@ const label = (sample: Sample) => (sample === null ? copy.noSample : (copy.sampl
 
 export const mountSoundPanel: Mount = (root, { store, player }) => {
   const heights = Array.from({ length: MAX_HEIGHT }, (_, i) => i + 1);
-  const sampleOptions = (samples: readonly Sample[]) =>
-    samples.map((s) => `<option value="${sampleValue(s)}">${label(s)}</option>`).join('');
+  const sampleOptions = (samples: readonly Sample[], none: string = copy.noSample) =>
+    samples.map((s) => `<option value="${sampleValue(s)}">${s === null ? none : label(s)}</option>`).join('');
   const allSamples: readonly Sample[] = [null, ...KIT_SAMPLES];
 
   /** One row of sound, pan and gain per part; the part is read back from `data-part`. */
@@ -86,7 +86,7 @@ export const mountSoundPanel: Mount = (root, { store, player }) => {
             <input id="sp-pass-accent" type="range" min="${PASS_BOOST_RANGE.min}" max="${PASS_BOOST_RANGE.max}" step="${SOUND_PANEL.accentStep}" />
             <output id="sp-pass-accent-out"></output></div>
           <div class="sp-row"><label for="sp-pass-sample">${copy.passSampleLabel}</label>
-            <select id="sp-pass-sample">${sampleOptions(allSamples)}</select></div>
+            <select id="sp-pass-sample">${sampleOptions(allSamples, copy.passSampleOwn)}</select></div>
         </fieldset>`;
 
   root.innerHTML = `
