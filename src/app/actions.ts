@@ -71,7 +71,7 @@ export type Action =
   | { type: 'resetGroup'; part: PartIndex }
   | { type: 'setRatio'; ratio: Ratio }
   | { type: 'setBpm'; bpm: number }
-  | { type: 'loadPreset'; parts: Parts; ratio: Ratio; bpm?: number; mapping?: Mapping }
+  | { type: 'loadPreset'; parts: Parts; ratio: Ratio; mapping?: Mapping }
   | { type: 'generate'; part: PartIndex; hits: number }
   | { type: 'swapSites'; part: PartIndex; i: number; j: number }
   | { type: 'addLane' }
@@ -194,7 +194,6 @@ function step(s: AppState, action: Action): AppState {
         parts: action.parts,
         drafts: action.parts.map(() => null),
         ratio: action.ratio,
-        bpm: action.bpm ?? s.bpm,
         mapping: action.mapping ?? s.mapping,
       };
     case 'swapSites':

@@ -49,7 +49,7 @@ for (const size of SIZES) {
     await expect(page.locator('.fm-more')).toHaveCount(0);
     expect(await page.evaluate(() => document.documentElement.scrollHeight <= window.innerHeight)).toBe(true);
     // The 3:2 card sits under 4 balls, so the 4 balls group holds it.
-    await expect(page.locator('.fm-group:nth-of-type(2) + .fm-cards .fm-card[data-id="polyrhythm"]')).toHaveCount(1);
+    await expect(page.locator('.fm-cards[data-group="4"] .fm-card[data-id="polyrhythm"]')).toHaveCount(1);
     const last = page.locator('.fm-card[data-id="four-count"]');
     await last.scrollIntoViewIfNeeded();
     await expect(last).toBeInViewport();

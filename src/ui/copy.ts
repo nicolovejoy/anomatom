@@ -451,7 +451,7 @@ export const copy = {
     fountain: { name: 'Fountain' },
     'half-shower': { name: 'Half-shower' },
     'high-low-fountain': { name: 'High, low, fountain' },
-    'tower-4': { name: 'Four-ball tower' },
+    'tower-4': { name: 'Four balls, stepping down' },
     polyrhythm: { name: 'Two hands, 3 against 2' },
     'five-cascade': { name: 'Cascade' },
     'five-744': { name: 'Five balls, one high throw' },

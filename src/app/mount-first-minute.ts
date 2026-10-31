@@ -33,8 +33,8 @@ export const mountFirstMinute: Mount = (root, { store, player }) => {
         </button>`;
 
   const group = (g: ReturnType<typeof cardGroups>[number]) => `
-      <h2 class="fm-group">${t.groups[g.id]}</h2>
-      <div class="fm-cards">${g.presets.map(card).join('')}</div>`;
+      <h2 class="fm-group" id="fm-group-${g.id}">${t.groups[g.id]}</h2>
+      <div class="fm-cards" data-group="${g.id}">${g.presets.map(card).join('')}</div>`;
 
   root.innerHTML = `
     <p class="fm-line">${t.line}</p>

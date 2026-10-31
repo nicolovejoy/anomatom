@@ -29,9 +29,14 @@ describe.each(PRESETS)('preset $id', (p) => {
 });
 
 describe('the cards', () => {
-  test('the first six keep their ids and order within their groups', () => {
+  test('the original six cards keep their ids, and each group lists them in screen order', () => {
     const ids = PRESETS.map((p) => p.id);
     for (const id of ['cascade', 'pause', 'classic', 'ramp', 'polyrhythm', 'passing']) expect(ids).toContain(id);
+    const order = ['3', '4', '5', 'passing'];
+    expect(PRESETS.map((p) => order.indexOf(p.group))).toEqual(PRESETS.map((p) => order.indexOf(p.group)).sort());
+    expect(ids.indexOf('cascade')).toBeLessThan(ids.indexOf('pause'));
+    expect(ids.indexOf('pause')).toBeLessThan(ids.indexOf('classic'));
+    expect(ids.indexOf('polyrhythm')).toBeLessThan(ids.indexOf('ramp'));
   });
   test('every kit of PASSING_CARD is a kit the app has', () => {
     for (const v of PASSING_CARD.voices) expect(KIT_IDS).toContain(v.kit);
