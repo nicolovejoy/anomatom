@@ -97,6 +97,132 @@
 .fm-group:first-child {
   margin-top: 0;
 }
+.fm-foot {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.fm-strip {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: 8px 10px;
+}
+.fm-field {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+.fm-k {
+  font-size: 11px;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--muted, #8b93a1);
+}
+.fm-strip select,
+.fm-stepper {
+  height: 40px;
+  box-sizing: border-box;
+  border: 0;
+  border-radius: 10px;
+  background: var(--raised, #20242c);
+  color: var(--text, #e6e8ec);
+  font: inherit;
+  font-size: 14px;
+}
+.fm-strip select {
+  padding: 0 8px;
+  max-width: 140px;
+}
+.fm-stepper {
+  display: flex;
+  align-items: center;
+}
+.fm-stepper button {
+  width: 36px;
+  height: 40px;
+  border: 0;
+  background: transparent;
+  color: var(--text, #e6e8ec);
+  font-size: 20px;
+  cursor: pointer;
+}
+.fm-stepper button:disabled {
+  opacity: 0.35;
+  cursor: default;
+}
+.fm-bpm {
+  min-width: 56px;
+  text-align: center;
+  font-family: var(--font-mono, 'IBM Plex Mono', ui-monospace, monospace);
+  font-size: 13px;
+}
+.fm-all-sound {
+  height: 40px;
+  padding: 0 4px;
+  border: 0;
+  background: transparent;
+  color: var(--accent, #f0c33c);
+  font-size: 14px;
+  text-decoration: underline;
+  cursor: pointer;
+}
+.fm-strip select:focus-visible,
+.fm-stepper button:focus-visible,
+.fm-all-sound:focus-visible {
+  outline: 2px solid var(--text, #e6e8ec);
+  outline-offset: 2px;
+}
+@media (max-width: 359px) {
+  .fm-strip select {
+    max-width: 100%;
+  }
+  .fm-field:not(.fm-tempo) {
+    flex: 1 1 40%;
+  }
+  .fm-strip select {
+    width: 100%;
+  }
+}
+/* Short landscape: the intro line and the field labels go, the controls tighten, and the cards keep their room. */
+@media (max-height: 480px) and (orientation: landscape) {
+  .fm-line {
+    display: none;
+  }
+  .fm-k {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip-path: inset(50%);
+  }
+  .fm-foot {
+    gap: 6px;
+  }
+  .fm-strip {
+    gap: 6px;
+  }
+  .fm-strip select,
+  .fm-stepper {
+    height: 36px;
+    font-size: 13px;
+  }
+  .fm-strip select {
+    max-width: 130px;
+  }
+  .fm-all-sound {
+    height: 36px;
+  }
+  .fm-own {
+    height: 44px;
+  }
+  .fm-play {
+    width: 52px;
+    height: 52px;
+    border-radius: 26px;
+  }
+}
 .fm-bar {
   display: flex;
   align-items: center;

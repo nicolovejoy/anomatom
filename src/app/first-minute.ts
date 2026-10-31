@@ -7,7 +7,7 @@ import { derived } from './derived';
 import { isPresetParts, PRESETS } from './presets';
 import type { CardGroup, Preset } from './presets';
 import { route } from './route';
-import type { AppState } from './state';
+import type { AppState, SheetTab } from './state';
 
 export type { Preset } from './presets';
 
@@ -41,6 +41,11 @@ export function playingPreset(state: Pick<AppState, 'parts' | 'ratio'>, playing:
   // The parts as built first, then as typed: the same vanilla pattern typed matches its card.
   const found = PRESETS.find((p) => same(p) && isPresetParts(p, state.parts)) ?? PRESETS.find((p) => same(p) && textsOf(p.parts) === textsOf(state.parts));
   return found?.id ?? null;
+}
+
+/** The patch that shows (true) or hides (false) the card screen. Showing closes the sheet; hiding opens it on `tab`. */
+export function cardsPatch(show: boolean, tab: SheetTab = 'pattern'): Partial<AppState> {
+  return show ? { cards: true, sheetTab: null } : { cards: false, sheetTab: tab };
 }
 
 /** The schedule for the store's parts: always one, since the sound is never gated. */
