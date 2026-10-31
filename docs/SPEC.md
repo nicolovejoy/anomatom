@@ -27,7 +27,6 @@ v2, the model waves (2026-10-29). What a user can do in addition:
 4. Type two lines at 1:1 as `a / b`, alongside the vanilla siteswap, and use the letters `a`-`z` for heights 10-35.
 5. Load presets from the sourcebook (`POLYRHYTHMS.md`), each with its source. The Euclidean generator E(hits, pulses) (`MATH.md` §9.7) is in the core and the actions from wave 1; its control in the Rhythm tab is not in the wave 2 interface list and needs a ruling before it is promised.
 6. Give each hand its own voice (the new default) or keep a height preset.
-7. (wave 2, 2026-10-30) Pass between two jugglers: type passing siteswap `<3p 3|3p 3>` in the Pattern tab, tap the passing card (each juggler on a kit of their own), or open the short link `#3p-3|3p-3`.
 
 (v2 wave 2, 2026-10-30) Passing: `<3p 3|3p 3>` in the pattern box, a passing card, the short link `#3p-3|3p-3`, one kit per juggler and an accent on passes (`docs/plans/v2-share-kits-passing.md` wave 2, `MATH.md` §10). Still not in v2's model waves: the mixer-style interface (`docs/plans/model-rethink.md` §12), more than two hands on screen (lanes plan: now up to four), multiplex, galloped (non-isochronous) grids, MIDI, accounts.
 

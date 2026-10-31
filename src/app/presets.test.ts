@@ -3,7 +3,7 @@ import bibliography from '../../docs/BIBLIOGRAPHY.md?raw';
 import polyrhythms from '../../docs/POLYRHYTHMS.md?raw';
 import { buildSchedule, cycleOf, isPassingSet, judge, ratioOf, textOf } from '../core';
 import { presetOf } from '../sound/mapping';
-import { KIT_SAMPLES } from '../tunables';
+import { KIT_IDS, KIT_SAMPLES, PASSING_CARD } from '../tunables';
 import { copy } from '../ui/copy';
 import { hitGrid, isPresetParts, PRESETS } from './presets';
 
@@ -156,6 +156,9 @@ describe('the juggling cards', () => {
       ['polyrhythm', 'juggling', true],
       ['passing', 'juggling', true],
     ]);
+  });
+  test('every kit of PASSING_CARD is a kit the app has', () => {
+    for (const v of PASSING_CARD.voices) expect(KIT_IDS).toContain(v.kit);
   });
   test('the passing card (ruling 5): <3p 3|3p 3>, six balls, a kit and pans for each juggler', () => {
     const p = PRESETS.find((q) => q.id === 'passing')!;

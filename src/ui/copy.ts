@@ -46,7 +46,7 @@ export const copy = {
       case 'empty':
         return 'I need a pattern.';
       case 'bad-char':
-        return `I only read digits and x; character ${error.index + 1} isn’t one.`;
+        return `I only read digits, x and p; character ${error.index + 1} isn’t one.`;
       case 'too-long':
         return `I read at most ${error.max} throws per hand.`;
       case 'too-many-parts':

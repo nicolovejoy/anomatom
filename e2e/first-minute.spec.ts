@@ -108,8 +108,6 @@ test('the Pattern tab over a passing set shows the text and the p key', async ({
   await expect(page.locator('#hand-0')).toHaveValue('<3p 3|3p 3>');
   await expect(page.locator('.key-pass')).toBeVisible();
   await expect(page.locator('.key-pass')).toHaveText('p');
-  // The pad's fifth row sits at the sheet's fold on a phone: scroll it into view for the picture.
-  await page.locator('.key-pass').scrollIntoViewIfNeeded();
   await expect(page.locator('.key-pass')).toBeInViewport();
   if (PASSING_SHOTS) await page.screenshot({ path: `${PASSING_SHOTS}/pattern-tab.png` });
 });

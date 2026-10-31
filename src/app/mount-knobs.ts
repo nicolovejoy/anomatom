@@ -190,7 +190,7 @@ export const mountKnobs: Mount = (root, { store, player, sound }) => {
       <div class="digit-pad" role="group" aria-label="${copy.digitPadLabel}">
         ${PAD_KEYS.map((k) => {
           if (k === 'x') return `<button type="button" class="key key-op" data-key="x" aria-label="${copy.crossKeyLabel}">${copy.crossKey}</button>`;
-          // The pass key sits under x and shows only for passing siteswap (`showsPassKey`).
+          // The pass key sits beside x (the pad turns five columns wide) and shows only for passing siteswap (`showsPassKey`).
           if (k === 'p') return `<button type="button" class="key key-op key-pass" data-key="p" aria-label="${copy.passKeyLabel}" hidden>${copy.passKey}</button>`;
           if (k === 'backspace')
             return `<button type="button" class="key key-op" data-key="backspace" aria-label="${copy.backspaceKeyLabel}">${copy.backspaceKey}</button>`;

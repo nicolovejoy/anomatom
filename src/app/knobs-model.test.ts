@@ -126,7 +126,7 @@ describe('analyse and the fix state', () => {
     expect(badChar(v, 0)).toBe(1);
     expect(handState(v, 0)).toBe('bad');
     expect(v.balls).toBeNull();
-    expect(statusLines(v)).toEqual(['I only read digits and x; character 2 isn’t one.']);
+    expect(statusLines(v)).toEqual(['I only read digits, x and p; character 2 isn’t one.']);
 
     const r = analyse(typed(['2', ''], threeTwo));
     expect(handState(r, 0)).toBe('neutral');
@@ -165,7 +165,7 @@ describe('analyse and the fix state', () => {
     expect(badChar(side, 1)).toBeNull();
     const bad = analyse(typed(['3 / 4#']));
     expect(badChar(bad, 1)).toBe(1);
-    expect(statusLines(bad)).toEqual(['Hand 2 pattern: I only read digits and x; character 2 isn’t one.']);
+    expect(statusLines(bad)).toEqual(['Hand 2 pattern: I only read digits, x and p; character 2 isn’t one.']);
   });
 
   test('splitText and joinInputs: two inputs and one draft, either way, exactly', () => {
