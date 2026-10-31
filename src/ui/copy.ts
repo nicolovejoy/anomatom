@@ -91,6 +91,8 @@ export const copy = {
     const pairs = Array.from({ length: Math.ceil(hands / 2) }, (_, f) => (2 * f + 2 <= hands ? `hands ${2 * f + 1} and ${2 * f + 2}` : `hand ${2 * f + 1}`));
     return `My ${hands} hands juggling the pattern as ${pairs.length} jugglers side by side, left to right: ${pairs.join(', ')}.`;
   },
+  /** The caption under juggler `j` (0-based) of three or more parts. */
+  jugglerCaption: (j: number) => `Juggler ${j + 1}`,
   /** SPEC §4.1 (v2): shown while a flight longer than `seconds` is in the air. */
   notHumanThrow: (seconds: number) => `Not a human throw: I keep this one up for more than ${seconds} seconds.`,
 

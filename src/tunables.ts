@@ -143,6 +143,15 @@ export const JUGGLER = {
   /** A hand bar is never wider than this, centred on its hand's span. */
   handMaxPx: 64,
   handGapPx: 4,
+  /**
+   * Three or more parts: each figure is named under its hand bars ("Juggler 1"), in its first
+   * part's colour, this tall (px), this far under the bars. On a short region the gap shrinks
+   * (never the font) so the caption stays whole: the scene keeps at least `captionSceneShare`
+   * of the canvas height.
+   */
+  captionFontPx: 12,
+  captionGapPx: 6,
+  captionSceneShare: 0.6,
   /** The flash: a ring this many radii out, in this colour, as wide as `flashRingPx`. */
   flashRing: '#ffffff',
   flashRingRadii: 1.6,
