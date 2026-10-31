@@ -118,6 +118,34 @@ export function handPlaces(parts: number, layout: Pick<JugglerLayout, 'catchX' |
   });
 }
 
+/** One figure (a juggler): its index, its first part, and the x extent of its hands. */
+export interface FigureSpan {
+  readonly figure: number;
+  /** The figure's first part, 2 × figure: the part whose colour names it. */
+  readonly part: PartIndex;
+  readonly left: number;
+  readonly right: number;
+}
+
+/**
+ * Each figure of a picture of `parts` parts, left to right, with the extent of its hands, from
+ * `handPlaces` (so an odd last part is a figure of its own, spanning its one hand). Figure f is
+ * parts 2f and 2f + 1.
+ */
+export function figureSpans(parts: number, layout: Pick<JugglerLayout, 'catchX' | 'throwX' | 'figureStride'>): FigureSpan[] {
+  const spans: FigureSpan[] = [];
+  for (const h of handPlaces(parts, layout)) {
+    const figure = Math.floor(h.part / 2);
+    const left = Math.min(h.catchX, h.throwX);
+    const right = Math.max(h.catchX, h.throwX);
+    const seen = spans[figure];
+    spans[figure] = seen
+      ? { ...seen, left: Math.min(seen.left, left), right: Math.max(seen.right, right) }
+      : { figure, part: figure * 2, left, right };
+  }
+  return spans;
+}
+
 /** The flights of the parts a schedule was built from, for drawing its faults; undefined when unknown. */
 export type FlightLookup = (schedule: Schedule) => readonly Flight[] | undefined;
 
