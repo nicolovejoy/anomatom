@@ -26,6 +26,7 @@ import {
   KIT_SAMPLES,
   MAX_HEIGHT,
   PAN_RANGE,
+  PASS_BOOST_RANGE,
   SOUND_PANEL,
 } from '../tunables';
 import { copy } from '../ui/copy';
@@ -34,6 +35,8 @@ import {
   applyEdit,
   downbeatChoices,
   ensureVoices,
+  jugglerKits,
+  kitRows,
   resetTarget,
   sampleFromValue,
   sampleValue,
@@ -63,12 +66,32 @@ export const mountSoundPanel: Mount = (root, { store, player }) => {
         <output id="sp-gain-out-${i}"></output></div>`,
     ).join('');
 
+  const kitOptions = KIT_IDS.map((k) => `<option value="${k}">${copy.kitNames[k] ?? k}</option>`).join('');
+  /** The Kit row: one select with one or two parts, one per juggler (a pair of parts) from three. */
+  const renderKits = (jugglers: number) =>
+    jugglers === 0
+      ? `<div class="sp-row"><label for="sp-kit">${copy.kitLabel}</label><select id="sp-kit">${kitOptions}</select></div>`
+      : Array.from(
+          { length: jugglers },
+          (_, j) => `<div class="sp-row"><label for="sp-kit-${j}">${copy.jugglerKitLabel(j)}</label>
+            <select id="sp-kit-${j}" data-juggler="${j}">${kitOptions}</select></div>`,
+        ).join('');
+  /** The Passes section: only where a pass can happen, from three parts. */
+  const renderPasses = (jugglers: number) =>
+    jugglers === 0
+      ? ''
+      : `<fieldset id="sp-passes-box">
+          <legend>${copy.passesHeading}</legend>
+          <div class="sp-row"><label for="sp-pass-accent">${copy.passAccentLabel}</label>
+            <input id="sp-pass-accent" type="range" min="${PASS_BOOST_RANGE.min}" max="${PASS_BOOST_RANGE.max}" step="${SOUND_PANEL.accentStep}" />
+            <output id="sp-pass-accent-out"></output></div>
+          <div class="sp-row"><label for="sp-pass-sample">${copy.passSampleLabel}</label>
+            <select id="sp-pass-sample">${sampleOptions(allSamples)}</select></div>
+        </fieldset>`;
+
   root.innerHTML = `
     <div id="sound-panel" class="sound-panel">
-      <div class="sp-row">
-        <label for="sp-kit">${copy.kitLabel}</label>
-        <select id="sp-kit">${KIT_IDS.map((k) => `<option value="${k}">${copy.kitNames[k] ?? k}</option>`).join('')}</select>
-      </div>
+      <div id="sp-kits"></div>
       <p class="sp-note">${copy.soundBallCountNote}</p>
       <div class="sp-row">
         <label for="sp-preset">${copy.presetLabel}</label>
@@ -103,6 +126,7 @@ export const mountSoundPanel: Mount = (root, { store, player }) => {
         <div class="sp-row"><label for="sp-downbeat">${copy.downbeatLabel}</label>
           <select id="sp-downbeat"></select></div>
       </fieldset>
+      <div id="sp-passes"></div>
       <fieldset>
         <legend>${copy.filterHeading}</legend>
         <div class="sp-row"><label><input id="sp-filter-on" type="checkbox" /> ${copy.filterOn}</label></div>
@@ -126,7 +150,8 @@ export const mountSoundPanel: Mount = (root, { store, player }) => {
   `;
 
   const $ = <T extends Element>(selector: string) => root.querySelector(selector) as T;
-  const kit = $<HTMLSelectElement>('#sp-kit');
+  const kitsBox = $<HTMLElement>('#sp-kits');
+  const passesBox = $<HTMLElement>('#sp-passes');
   const preset = $<HTMLSelectElement>('#sp-preset');
   const heightSelects = heights.map((h) => $<HTMLSelectElement>(`#sp-height-${h}`));
   const partsBox = $<HTMLFieldSetElement>('#sp-parts');
@@ -146,6 +171,7 @@ export const mountSoundPanel: Mount = (root, { store, player }) => {
 
   let lastPreset: PresetName = 'height-drum';
   let partCount = -1;
+  let kitRowCount = -1;
   let offeredDownbeat = '';
 
   // Controls are filled from the store; a control being typed in is left alone.
@@ -158,7 +184,19 @@ export const mountSoundPanel: Mount = (root, { store, player }) => {
     const name = presetOf(m);
     if (name !== 'custom') lastPreset = name;
     preset.value = name;
-    kit.value = m.parts[0]?.kit ?? KIT_IDS[0] ?? '';
+    const rows = kitRows(state.parts.length);
+    if (rows !== kitRowCount) {
+      kitRowCount = rows;
+      kitsBox.innerHTML = renderKits(rows);
+      passesBox.innerHTML = renderPasses(rows);
+    }
+    if (rows === 0) $<HTMLSelectElement>('#sp-kit').value = m.parts[0]?.kit ?? KIT_IDS[0] ?? '';
+    else {
+      jugglerKits(m, rows).forEach((k, j) => ($<HTMLSelectElement>(`#sp-kit-${j}`).value = k));
+      $<HTMLSelectElement>('#sp-pass-sample').value = sampleValue(m.pass.sample);
+      setIfIdle($<HTMLInputElement>('#sp-pass-accent'), String(m.pass.velocity));
+      $<HTMLOutputElement>('#sp-pass-accent-out').value = String(m.pass.velocity);
+    }
     heights.forEach((h, i) => ((heightSelects[i] as HTMLSelectElement).value = sampleValue(m.perHeight[h] ?? null)));
     if (m.parts.length !== partCount) {
       partCount = m.parts.length;
@@ -197,7 +235,21 @@ export const mountSoundPanel: Mount = (root, { store, player }) => {
   });
 
   // Controls -> edits.
-  kit.addEventListener('change', () => edit({ kind: 'kit', kit: kit.value }));
+  // The Kit row and the Passes section are made again when the part count crosses 2 (or the jugglers
+  // change), so their listeners sit on the boxes that stay.
+  kitsBox.addEventListener('change', (e) => {
+    const select = e.target as HTMLSelectElement;
+    if (select.dataset.juggler === undefined) edit({ kind: 'kit', kit: select.value });
+    else edit({ kind: 'jugglerKit', juggler: Number(select.dataset.juggler), kit: select.value });
+  });
+  passesBox.addEventListener('input', (e) => {
+    const target = e.target as HTMLInputElement;
+    if (target.id === 'sp-pass-accent') edit({ kind: 'passAccent', velocity: Number(target.value) });
+  });
+  passesBox.addEventListener('change', (e) => {
+    const target = e.target as HTMLSelectElement;
+    if (target.id === 'sp-pass-sample') edit({ kind: 'passSample', sample: sampleFromValue(target.value) });
+  });
   preset.addEventListener('change', () => edit({ kind: 'preset', name: preset.value as PresetName }));
   heightSelects.forEach((select, i) =>
     select.addEventListener('change', () =>
