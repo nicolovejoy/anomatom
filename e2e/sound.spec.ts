@@ -60,7 +60,7 @@ test('SPEC §7.5: three sound fields, the link, a new tab: everything matches an
 }) => {
   await page.goto('/#v1.e30');
   await page.locator('#hand-0').fill('441');
-  await openTab(page, 'rhythm');
+  await openTab(page, 'sound');
   await page.locator('#bpm').fill('96');
   await page.locator('#bpm').press('Enter');
   await openPanel(page);

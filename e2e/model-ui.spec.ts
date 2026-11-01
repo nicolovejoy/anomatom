@@ -42,19 +42,19 @@ test('Clapping Music: the phase stepper keeps the cycle at 12 at every step', as
   for (let i = 0; i < 4; i++) await step(page, 'phase', 1, -1);
   await expect(phase).toHaveAttribute('data-phase', '11');
   await expect(phase).toHaveAttribute('data-cycle', '12');
-  await expect(page.locator('.summary-meta')).toHaveText(/^2 balls\b/);
+  await expect(page.locator('.deck-meta')).toHaveText(/^2 balls\b/);
 });
 
 test('the ball stepper changes the summary’s ball count and not the sound', async ({ page }) => {
   await page.goto(CLAPPING);
   await openRhythm(page);
-  await expect(page.locator('.summary-meta')).toHaveText(/^2 balls\b/);
+  await expect(page.locator('.deck-meta')).toHaveText(/^2 balls\b/);
   const before = await samples(page);
   expect(before?.split(' ')).toHaveLength(16);
   await expect(cell(page, 'balls', 0).locator('[data-delta="-1"]')).toBeDisabled();
   await step(page, 'balls', 0, 1);
   await expect(cell(page, 'balls', 0).locator('output')).toHaveText('2');
-  await expect(page.locator('.summary-meta')).toHaveText(/^3 balls\b/);
+  await expect(page.locator('.deck-meta')).toHaveText(/^3 balls\b/);
   expect(await samples(page)).toBe(before);
   // The hook does see a change in the sound: a Hits step moves it.
   await step(page, 'hits', 0, -1);
@@ -78,7 +78,7 @@ test('a manual group shows its count and Reset; Reset brings the steppers back',
     await expect(cell(page, 'balls', h)).toBeVisible();
     await expect(cell(page, 'balls', h).locator('output')).toHaveText('1');
   }
-  await expect(page.locator('.summary-meta')).toHaveText(/^2 balls\b/);
+  await expect(page.locator('.deck-meta')).toHaveText(/^2 balls\b/);
 });
 
 test('the hits stepper runs the Euclidean generator over the hand’s period', async ({ page }) => {
@@ -93,7 +93,7 @@ test('the hits stepper runs the Euclidean generator over the hand’s period', a
   await openTab(page, 'pattern');
   const digits = ((await page.locator('#hand-0').inputValue()).match(/[1-9a-z]/g) ?? []).length;
   expect(digits).toBe(5);
-  await expect(page.locator('.summary-meta')).toHaveText(/^2 balls\b/);
+  await expect(page.locator('.deck-meta')).toHaveText(/^2 balls\b/);
 });
 
 test('form 2 at 1:1: a slash splits the pattern in two inputs; backspace in an empty hand 2 joins it', async ({ page }) => {
@@ -160,7 +160,7 @@ test('a 16-step line with one hit at 120 bpm: not a human throw', async ({ page 
   // A fresh page: a link pasted while playing would land at the next cycle.
   await page.goto('about:blank');
   await page.goto(link([line('1000000000000000')]));
-  await expect(page.locator('.summary-meta')).toHaveText(/^1 ball\b/);
+  await expect(page.locator('.deck-meta')).toHaveText(/^1 ball\b/);
   await page.locator('#play').click();
   await expect(page.locator('.juggler-note')).toBeVisible();
   await expect(page.locator('.juggler-note')).toContainText('Not a human throw');

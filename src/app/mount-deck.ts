@@ -69,7 +69,7 @@ export const mountDeck: Mount = (root, { store, player, sound }) => {
         ${presets
           .map(
             (p, i) =>
-              `<li><button type="button" class="deck-row" data-row="${i}"><code>${cardPattern(p)}</code><span class="deck-row-name">${copy.presets[p.id]?.name ?? ''}</span><em>${groupTag(p.group)}</em></button></li>`,
+              `<li><button type="button" class="deck-row" data-row="${i}" data-id="${p.id}"><code>${cardPattern(p)}</code><span class="deck-row-name">${copy.presets[p.id]?.name ?? ''}</span><em>${groupTag(p.group)}</em></button></li>`,
           )
           .join('')}
         <li><button type="button" class="deck-row deck-own" data-row="${presets.length}"><span class="deck-row-name">${t.makeYourOwn}</span></button></li>
@@ -212,12 +212,19 @@ export const mountDeck: Mount = (root, { store, player, sound }) => {
     banded = row;
   };
 
+  // Only a turn the reader makes picks: a scroll from the page (snapping after a layout change, the
+  // wheel shown again, a focused row brought into view, the band following an arrow) never does.
+  let turning = false;
+  for (const type of ['wheel', 'touchstart', 'keydown']) list.addEventListener(type, () => (turning = true), { passive: true });
   let settleTimer: ReturnType<typeof setTimeout> | undefined;
   list.addEventListener('scroll', () => {
     const row = wheelIndexAt(list.scrollTop, DECK.rowPx, rowCount);
     band(row);
     clearTimeout(settleTimer);
     settleTimer = setTimeout(() => {
+      const user = turning;
+      turning = false;
+      if (!user || wheel.hidden) return;
       const at = wheelIndexAt(list.scrollTop, DECK.rowPx, rowCount);
       const chosen = settledPick(at, current(), presets.length);
       if (chosen !== null) pick(chosen);
@@ -227,6 +234,7 @@ export const mountDeck: Mount = (root, { store, player, sound }) => {
   rows.forEach((row, i) =>
     row.addEventListener('click', () => {
       clearTimeout(settleTimer);
+      turning = false;
       if (i >= presets.length) {
         closeWheel();
         store.set({ sheetTab: 'pattern' });
@@ -256,9 +264,13 @@ export const mountDeck: Mount = (root, { store, player, sound }) => {
   );
 
   dockedQuery.addEventListener('change', showWheel);
-  window.addEventListener('resize', () => {
+  // The stage moves as the sheet opens and closes and the window turns: the wheel follows it.
+  const follow = () => {
     if (!wheel.hidden) placeWheel();
-  });
+  };
+  const stageEl = document.querySelector('.stage');
+  if (stageEl && typeof ResizeObserver === 'function') new ResizeObserver(follow).observe(stageEl);
+  window.addEventListener('resize', follow);
 
   // -------------------------------------------------------------------------------------------
   // Volume, mute, Kit, Sound, Details
@@ -364,6 +376,7 @@ export const mountDeck: Mount = (root, { store, player, sound }) => {
     draw(view) {
       if (scrollWanted && !wheel.hidden) {
         scrollWanted = false;
+        placeWheel();
         scrollToCurrent(false);
         band(current() ?? banded);
       }

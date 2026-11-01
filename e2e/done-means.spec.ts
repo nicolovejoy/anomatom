@@ -167,7 +167,7 @@ test.describe('SPEC 7.4: changes while playing land at the next cycle', () => {
     const errors = watchErrors(page);
     await page.goto('/#v1.e30');
     // Slow, so the wait for the next cycle outlasts the poll interval.
-    await openTab(page, 'rhythm');
+    await openTab(page, 'sound');
     await page.locator('#bpm').fill('40');
     await page.locator('#bpm').press('Enter');
     await openTab(page, 'pattern');
@@ -193,7 +193,7 @@ test.describe('SPEC 7.4: changes while playing land at the next cycle', () => {
   test('a tempo change: pending, then the switch, still playing', async ({ page }) => {
     const errors = watchErrors(page);
     await page.goto('/#v1.e30');
-    await openTab(page, 'rhythm');
+    await openTab(page, 'sound');
     await page.locator('#bpm').fill('40');
     await page.locator('#bpm').press('Enter');
     await openTab(page, 'pattern');
@@ -201,7 +201,7 @@ test.describe('SPEC 7.4: changes while playing land at the next cycle', () => {
     await page.locator('#play').click();
     await expect.poll(() => scheduled(page)).toBeGreaterThan(0);
 
-    await openTab(page, 'rhythm');
+    await openTab(page, 'sound');
     await page.locator('#bpm').fill('90');
     await page.locator('#bpm').press('Enter');
     await expect(page.locator('#pending')).toBeVisible();

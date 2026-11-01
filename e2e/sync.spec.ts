@@ -45,21 +45,23 @@ test('an odd height in sync says so', async ({ page }) => {
   await expect(page.locator('#status')).toContainText('even');
 });
 
-test('the Box card sits under 3 balls, plays the box, and Make your own shows (4,2x)(2x,4)', async ({ page }) => {
+test('Box sits in the wheel under 3 balls, plays the box, and Make your own shows (4,2x)(2x,4)', async ({ page }) => {
   mkdirSync(SHOTS, { recursive: true });
   await page.setViewportSize({ width: 390, height: 844 });
   await page.goto('/');
-  const card = page.locator('.fm-cards[data-group="3"] .fm-card[data-id="box"]');
-  await expect(card).toHaveCount(1);
-  await expect(card).toContainText('Box');
-  await expect(page.locator('.fm-cards[data-group="4"] .fm-card[data-id="sync-fountain"]')).toContainText('Synchronous fountain');
-  await card.scrollIntoViewIfNeeded();
-  await card.click();
+  const row = page.locator('.deck-row[data-id="box"]');
+  await expect(row).toHaveCount(1);
+  await expect(row).toContainText('Box');
+  await expect(row.locator('em')).toHaveText('3');
+  await expect(page.locator('.deck-row[data-id="sync-fountain"]')).toContainText('Synchronous fountain');
+  await row.click();
+  await expect(page.locator('.deck-notation')).toHaveText('(4,2x)(2x,4)');
+  await page.locator('#play').click();
   await expect.poll(async () => Number(await page.locator('#app').getAttribute('data-events-scheduled'))).toBeGreaterThan(0);
-  await expect(card).toHaveClass(/fm-playing/);
   await expect(page.locator('canvas.juggler')).toHaveAttribute('data-balls', '3');
   await page.waitForTimeout(1500);
   await page.screenshot({ path: `${SHOTS}/sync-box-card.png` });
-  await page.locator('.fm-own').click();
+  await page.locator('.deck-pattern').click();
+  await page.locator('.deck-own').click();
   await expect(page.locator('#hand-0')).toHaveValue('(4,2x)(2x,4)');
 });

@@ -52,6 +52,7 @@ test('arrow keys walk the tabs, wrapping', () => {
 
 test('the ladder height: wide, landscape, then closed or open', () => {
   expect(ladderHeightPx(true, false, null)).toBe(LADDER.heightPx);
+  expect(ladderHeightPx(true, false, null, true)).toBe(SHEET.landscape.ladderPx);
   expect(ladderHeightPx(false, true, 'sound')).toBe(SHEET.landscape.ladderPx);
   expect(ladderHeightPx(false, false, null)).toBe(SHEET.ladderPx.closed);
   expect(ladderHeightPx(false, false, 'rhythm')).toBe(SHEET.ladderPx.open);

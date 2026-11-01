@@ -30,6 +30,7 @@ export const mountSheet: Mount = (root, { store }) => {
   const landscapeQuery = window.matchMedia(
     `(max-width: ${SHEET.wideMinWidthPx - 1}px) and (max-height: ${SHEET.landscape.maxHeightPx}px) and (orientation: landscape)`,
   );
+  const shortQuery = window.matchMedia(`(max-height: ${SHEET.landscape.maxHeightPx}px)`);
   let last: SheetTab = 'pattern';
   app.style.setProperty('--sheet-column', `${SHEET.columnPx}px`);
   app.style.setProperty('--sheet-landscape-column', `${SHEET.landscape.columnPx}px`);
@@ -44,7 +45,7 @@ export const mountSheet: Mount = (root, { store }) => {
     app.classList.toggle('is-wide', wide);
     app.classList.toggle('is-landscape', landscape);
     app.classList.toggle('sheet-open', shown !== null);
-    app.style.setProperty('--ladder-height', `${ladderHeightPx(wide, landscape, shown)}px`);
+    app.style.setProperty('--ladder-height', `${ladderHeightPx(wide, landscape, shown, shortQuery.matches)}px`);
     TABS.forEach((t, i) => {
       const tab = tabs[i] as HTMLButtonElement;
       const on = t === shown;
@@ -113,6 +114,7 @@ export const mountSheet: Mount = (root, { store }) => {
 
   wideQuery.addEventListener('change', render);
   landscapeQuery.addEventListener('change', render);
+  shortQuery.addEventListener('change', render);
   store.subscribe((state, previous) => {
     if (state.sheetTab !== previous.sheetTab) render();
   });

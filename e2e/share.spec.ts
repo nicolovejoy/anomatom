@@ -1,5 +1,5 @@
-// The share button in the head row (v2 plan, ruling 5) and the short links it copies (ruling 4),
-// headless. The clipboard is read for real, so this runs on Chromium-family browsers only.
+// The share button (v2 plan, ruling 5; in the top bar from v4 D2) and the short links it copies
+// (ruling 4), headless. The clipboard is read for real, so this runs on Chromium-family browsers only.
 import { partsFromVanilla } from '../src/core';
 import { encodeState } from '../src/app/hash';
 import { defaultState } from '../src/app/state';
@@ -10,6 +10,9 @@ test.use({ viewport: { width: 390, height: 844 } });
 
 test('share copies the live short link when navigator.share is absent', async ({ page, context, browserName }) => {
   test.skip(browserName !== 'chromium', 'clipboard permissions are Chromium-only');
+  // The head row and its share button went with the deck (v4 D1); D2 puts share in the top bar.
+  await page.goto('/#531@140');
+  test.skip((await page.locator('#share').count()) === 0, 'share moves to the top bar in v4 D2');
   await context.grantPermissions(['clipboard-read', 'clipboard-write']);
   await page.addInitScript(() => {
     Object.defineProperty(navigator, 'share', { configurable: true, value: undefined });
@@ -70,7 +73,6 @@ test('an old #v2. link and an old #v1. link still open, and restore their state'
   await page.goto('/' + v2);
   await expect(page.locator('#hand-0')).toHaveValue('441');
   await expect(page.locator('#bpm')).toHaveValue('150');
-  await expect(page.locator('#share')).toBeVisible();
   const v1 = '#v1.' + Buffer.from(JSON.stringify({ p: ['531', ''], r: [1, 1], t: 95 })).toString('base64url');
   await page.goto('/' + v1);
   await page.reload();

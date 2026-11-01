@@ -146,10 +146,14 @@
 .deck-field select {
   min-width: 0;
   height: 28px;
-  padding: 0;
+  padding: 0 18px 0 0;
   border: 0;
-  background: transparent;
+  /* WebKit rounds a native select whatever its border-radius; drawn by hand, it stays square. */
+  -webkit-appearance: none;
+  appearance: none;
+  background: transparent url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath d='M2 4l4 4 4-4' fill='none' stroke='%238b93a1' stroke-width='1.6'/%3E%3C/svg%3E") no-repeat right 2px center;
   font-size: 14px;
+  text-overflow: ellipsis;
 }
 .deck-details {
   padding: 0 16px;

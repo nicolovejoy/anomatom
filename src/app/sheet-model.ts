@@ -33,9 +33,13 @@ export function dragEnd(open: SheetTab | null, last: SheetTab, dy: number, thres
   return open === null ? last : null;
 }
 
-/** The ladder strip's height: wide, a phone on its side, or a phone with the sheet closed or open. */
-export function ladderHeightPx(wide: boolean, landscape: boolean, shown: SheetTab | null): number {
-  if (wide) return LADDER.heightPx;
+/**
+ * The ladder strip's height: wide, a phone on its side, or a phone with the sheet closed or open.
+ * A wide screen no taller than a phone on its side (844×390) takes the phone-on-its-side height,
+ * so the transport bar under the stage still fits (docs/plans/v4-deck.md).
+ */
+export function ladderHeightPx(wide: boolean, landscape: boolean, shown: SheetTab | null, short = false): number {
+  if (wide) return short ? SHEET.landscape.ladderPx : LADDER.heightPx;
   if (landscape) return SHEET.landscape.ladderPx;
   return shown === null ? SHEET.ladderPx.closed : SHEET.ladderPx.open;
 }
