@@ -22,7 +22,7 @@ if (app) {
   app.innerHTML = `
     <header class="topbar">
       <div class="topbar-main">
-        <h1 class="wordmark-wrap"><button type="button" class="wordmark" aria-label="${copy.wordmarkLabel}">${copy.title}</button></h1>
+        <h1 class="wordmark-wrap"><button type="button" class="wordmark">${copy.title}<span class="sr-only">, ${copy.wordmarkHint}</span></button></h1>
         <span class="topbar-actions">
           <span id="share-status-top" class="share-status-top" role="status" aria-live="polite"></span>
           <button id="share-top" type="button" class="topbar-button" data-share aria-label="${copy.shareLabel}">
@@ -31,8 +31,8 @@ if (app) {
           <a href="#about" class="about-link" aria-label="${copy.aboutButtonLabel}">${copy.aboutButtonGlyph}</a>
         </span>
       </div>
-      <div class="topbar-confirm" hidden>
-        <span class="reset-question" role="alert">${copy.resetQuestion}</span>
+      <div class="topbar-confirm" role="group" aria-labelledby="reset-question" hidden>
+        <span id="reset-question" class="reset-question">${copy.resetQuestion}</span>
         <span class="topbar-actions">
           <button type="button" class="reset-go">${copy.resetConfirm}</button>
           <button type="button" class="reset-cancel">${copy.resetCancel}</button>

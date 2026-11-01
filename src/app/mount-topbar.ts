@@ -16,14 +16,23 @@ export const mountTopbar: Mount = (root) => {
     onChange: (open) => {
       main.hidden = open;
       ask.hidden = !open;
-      (open ? cancel : wordmark).focus();
+      if (open) cancel.focus();
+      else if (ask.contains(document.activeElement) || document.activeElement === document.body) wordmark.focus();
     },
   });
   wordmark.addEventListener('click', confirm.open);
   cancel.addEventListener('click', confirm.close);
   (root.querySelector('.reset-go') as HTMLButtonElement).addEventListener('click', () => location.assign(location.pathname));
-  document.addEventListener('keydown', (event) => {
-    if (confirm.key(event.key)) event.preventDefault();
-  });
+  // Capture phase, so one Escape closes the confirm and nothing else (the phone sheet stays open).
+  document.addEventListener(
+    'keydown',
+    (event) => {
+      if (confirm.key(event.key)) {
+        event.preventDefault();
+        event.stopPropagation();
+      }
+    },
+    true,
+  );
   return {};
 };

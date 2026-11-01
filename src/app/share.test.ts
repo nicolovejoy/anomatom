@@ -262,13 +262,17 @@ describe('a pasted link on an open page', () => {
     expect(s.sheetTab).toBe('sound');
   });
 
-  test('an emptied hash or #about does not reset anything', () => {
+  test('#about does not reset anything; an emptied hash is the bare address, so the defaults', () => {
     const t = setup('', linked);
     t.share.start();
-    for (const h of ['', '#', '#about']) {
+    t.setHash('#about');
+    t.share.onHashChange();
+    expect(t.store.get().parts).toEqual(linked.parts);
+    for (const h of ['', '#']) {
+      t.store.set({ parts: linked.parts });
       t.setHash(h);
       t.share.onHashChange();
-      expect(t.store.get().parts).toEqual(linked.parts);
+      expect(t.store.get().parts).toEqual(defaultState().parts);
     }
   });
 });
@@ -464,6 +468,27 @@ describe('history: push for parts, replace for the rest', () => {
     expect(t.cancel).toHaveBeenCalled();
     t.fire();
     expect(t.pushed).toEqual([]);
+  });
+
+  test('Back to a bare-address entry restores the default state', () => {
+    const t = started('');
+    t.store.set({ parts: vanillaParts('441') });
+    t.fire();
+    expect(t.pushed).toHaveLength(1);
+    for (const bare of ['', '#']) {
+      t.store.set({ parts: vanillaParts('441') });
+      t.setHash(bare);
+      t.share.onHashChange();
+      expect(t.store.get().parts).toEqual(defaultState().parts);
+    }
+  });
+
+  test('flush on the way out replaces, never pushes', () => {
+    const t = started();
+    t.store.set({ parts: vanillaParts('441') });
+    t.share.flush();
+    expect(t.pushed).toEqual([]);
+    expect(t.replaced).toEqual([encodeHash({ ...defaultState(), parts: vanillaParts('441') })]);
   });
 
   test('restoring on load never pushes', () => {

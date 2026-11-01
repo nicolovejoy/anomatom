@@ -429,7 +429,8 @@ export const copy = {
   linkCopied: 'Link copied',
   linkNotCopied: 'Link not copied',
   /** The wordmark is a button: it asks before starting over. */
-  wordmarkLabel: 'anomatom: start over',
+  /** Read after the site name inside the wordmark button, for screen readers. */
+  wordmarkHint: 'start over',
   resetQuestion: 'Start over?',
   resetConfirm: 'Reset',
   resetCancel: 'Cancel',

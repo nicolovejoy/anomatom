@@ -8,10 +8,10 @@
 //   `#about`, and is junk otherwise: junk loads the defaults (never throws).
 // - Every change to the parts, ratio, tempo or Mapping rewrites the hash after
 //   `SHARE.hashDebounceMs` of quiet, except while About is showing. A write that follows a change
-//   to the parts is a `pushState` (a new history entry, so Back returns to the old pattern);
+//   to the parts is a `pushState` (except `flush`, on the way out, which replaces) (a new history entry, so Back returns to the old pattern);
 //   every other write replaces the current entry. Two parts edits inside one quiet period push once.
 // - A `popstate` (Back, Forward) restores like a pasted link, and drops any write still waiting:
-//   the entry the person went to is the truth now. A restore never writes a new entry.
+//   the entry the person went to is the truth now (an entry with no hash is the defaults). A restore never writes a new entry.
 // - `lastStateHash` in the store is kept current at once (About's back link), not debounced. It
 //   rides in the same `store.set` as the change it follows (a `store.derive` deriver),
 //   so listeners run once per change, not twice.
@@ -89,10 +89,10 @@ export function createShare(deps: ShareDeps) {
   /** Set while a restore sets the store: the change comes from the hash, not from the person. */
   let restoring = false;
 
-  function write() {
+  function write(asReplace = false) {
     if (pending) deps.cancel(timer);
     pending = false;
-    const asPush = push;
+    const asPush = push && !asReplace;
     push = false;
     // About owns the hash while it shows; the back link holds the state.
     if (route(deps.hash()).view === 'about') return;
@@ -102,10 +102,12 @@ export function createShare(deps: ShareDeps) {
     else deps.replaceHash(hash);
   }
 
-  function restore() {
+  /** `fromHistory`: Back or Forward to an entry with no hash is the bare address, so the defaults. */
+  function restore(fromHistory = false) {
     const hash = deps.hash();
     const { view, state, version } = route(hash);
-    if (view === 'about' || hash === '' || hash === '#') return;
+    if (view === 'about') return;
+    if ((hash === '' || hash === '#') && !fromHistory) return;
     const decoded = state === null ? null : decodeState(state, version ?? 2);
     const d = defaultState();
     const target: Shared = {
@@ -129,7 +131,7 @@ export function createShare(deps: ShareDeps) {
     if (pending) deps.cancel(timer);
     pending = false;
     push = false;
-    restore();
+    restore(true);
   }
 
   return {
@@ -154,7 +156,7 @@ export function createShare(deps: ShareDeps) {
     onHashChange: arrive,
     /** Writes the hash now, if a write is waiting (the page is going away). */
     flush() {
-      if (pending) write();
+      if (pending) write(true);
     },
   };
 }
