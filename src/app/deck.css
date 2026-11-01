@@ -1,0 +1,304 @@
+/* The deck (docs/plans/v4-deck.md): the transport bar, the sound row and the pattern wheel.
+   Square and minimal (ruling 5): no rounding, 1px rules. Where each part sits in the page is in
+   style.css; the wheel's row height and row count come from DECK via --deck-row, --deck-rows. */
+.deck {
+  background: var(--surface);
+}
+.deck *,
+.deck *::before,
+.deck *::after {
+  border-radius: 0;
+}
+
+/* The transport bar: Play, ‹, the pattern, ›, then mute and volume. */
+.deck-bar {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  min-height: 52px;
+  padding: 6px 10px;
+  border-top: 1px solid var(--rule);
+  background: var(--surface);
+}
+.deck button {
+  border: 0;
+  background: transparent;
+  color: var(--text);
+}
+.deck-play {
+  flex: none;
+  width: 44px;
+  height: 40px;
+  margin-right: 4px;
+  display: grid;
+  place-items: center;
+  background: var(--accent) !important;
+  color: var(--ground) !important;
+}
+.deck-play .icon-pause,
+.deck-play[data-state='playing'] .icon-play {
+  display: none;
+}
+.deck-play[data-state='playing'] .icon-pause {
+  display: block;
+}
+.deck-arrow {
+  flex: none;
+  width: 36px;
+  height: 40px;
+  display: grid;
+  place-items: center;
+}
+.deck-arrow svg {
+  width: 22px;
+  height: 22px;
+}
+.deck-arrow:hover,
+.deck-pattern:hover,
+.deck-mute:hover {
+  background: var(--raised) !important;
+}
+.deck-pattern {
+  /* As wide as its text and no wider, so ‹ and › bracket the name; the volume takes the rest. */
+  flex: 0 1 auto;
+  max-width: 420px;
+  min-width: 0;
+  min-height: 40px;
+  padding: 2px 6px;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  text-align: left;
+  line-height: 1.2;
+}
+.deck-notation {
+  font: 500 16px var(--font-mono);
+  white-space: pre;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.deck-pattern.invalid .deck-notation {
+  color: var(--warn);
+}
+/* A long pattern (SHEET.longSummaryChars or more) is drawn smaller on a phone. */
+#app:not(.is-wide) .deck-pattern.long .deck-notation {
+  font-size: 12px;
+}
+/* The second line: the name gives way first; the ball count and "next cycle" always show. */
+.deck-line {
+  display: flex;
+  align-items: baseline;
+  min-width: 0;
+  font-size: 12px;
+  white-space: nowrap;
+}
+.deck-sub {
+  display: flex;
+  min-width: 0;
+  color: var(--muted);
+}
+.deck-name {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.deck-dot,
+.deck-meta,
+.deck-pending {
+  flex: none;
+}
+.deck-dot {
+  white-space: pre;
+}
+.deck-meta {
+  color: var(--valid);
+}
+.deck-pattern.invalid .deck-meta {
+  color: var(--warn-text);
+}
+.deck-pending {
+  margin-left: 6px;
+  color: var(--accent);
+}
+.deck-volume {
+  flex: none;
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  margin-left: auto;
+}
+.deck-mute {
+  width: 36px;
+  height: 40px;
+  display: grid;
+  place-items: center;
+  color: var(--text-2) !important;
+}
+.deck-mute .icon-off,
+.deck-mute.muted .icon-on {
+  display: none;
+}
+.deck-mute.muted .icon-off {
+  display: block;
+}
+.deck-mute.muted {
+  color: var(--warn-text) !important;
+}
+.deck-volume .slider {
+  width: 76px;
+}
+@media (max-width: 419px) {
+  .deck-volume .slider {
+    width: 52px;
+  }
+}
+
+/* The sound row: Kit, Sound, Details. */
+.deck-sound {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) auto;
+  border-top: 1px solid var(--rule);
+  background: var(--surface);
+}
+.deck-field {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  padding: 4px 12px 6px;
+  border-right: 1px solid var(--rule);
+}
+.deck-k {
+  font-size: 10px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+.deck-field select {
+  min-width: 0;
+  height: 28px;
+  padding: 0 18px 0 0;
+  border: 0;
+  /* WebKit rounds a native select whatever its border-radius; drawn by hand, it stays square. */
+  -webkit-appearance: none;
+  appearance: none;
+  background: transparent url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath d='M2 4l4 4 4-4' fill='none' stroke='%238b93a1' stroke-width='1.6'/%3E%3C/svg%3E") no-repeat right 2px center;
+  font-size: 14px;
+  text-overflow: ellipsis;
+}
+.deck-details {
+  padding: 0 16px;
+  min-height: 44px;
+  color: var(--text-2) !important;
+  font-size: 14px;
+}
+#app.is-wide .deck-details {
+  display: none;
+}
+#app.is-wide .deck-sound {
+  grid-area: sound;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  border-top: 0;
+  border-bottom: 1px solid var(--rule);
+}
+#app.is-wide .deck-field:last-of-type {
+  border-right: 0;
+}
+#app.is-wide .deck-bar {
+  grid-area: bar;
+}
+
+/* The wheel: a vertical scroll-snap list, seven rows tall, the middle row in a band. Over the
+   stage on a phone (mount-deck.ts places it); in the column on a tall wide screen. */
+.deck-wheel {
+  position: absolute;
+  z-index: 5;
+  height: calc(var(--deck-row) * var(--deck-rows));
+  overflow: hidden;
+  background: var(--surface);
+  border-top: 1px solid var(--rule);
+  border-bottom: 1px solid var(--rule);
+}
+#app.deck-docked .deck-wheel {
+  position: relative;
+  grid-area: wheel;
+  border-top: 0;
+}
+.deck-wheel::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: calc(var(--deck-row) * (var(--deck-rows) - 1) / 2);
+  height: var(--deck-row);
+  border-top: 1px solid var(--handle);
+  border-bottom: 1px solid var(--handle);
+  pointer-events: none;
+}
+.deck-wheel::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background: linear-gradient(var(--surface), transparent 30%, transparent 70%, var(--surface));
+}
+.deck-wheel-list {
+  list-style: none;
+  margin: 0;
+  padding: calc(var(--deck-row) * (var(--deck-rows) - 1) / 2) 0;
+  height: 100%;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  scroll-snap-type: y mandatory;
+  scrollbar-width: none;
+}
+.deck-wheel-list::-webkit-scrollbar {
+  display: none;
+}
+.deck-wheel-list li {
+  height: var(--deck-row);
+  scroll-snap-align: center;
+}
+.deck-row {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 0 14px;
+  color: var(--muted) !important;
+  font-size: 13px;
+  white-space: nowrap;
+  text-align: left;
+}
+.deck-row code {
+  flex: 0 0 auto;
+  min-width: 96px;
+  font: 14px var(--font-mono);
+  color: var(--text);
+}
+.deck-row-name {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.deck-row em {
+  margin-left: auto;
+  font-style: normal;
+  font-size: 10px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--handle);
+}
+.deck-row:focus-visible {
+  outline-offset: -2px;
+}
+.deck-row.in-band,
+.deck-row.on {
+  color: var(--text) !important;
+}
+.deck-row.on code {
+  color: var(--accent);
+}
+.deck-own .deck-row-name {
+  color: var(--accent);
+}

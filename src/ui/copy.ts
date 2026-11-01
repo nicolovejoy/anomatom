@@ -30,17 +30,6 @@ export const copy = {
   stop: 'Stop',
   valid: (balls: number) => `I have ${balls} ball${balls === 1 ? '' : 's'}.`,
   oneHandHint: 'When the ratio isn’t 1:1, a digit counts that hand’s own beats, so 2 is my two-ball fountain, not a hold.',
-  /** Two plain definitions under the knobs, for a reader who has never met siteswap. */
-  glossary: [
-    {
-      term: 'Pattern',
-      text: 'I read siteswap, the jugglers’ notation. Each digit is one throw, and the number says how many beats it stays in the air. 3 is the three-ball cascade; 441 and 531 are classics.',
-    },
-    {
-      term: 'Ratio',
-      text: 'How fast my two hands beat against each other. At 1:1 they alternate. At 3:2, hand 1 takes three beats while hand 2 takes two, and each hand reads its own pattern.',
-    },
-  ],
   parseError(error: ParseError): string {
     switch (error.kind) {
       case 'empty':
@@ -217,10 +206,10 @@ export const copy = {
       ],
     },
   ] as readonly { heading: string; paragraphs: readonly string[] }[],
-  aboutPresetsHeading: 'Where the cards come from',
+  aboutPresetsHeading: 'Where the patterns come from',
   aboutPresets: [
-    'Every card is a pattern jugglers already know, and I play it on the tempo you set. The names are the ones Juggling Lab, the Library of Juggling and Wikipedia’s list of siteswaps use. Where I found no name for a pattern, the card says what it is instead.',
-    'I play every card on a Roland TR-808 unless you pick another kit. The passing cards give each juggler a kit of their own.',
+    'Every pattern on my wheel is one jugglers already know, and I play it on the tempo you set. The names are the ones Juggling Lab, the Library of Juggling and Wikipedia’s list of siteswaps use. Where I found no name for a pattern, the wheel says what it is instead.',
+    'I play every pattern on a Roland TR-808 unless you pick another kit. The passing patterns give each juggler a kit of their own.',
   ],
   aboutColotomyHeading: 'A note on the gong cycle',
   aboutColotomy: [
@@ -244,7 +233,6 @@ export const copy = {
   // -------------------------------------------------------------------------------------------
 
   pause: 'Pause',
-  spacePlayPause: 'Space plays and pauses me, except while you type a pattern.',
   /** The digit pad beside the pattern inputs. */
   digitPadLabel: 'Type a throw',
   crossKey: 'x',
@@ -307,8 +295,6 @@ export const copy = {
       : hands.length === 2
         ? 'Reset both hands to 1 ball each'
         : `Reset hands ${andList(hands.map((h) => String(h + 1)))} to 1 ball each`,
-  rhythmHint:
-    'Rate is how many beats a hand plays while a rate-1 hand plays one. Steps is how many beats before its line repeats; tap a step to throw on it or rest. Phase moves a hand later, a pulse at a time. Balls is how many I keep in the air over the same hits. Hits spreads that many throws evenly over the steps.',
   fixesNone: 'I found no pattern nearby that I can juggle.',
   fixLabel: (texts: readonly string[]) => texts.join(' / '),
   /** The samples, beside Play. Loading is quiet; failed says what it means for the reader and offers the retry. */
@@ -347,7 +333,6 @@ export const copy = {
   sheetGrabClose: 'Close the knobs',
   /** The closed sheet's summary: the pattern, then what it is. Opens the Pattern tab. */
   summaryOpen: 'Edit the pattern',
-  summaryMeta: (balls: number, bpm: number) => `${balls} ball${balls === 1 ? '' : 's'} · ${bpm} bpm`,
   summaryBalls: (balls: number) => `${balls} ball${balls === 1 ? '' : 's'}`,
   summaryCantJuggle: 'can’t juggle',
   summaryEmpty: '–',
@@ -407,7 +392,6 @@ export const copy = {
   panLabel: (part: number) => `Part ${part + 1} pan`,
   gainLabel: (part: number) => `Part ${part + 1} gain`,
   /** Design §7: the sound does not follow the ball count unless the preset reads flight length. */
-  soundBallCountNote: 'Ball count changes the picture, not the sound, unless a preset reads throw height.',
   catchesHeading: 'Catches',
   catchesOn: 'Play a sound on each catch',
   catchSoundLabel: 'Catch sound',
@@ -423,8 +407,6 @@ export const copy = {
   padInstrumentLabel: 'Pad instrument',
   padChordLabel: 'Chord',
   resetToPreset: 'Reset to preset',
-  /** The sheet's way back to the card screen: an icon button with this as its accessible name, at every width. */
-  patternsLabel: 'Patterns',
   shareLabel: 'Share this pattern',
   linkCopied: 'Link copied',
   linkNotCopied: 'Link not copied',
@@ -436,29 +418,34 @@ export const copy = {
   resetCancel: 'Cancel',
 
   // -------------------------------------------------------------------------------------------
-  // Phone sheet, stream B: first minute
+  // v4 D1: the deck (docs/plans/v4-deck.md): the transport bar, the sound row and the wheel
   // -------------------------------------------------------------------------------------------
 
-  firstMinute: {
-    line: 'I juggle a pattern and play every throw as a drum. Pick one.',
-    playingSuffix: ' · playing',
+  deck: {
+    label: 'Player',
+    /** Between the name and the ball count under the notation. */
+    dot: ' · ',
+    previous: 'Previous pattern',
+    next: 'Next pattern',
+    /** The pattern button: on a phone it opens the wheel. */
+    choose: (pattern: string, name: string) => `${pattern}, ${name}. Choose a pattern`,
+    mute: 'Mute',
+    unmute: 'Unmute',
+    kit: 'Kit',
+    sound: 'Sound',
+    /** Kit when the jugglers' kits differ; Sound when the mapping is hand-made. */
+    mixed: 'Mixed',
+    custom: 'Custom',
+    details: 'Details',
+    /** Starts with the visible word, so a voice command "click Details" finds it (WCAG 2.5.3). */
+    detailsLabel: 'Details, all sound settings',
+    wheelLabel: 'Patterns',
     makeYourOwn: 'Make your own',
-    pause: 'Pause',
-    /** Group headings on the card screen, in screen order. */
-    groups: { '3': '3 balls', '4': '4 balls', '5': '5 balls', passing: 'Passing' } as Record<string, string>,
-    /** The now-playing strip above the bar. */
-    strip: {
-      label: 'Now playing controls',
-      kit: 'Kit',
-      sound: 'Sound',
-      tempo: 'Tempo',
-      mixed: 'Mixed',
-      custom: 'Custom',
-      slower: 'Slower',
-      faster: 'Faster',
-      allSound: 'All sound settings',
-    },
-    cardLabel: (pattern: string, name: string, playing: boolean) => `${pattern}, ${name}${playing ? ', playing' : ''}`,
+    /** The transport bar's name line for a pattern that is no preset. */
+    yourOwn: 'Your pattern',
+    jugglers: (n: number) => `${n} juggler${n === 1 ? '' : 's'}`,
+    /** The tag at the right of a wheel row. */
+    groupTags: { '3': '3', '4': '4', '5': '5', passing: 'Pass' } as Record<'3' | '4' | '5' | 'passing', string>,
   },
 
   // -------------------------------------------------------------------------------------------

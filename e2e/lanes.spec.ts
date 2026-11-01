@@ -19,7 +19,8 @@ async function setRate(page: Page, h: number, target: number) {
 
 test('lanes: add a hand, rates 3:4:5, toggle cells, remove a hand, the link round trip', async ({ page }) => {
   await page.goto('/');
-  await page.locator('.fm-own').click();
+  // The bare address opens the wheel on a phone; its last row is Make your own.
+  await page.locator('.deck-own').click();
   await openTab(page, 'rhythm');
   const lanes = page.locator('.lane:visible');
   await expect(lanes).toHaveCount(2);

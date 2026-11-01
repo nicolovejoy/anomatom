@@ -4,9 +4,9 @@
 // close it. On a wide screen it is a column on the right, always open on a tab.
 //
 // `AppState.sheetTab` holds the open tab; this mount is its only reader, and it writes it from
-// the tabs and the handle (the summary button in mount-knobs.ts and "Make your own" write it
-// too). The panels' content comes from mount-knobs.ts (Pattern, Rhythm, and the head with
-// the summary and Play) and mount-sound-panel.ts (Sound). The logic is in sheet-model.ts.
+// the tabs and the handle (the deck's Details and "Make your own" write it too). The panels'
+// content comes from mount-knobs.ts (Pattern, Rhythm, and the head with Stop and the time
+// slider) and mount-sound-panel.ts (Sound, tempo first). The logic is in sheet-model.ts.
 import { SHEET } from '../tunables';
 import { copy } from '../ui/copy';
 import type { Mount } from './mount';
@@ -30,6 +30,7 @@ export const mountSheet: Mount = (root, { store }) => {
   const landscapeQuery = window.matchMedia(
     `(max-width: ${SHEET.wideMinWidthPx - 1}px) and (max-height: ${SHEET.landscape.maxHeightPx}px) and (orientation: landscape)`,
   );
+  const shortQuery = window.matchMedia(`(max-height: ${SHEET.landscape.maxHeightPx}px)`);
   let last: SheetTab = 'pattern';
   app.style.setProperty('--sheet-column', `${SHEET.columnPx}px`);
   app.style.setProperty('--sheet-landscape-column', `${SHEET.landscape.columnPx}px`);
@@ -44,7 +45,7 @@ export const mountSheet: Mount = (root, { store }) => {
     app.classList.toggle('is-wide', wide);
     app.classList.toggle('is-landscape', landscape);
     app.classList.toggle('sheet-open', shown !== null);
-    app.style.setProperty('--ladder-height', `${ladderHeightPx(wide, landscape, shown)}px`);
+    app.style.setProperty('--ladder-height', `${ladderHeightPx(wide, landscape, shown, shortQuery.matches)}px`);
     TABS.forEach((t, i) => {
       const tab = tabs[i] as HTMLButtonElement;
       const on = t === shown;
@@ -101,16 +102,19 @@ export const mountSheet: Mount = (root, { store }) => {
     setTab(dragEnd(store.get().sheetTab, last, 0, SHEET.dragPx));
   });
 
-  // Escape closes the phone sheet; focus goes back to the summary that opens it.
+  // Escape closes the phone sheet; focus goes back to the deck's Details, or Play.
   document.addEventListener('keydown', (e) => {
     if (e.key !== 'Escape' || wideQuery.matches || store.get().sheetTab === null) return;
     const hadFocus = root.contains(document.activeElement);
     setTab(null);
-    if (hadFocus) (root.querySelector('.summary') as HTMLButtonElement | null)?.focus();
+    if (!hadFocus) return;
+    const details = document.querySelector<HTMLButtonElement>('.deck-details');
+    (details && details.offsetParent !== null ? details : document.getElementById('play'))?.focus();
   });
 
   wideQuery.addEventListener('change', render);
   landscapeQuery.addEventListener('change', render);
+  shortQuery.addEventListener('change', render);
   store.subscribe((state, previous) => {
     if (state.sheetTab !== previous.sheetTab) render();
   });

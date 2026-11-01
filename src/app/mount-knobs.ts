@@ -1,27 +1,22 @@
 // The knob panel (SPEC §4.1) and the fix state (SPEC §4.2), laid out in the sheet
-// (docs/plans/phone-sheet.md): the sheet's head (the summary that opens the Pattern tab, Play,
-// and Stop with the time slider while paused), the Pattern tab and the Rhythm tab. Its root is
-// the sheet; it fills the slots main.ts lays out. The knobs write to the store; the store is the
-// one source of truth for pattern text, ratio, tempo and volume, and this panel re-reads it on
-// every change (an edit here, or a restored share link). The logic is in knobs-model.ts and
-// sheet-model.ts; this file is elements and events.
-//
-// Space toggles play from anywhere (one capturing handler, at the bottom), with two
-// exemptions: a pattern text input, where Space types the space that separates throws at other
-// ratios than 1:1; and any control that uses Space itself (keepsSpace in sheet-model.ts: a
-// select, a text or number input, a textarea). Ranges, checkboxes and buttons hand Space to
-// play and pause.
+// (docs/plans/phone-sheet.md): the sheet's head (Stop with the time slider while paused, and the
+// sound status), the Pattern tab and the Rhythm tab. Its root is the sheet; it fills the slots
+// main.ts lays out. The knobs write to the store; the store is the one source of truth for
+// pattern text and ratio, and this panel re-reads it on every change (an edit here, or a
+// restored share link). It hands every new schedule or tempo to the player. Play, Space, tempo
+// and volume moved out in v4 (docs/plans/v4-deck.md): Play and the keys to mount-deck.ts, tempo
+// to the Sound tab. The logic is in knobs-model.ts and sheet-model.ts; this file is elements and
+// events.
 import type { Schedule } from '../core';
-import { BPM_RANGE, KNOBS, MAX_EDITOR_PARTS, MAX_LANES, MAX_PERIOD, MAX_RATIO, RATIO_CHIPS, SHEET } from '../tunables';
+import { KNOBS, MAX_EDITOR_PARTS, MAX_LANES, MAX_PERIOD, MAX_RATIO, RATIO_CHIPS } from '../tunables';
 import { copy } from '../ui/copy';
 import type { PlayerView } from '../view/types';
 import { inputPerPart, type Action } from './actions';
 import { derived } from './derived';
-import { cardsPatch } from './first-minute';
+import { start as startPlayer } from './deck-model';
 import {
   analyse,
   badChar,
-  clampBpm,
   cyclePosition,
   cycleSamples,
   draftAction,
@@ -29,7 +24,6 @@ import {
   editText,
   fixActions,
   fixLabel,
-  hand2Bpm,
   handState,
   inputText,
   joinAction,
@@ -61,7 +55,7 @@ import {
 } from './lanes-model';
 import { cellColumns, focusAfterAdd, focusAfterRemove, laneDot, playheadSteps, ratioChipsShown, voiceName } from './lanes-view';
 import type { Mount } from './mount';
-import { fillPercent, hasChip, keepsSpace, summary, tempoLines } from './sheet-model';
+import { fillPercent, hasChip } from './sheet-model';
 import type { AppState } from './state';
 import './knobs.css';
 
@@ -136,29 +130,6 @@ export const mountKnobs: Mount = (root, { store, player, sound }) => {
   const slot = <T extends Element>(selector: string) => root.querySelector(selector) as T;
   root.style.setProperty('--selected', KNOBS.selected);
   slot<HTMLDivElement>('.sheet-head').innerHTML = `
-    <div class="head-row">
-      <button type="button" id="patterns" class="patterns" aria-label="${copy.patternsLabel}">
-        <svg aria-hidden="true" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="4" width="7" height="7" rx="1.5"/><rect x="13" y="4" width="7" height="7" rx="1.5"/><rect x="4" y="13" width="7" height="7" rx="1.5"/><rect x="13" y="13" width="7" height="7" rx="1.5"/></svg>
-      </button>
-      <button type="button" class="summary" aria-controls="panel-pattern">
-        <span class="summary-text"></span>
-        <span class="summary-side">
-          <span class="summary-meta"></span>
-          <span id="pending" class="pending" hidden>${copy.nextCycle}</span>
-        </span>
-      </button>
-      <div class="share-wrap">
-      <button id="share" type="button" class="share" aria-label="${copy.shareLabel}">
-        <svg aria-hidden="true" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 15V3"/><path d="M7 8l5-5 5 5"/><path d="M5 12v7a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-7"/></svg>
-      </button>
-        <span id="share-status" class="share-status" role="status" aria-live="polite"></span>
-      </div>
-      <button id="play" type="button" class="play">
-        <svg class="icon-play" aria-hidden="true" width="24" height="24" viewBox="0 0 24 24"><path d="M7 4l13 8-13 8z" fill="currentColor"/></svg>
-        <svg class="icon-pause" aria-hidden="true" width="22" height="22" viewBox="0 0 24 24"><rect x="5" y="4" width="5" height="16" fill="currentColor"/><rect x="14" y="4" width="5" height="16" fill="currentColor"/></svg>
-        <span class="sr-only play-label">${copy.play}</span>
-      </button>
-    </div>
     <div class="row paused-row" hidden>
       <button id="stop" type="button" disabled>${copy.stop}</button>
       <input id="scrub" class="slider" type="range" min="0" max="${KNOBS.scrubSteps}" step="1" value="0" disabled aria-label="${copy.scrubLabel}" />
@@ -205,10 +176,6 @@ export const mountKnobs: Mount = (root, { store, player, sound }) => {
         <button id="swap" type="button" disabled>${copy.swap}</button>
         <span class="hint swap-note">${copy.swapHint}</span>
       </div>
-      <p class="hint space-hint">${copy.spacePlayPause}</p>
-      <dl class="glossary">
-        ${copy.glossary.map((g) => `<dt>${g.term}</dt><dd>${g.text}</dd>`).join('')}
-      </dl>
     </form>
   `;
   slot<HTMLDivElement>('#panel-rhythm').innerHTML = `
@@ -234,20 +201,6 @@ export const mountKnobs: Mount = (root, { store, player, sound }) => {
         </div>
         <button type="button" class="add-lane"><span class="add-plus" aria-hidden="true">${copy.stepUp}</span>${copy.addLane}</button>
         <p class="rhythm-notice" role="status"></p>
-        <p class="hint rhythm-hint">${copy.rhythmHint}</p>
-      </div>
-      <div class="group tempo">
-        <div class="tempo-head">
-          <label class="section-label" for="bpm">${copy.tempoLabel}</label>
-          <span class="bpm-readout"><input id="bpm" type="number" inputmode="numeric" min="${BPM_RANGE.min}" max="${BPM_RANGE.max}" step="1" /><span class="unit">${copy.bpmUnit}</span></span>
-        </div>
-        <input id="tempo" class="slider" type="range" min="${BPM_RANGE.min}" max="${BPM_RANGE.max}" step="1" aria-label="${copy.tempoLabel}" />
-        <div class="tempo-hands" aria-hidden="true"><span></span><span></span></div>
-        <p class="sr-only tempo-both"></p>
-      </div>
-      <div class="group">
-        <label class="section-label" for="volume">${copy.volumeLabel}</label>
-        <input id="volume" class="slider" type="range" min="0" max="1" step="${KNOBS.volumeStep}" />
       </div>
     </form>
   `;
@@ -255,9 +208,6 @@ export const mountKnobs: Mount = (root, { store, player, sound }) => {
   const $ = <T extends Element>(selector: string) => root.querySelector(selector) as T;
   const forms = Array.from(root.querySelectorAll<HTMLFormElement>('form.knobs'));
   const patternForm = $<HTMLFormElement>('.knobs-pattern');
-  const summaryButton = $<HTMLButtonElement>('.summary');
-  const summaryText = $<HTMLSpanElement>('.summary-text');
-  const summaryMeta = $<HTMLSpanElement>('.summary-meta');
   const rows = INPUTS.map((h) => $<HTMLDivElement>(`.pattern-row[data-hand="${h}"]`));
   const labels = rows.map((r) => r.querySelector('label') as HTMLLabelElement);
   const inputs = rows.map((r) => r.querySelector('input') as HTMLInputElement);
@@ -274,19 +224,11 @@ export const mountKnobs: Mount = (root, { store, player, sound }) => {
   const moreButton = $<HTMLButtonElement>('.chip-more');
   const steppersBox = $<HTMLDivElement>('#ratio-steppers');
   const steppers = HANDS.map((h) => $<HTMLSpanElement>(`.stepper[data-hand="${h}"]`));
-  const tempo = $<HTMLInputElement>('#tempo');
-  const bpmInput = $<HTMLInputElement>('#bpm');
-  const tempoHands = Array.from(root.querySelectorAll<HTMLSpanElement>('.tempo-hands span'));
-  const tempoBoth = $<HTMLParagraphElement>('.tempo-both');
   const swapButton = $<HTMLButtonElement>('#swap');
   const swapNote = $<HTMLSpanElement>('.swap-note');
-  const playButton = $<HTMLButtonElement>('#play');
-  const playLabel = $<HTMLSpanElement>('.play-label');
   const stopButton = $<HTMLButtonElement>('#stop');
   const pausedRow = $<HTMLDivElement>('.paused-row');
-  const pending = $<HTMLSpanElement>('#pending');
   const scrub = $<HTMLInputElement>('#scrub');
-  const volume = $<HTMLInputElement>('#volume');
   const soundStatus = $<HTMLDivElement>('.sound-status');
   const soundStatusText = $<HTMLSpanElement>('.sound-status-text');
   const soundRetry = $<HTMLButtonElement>('#sound-retry');
@@ -574,13 +516,6 @@ export const mountKnobs: Mount = (root, { store, player, sound }) => {
       (stepper.querySelector('[data-delta="-1"]') as HTMLButtonElement).disabled = value <= 1;
       (stepper.querySelector('[data-delta="1"]') as HTMLButtonElement).disabled = value >= MAX_RATIO;
     });
-    tempo.value = String(state.bpm);
-    fill(tempo);
-    if (document.activeElement !== bpmInput) bpmInput.value = String(state.bpm);
-    tempoBoth.textContent = copy.tempoBoth(state.bpm, hand2Bpm(state.bpm, state.ratio), vanilla);
-    tempoLines(state.bpm, state.ratio).forEach((line, i) => ((tempoHands[i] as HTMLSpanElement).textContent = line));
-    volume.value = String(state.volume);
-    fill(volume);
 
     if (patternsChanged) {
       // Sites index the old text; a new text starts the choice over.
@@ -597,12 +532,6 @@ export const mountKnobs: Mount = (root, { store, player, sound }) => {
     if (!previous || schedule !== derived(previous).schedule || state.mapping !== previous.mapping) {
       root.dataset.cycleSamples = cycleSamples(schedule, state.mapping);
     }
-    const sum = summary(analysis, state.bpm, SHEET.longSummaryChars);
-    summaryText.textContent = sum.text;
-    summaryMeta.textContent = sum.meta;
-    summaryButton.classList.toggle('long', sum.long);
-    summaryButton.classList.toggle('invalid', !sum.valid);
-    if (state.volume !== previous?.volume) sound.setMaster(state.volume);
   }
 
   // -------------------------------------------------------------------------------------------
@@ -611,9 +540,6 @@ export const mountKnobs: Mount = (root, { store, player, sound }) => {
 
   /** Brings the transport controls in line with the player. Play is never disabled: a pattern I can't juggle still sounds (design §6). */
   function sync(state: PlayerView['state'] = player.view().state) {
-    const playing = state === 'playing';
-    playLabel.textContent = playing ? copy.pause : copy.play;
-    playButton.dataset.state = state;
     stopButton.disabled = state === 'stopped';
     scrub.disabled = state !== 'paused';
     // Stop and the time slider are for a paused cycle; playing, the sheet stays as small as it can.
@@ -633,21 +559,10 @@ export const mountKnobs: Mount = (root, { store, player, sound }) => {
   soundRetry.addEventListener('click', () => sound.retry());
   showSoundStatus();
 
-  /** Starts from stopped, or resumes from paused. */
+  /** Starts from stopped, or resumes from paused (Enter in a pattern input). */
   function start() {
-    if (player.view().state === 'paused') player.resume();
-    else if (!player.playing()) {
-      const { mapping, bpm } = store.get();
-      player.play(schedule, mapping, bpm);
-    }
+    startPlayer(player, store.get());
     sync();
-  }
-
-  function toggle() {
-    if (player.playing()) {
-      player.pause();
-      sync();
-    } else start();
   }
 
   function stop() {
@@ -664,13 +579,9 @@ export const mountKnobs: Mount = (root, { store, player, sound }) => {
     if (pos) player.scrub((Number(scrub.value) / KNOBS.scrubSteps) * pos.cycle);
   });
 
-  playButton.addEventListener('click', toggle);
   stopButton.addEventListener('click', stop);
   // Enter never submits the form (there is no submit button); a pattern input handles it below.
   for (const form of forms) form.addEventListener('submit', (e) => e.preventDefault());
-  summaryButton.addEventListener('click', () => store.set({ sheetTab: 'pattern' }));
-  // The way back to the card screen over the current state; playback carries on.
-  $<HTMLButtonElement>('#patterns').addEventListener('click', () => store.set(cardsPatch(true)));
 
   // -------------------------------------------------------------------------------------------
   // Pattern inputs, the digit pad, swap
@@ -774,7 +685,7 @@ export const mountKnobs: Mount = (root, { store, player, sound }) => {
   });
 
   // -------------------------------------------------------------------------------------------
-  // Ratio, tempo, volume
+  // Ratio
   // -------------------------------------------------------------------------------------------
 
   for (const chip of chips) {
@@ -867,65 +778,12 @@ export const mountKnobs: Mount = (root, { store, player, sound }) => {
     render(store.get(), store.get());
   });
 
-  tempo.addEventListener('input', () => store.dispatch({ type: 'setBpm', bpm: Number(tempo.value) }));
-  /** The tempo box commits on change and on Enter, and always shows the tempo in force after. */
-  const commitBpm = () => {
-    const bpm = clampBpm(bpmInput.valueAsNumber);
-    if (bpm !== null) store.dispatch({ type: 'setBpm', bpm });
-    bpmInput.value = String(store.get().bpm);
-  };
-  bpmInput.addEventListener('change', commitBpm);
-  bpmInput.addEventListener('keydown', (e) => {
-    if (e.key !== 'Enter' || e.isComposing) return;
-    e.preventDefault();
-    commitBpm();
-  });
-  volume.addEventListener('input', () => store.set({ volume: Number(volume.value) }));
-
-  // -------------------------------------------------------------------------------------------
-  // Space
-  // -------------------------------------------------------------------------------------------
-
-  // Space plays and pauses, wherever focus is. Captured before a focused control sees it, so a
-  // button does not activate (a ratio chip clicked earlier keeps focus); buttons activate on
-  // keyup in some browsers, so that is suppressed too. Exempt: a pattern text input, where
-  // Space types a space (the separator at other ratios than 1:1), and any control inside
-  // keepsSpace.
-  const isSpace = (e: KeyboardEvent) =>
-    e.code === 'Space' &&
-    !e.ctrlKey &&
-    !e.metaKey &&
-    !e.altKey &&
-    !e.isComposing &&
-    !(
-      e.target instanceof Element &&
-      (e.target.closest('.pattern-field') !== null ||
-        keepsSpace(e.target.tagName, e.target instanceof HTMLInputElement ? e.target.type : null))
-    );
-  document.addEventListener(
-    'keydown',
-    (e) => {
-      if (!isSpace(e)) return;
-      e.preventDefault();
-      if (!e.repeat) toggle();
-    },
-    { capture: true },
-  );
-  document.addEventListener(
-    'keyup',
-    (e) => {
-      if (isSpace(e)) e.preventDefault();
-    },
-    { capture: true },
-  );
-
   store.subscribe((state, previous) => render(state, previous));
   render(store.get(), null);
 
   return {
     draw(view) {
       if (view.state !== shownState) sync(view.state);
-      pending.hidden = !view.pending;
       drawPlayhead(view);
       if (scrubbing && view.state === 'paused') return;
       const pos = view.state === 'paused' ? player.scrubPosition() : view.state === 'playing' ? cyclePosition(view) : null;

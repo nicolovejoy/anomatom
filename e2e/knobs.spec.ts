@@ -53,6 +53,8 @@ test('ratio chips, steppers, tempo for both hands, and the accent at 3:2', async
   await expect(page.locator('.chip[aria-pressed="true"]')).toHaveCount(0);
   await page.locator('.chip-more').click();
   await expect(page.locator('#ratio-steppers')).toBeVisible();
+  // Tempo is the Sound tab's first group (v4).
+  await openTab(page, 'sound');
   await page.locator('#bpm').fill('90');
   await page.locator('#bpm').press('Tab');
   await expect(page.locator('.tempo-both')).toHaveText('Hand 1 beats at 90 bpm, hand 2 at 54.');
@@ -62,6 +64,7 @@ test('ratio chips, steppers, tempo for both hands, and the accent at 3:2', async
   await expect(page.locator('.tempo-both')).toHaveText('Hand 1 beats at 100 bpm, hand 2 at 60.');
   await expect(page.locator('#tempo')).toHaveValue('100');
 
+  await openTab(page, 'rhythm');
   await page.locator('.chip', { hasText: '3:2' }).click();
   await openTab(page, 'pattern');
   await expect(page.locator('.pattern-row[data-hand="1"]')).toBeVisible();
@@ -113,7 +116,7 @@ test('play, pause, scrub, resume, stop; Space toggles; volume and sound panel', 
   await stopPlaying(page);
   await expect(page.locator('#stop')).toBeDisabled();
 
-  await openTab(page, 'rhythm');
+  // Volume is the deck's (v4).
   await page.locator('#volume').fill('0.3');
   await expect(page.locator('#volume')).toHaveValue('0.3');
   await openTab(page, 'sound');
@@ -159,7 +162,6 @@ test('Space types a space in a pattern input; Enter there plays; Space elsewhere
   // Enter never pauses.
   await page.locator('#hand-1').press('Enter');
   await expect(page.locator('#play')).toHaveText('Pause');
-  await openTab(page, 'rhythm');
   await page.locator('#volume').focus();
   await page.keyboard.press('Space');
   await expect(page.locator('#play')).toHaveText('Play');
@@ -196,43 +198,47 @@ test('a fix click returns focus to the input; a chip always applies its exact ra
   await expect(page.locator('.chip', { hasText: '1:1' })).toHaveAttribute('aria-pressed', 'true');
 });
 
-test('phone: the closed sheet, the summary opens Pattern, tabs switch and close, Escape and the handle close', async ({
+test('phone: the closed sheet shows no tabs; Details opens it, tabs switch and close, Escape and the handle close', async ({
   page,
 }) => {
   await page.setViewportSize({ width: 390, height: 844 });
   await page.goto('/#v1.e30');
-  // Closed: the summary, Play and the tabs; no panel. The juggler and the ladder stay.
-  await expect(page.locator('.summary')).toBeVisible();
-  await expect(page.locator('.summary')).toContainText('3 balls · 104 bpm');
+  // Closed: the deck, no handle, no tabs, no panel (v4 ruling C). The juggler and the ladder stay.
+  await expect(page.locator('.deck-bar')).toBeVisible();
+  await expect(page.locator('.deck-meta')).toHaveText('3 balls');
   await expect(page.locator('#play')).toBeVisible();
-  await expect(page.locator('#tab-rhythm')).toBeVisible();
+  await expect(page.locator('#tab-rhythm')).toBeHidden();
+  await expect(page.locator('.sheet-grab')).toBeHidden();
   await expect(hand1(page)).toBeHidden();
   await expect(page.locator('canvas.ladder').last()).toBeVisible();
   await shot(page, 'phone-closed');
-  // The summary opens the Pattern tab.
-  await page.locator('.summary').click();
-  await expect(page.locator('#tab-pattern')).toHaveAttribute('aria-selected', 'true');
+  // Details opens the sheet on Sound, with its tabs; the top bar stays (v4).
+  await page.locator('.deck-details').click();
+  await expect(page.locator('#tab-sound')).toHaveAttribute('aria-selected', 'true');
+  await expect(page.locator('#tab-pattern')).toBeVisible();
+  await expect(page.locator('.about-link')).toBeVisible();
+  await page.locator('#tab-pattern').click();
   await expect(hand1(page)).toBeVisible();
-  await expect(page.locator('.about-link')).toBeHidden();
   await hand1(page).fill('531');
-  await expect(page.locator('.summary')).toContainText('531');
-  // Another tab switches; the open tab again closes.
+  await expect(page.locator('.deck-notation')).toHaveText('531');
+  // Another tab switches; the open tab again closes, tabs and all.
   await page.locator('#tab-rhythm').click();
   await expect(page.locator('.chip').first()).toBeVisible();
   await expect(hand1(page)).toBeHidden();
   await shot(page, 'phone-rhythm');
   await page.locator('#tab-rhythm').click();
   await expect(page.locator('.chip').first()).toBeHidden();
+  await expect(page.locator('#tab-rhythm')).toBeHidden();
   await expect(page.locator('.about-link')).toBeVisible();
-  // Escape closes, focus back on the summary.
-  await page.locator('#tab-sound').click();
+  // Escape closes, focus back on the deck's Details.
+  await page.locator('.deck-details').click();
   await expect(page.locator('.sound-panel')).toBeVisible();
   await page.locator('#sp-preset').focus();
   await page.keyboard.press('Escape');
   await expect(page.locator('.sound-panel')).toBeHidden();
-  await expect(page.locator('.summary')).toBeFocused();
-  // The handle: a tap opens on the last tab, a drag down closes.
-  await page.locator('.sheet-grab').click();
+  await expect(page.locator('.deck-details')).toBeFocused();
+  // The handle, shown while open: a drag down closes.
+  await page.locator('.deck-details').click();
   await expect(page.locator('.sound-panel')).toBeVisible();
   const grab = (await page.locator('.sheet-grab').boundingBox()) as { x: number; y: number; width: number; height: number };
   await page.mouse.move(grab.x + grab.width / 2, grab.y + 10);

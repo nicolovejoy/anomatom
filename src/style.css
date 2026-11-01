@@ -156,7 +156,7 @@ button:disabled {
 .topbar .about-link {
   width: 44px;
   height: 44px;
-  border-radius: 22px;
+  border-radius: 0;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -169,8 +169,10 @@ button:disabled {
   padding: 0 20px 24px;
 }
 
-/* Phone: the play view fills the screen; the sheet sits at the bottom and grows up when open. */
+/* Phone: the play view fills the screen under the top bar: the stage, the deck (mount-deck.ts,
+   deck.css), then the sheet at the bottom, which grows up when open. The top bar stays (v4). */
 .play-view {
+  position: relative;
   display: flex;
   flex-direction: column;
   height: calc(100dvh - 44px - env(safe-area-inset-top));
@@ -190,41 +192,48 @@ button:disabled {
   flex: 0 0 auto;
   padding: 0 16px;
 }
+.region-deck,
 .region-sheet {
   flex: 0 0 auto;
 }
-/* Open on a phone: the top bar goes, the sheet takes most of the screen, the pictures shrink. */
-#app.sheet-open:not(.is-wide) .topbar {
-  display: none;
+/* The open phone wheel sits over the stage; the stage keeps that part clear, so the juggler and
+   the ladder draw in what is left and stay in view (mount-deck.ts sets the two lengths). */
+#app.wheel-open .stage {
+  padding-bottom: var(--wheel-pad-bottom, 0px);
+  padding-right: var(--wheel-pad-right, 0px);
 }
-#app.sheet-open:not(.is-wide) .play-view {
-  height: calc(100dvh - env(safe-area-inset-top));
-}
+/* Open on a phone: the sheet takes the height the stage and the deck leave, up to its share. */
 #app.sheet-open:not(.is-wide) .region-sheet {
   flex: 0 1 var(--sheet-open-height, 62dvh);
   min-height: 0;
 }
 
 /* A phone on its side (SHEET.landscape; mount-sheet.ts sets .is-landscape): the stage on the left,
-   the sheet a column on the right, so juggler, ladder and the closed sheet all fit with no scroll. */
-#app.is-landscape:not(.is-first-minute) .play-view {
-  flex-direction: row;
+   the deck and the sheet a column on the right, so juggler, ladder and the closed sheet all fit. */
+#app.is-landscape .play-view {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) var(--sheet-landscape-column, 360px);
+  grid-template-rows: auto minmax(0, 1fr);
+  grid-template-areas: 'stage deck' 'stage sheet';
 }
-#app.is-landscape:not(.is-first-minute) .stage {
-  flex: 1 1 0;
+#app.is-landscape .stage {
+  grid-area: stage;
   min-width: 0;
 }
-#app.is-landscape:not(.is-first-minute) .region-juggler {
+#app.is-landscape .region-juggler {
   min-height: 0;
 }
-#app.is-landscape:not(.is-wide):not(.is-first-minute) .region-sheet {
-  flex: 0 0 var(--sheet-landscape-column, 360px);
+#app.is-landscape .region-deck {
+  grid-area: deck;
+}
+#app.is-landscape:not(.is-wide) .region-sheet {
+  grid-area: sheet;
   min-height: 0;
   overflow: hidden;
-  border-radius: 24px 0 0 0;
 }
 
-/* Desktop: the sheet is a column on the right, always open on a tab. */
+/* Desktop: the stage on the left with the transport bar under it; on the right a column of the
+   wheel (when docked), Kit and Sound, then the sheet, always open on a tab. */
 #app.is-wide {
   display: grid;
   grid-template-columns: minmax(0, 1fr);
@@ -234,25 +243,27 @@ button:disabled {
 #app.is-wide .play-view {
   display: grid;
   grid-template-columns: minmax(0, 1fr) var(--sheet-column, 400px);
-  gap: 24px;
+  grid-template-rows: auto auto minmax(0, 1fr) auto;
+  grid-template-areas: 'stage wheel' 'stage sound' 'stage sheet' 'bar sheet';
+  column-gap: 24px;
   height: auto;
   min-height: 0;
   padding: 0 0 0 8px;
 }
-#app.is-wide .region-juggler {
-  min-height: 260px;
-}
-#app.is-wide .region-ladder {
-  padding: 0 8px 24px;
-}
-#app.is-wide .region-sheet {
+#app.is-wide .stage {
+  grid-area: stage;
   min-height: 0;
 }
-
-/* First minute (stream B): under the juggler on a phone, in the column on a wide screen. */
-.region-first-minute {
-  padding: 0 16px max(20px, env(safe-area-inset-bottom));
+#app.is-wide .region-juggler {
+  min-height: 160px;
 }
-#app.is-wide .region-first-minute {
-  padding: 16px 16px 24px;
+#app.is-wide .region-ladder {
+  padding: 0 8px 16px;
+}
+#app.is-wide .region-deck {
+  display: contents;
+}
+#app.is-wide .region-sheet {
+  grid-area: sheet;
+  min-height: 0;
 }

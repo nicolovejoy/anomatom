@@ -1,5 +1,5 @@
 // v4 D2: Back and Forward, and the wordmark reset (docs/plans/v4-deck.md rulings 6 and 7), headless.
-import { expect, test, type Page } from './fixtures';
+import { expect, openTab, type Page, test } from './fixtures';
 
 test.use({ viewport: { width: 390, height: 844 } });
 
@@ -13,7 +13,7 @@ async function pasteLink(page: Page, hash: string) {
 
 test('a parts change is a history entry: Back restores 3, Forward restores 531', async ({ page }) => {
   await page.goto('/#3');
-  await page.locator('#tab-pattern').click();
+  await openTab(page, 'pattern');
   await page.locator('#hand-0').fill('531');
   await expect.poll(() => new URL(page.url()).hash).toBe('#531');
   await page.goBack();
@@ -27,7 +27,7 @@ test('a parts change is a history entry: Back restores 3, Forward restores 531',
 test('a tempo change replaces the entry: Back goes to the pattern before, not the old tempo', async ({ page }) => {
   await page.goto('/#3');
   await pasteLink(page, '#531');
-  await page.locator('#tab-rhythm').click();
+  await openTab(page, 'sound');
   await page.locator('#bpm').fill('90');
   await page.locator('#bpm').press('Enter');
   await expect.poll(() => new URL(page.url()).hash).toBe('#531@90');

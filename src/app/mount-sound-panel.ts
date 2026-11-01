@@ -7,6 +7,10 @@
 // preloads what the new mapping needs and is read on the next look-ahead tick), so a
 // Mapping restored from a share link reaches the sound the same way a panel edit does.
 //
+// Tempo is the panel's first group (docs/plans/v4-deck.md, ruling 4): the readout, the slider and
+// each hand's beat, as the Rhythm tab had them. It writes `store.bpm`; mount-knobs.ts hands a new
+// tempo to the player with the rest of the edit.
+//
 // A select hands focus to Play after `change`, so Space plays and pauses again at once (a
 // focused select keeps Space; see keepsSpace in sheet-model.ts).
 import {
@@ -19,6 +23,7 @@ import {
   type Sample,
 } from '../sound/mapping';
 import {
+  BPM_RANGE,
   CROSS_BOOST_RANGE,
   FILTER_HZ_RANGE,
   GAIN_RANGE,
@@ -30,7 +35,10 @@ import {
   SOUND_PANEL,
 } from '../tunables';
 import { copy } from '../ui/copy';
+import { inputPerPart } from './actions';
+import { clampBpm, hand2Bpm } from './knobs-model';
 import type { Mount } from './mount';
+import { fillPercent, tempoLines } from './sheet-model';
 import {
   applyEdit,
   downbeatChoices,
@@ -91,9 +99,17 @@ export const mountSoundPanel: Mount = (root, { store, player }) => {
 
   root.innerHTML = `
     <div id="sound-panel" class="sound-panel">
+      <div class="group tempo">
+        <div class="tempo-head">
+          <label class="section-label" for="bpm">${copy.tempoLabel}</label>
+          <span class="bpm-readout"><input id="bpm" type="number" inputmode="numeric" min="${BPM_RANGE.min}" max="${BPM_RANGE.max}" step="1" /><span class="unit">${copy.bpmUnit}</span></span>
+        </div>
+        <input id="tempo" class="slider" type="range" min="${BPM_RANGE.min}" max="${BPM_RANGE.max}" step="1" aria-label="${copy.tempoLabel}" />
+        <div class="tempo-hands" aria-hidden="true"><span></span><span></span></div>
+        <p class="sr-only tempo-both"></p>
+      </div>
       <div id="sp-kits"></div>
       <div id="sp-passes"></div>
-      <p class="sp-note">${copy.soundBallCountNote}</p>
       <div class="sp-row">
         <label for="sp-preset">${copy.presetLabel}</label>
         <select id="sp-preset">
@@ -165,6 +181,33 @@ export const mountSoundPanel: Mount = (root, { store, player }) => {
   const padOn = $<HTMLInputElement>('#sp-pad-on');
   const padInstrument = $<HTMLSelectElement>('#sp-pad-instrument');
   const padChord = $<HTMLSelectElement>('#sp-pad-chord');
+
+  const tempo = $<HTMLInputElement>('#tempo');
+  const bpmInput = $<HTMLInputElement>('#bpm');
+  const tempoHands = Array.from(root.querySelectorAll<HTMLSpanElement>('.tempo-hands span'));
+  const tempoBoth = $<HTMLParagraphElement>('.tempo-both');
+
+  /** The tempo group, from the store; the box is left alone while it is typed in. */
+  function syncTempo(state = store.get()) {
+    tempo.value = String(state.bpm);
+    tempo.style.setProperty('--fill', `${fillPercent(state.bpm, BPM_RANGE.min, BPM_RANGE.max)}%`);
+    if (document.activeElement !== bpmInput) bpmInput.value = String(state.bpm);
+    tempoBoth.textContent = copy.tempoBoth(state.bpm, hand2Bpm(state.bpm, state.ratio), !inputPerPart(state));
+    tempoLines(state.bpm, state.ratio).forEach((line, i) => ((tempoHands[i] as HTMLSpanElement).textContent = line));
+  }
+  tempo.addEventListener('input', () => store.dispatch({ type: 'setBpm', bpm: Number(tempo.value) }));
+  /** The tempo box commits on change and on Enter, and always shows the tempo in force after. */
+  const commitBpm = () => {
+    const bpm = clampBpm(bpmInput.valueAsNumber);
+    if (bpm !== null) store.dispatch({ type: 'setBpm', bpm });
+    bpmInput.value = String(store.get().bpm);
+  };
+  bpmInput.addEventListener('change', commitBpm);
+  bpmInput.addEventListener('keydown', (e) => {
+    if (e.key !== 'Enter' || e.isComposing) return;
+    e.preventDefault();
+    commitBpm();
+  });
 
   /** The only write to the Mapping. */
   const edit = (e: MappingEdit) => store.set({ mapping: applyEdit(store.get().mapping, e) });
@@ -302,10 +345,12 @@ export const mountSoundPanel: Mount = (root, { store, player }) => {
   store.subscribe((state, previous) => {
     if (state.mapping !== previous.mapping) player.setMapping(state.mapping);
     sync(state);
+    syncTempo(state);
     growVoices(state);
   });
   growVoices();
   sync();
+  syncTempo();
 
   return {};
 };

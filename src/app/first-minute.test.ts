@@ -2,7 +2,7 @@ import { describe, expect, test } from 'vitest';
 import { applyPreset } from '../sound/mapping';
 import { lineParts, typed, vanillaParts } from '../test/schedules';
 import { reduce } from './actions';
-import { cardGroups, cardPattern, playingPreset, presetPatch, scheduleFor, showsFirstMinute } from './first-minute';
+import { cardGroups, cardPattern, playingPreset, presetPatch, scheduleFor } from './first-minute';
 import { judge } from '../core';
 import { PRESETS } from './presets';
 import { analyse } from './knobs-model';
@@ -13,18 +13,6 @@ import { copy } from '../ui/copy';
 const tapped = (id: string) => reduce(defaultState(), presetPatch(preset(id)));
 
 const preset = (id: string) => PRESETS.find((p) => p.id === id)!;
-
-describe('showsFirstMinute', () => {
-  test('shows on an empty hash and a bare #', () => {
-    expect(showsFirstMinute('')).toBe(true);
-    expect(showsFirstMinute('#')).toBe(true);
-  });
-  test('skips About, shared state and any other hash', () => {
-    expect(showsFirstMinute('#about')).toBe(false);
-    expect(showsFirstMinute('#v1.e30')).toBe(false);
-    expect(showsFirstMinute('#garbage')).toBe(false);
-  });
-});
 
 describe('presets', () => {
   test('every juggling card is a juggleable pattern', () => {
@@ -84,9 +72,9 @@ describe('cardGroups', () => {
       }
     }
   });
-  test('every group has a heading and cards', () => {
+  test('every group has a wheel tag and presets', () => {
     for (const g of groups) {
-      expect(copy.firstMinute.groups[g.id], g.id).toBeTruthy();
+      expect(copy.deck.groupTags[g.id], g.id).toBeTruthy();
       expect(g.presets.length, g.id).toBeGreaterThan(0);
     }
   });

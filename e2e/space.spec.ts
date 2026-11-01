@@ -47,7 +47,7 @@ test.describe('phone landscape', () => {
 
   test('juggler, ladder and the closed sheet fit with no page scroll', async ({ page }) => {
     await page.goto('/#v1.e30');
-    await expect(page.locator('.sheet-head')).toBeVisible();
+    await expect(page.locator('.deck-bar')).toBeVisible();
     const fit = await page.evaluate(() => {
       const bottom = (s: string) => document.querySelector(s)?.getBoundingClientRect().bottom ?? NaN;
       return {

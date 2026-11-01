@@ -14,8 +14,6 @@ export const MAX_PERIOD = 16;
 /** Tempo of hand 1's beats. */
 export const DEFAULT_BPM = 104;
 export const BPM_RANGE = { min: 40, max: 240 } as const;
-/** What the card screen's tempo stepper adds or takes away per press. */
-export const TEMPO_STEP = 5;
 
 /** Master volume when the page opens, 0 to 1. */
 export const DEFAULT_VOLUME = 1;
@@ -568,7 +566,7 @@ export const SHEET = {
   landscape: { maxHeightPx: 480, columnPx: 360, ladderPx: 96 },
   /** A drag on the handle longer than this opens or closes the sheet; shorter is a tap. */
   dragPx: 24,
-  /** A pattern this long or longer is drawn smaller in the closed sheet's summary. */
+  /** A pattern this long or longer is drawn smaller in the deck's transport bar on a phone. */
   longSummaryChars: 7,
 } as const;
 
@@ -578,3 +576,26 @@ export const SHEET = {
 
 /** The wordmark's "Start over?" question withdraws itself after this long. */
 export const RESET = { confirmMs: 6000 } as const;
+
+/** The deck (docs/plans/v4-deck.md): the transport bar, the sound row and the pattern wheel. */
+export const DECK = {
+  /** Rows the wheel shows; the middle one sits in the band. Odd. */
+  wheelRows: 7,
+  /** One wheel row's height. */
+  rowPx: 32,
+  /** The wheel picks its row this long after the last scroll event, not on each row it passes. */
+  settleMs: 160,
+  /** A mouse wheel over the pattern name steps once per this much scroll (a notch is about 100). */
+  notchPx: 50,
+  /**
+   * The wheel stays open in the column only on a wide screen at least this tall; shorter (a phone
+   * on its side at 844×390) it opens over the stage as on a phone, so the sheet keeps its room.
+   */
+  dockedMinHeightPx: 560,
+  /**
+   * The open phone wheel keeps the juggler in view: under the figure when the stage has at least
+   * this much height left above it, else beside it, at most sidePx wide.
+   */
+  minFigurePx: 200,
+  sidePx: 300,
+} as const;

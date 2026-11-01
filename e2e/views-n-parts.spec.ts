@@ -64,7 +64,7 @@ for (const viewport of [
         const errors = watchErrors(page);
         await page.goto(link(parts));
         // The link was read, not replaced by the default pattern.
-        await expect(page.locator('.summary-meta')).toHaveText(new RegExp(`^${balls} balls\\b`));
+        await expect(page.locator('.deck-meta')).toHaveText(new RegExp(`^${balls} balls\\b`));
         // The juggler says how its hands pair into jugglers.
         await expect(page.locator('canvas.juggler')).toHaveAttribute('aria-label', LABELS[parts.length] as string);
         await page.locator('#play').click();
