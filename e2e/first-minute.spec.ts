@@ -12,7 +12,7 @@ test.use({ viewport: { width: 390, height: 844 } });
 test('opens on the cards, 441 plays, Make your own shows the play view and keeps playing', async ({ page }) => {
   await page.goto('/');
   await expect(page.locator('#app')).toHaveClass(/is-first-minute/);
-  await expect(page.locator('.fm-card')).toHaveCount(22);
+  await expect(page.locator('.fm-card')).toHaveCount(27);
   await expect(page.locator('#play')).toBeHidden();
   if (SHOTS) await page.screenshot({ path: `${SHOTS}/idle.png` });
 
