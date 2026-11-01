@@ -483,11 +483,11 @@ export const copy = {
     ultimates: { name: 'Ultimates' },
     'three-count': { name: 'Three-count' },
     'four-count': { name: 'Four-count' },
-    'pass-pass-self': { name: 'Pass, pass, self' },
-    'book-ends': { name: 'Book ends' },
     'five-pass': { name: 'A high pass, then 3 and 1' },
     'seven-four-count': { name: 'Seven, alternating 3 and 4' },
     'seven-fours': { name: 'Seven, two fours passed' },
+    'seven-pass': { name: 'A 7 pass against a 3' },
+    'rising-passes': { name: 'Two-count with 3, 4 and 5 passes inserted' },
   } as Record<string, { name: string }>,
 };
 

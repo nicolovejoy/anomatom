@@ -50,13 +50,14 @@ describe('the cards', () => {
   });
   test('the v4 passing cards (ruling 8): sourced notation, the ball count the source states, last in the group', () => {
     const sourced: Record<string, [string, number]> = {
-      'pass-pass-self': ['<3p 3p 3|3p 3p 3>', 6],
-      'book-ends': ['<3p 3 3p 3 3p|3p 3 3p 3 3p>', 6],
       'five-pass': ['<5p 3 1|3 3 3p>', 6],
       'seven-four-count': ['<3p 3 4 4|4 4 3p 3>', 7],
       'seven-fours': ['<4p 4p 3 3|3p 3p 4 4>', 7],
+      'seven-pass': ['<7p 1 3 1|3p 3 3 3>', 6],
+      'rising-passes': ['<3p 4p 5p 3 0 3|3p 3 3p 3 3p 3>', 6],
     };
     const ids = PRESETS.map((q) => q.id);
+    for (const q of PRESETS.filter((x) => x.group === 'passing')) expect([6, 7], q.id).toContain(q.balls);
     expect(ids.slice(-5)).toEqual(Object.keys(sourced));
     for (const [id, [text, balls]] of Object.entries(sourced)) {
       const q = PRESETS.find((x) => x.id === id)!;
