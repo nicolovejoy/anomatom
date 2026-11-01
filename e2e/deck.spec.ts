@@ -366,14 +366,16 @@ test.describe('phone', () => {
 
   test('every wheel row shows its name whole', async ({ page }) => {
     await page.goto('/');
-    // The names are measured with the real glyphs: both web fonts loaded first.
-    await page.evaluate(() => Promise.all([document.fonts.load('500 16px "IBM Plex Mono"'), document.fonts.load('400 16px "IBM Plex Sans"')]));
-    await expect.poll(() => page.evaluate(() => [...document.fonts].some((f) => f.family.includes('IBM Plex Mono') && f.status === 'loaded'))).toBe(true);
-    await expect.poll(() => page.evaluate(() => [...document.fonts].some((f) => f.family.includes('IBM Plex Sans') && f.status === 'loaded'))).toBe(true);
+    // The names are measured with the real glyphs: the two faces a wheel row draws (400 Mono for
+    // the notation, which sets the name's room; 400 Sans for the name) loaded first.
+    await page.evaluate(() => Promise.all([document.fonts.load('400 14px "IBM Plex Mono"'), document.fonts.load('400 13px "IBM Plex Sans"')]));
+    const loaded = (family: string) =>
+      page.evaluate((family) => [...document.fonts].some((f) => f.family.includes(family) && (f.weight === '400' || f.weight === 'normal') && f.status === 'loaded'), family);
+    await expect.poll(() => loaded('IBM Plex Mono')).toBe(true);
+    await expect.poll(() => loaded('IBM Plex Sans')).toBe(true);
     await expect(page.locator('.deck-wheel')).toBeVisible();
-    await expect
-      .poll(() => page.locator('.deck-row-name').evaluateAll((els) => els.filter((el) => el.scrollWidth > el.clientWidth).map((el) => el.textContent)))
-      .toEqual([]);
+    await expect(page.locator('.deck-row-name')).toHaveCount(PRESETS.length + 1);
+    expect(await page.locator('.deck-row-name').evaluateAll((els) => els.filter((el) => el.scrollWidth > el.clientWidth).map((el) => el.textContent))).toEqual([]);
     await page.locator('.deck-row[data-id="rising-passes"]').scrollIntoViewIfNeeded();
     await page.screenshot({ path: `${SHOTS}/deck-wheel-names-390x844.png` });
   });
@@ -415,10 +417,10 @@ test.describe('phone', () => {
     };
     await notch(100);
     await expect(notation(page)).toHaveText('51');
-    await expect(page).toHaveURL(/#51/);
+    await expect(page).toHaveURL(/#51(~|$)/);
     await notch(-100);
     await expect(notation(page)).toHaveText('3');
-    await expect(page).toHaveURL(/#3/);
+    await expect(page).toHaveURL(/#3(~|$)/);
   });
 });
 
