@@ -1,6 +1,6 @@
 # v4.3 · sync in Make your own
 
-Status: planned 2026-11-01 (governor Opus, session 1208; Nico: "go"). The sync carry-overs of v3 (`docs/plans/v3-classics-controls.md`, status line): `( , )` keys on the digit pad, a short link for sync, swap on a sync set. Nothing here touches the Mapping or the Sound and Kit controls; that is v5 (`docs/plans/v5-sound-brief.md`).
+Status: merged and smoked 2026-11-01 (governor Opus, session 1208; PRs 76 plan, 77 S2 sync link (Sonnet), 78 S1 pad and swap (Opus); one Opus fresh-eyes review each, the should-fix fixed before merge). Rulings in review: a swap that would leave a crossing 0 is refused with its own note, as is a swap across hands. Main went red between 77 and 78 (`e2e/sync.spec.ts` still expected `#v2.`; fixed in 78). Checkpoint smoke headless on anomatom.com: sync-edit, sync, share and deck specs, 109 passed on Edge and WebKit. Follow-ups: issue 79 (docked wheel band one row off a typed 97531); move MAX_PATTERN_CHARS and MAX_SYNC_CHARS into tunables.ts; S1 review nits (swapRefusal on an unread sync draft judges the old parts; a swap in a `(…)*` draft loses the mirror; no e2e of the passing pad layout; the cross-hand e2e has no viewport or error listener). The sync carry-overs of v3 (`docs/plans/v3-classics-controls.md`, status line): `( , )` keys on the digit pad, a short link for sync, swap on a sync set. Nothing here touches the Mapping or the Sound and Kit controls; that is v5 (`docs/plans/v5-sound-brief.md`).
 
 ## Rulings (governor, 2026-11-01)
 
