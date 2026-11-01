@@ -1,0 +1,51 @@
+# v4: the deck
+
+Status: planned 2026-10-31 (governor Opus, session 1197). Nico picked option A1 from the mockups (https://claude.ai/artifact/7cgHMt739LJ3nhGbEwQccX, version 4): step arrows, a pattern wheel, three selects, square corners.
+
+## What Nico asked for (2026-10-31)
+
+- The sound controls are far too detailed for the basic screen (the Sound tab's nine height selects, part pan and gain). Minimal, efficient, square corners, "not all that rounding".
+- A volume slider with one-click mute on the basic interface.
+- Tempo defaults to 104 and lives in the sound details, not on the basic screen.
+- One click to another pattern: ‹ › arrows (larger chevrons), the ← → keys, and a wheel to scroll through the patterns.
+- Tapping the anomatom name resets, after asking.
+- Back and forward.
+- More dramatic passing examples.
+
+## Rulings (governor, 2026-10-31)
+
+1. **The deck replaces the card screen and the sheet's head row.** One new region, the deck, holds:
+   - the **transport bar**: Play/Pause (square, accent), ‹, the pattern (notation over its name and "3 balls" / "2 jugglers"), ›, then volume (a slider) with a speaker button that mutes and unmutes in one tap;
+   - the **sound row**: Kit (select), Sound (select), and "Details" (opens the sheet on the Sound tab; hidden on a wide screen, where the sheet is always open).
+   Kit and Sound behave as the v3 strip's do (`now-playing-model.ts`: "Mixed" for passing, "Custom" for a hand-made mapping). The v3 strip's tempo stepper and "All sound settings" go. The card screen (`mount-first-minute.ts`, its CSS, `cardsPatch`, `AppState.cards`, the Patterns icon in the head row) goes; the sheet's head row (summary, share, play) goes. `cardGroups()` and `presetPatch` stay: the deck reads them.
+2. **Stepping.** ‹ and › step through every preset in `cardGroups()` order, wrapping at both ends. From a state that matches no preset (a hand-made pattern), › goes to the first preset and ‹ to the last. Chevrons are 22 px glyphs on a 36×40 px target. ← and → do the same from anywhere on the page except while focus is in an input, textarea, select, a range slider, or a `role="tab"` (the sheet's tabs keep their own arrow keys); a modifier key (Ctrl, Meta, Alt) passes through. A step plays the new pattern if the player was playing and leaves it paused or stopped otherwise; a step from stopped on a phone needs no gesture because it does not start sound.
+3. **The wheel.** A vertical scroll-snap list of every preset (pattern in mono, name, group tag 3 / 4 / 5 / PASS on the right), seven rows tall, the middle row in a band; the last row is "Make your own", which opens the sheet on the Pattern tab. The pattern switches when the wheel settles (about 160 ms after the last scroll event), not on each row it passes; clicking a row picks it. Phone and landscape phone: tapping the pattern name opens the wheel over the stage; picking a row, tapping outside or Escape closes it. Wide screen: the wheel is always open at the top of the right-hand column, above Kit and Sound and the sheet's tabs. A mouse wheel over the pattern name steps one pattern per notch. A bare address (no hash) opens with the wheel open on a phone, so a first visit sees the patterns; nothing plays until Play.
+4. **Tempo and volume move.** Tempo (default **104**, `DEFAULT_BPM`) leaves the Rhythm tab and becomes the first group of the Sound tab, with its readout, slider and per-hand note as today. The volume slider leaves the Rhythm tab for the transport bar. Mute is `AppState.muted` (UI state, never in the hash); the sound's master gain is `muted ? 0 : volume`; moving the slider while muted unmutes. A `#v2.` link carries its tempo and keeps it; a short link without `@bpm` now plays at 104 (a pattern's identity is not its tempo).
+5. **Square and minimal.** The deck, the wheel, the sheet's tabs and panels, selects and buttons lose their rounding (`border-radius: 0`) in favour of 1 px rules (`--rule`). The hint paragraphs on the basic screen and in the sheet (the ball-count note above Preset, the glossary, the Space hint, the rhythm hint) move to About or go; the sheet keeps its labels. Pills and chips become rectangles.
+6. **Reset.** The wordmark becomes a button. A tap replaces the top bar's contents with "Start over?" and two buttons, Reset and Cancel (no browser dialog); Escape or Cancel restores the bar, and it restores itself after 6 s. Reset navigates to the bare address (`location.assign(location.pathname)`), a full reload: a fresh visit, wheel open on a phone, nothing playing.
+7. **Back and forward.** A change to the parts writes a new history entry (`pushState`); every other change to the hash (tempo, kit, sound, mapping edits) replaces the current one, as today, still debounced. Typing in Make your own pushes at most one entry per debounced write. Back and forward restore the state the entry holds (listen to `popstate` as well as `hashchange`) and keep playing if the player was playing. No on-screen history buttons; the browser's and the phone's back gesture are the controls. The share button moves to the top bar beside the About link.
+8. **Dramatic passing cards.** Four or five more `passing` presets whose names and notation come from a source opened in the stream (Juggling Lab's passing notation pages, the passing.org / Aidan Burns pattern lists, the Juggling Information Service), each judged ok by `core` with the ball count the source states. Showier than the counts: higher passes, triples, five- and seven-object patterns, e.g. Why Not, Jim's three-count, a 7-object pattern with a self in the gap, a five-count popcorn. A pattern whose notation cannot be sourced or that the engine cannot hold (three jugglers if not supported, fractional counts) is dropped, not adapted. They land at the end of the Passing group, so the wheel and the arrows reach them.
+
+## Streams
+
+D2 and D3 are small and merge first; D1 rebases over them. Each PR merges on green CI after one fresh-eyes Opus review of the whole branch; every finding fixed or ruled on before merge.
+
+**D1 · Deck** (Opus). Owns `src/app/deck-model.ts` (new, pure), `src/app/mount-deck.ts` (new), `src/app/deck.css` (new), `src/main.ts` (the deck region in the play view; delete the first-minute region), `src/app/mount-first-minute.ts` and `first-minute.css` (deleted), `src/app/first-minute.ts` (keep `cardGroups`, `cardPattern`, `presetPatch`, `playingPreset`, `scheduleFor`; drop `cardsPatch`, `showsFirstMinute` if unused), `src/app/state.ts` (`muted`, drop `cards`), `src/app/mount-knobs.ts` (remove the head row, tempo and volume from Rhythm), `src/app/mount-sound-panel.ts` (tempo group first), `src/app/mount-sheet.ts` and `sheet.css`, `knobs.css`, `sound-panel.css`, `src/style.css` (radius), `src/ui/copy.ts` (deck strings), `src/tunables.ts` (`DECK`: wheel rows, settle ms, row px), `vitest.config.ts`, e2e: delete `first-minute.spec.ts` and `now-playing.spec.ts`, add `deck.spec.ts`, update any spec that used the card screen or the head row.
+- Rulings 1–5.
+- `deck-model.ts` (100% lines, added to the list): the ordered preset list, `stepIndex(current: number | null, delta, length)` with wrap and the no-match rule, the label for a state (notation, name, "3 balls" / "2 jugglers", or the hand-made text and its ball count), `wheelIndexAt(scrollTop, rowPx, length)`, whether a key event steps (`stepKey(key, target-kind, modifiers)` → -1 | 1 | null).
+- e2e at 390×844, 844×390, 1280×800: bare address shows the deck (phone: wheel open); Play plays; → twice moves 3 → 51 → 441 and the hash follows; ‹ goes back; clicking a wheel row plays it; on a phone the name opens and closes the wheel; mute sets master to 0 and back (read `data-*` or the store through an existing test hook); Details opens the Sound tab with tempo first; Kit to LM-2 writes the hash; "Make your own" opens the Pattern tab; no element has a non-zero border-radius inside the deck; `scrollHeight <= innerHeight`; no console errors. Screenshots to `e2e/shots/`.
+- Done means: `npm test` green with the 100% list unlowered, `npm run e2e` green in CI, screenshots at the three sizes in the PR.
+
+**D2 · Reset, history, tempo** (Sonnet). Owns the top bar in `src/main.ts` (wordmark button, the confirm, the share button beside About), `src/app/topbar.css` or the top bar rules in `src/style.css`, `src/app/mount-topbar.ts` (new, the reset confirm) with logic in `src/app/topbar-model.ts` if any, `src/app/share.ts` and `mount-share.ts` (push vs replace, `popstate`), `src/tunables.ts` (`DEFAULT_BPM = 104`, reset timeout), `src/ui/copy.ts` (reset strings), the tests these touch (hash and share tests that assumed 120), `e2e/history.spec.ts` (new). Leaves the head row's share button in place; D1 removes it (`mount-share.ts` listens on `#app`, so both work meanwhile — give the new one a distinct id or make the listener match either).
+- Rulings 4 (the default only), 6, 7.
+- Unit tests in `share.test.ts`: a parts change pushes, a tempo or mapping change replaces, two quick parts edits within the debounce push once, a `popstate` to an older hash restores its state.
+- e2e: load `#3`, then `#531` by the share path (store dispatch through the page), back restores 3, forward 531; tap the wordmark, Cancel keeps the hash, Reset lands on the bare address with tempo 104.
+- Done means: unit and e2e green in CI.
+
+**D3 · Passing cards** (Sonnet). Owns `src/app/presets.ts` (new passing presets only), `src/ui/copy.ts` (`presets` names), `src/app/presets.test.ts`, `docs/BIBLIOGRAPHY.md` (any new source).
+- Ruling 8. The PR lists each pattern, its name, ball count and the URL it came from; each is judged ok in `presets.test.ts` with that ball count.
+- Done means: unit tests green, `npm run e2e` green in CI.
+
+Checkpoint after all three: the governor smokes headless on anomatom.com at 390×844, 844×390, 1280×800 (bare address, wheel, arrows and keys, mute, Details with tempo 104, reset, back and forward, a new passing card plays), then hands Nico a short smoke.
+
+Follow-ups carried from v3: `( , )` pad keys and a short link for sync; swap on a sync set; passing summary truncation is moot once the head row goes.
