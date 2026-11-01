@@ -578,3 +578,20 @@ export const SHEET = {
 
 /** The wordmark's "Start over?" question withdraws itself after this long. */
 export const RESET = { confirmMs: 6000 } as const;
+
+/** The deck (docs/plans/v4-deck.md): the transport bar, the sound row and the pattern wheel. */
+export const DECK = {
+  /** Rows the wheel shows; the middle one sits in the band. Odd. */
+  wheelRows: 7,
+  /** One wheel row's height. */
+  rowPx: 32,
+  /** The wheel picks its row this long after the last scroll event, not on each row it passes. */
+  settleMs: 160,
+  /** A mouse wheel over the pattern name steps once per this much scroll (a notch is about 100). */
+  notchPx: 50,
+  /**
+   * The wheel stays open in the column only on a wide screen at least this tall; shorter (a phone
+   * on its side at 844×390) it opens over the stage as on a phone, so the sheet keeps its room.
+   */
+  dockedMinHeightPx: 560,
+} as const;

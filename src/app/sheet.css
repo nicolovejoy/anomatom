@@ -8,8 +8,8 @@
   gap: 14px;
   padding: 0 16px max(20px, env(safe-area-inset-bottom));
   background: var(--surface);
-  border-radius: 24px 24px 0 0;
-  box-shadow: 0 -1px 0 var(--rule);
+  border-radius: 0;
+  border-top: 1px solid var(--rule);
 }
 
 /* The handle: the whole width of the sheet, the pill drawn near its top. */
@@ -28,7 +28,7 @@
 .sheet-grab span {
   width: 40px;
   height: 5px;
-  border-radius: 3px;
+  border-radius: 0;
   background: var(--handle);
 }
 /* No handle on a wide screen: the top of the column keeps the sheet's own padding. */
@@ -36,141 +36,12 @@
   padding-top: 16px;
 }
 
-/* The head: summary, Play, then (paused) Stop and the time slider, then the sound status. */
+/* The head: (paused) Stop and the time slider, then the sound status. Play is the deck's. */
 .sheet-head {
   display: flex;
   flex-direction: column;
   gap: 12px;
 }
-.head-row {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-}
-.patterns {
-  flex: 0 0 auto;
-  height: 44px;
-  min-width: 44px;
-  padding: 0;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 8px;
-  border: 0;
-  border-radius: 22px;
-  background: var(--raised);
-  color: var(--text-2);
-  font-size: 14px;
-}
-.summary {
-  flex: 1 1 auto;
-  min-width: 0;
-  height: 56px;
-  padding: 0 16px;
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 12px;
-  border: 0;
-  border-radius: 14px;
-  background: var(--raised);
-  color: var(--text);
-  text-align: left;
-}
-.summary-text {
-  min-width: 0;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: pre;
-  font: 500 26px/1 var(--font-mono);
-  letter-spacing: 0.08em;
-}
-.summary.long {
-  padding: 0 14px;
-}
-.summary.long .summary-text {
-  font-size: 18px;
-  letter-spacing: 0;
-}
-.summary.invalid .summary-text {
-  color: var(--warn);
-}
-.summary-side {
-  flex: 0 0 auto;
-  display: flex;
-  flex-direction: column;
-  align-items: flex-end;
-  gap: 2px;
-}
-.summary-meta {
-  font-size: 13px;
-  color: var(--valid);
-  white-space: nowrap;
-}
-.summary.invalid .summary-meta {
-  color: var(--warn-text);
-}
-.pending {
-  font-size: 12px;
-  color: var(--accent);
-  white-space: nowrap;
-}
-
-.share-wrap {
-  position: relative;
-  flex: 0 0 auto;
-}
-.share {
-  width: 44px;
-  height: 44px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  border: 0;
-  border-radius: 22px;
-  background: var(--raised);
-  color: var(--text-2);
-}
-.share-status {
-  position: absolute;
-  right: 0;
-  top: 100%;
-  margin-top: 4px;
-  padding: 2px 8px;
-  border-radius: 8px;
-  background: var(--raised);
-  color: var(--valid);
-  font-size: 12px;
-  white-space: nowrap;
-  pointer-events: none;
-}
-.share-status:empty {
-  display: none;
-}
-
-.play {
-  flex: 0 0 auto;
-  width: 64px;
-  height: 64px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  border: 0;
-  border-radius: 32px;
-  background: var(--accent);
-  color: var(--ground);
-}
-.play:disabled {
-  opacity: 0.4;
-}
-.play .icon-pause,
-.play[data-state='playing'] .icon-play {
-  display: none;
-}
-.play[data-state='playing'] .icon-pause {
-  display: block;
-}
-
 .paused-row {
   display: flex;
   align-items: center;
@@ -181,7 +52,7 @@
   height: 44px;
   padding: 0 18px;
   border: 0;
-  border-radius: 22px;
+  border-radius: 0;
   background: var(--raised);
   font-size: 15px;
 }
@@ -211,7 +82,7 @@
   height: 44px;
   padding: 0 16px;
   border: 0;
-  border-radius: 22px;
+  border-radius: 0;
   background: var(--raised);
   color: var(--text);
 }
@@ -225,7 +96,7 @@
 .sheet-tab {
   height: 44px;
   border: 0;
-  border-radius: 12px;
+  border-radius: 0;
   background: transparent;
   color: var(--text-2);
   font-size: 15px;
@@ -259,12 +130,8 @@
 
 /* Wide: a column the height of the window. */
 #app.is-wide .region-sheet {
-  border-radius: 24px 24px 0 0;
+  border-radius: 0;
   min-height: 0;
   overflow: hidden;
 }
 
-/* First minute (stream B) takes the sheet's place while it shows. */
-#app.is-first-minute .region-sheet {
-  display: none;
-}

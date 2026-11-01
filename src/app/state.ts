@@ -27,8 +27,8 @@ export interface AppState {
   readonly lastStateHash: string | null;
   /** UI state: which tab of the phone sheet is open, or null when it is closed (docs/plans/phone-sheet.md). Never in the share hash. */
   readonly sheetTab: SheetTab | null;
-  /** UI state: whether the card screen shows (v3 stream C2). Never in the share hash. */
-  readonly cards: boolean;
+  /** UI state: the deck's mute (docs/plans/v4-deck.md, ruling 4); the master gain is 0 while it holds. Never in the share hash. */
+  readonly muted: boolean;
   /** One-line notice from the last action (design §5), cleared by the next action. Never in the hash. */
   readonly notice: string | null;
 }
@@ -54,7 +54,7 @@ export function defaultState(): AppState {
     mapping: DEFAULT_MAPPING,
     lastStateHash: null,
     sheetTab: null,
-    cards: false,
+    muted: false,
     notice: null,
   };
 }

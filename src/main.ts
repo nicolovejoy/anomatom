@@ -7,7 +7,7 @@ import type { AppContext, Mount, Mounted } from './app/mount';
 import { mountJuggler } from './app/mount-juggler';
 import { mountLadder } from './app/mount-ladder';
 import { mountKnobs } from './app/mount-knobs';
-import { mountFirstMinute } from './app/mount-first-minute';
+import { mountDeck } from './app/mount-deck';
 import { mountSoundPanel } from './app/mount-sound-panel';
 import { mountSheet } from './app/mount-sheet';
 import { mountAbout } from './app/mount-about';
@@ -44,7 +44,7 @@ if (app) {
         <section class="region-juggler"></section>
         <section class="region-ladder"></section>
       </div>
-      <section class="region-first-minute"></section>
+      <section class="region-deck deck" aria-label="${copy.deck.label}"></section>
       <section class="region-sheet sheet" aria-label="${copy.sheetLabel}">
         <button type="button" class="sheet-grab" aria-expanded="false" aria-controls="sheet-panels"><span></span></button>
         <div class="sheet-head"></div>
@@ -74,10 +74,10 @@ if (app) {
   const mounts: [Mount, HTMLElement][] = [
     [mountJuggler, region('juggler')],
     [mountLadder, region('ladder')],
+    [mountDeck, region('deck')],
     [mountKnobs, region('sheet')],
     [mountSoundPanel, region('sound-panel')],
     [mountSheet, region('sheet')],
-    [mountFirstMinute, region('first-minute')],
     [mountAbout, region('about')],
     [mountShare, app],
     [mountTopbar, app.querySelector('.topbar') as HTMLElement],

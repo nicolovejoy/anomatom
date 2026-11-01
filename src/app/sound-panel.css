@@ -11,7 +11,7 @@
   margin: 0;
   padding: 4px 12px 10px;
   border: 1px solid var(--rule);
-  border-radius: 12px;
+  border-radius: 0;
 }
 .sound-panel legend {
   padding: 0 6px;
@@ -30,7 +30,7 @@
 }
 /* A hand's rows, flashed once when its lane's voice name opens this tab (mount-knobs.ts). */
 .sound-panel .sp-row.sp-flash {
-  border-radius: 8px;
+  border-radius: 0;
   animation: sp-flash 1.6s ease-out;
 }
 @keyframes sp-flash {
@@ -58,7 +58,7 @@
   height: 44px;
   padding: 0 10px;
   border: 0;
-  border-radius: 10px;
+  border-radius: 0;
   background: var(--raised);
 }
 .sound-panel select {
@@ -89,7 +89,7 @@
   height: 44px;
   padding: 0 18px;
   border: 0;
-  border-radius: 22px;
+  border-radius: 0;
   background: var(--raised);
 }
 /* Range rows keep label, slider and readout on one line, even at 390 px. */
@@ -105,7 +105,10 @@
   height: 44px;
 }
 
-.sound-panel .sp-note {
-  margin: 0 0 0.75rem;
-  opacity: 0.8;
+/* Tempo, the first group (docs/plans/v4-deck.md, ruling 4); its readout and slider are knobs.css's. */
+.sound-panel .group {
+  display: flex;
+  flex-direction: column;
+  padding: 4px 0 6px;
+  border-bottom: 1px solid var(--rule);
 }
