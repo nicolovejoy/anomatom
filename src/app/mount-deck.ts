@@ -21,6 +21,7 @@ import {
   keyTarget,
   loopDelta,
   masterGain,
+  nearEnd,
   offsetFor,
   placeOf,
   presetIndex,
@@ -319,32 +320,65 @@ export const mountDeck: Mount = (root, { store, player, sound }) => {
     const to = rowAfterKey(e.key, roving, rowCount, shownRows);
     rove(to);
     rows[to]?.focus({ preventScroll: true });
+    keyRow = to;
+    keyTries = 0;
     scrollToRow(to, true);
+    armSettle();
   });
+
+  // A key's target row, until the band reaches it. A browser may wait a few hundred ms before it
+  // starts a smooth scroll; a settle in that gap must not end the turn, or the band lands on a
+  // row that is never loaded. So while a key's row is outstanding the settle re-arms (and asks
+  // for the scroll again), a bounded number of times.
+  let keyRow: number | null = null;
+  let keyTries = 0;
   let settleTimer: ReturnType<typeof setTimeout> | undefined;
-  list.addEventListener('scroll', () => {
-    const row = rowAt();
-    band(row);
-    if (turning) turn();
-    clearTimeout(settleTimer);
-    settleTimer = setTimeout(() => {
-      const user = turning;
+  function settle() {
+    if (wheel.hidden) {
+      keyRow = null;
       turning = false;
-      clearTimeout(turnTimer);
-      if (wheel.hidden) return;
-      const at = rowAt();
-      // At rest, the band's row goes back to the middle place, so the wheel can turn on either way.
-      recentre(at);
-      if (!user) return;
-      const chosen = settledPick(at, current(), presets.length);
-      if (chosen !== null) pick(chosen);
-    }, DECK.settleMs);
+      return;
+    }
+    const at = rowAt();
+    if (keyRow !== null && at !== keyRow && keyTries < DECK.keySettleTries) {
+      keyTries += 1;
+      turn();
+      scrollToRow(keyRow, true);
+      armSettle();
+      return;
+    }
+    const user = turning || keyRow !== null;
+    keyRow = null;
+    turning = false;
+    clearTimeout(turnTimer);
+    // At rest, the band's row goes back to the middle place, so the wheel can turn on either way.
+    recentre(at);
+    if (!user) return;
+    const chosen = settledPick(at, current(), presets.length);
+    if (chosen !== null) pick(chosen);
+  }
+  function armSettle() {
+    clearTimeout(settleTimer);
+    settleTimer = setTimeout(settle, DECK.settleMs);
+  }
+  list.addEventListener('scroll', () => {
+    // Near an end mid-spin, the list turns at once (the turn goes on), so a long spin loops
+    // forever and picks once, when it settles. A key's smooth scroll, cut short by the turn, is
+    // asked for again.
+    if (nearEnd(list.scrollTop, DECK.rowPx, half(), rowCount, DECK.loopMarginRows)) {
+      recentre(rowAt());
+      if (keyRow !== null) scrollToRow(keyRow, true);
+    }
+    band(rowAt());
+    if (turning) turn();
+    armSettle();
   });
 
   rows.forEach((row, i) =>
     row.addEventListener('click', () => {
       clearTimeout(settleTimer);
       turning = false;
+      keyRow = null;
       if (i >= presets.length) {
         closeWheel();
         store.set({ sheetTab: 'pattern' });
@@ -459,6 +493,7 @@ export const mountDeck: Mount = (root, { store, player, sound }) => {
    * (fitFontPx in deck-model.ts). Measured at full size: the pattern button shrinks to the bar's
    * free width, so the notation's box is the space and its scrollWidth the text.
    */
+  let fittedText = '';
   function fitNotation() {
     notation.style.fontSize = `${DECK.notationPx}px`;
     if (notation.clientWidth === 0) return; // hidden (About shows): fitted when it shows again
@@ -480,7 +515,11 @@ export const mountDeck: Mount = (root, { store, player, sound }) => {
     dot.hidden = label.name === '';
     metaEl.textContent = label.meta;
     patternButton.classList.toggle('invalid', !label.valid);
-    fitNotation();
+    // Only a new text needs a new fit; a new width comes through the ResizeObserver.
+    if (label.pattern !== fittedText) {
+      fittedText = label.pattern;
+      fitNotation();
+    }
     patternButton.setAttribute('aria-label', t.choose(label.pattern, label.name));
     const i = current();
     rows.forEach((row, r) => {

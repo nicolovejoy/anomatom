@@ -102,6 +102,15 @@ export function wheelRowAt(scrollTop: number, rowPx: number, half: number, offse
   return wrap(place + offset, length);
 }
 
+/**
+ * Whether the band, at `scrollTop`, is within `margin` rows of either end of the list: then the
+ * list turns at once, mid-spin, so a long turn never meets an end (and never stops there to pick).
+ */
+export function nearEnd(scrollTop: number, rowPx: number, half: number, length: number, margin: number): boolean {
+  const place = Math.round(scrollTop / rowPx) + half;
+  return place <= half + margin - 1 || place >= length - margin - half;
+}
+
 /** The shortest way round the wheel from row `from` to row `to`: a signed number of rows. */
 export function loopDelta(from: number, to: number, length: number): number {
   const d = wrap(to - from, length);

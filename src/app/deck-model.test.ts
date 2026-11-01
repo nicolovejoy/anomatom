@@ -26,6 +26,7 @@ import {
   loopDelta,
   rowsThatFit,
   fitFontPx,
+  nearEnd,
   wheelNotch,
   wheelPlace,
 } from './deck-model';
@@ -138,6 +139,16 @@ describe('the wheel', () => {
     // Across the other seam: from Make your own, one down is Cascade again.
     const offOwn = offsetFor(own, length);
     expect(wheelRowAt(scrollForPlace(band, 32, 3) + 32, 32, 3, offOwn, length)).toBe(0);
+  });
+  test('near an end: within two rows of either end of the list, the band turns the list at once', () => {
+    // 28 rows, 7 shown (half 3): the band's place is round(scrollTop / 32) + 3.
+    const at = (place: number) => (place - 3) * 32;
+    expect(nearEnd(at(14), 32, 3, 28, 2)).toBe(false);
+    expect(nearEnd(at(5), 32, 3, 28, 2)).toBe(false);
+    expect(nearEnd(at(4), 32, 3, 28, 2)).toBe(true);
+    expect(nearEnd(at(3), 32, 3, 28, 2)).toBe(true);
+    expect(nearEnd(at(22), 32, 3, 28, 2)).toBe(false);
+    expect(nearEnd(at(23), 32, 3, 28, 2)).toBe(true);
   });
   test('the shortest way round', () => {
     expect(loopDelta(0, 2, 10)).toBe(2);

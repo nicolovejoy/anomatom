@@ -305,6 +305,33 @@ test.describe('phone', () => {
     await expect.poll(async () => (await wheelRowsShown(page)).every((r) => r !== null)).toBe(true);
   });
 
+  test('a long continuous spin loops on and loads exactly one pattern, when it settles', async ({ page }) => {
+    await page.goto('/');
+    await expect(page.locator('.deck-row.in-band')).toHaveAttribute('data-id', 'cascade');
+    // Count every pattern the bar shows from here on.
+    await page.locator('.deck-notation').evaluate((el) => {
+      const w = window as unknown as { loads: string[] };
+      w.loads = [];
+      // A new text is a load; render may write the same text again (a mapping or volume change).
+      new MutationObserver(() => {
+        const t = el.textContent ?? '';
+        if (w.loads[w.loads.length - 1] !== t) w.loads.push(t);
+      }).observe(el, { childList: true, characterData: true, subtree: true });
+    });
+    await page.locator('.deck-wheel-list').hover();
+    // About 40 rows up, more than the list holds, without a pause long enough to settle.
+    for (let i = 0; i < 40; i++) {
+      await page.mouse.wheel(0, -32);
+      await page.waitForTimeout(40);
+    }
+    await expect(notation(page)).not.toHaveText('3');
+    await page.waitForTimeout(1000);
+    expect(await page.evaluate(() => (window as unknown as { loads: string[] }).loads)).toHaveLength(1);
+    await expect.poll(async () => (await page.locator('.deck-row.in-band code').textContent()) === (await notation(page).textContent())).toBe(true);
+    await expect.poll(async () => (await wheelRowsShown(page)).every((r) => r !== null)).toBe(true);
+    expect(await scheduled(page)).toBe(0);
+  });
+
   test('the seven-object pass shows whole in the bar', async ({ page }) => {
     await page.goto('/');
     await page.locator('.deck-row[data-id="seven-pass"]').click();
@@ -404,6 +431,21 @@ test.describe('wide, the wheel by keyboard', () => {
     await page.keyboard.press('Enter');
     await expect(notation(page)).toHaveText('531');
     await expect(page.locator('#play')).toHaveText('Pause');
+  });
+
+  test('holding ↑ from Cascade round the loop ends with the row in the band loaded', async ({ page }) => {
+    await page.goto('/#3');
+    await page.locator('.deck-row[data-id="cascade"]').focus();
+    for (let i = 0; i < 25; i++) {
+      await page.keyboard.press('ArrowUp');
+      await page.waitForTimeout(30);
+    }
+    // 25 up from Cascade, of the presets and Make your own: row 3 (531).
+    const target = String(PRESETS.length + 1 - 25);
+    await expect(page.locator('.deck-row:focus')).toHaveAttribute('data-row', target);
+    await expect(page.locator('.deck-row.in-band')).toHaveAttribute('data-row', target, { timeout: 8000 });
+    await expect(page.locator('.deck-row[aria-current]')).toHaveAttribute('data-row', target, { timeout: 8000 });
+    expect(await scheduled(page)).toBe(0);
   });
 
   test('← → do nothing while About shows', async ({ page }) => {

@@ -101,11 +101,10 @@ describe('the About page cites only checked sources', () => {
   test('the marker finds the unopened entries', () => {
     expect([...unopened].sort((a, b) => a - b)).toEqual([2, 17, 23]);
   });
-  test('every cited number is a bibliography entry and none is unopened', () => {
-    for (const n of cited) {
-      expect(new RegExp(`^${n}\\. `, 'm').test(bibliography), `entry ${n}`).toBe(true);
-      expect(unopened.has(n), `entry ${n} is unopened`).toBe(false);
-    }
+  test('the three layers cite nothing by number: the sources live below them (v4.1 ruling 4)', () => {
+    expect(cited).toEqual([]);
+    // The pattern does find a citation, so an empty list means none, not a broken pattern.
+    expect([...'as shown [16, 18].'.matchAll(/\[(\d+(?:, \d+)*)\]/g)]).toHaveLength(1);
   });
   test('three short layers: two lines on what it is, three on how to use it, four or five words', () => {
     expect(copy.aboutIntro).toHaveLength(2);

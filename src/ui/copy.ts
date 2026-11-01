@@ -171,7 +171,7 @@ export const copy = {
     { term: 'Siteswap', text: 'The jugglers’ notation. Each digit is one throw, and the number is how many beats it stays in the air: 441 and 531 are three-ball classics.' },
     { term: 'Cascade', text: 'The plainest pattern, 3: every throw the same height, each one crossing to the other hand.' },
     { term: 'Pass', text: 'A throw to another juggler, marked with a p, as in <3p 3|3p 3>.' },
-    { term: 'Sync', text: 'Both hands throw at once, written as a pair in brackets, as in (4,4).' },
+    { term: 'Sync', text: 'Both hands throw at once, written as a pair in parentheses, as in (4,4).' },
     { term: 'Ratio', text: 'How fast two hands beat against each other: at 3:2, hand 1 takes three beats while hand 2 takes two.' },
   ] as readonly { term: string; text: string }[],
   aboutSourcesHeading: 'Sources and details',
