@@ -1,4 +1,4 @@
-// The About page (SPEC §4.4). `main.ts` shows it when the hash is `#about`; playback carries on
+// The About page (SPEC §4.4; three layers since docs/plans/v4-1-polish.md, ruling 4). `main.ts` shows it when the hash is `#about`; playback carries on
 // underneath, so this mount never touches the player.
 import bibliographySource from '../../docs/BIBLIOGRAPHY.md?raw';
 import { copy } from '../ui/copy';
@@ -34,20 +34,31 @@ function linkLabel(href: string): string {
   return path.length > 0 && host.length + path.length < 40 ? host + path : host;
 }
 
-function section(heading: string, paragraphs: readonly string[]): HTMLElement {
+/** Layer 1: what anomatom is, in two lines, then how to use it, in three. */
+function intro(): HTMLElement {
   const s = el('section');
-  s.append(el('h3', heading), ...paragraphs.map((p) => el('p', p)));
+  s.className = 'about-intro';
+  const how = el('ul');
+  how.append(...copy.aboutHow.map((line) => el('li', line)));
+  s.append(...copy.aboutIntro.map((line) => el('p', line)), el('h3', copy.aboutHowHeading), how);
   return s;
 }
 
-/** One section per layer of the model, in my voice, each citing only the bibliography's checked entries. */
-function layers(): HTMLElement[] {
-  return copy.aboutLayers.map((l) => section(l.heading, l.paragraphs));
+/** Layer 2: a few words, one line each. */
+function glossary(): HTMLElement {
+  const s = el('section');
+  s.className = 'about-glossary';
+  const list = el('dl');
+  for (const { term, text } of copy.aboutGlossary) list.append(el('dt', term), el('dd', text));
+  s.append(el('h3', copy.aboutGlossaryHeading), list);
+  return s;
 }
 
 function bibliography(): HTMLElement {
-  const s = el('section');
-  s.append(el('h3', copy.aboutReadingHeading), el('p', copy.aboutReadingIntro));
+  const s = el('div');
+  const lead = el('p');
+  lead.append(copy.aboutMathLead, external(copy.aboutMathUrl, copy.aboutMathLink), copy.aboutMathTail);
+  s.append(el('h4', copy.aboutReadingHeading), lead);
   for (const { heading, entries } of parseBibliography(bibliographySource)) {
     const list = el('ol');
     list.className = 'bibliography';
@@ -62,20 +73,30 @@ function bibliography(): HTMLElement {
       }
       list.append(item);
     }
-    s.append(el('h4', heading), list);
+    s.append(el('h5', heading), list);
   }
   return s;
 }
 
 function credits(): HTMLElement {
-  const s = el('section');
+  const s = el('div');
   const list = el('ul');
   for (const c of copy.aboutCredits) {
     const item = el('li');
     item.append(external(c.url, c.name), `, ${c.note}`);
     list.append(item);
   }
-  s.append(el('h3', copy.aboutCreditsHeading), list);
+  const repo = el('p');
+  repo.append(external(copy.aboutRepoUrl, copy.aboutRepo), `. ${copy.aboutLicence}`);
+  s.append(el('h4', copy.aboutCreditsHeading), list, repo);
+  return s;
+}
+
+/** Layer 3, below the fold: the bibliography, the math notes, the credits and the repo. */
+function sources(): HTMLElement {
+  const s = el('section');
+  s.className = 'about-sources';
+  s.append(el('h3', copy.aboutSourcesHeading), bibliography(), credits());
   return s;
 }
 
@@ -89,21 +110,7 @@ export const mountAbout: Mount = (root, { store }) => {
   setBack();
   store.subscribe(setBack);
 
-  const repo = el('p');
-  repo.append(external(copy.aboutRepoUrl, copy.aboutRepo), `. ${copy.aboutLicence}`);
-
-  page.append(
-    el('h2', copy.aboutTitle),
-    back,
-    section(copy.aboutIdeaHeading, copy.aboutIdea),
-    section(copy.aboutSoundHeading, copy.aboutSound),
-    ...layers(),
-    section(copy.aboutPresetsHeading, copy.aboutPresets),
-    section(copy.aboutColotomyHeading, copy.aboutColotomy),
-    bibliography(),
-    credits(),
-    repo,
-  );
+  page.append(el('h2', copy.aboutTitle), back, intro(), glossary(), sources());
   root.append(page);
   return {};
 };

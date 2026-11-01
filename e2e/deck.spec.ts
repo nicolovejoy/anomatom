@@ -1,6 +1,7 @@
-// The deck (docs/plans/v4-deck.md, stream D1), headless at 390×844, 844×390 and 1280×800: the
-// transport bar, the arrows and keys, the wheel, mute, Kit, Details, Make your own, square
-// corners, no page scroll, no console errors. Screenshots go to e2e/shots/.
+// The deck (docs/plans/v4-deck.md, stream D1; v4.1 polish, docs/plans/v4-1-polish.md), headless
+// at 390×844, 844×390, 667×375 and 1280×800: the transport bar, the arrows and keys, the looping
+// wheel, mute, Kit, Details, Make your own, square corners, no page scroll, no console errors.
+// Screenshots go to e2e/shots/.
 import { mkdirSync } from 'node:fs';
 import { PRESETS } from '../src/app/presets';
 import { expect, isCdnError, openTab, test, type Page } from './fixtures';
@@ -10,6 +11,22 @@ mkdirSync(SHOTS, { recursive: true });
 
 const scheduled = async (page: Page) => Number(await page.locator('#app').getAttribute('data-events-scheduled'));
 const notation = (page: Page) => page.locator('.deck-notation');
+
+/** What sits at the middle of each row the open wheel shows: a row's data-row, or null for none (a blank row). */
+const wheelRowsShown = (page: Page) =>
+  page.locator('.deck-wheel').evaluate((wheel) => {
+    const box = wheel.getBoundingClientRect();
+    const rowPx = (wheel.querySelector('.deck-row') as HTMLElement).getBoundingClientRect().height;
+    const n = Math.round(box.height / rowPx);
+    return Array.from({ length: n }, (_, i) => {
+      const hit = document.elementFromPoint(box.left + box.width / 2, box.top + (i + 0.5) * rowPx);
+      return hit?.closest('.deck-row')?.getAttribute('data-row') ?? null;
+    });
+  });
+
+/** Overlap in px² of two boxes. */
+const overlap = (a: { x: number; y: number; width: number; height: number }, b: { x: number; y: number; width: number; height: number }) =>
+  Math.max(0, Math.min(a.x + a.width, b.x + b.width) - Math.max(a.x, b.x)) * Math.max(0, Math.min(a.y + a.height, b.y + b.height) - Math.max(a.y, b.y));
 
 /** Console errors and page errors, the aborted sample CDN excused. */
 function watchErrors(page: Page): string[] {
@@ -24,9 +41,10 @@ function watchErrors(page: Page): string[] {
 }
 
 const SIZES = [
-  { name: '390x844', width: 390, height: 844, docked: false },
-  { name: '844x390', width: 844, height: 390, docked: false },
-  { name: '1280x800', width: 1280, height: 800, docked: true },
+  { name: '390x844', width: 390, height: 844, docked: false, column: false },
+  { name: '844x390', width: 844, height: 390, docked: false, column: true },
+  { name: '667x375', width: 667, height: 375, docked: false, column: true },
+  { name: '1280x800', width: 1280, height: 800, docked: true, column: false },
 ];
 
 for (const size of SIZES) {
@@ -49,6 +67,13 @@ for (const size of SIZES) {
       await expect(page.locator('.deck-details')).toBeVisible({ visible: !size.docked && size.width < 760 });
       expect(await scheduled(page)).toBe(0);
       expect(await page.evaluate(() => document.documentElement.scrollHeight <= window.innerHeight)).toBe(true);
+      // The wheel loops: no blank row above or below the band; Cascade in the band, Make your own just above it.
+      await expect(page.locator('.deck-row.in-band')).toHaveAttribute('data-id', 'cascade');
+      await expect.poll(async () => (await wheelRowsShown(page)).every((r) => r !== null)).toBe(true);
+      const shown = await wheelRowsShown(page);
+      expect(shown.length % 2).toBe(1);
+      expect(shown[(shown.length - 1) / 2]).toBe('0');
+      expect(shown[(shown.length - 1) / 2 - 1]).toBe(String(PRESETS.length));
       // Square: nothing in the deck is rounded.
       const rounded = await page.locator('.region-deck').evaluate((root) =>
         [root, ...root.querySelectorAll('*')].filter((el) => {
@@ -185,12 +210,25 @@ for (const size of SIZES) {
         await expect(wheel).toBeHidden();
         await page.locator('.deck-pattern').click();
         await expect(wheel).toBeVisible();
-        // Over the stage, not over the deck, and clear of the juggler, which stays in view (ruling B).
         const w = (await wheel.boundingBox())!;
         const bar = (await page.locator('.deck-bar').boundingBox())!;
         const stage = (await page.locator('.stage').boundingBox())!;
-        expect(w.y + w.height).toBeLessThanOrEqual(Math.max(bar.y, stage.y + stage.height) + 1);
-        expect(w.x).toBeGreaterThanOrEqual(stage.x - 1);
+        if (size.column) {
+          // A phone on its side: in the right-hand column, over neither the beat ladder nor Kit and Sound (v4.1 ruling 5).
+          const ladder = (await page.locator('.region-ladder').boundingBox())!;
+          const sound = (await page.locator('.deck-sound').boundingBox())!;
+          expect(overlap(w, ladder)).toBe(0);
+          expect(overlap(w, sound)).toBe(0);
+          expect(overlap(w, bar)).toBe(0);
+          expect(w.x).toBeGreaterThanOrEqual(stage.x + stage.width - 1);
+          expect(w.y + w.height).toBeLessThanOrEqual(size.height + 1);
+          await expect.poll(async () => (await wheelRowsShown(page)).every((r) => r !== null)).toBe(true);
+        } else {
+          // Over the stage, not over the deck, and clear of the juggler, which stays in view (ruling B).
+          expect(w.y + w.height).toBeLessThanOrEqual(Math.max(bar.y, stage.y + stage.height) + 1);
+          expect(w.x).toBeGreaterThanOrEqual(stage.x - 1);
+        }
+        expect(await page.evaluate(() => document.documentElement.scrollHeight <= window.innerHeight)).toBe(true);
         await expect(page.locator('.deck-pattern')).toHaveAttribute('aria-expanded', 'true');
         await expect.poll(async () => {
           const j = (await page.locator('.region-juggler').boundingBox())!;
@@ -218,7 +256,14 @@ test.describe('phone', () => {
     await page.goto('/');
     await page.locator('.deck-row[data-id="passing"]').click();
     await expect(page.locator('.deck-meta')).toHaveText('2 jugglers');
+    // v4.1 ruling 3: the jugglers' kits by short name, and the rule the mapping follows.
     await expect(page.locator('#deck-kit')).toHaveValue('mixed');
+    await expect(page.locator('#deck-kit option:checked')).toHaveText('TR-808 / LM-2');
+    await expect(page.locator('#deck-sound')).toHaveValue('height-drum');
+    await expect(page.locator('#deck-sound option:checked')).toHaveText('Height to drum');
+    // Choosing a kit still sets every part.
+    await page.locator('#deck-kit').selectOption('LM-2');
+    await expect(page.locator('#deck-kit option:checked')).toHaveText('LinnDrum LM-2');
     await expect.poll(() => scheduled(page)).toBeGreaterThan(0);
     await expect(page.locator('.juggler')).toHaveAttribute('data-balls', '6');
     await expect(page.locator('.ladder')).toHaveAttribute('data-balls', '6');
@@ -238,6 +283,87 @@ test.describe('phone', () => {
     await expect(page.locator('.deck-meta')).toHaveText('2 jugglers');
   });
 
+  test('scrolling up from Cascade reaches the last passing pattern', async ({ page }) => {
+    await page.goto('/');
+    const list = page.locator('.deck-wheel-list');
+    await expect(page.locator('.deck-row.in-band')).toHaveAttribute('data-id', 'cascade');
+    await list.hover();
+    await page.mouse.wheel(0, -64);
+    // Two rows up (Make your own, then the last passing pattern); a browser's wheel may carry a
+    // row or two further, which is still round the seam and among the passing patterns.
+    await expect(notation(page)).not.toHaveText('3');
+    await expect(page.locator('.deck-meta')).toHaveText('2 jugglers');
+    const banded = page.locator('.deck-row.in-band');
+    await expect.poll(async () => (await banded.locator('code').textContent()) === (await notation(page).textContent())).toBe(true);
+    const passing = PRESETS.filter((p) => p.group === 'passing').map((p) => p.id);
+    expect(passing).toContain(await banded.getAttribute('data-id'));
+    // The last passing pattern is on screen in the wheel, next to Make your own.
+    const shown = await wheelRowsShown(page);
+    expect(shown).toContain(String(PRESETS.length - 1));
+    expect(await scheduled(page)).toBe(0);
+    // And on round: still no blank rows.
+    await expect.poll(async () => (await wheelRowsShown(page)).every((r) => r !== null)).toBe(true);
+  });
+
+  test('a long continuous spin loops on and loads exactly one pattern, when it settles', async ({ page }) => {
+    await page.goto('/');
+    await expect(page.locator('.deck-row.in-band')).toHaveAttribute('data-id', 'cascade');
+    // Count every pattern the bar shows from here on.
+    await page.locator('.deck-notation').evaluate((el) => {
+      const w = window as unknown as { loads: string[] };
+      w.loads = [];
+      // A new text is a load; render may write the same text again (a mapping or volume change).
+      new MutationObserver(() => {
+        const t = el.textContent ?? '';
+        if (w.loads[w.loads.length - 1] !== t) w.loads.push(t);
+      }).observe(el, { childList: true, characterData: true, subtree: true });
+    });
+    // 40 rows up, more than the list holds, one row every 30 ms: a reader's turn (a wheel event,
+    // then the scroll) driven inside the page, so no pause from the test runner (a CI hiccup
+    // between two driven notches once outlasted the settle) can split the spin in two.
+    const spin = 40;
+    await page.locator('.deck-wheel-list').evaluate(
+      (list, n) =>
+        new Promise<void>((done) => {
+          let i = 0;
+          const tick = () => {
+            list.dispatchEvent(new WheelEvent('wheel', { deltaY: -32, bubbles: true }));
+            list.scrollBy({ top: -32, behavior: 'instant' });
+            i += 1;
+            if (i < n) setTimeout(tick, 30);
+            else done();
+          };
+          tick();
+        }),
+      spin,
+    );
+    // Round the loop: the row `spin` places above Cascade, of the presets and Make your own.
+    const length = PRESETS.length + 1;
+    const landed = PRESETS[(((-spin) % length) + length) % length]!;
+    await expect(notation(page)).toHaveText(landed.texts[0]!);
+    await page.waitForTimeout(1000);
+    expect(await page.evaluate(() => (window as unknown as { loads: string[] }).loads)).toEqual([landed.texts[0]]);
+    await expect.poll(async () => (await page.locator('.deck-row.in-band code').textContent()) === (await notation(page).textContent())).toBe(true);
+    await expect.poll(async () => (await wheelRowsShown(page)).every((r) => r !== null)).toBe(true);
+    expect(await scheduled(page)).toBe(0);
+  });
+
+  test('the seven-object pass shows whole in the bar', async ({ page }) => {
+    await page.goto('/');
+    // The fit is for the real glyphs: wait until IBM Plex Mono has loaded (the app fits again on each font load).
+    await page.evaluate(() => document.fonts.load('500 16px "IBM Plex Mono"'));
+    await expect.poll(() => page.evaluate(() => [...document.fonts].some((f) => f.family.includes('IBM Plex Mono') && f.status === 'loaded'))).toBe(true);
+    await page.locator('.deck-row[data-id="seven-pass"]').click();
+    await expect(notation(page)).toHaveText('<7p 1 3 1|3p 3 3 3>');
+    const fit = () => notation(page).evaluate((el) => `${getComputedStyle(el).fontSize} ${el.scrollWidth}/${el.clientWidth}`);
+    await expect.poll(async () => notation(page).evaluate((el) => el.scrollWidth <= el.clientWidth), { message: `not ellipsized (size scrollWidth/clientWidth: ${await fit()})` }).toBe(true);
+    const px = await notation(page).evaluate((el) => parseFloat(getComputedStyle(el).fontSize));
+    expect(px).toBeGreaterThanOrEqual(11);
+    const slider = (await page.locator('#volume').boundingBox())!;
+    expect(slider.width).toBeGreaterThanOrEqual(70);
+    await page.screenshot({ path: `${SHOTS}/deck-seven-pass-390x844.png` });
+  });
+
   test('scrolling the wheel picks the row it settles on', async ({ page }) => {
     await page.goto('/');
     const list = page.locator('.deck-wheel-list');
@@ -246,10 +372,7 @@ test.describe('phone', () => {
     await list.hover();
     await page.mouse.wheel(0, 64);
     await expect(notation(page)).not.toHaveText('3');
-    const banded = await list.evaluate((el) => {
-      const row = Math.round(el.scrollTop / 32);
-      return el.querySelectorAll('.deck-row code')[row]?.textContent;
-    });
+    const banded = await page.locator('.deck-row.in-band code').textContent();
     await expect(notation(page)).toHaveText(banded ?? '');
     expect(await scheduled(page)).toBe(0);
   });
@@ -281,15 +404,18 @@ test.describe('phone, more', () => {
   });
 
   test('a long pattern is drawn smaller, and next cycle stays on screen', async ({ page }) => {
-    await page.goto('/#3');
+    // Deterministic (it once flaked on WebKit): "next cycle" shows until the old pattern's cycle
+    // ends, so the old one is long (97531, ten beats) and slow (40 bpm, about 7 s), and the switch
+    // comes right after Play.
+    await page.goto('/#97531@40');
     await page.locator('#play').click();
     await page.locator('.deck-pattern').click();
     const last = page.locator('.deck-row:not(.deck-own)').last();
     await last.click();
-    await expect(page.locator('.deck-pattern')).toHaveClass(/\blong\b/);
+    await expect(page.locator('#play')).toHaveText('Pause');
     const size = await notation(page).evaluate((el) => parseFloat(getComputedStyle(el).fontSize));
     expect(size).toBeLessThan(16);
-    await expect(page.locator('#pending')).toBeVisible();
+    await expect(page.locator('#pending')).toBeVisible({ timeout: 3000 });
     const box = (await page.locator('#pending').boundingBox())!;
     const pattern = (await page.locator('.deck-pattern').boundingBox())!;
     expect(box.x + box.width).toBeLessThanOrEqual(pattern.x + pattern.width + 1);
@@ -327,6 +453,21 @@ test.describe('wide, the wheel by keyboard', () => {
     await expect(page.locator('#play')).toHaveText('Pause');
   });
 
+  test('holding ↑ from Cascade round the loop ends with the row in the band loaded', async ({ page }) => {
+    await page.goto('/#3');
+    await page.locator('.deck-row[data-id="cascade"]').focus();
+    for (let i = 0; i < 25; i++) {
+      await page.keyboard.press('ArrowUp');
+      await page.waitForTimeout(30);
+    }
+    // 25 up from Cascade, of the presets and Make your own: row 3 (531).
+    const target = String(PRESETS.length + 1 - 25);
+    await expect(page.locator('.deck-row:focus')).toHaveAttribute('data-row', target);
+    await expect(page.locator('.deck-row.in-band')).toHaveAttribute('data-row', target, { timeout: 8000 });
+    await expect(page.locator('.deck-row[aria-current]')).toHaveAttribute('data-row', target, { timeout: 8000 });
+    expect(await scheduled(page)).toBe(0);
+  });
+
   test('← → do nothing while About shows', async ({ page }) => {
     await page.goto('/#51');
     await page.locator('.about-link').click();
@@ -339,16 +480,23 @@ test.describe('wide, the wheel by keyboard', () => {
   });
 });
 
-test('About has a section per layer', async ({ page }) => {
-  await page.goto('/#about');
-  await expect(page.locator('.about section h3')).toContainText([
-    'Time and the lattice',
-    'Grids: ratio and displacement',
-    'Lines, necklaces and Euclidean rhythms',
-    'Flights, objects and k balls',
-    'Parts, streams and inherent patterns',
-    'Notation',
-    'Where the patterns come from',
-    'A note on the gong cycle',
-  ]);
+test.describe('About', () => {
+  test.use({ viewport: { width: 390, height: 844 } });
+
+  test('three layers: what it is and how to use it, the words, then the sources below the glossary', async ({ page }) => {
+    await page.goto('/#about');
+    await expect(page.locator('.about > section')).toHaveCount(3);
+    await expect(page.locator('.about-intro > p')).toHaveCount(2);
+    await expect(page.locator('.about-intro li')).toHaveCount(3);
+    await expect(page.locator('.about-glossary dt')).toHaveText(['Siteswap', 'Cascade', 'Pass', 'Sync', 'Ratio']);
+    await expect(page.locator('.about-sources h3')).toHaveText('Sources and details');
+    await expect(page.locator('.about-sources a', { hasText: 'math notes' })).toHaveAttribute('href', /docs\/MATH\.md$/);
+    const glossary = (await page.locator('.about-glossary').boundingBox())!;
+    const bib = (await page.locator('ol.bibliography').first().boundingBox())!;
+    expect(bib.y).toBeGreaterThanOrEqual(glossary.y + glossary.height);
+    // Below the fold on a phone.
+    const sources = (await page.locator('.about-sources').boundingBox())!;
+    expect(sources.y).toBeGreaterThanOrEqual(844);
+    await page.screenshot({ path: `${SHOTS}/about-390x844.png` });
+  });
 });

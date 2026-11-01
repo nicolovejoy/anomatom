@@ -1,4 +1,6 @@
-/* The About page. Body text keeps a readable measure; the page never scrolls sideways. */
+/* The About page in three layers (docs/plans/v4-1-polish.md, ruling 4): what it is and how to use
+   it, a few words, then the sources below the fold. A readable measure; never sideways scroll.
+   Square, like the deck: 1px rules, no rounding. */
 .about {
   max-width: 40rem;
   overflow-wrap: anywhere;
@@ -6,13 +8,26 @@
 .about a {
   color: inherit;
 }
+.about h2 {
+  margin: 0.8em 0 0.2em;
+}
 .about h3 {
-  margin: 1.6em 0 0.4em;
+  margin: 1.6em 0 0.5em;
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--muted);
 }
 .about h4 {
-  margin: 1.2em 0 0.4em;
+  margin: 1.4em 0 0.4em;
   font-size: 1em;
-  opacity: 0.75;
+}
+.about h5 {
+  margin: 1.2em 0 0.4em;
+  font-size: 0.875em;
+  font-weight: 600;
+  color: var(--text-2);
 }
 .about .bibliography,
 .about ul {
@@ -20,4 +35,39 @@
 }
 .about li {
   margin: 0.5em 0;
+}
+
+/* Layer 1: two lines a little larger, then three steps. */
+.about-intro > p {
+  margin: 1em 0 0;
+  font-size: 1.125em;
+  line-height: 1.45;
+}
+.about-intro > p + p {
+  margin-top: 0.4em;
+  color: var(--text-2);
+}
+
+/* Layer 2: a term and its line. */
+.about-glossary dl {
+  margin: 0;
+  border-top: 1px solid var(--rule);
+}
+.about-glossary dt {
+  margin-top: 0.7em;
+  font-weight: 600;
+}
+.about-glossary dd {
+  margin: 0.1em 0 0.7em;
+  padding-bottom: 0.7em;
+  border-bottom: 1px solid var(--rule);
+  color: var(--text-2);
+}
+
+/* Layer 3: the sources, smaller, set apart by a rule. */
+.about-sources {
+  margin-top: 3em;
+  padding-top: 0.2em;
+  border-top: 1px solid var(--rule);
+  font-size: 0.875em;
 }

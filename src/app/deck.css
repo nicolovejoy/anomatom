@@ -14,9 +14,9 @@
 .deck-bar {
   display: flex;
   align-items: center;
-  gap: 4px;
+  gap: 1px;
   min-height: 52px;
-  padding: 6px 10px;
+  padding: 6px 8px;
   border-top: 1px solid var(--rule);
   background: var(--surface);
 }
@@ -29,7 +29,7 @@
   flex: none;
   width: 44px;
   height: 40px;
-  margin-right: 4px;
+  margin-right: 2px;
   display: grid;
   place-items: center;
   background: var(--accent) !important;
@@ -64,13 +64,15 @@
   max-width: 420px;
   min-width: 0;
   min-height: 40px;
-  padding: 2px 6px;
+  padding: 2px;
   display: flex;
   flex-direction: column;
   justify-content: center;
   text-align: left;
   line-height: 1.2;
 }
+/* Its size is set by mount-deck.ts, shrunk to fit (DECK.notationPx down to notationMinPx); past
+   the floor it ellipsizes. */
 .deck-notation {
   font: 500 16px var(--font-mono);
   white-space: pre;
@@ -79,10 +81,6 @@
 }
 .deck-pattern.invalid .deck-notation {
   color: var(--warn);
-}
-/* A long pattern (SHEET.longSummaryChars or more) is drawn smaller on a phone. */
-#app:not(.is-wide) .deck-pattern.long .deck-notation {
-  font-size: 12px;
 }
 /* The second line: the name gives way first; the ball count and "next cycle" always show. */
 .deck-line {
@@ -124,11 +122,10 @@
   flex: none;
   display: flex;
   align-items: center;
-  gap: 2px;
   margin-left: auto;
 }
 .deck-mute {
-  width: 36px;
+  width: 32px;
   height: 40px;
   display: grid;
   place-items: center;
@@ -144,13 +141,12 @@
 .deck-mute.muted {
   color: var(--warn-text) !important;
 }
+/* DECK.sliderPx, and DECK.phoneSliderPx on a phone (mount-deck.ts sets both). */
 .deck-volume .slider {
-  width: 76px;
+  width: var(--deck-slider, 76px);
 }
-@media (max-width: 419px) {
-  .deck-volume .slider {
-    width: 52px;
-  }
+#app:not(.is-wide) .deck-volume .slider {
+  width: var(--deck-slider-phone, 80px);
 }
 
 /* The sound row: Kit, Sound, Details. */
@@ -207,8 +203,11 @@
   grid-area: bar;
 }
 
-/* The wheel: a vertical scroll-snap list, seven rows tall, the middle row in a band. Over the
-   stage on a phone (mount-deck.ts places it); in the column on a tall wide screen. */
+/* The wheel: a vertical scroll-snap list, seven rows tall (fewer in a short column), the middle
+   row in a band. It loops (deck-model.ts): each row's place is its CSS order, and the list keeps
+   the band's row in the middle, so there are rows above and below it and never a blank one. Over
+   the stage on a phone, in the right-hand column on a phone on its side or a short wide screen
+   (mount-deck.ts places it); docked in the column on a tall wide screen. */
 .deck-wheel {
   position: absolute;
   z-index: 5;
@@ -242,9 +241,11 @@
   background: linear-gradient(var(--surface), transparent 30%, transparent 70%, var(--surface));
 }
 .deck-wheel-list {
+  display: flex;
+  flex-direction: column;
   list-style: none;
   margin: 0;
-  padding: calc(var(--deck-row) * (var(--deck-rows) - 1) / 2) 0;
+  padding: 0;
   height: 100%;
   overflow-y: auto;
   overscroll-behavior: contain;
@@ -255,6 +256,7 @@
   display: none;
 }
 .deck-wheel-list li {
+  flex: none;
   height: var(--deck-row);
   scroll-snap-align: center;
 }

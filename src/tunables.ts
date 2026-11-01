@@ -598,4 +598,19 @@ export const DECK = {
    */
   minFigurePx: 200,
   sidePx: 300,
+  /** The looping wheel turns its list mid-spin when the band comes this many rows from an end. */
+  loopMarginRows: 2,
+  /** A key's turn re-arms its settle at most this many times while its smooth scroll catches up. */
+  keySettleTries: 12,
+  /**
+   * The transport bar's notation (docs/plans/v4-1-polish.md, ruling 2): this size, shrunk to fit
+   * its space down to notationMinPx before it ellipsizes.
+   */
+  notationPx: 16,
+  notationMinPx: 11,
+  /** How many times the fit measures again and shrinks again before it settles for an ellipsis. */
+  notationFitTries: 8,
+  /** The volume slider's width on a phone (narrower than SHEET.wideMinWidthPx); wider screens use sliderPx. */
+  phoneSliderPx: 80,
+  sliderPx: 76,
 } as const;
