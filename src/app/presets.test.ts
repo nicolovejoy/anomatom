@@ -44,10 +44,26 @@ describe('the cards', () => {
   test('the passing cards give each juggler a kit and a pan, on four voices', () => {
     for (const p of PRESETS.filter((q) => q.group === 'passing')) {
       expect(p.parts.length, p.id).toBe(4);
-      expect(p.balls, p.id).toBe(6);
       expect(p.mapping.parts.map((v) => [v.kit, v.pan]), p.id).toEqual([['TR-808', -0.8], ['TR-808', -0.4], ['LM-2', 0.4], ['LM-2', 0.8]]);
     }
     expect(PRESETS.find((q) => q.id === 'passing')!.texts).toEqual(['<3p 3|3p 3>']);
+  });
+  test('the v4 passing cards (ruling 8): sourced notation, the ball count the source states, last in the group', () => {
+    const sourced: Record<string, [string, number]> = {
+      'pass-pass-self': ['<3p 3p 3|3p 3p 3>', 6],
+      'book-ends': ['<3p 3 3p 3 3p|3p 3 3p 3 3p>', 6],
+      'five-pass': ['<5p 3 1|3 3 3p>', 6],
+      'seven-four-count': ['<3p 3 4 4|4 4 3p 3>', 7],
+      'seven-fours': ['<4p 4p 3 3|3p 3p 4 4>', 7],
+    };
+    const ids = PRESETS.map((q) => q.id);
+    expect(ids.slice(-5)).toEqual(Object.keys(sourced));
+    for (const [id, [text, balls]] of Object.entries(sourced)) {
+      const q = PRESETS.find((x) => x.id === id)!;
+      expect([q.group, q.texts, q.balls], id).toEqual(['passing', [text], balls]);
+      expect(judge(q.parts).ok, id).toBe(true);
+      expect(buildSchedule(q.parts).balls, id).toBe(balls);
+    }
   });
   test('the sync cards (v3 ruling 5): the box in 3 balls, the synchronous fountain in 4, each one sync text', () => {
     const box = PRESETS.find((q) => q.id === 'box')!;

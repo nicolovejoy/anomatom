@@ -77,6 +77,12 @@ export const PRESETS: readonly Preset[] = [
   passingCard('ultimates', '<3p|3p>', 6, 2),
   passingCard('three-count', '<3p 3 3|3p 3 3>', 6, 6),
   passingCard('four-count', '<3p 3 3 3|3p 3 3 3>', 6, 4),
+  // D3 (docs/plans/v4-deck.md, ruling 8): notation as printed in docs/BIBLIOGRAPHY.md entries 24 and 25.
+  passingCard('pass-pass-self', '<3p 3p 3|3p 3p 3>', 6, 6),
+  passingCard('book-ends', '<3p 3 3p 3 3p|3p 3 3p 3 3p>', 6, 10),
+  passingCard('five-pass', '<5p 3 1|3 3 3p>', 6, 6),
+  passingCard('seven-four-count', '<3p 3 4 4|4 4 3p 3>', 7, 4),
+  passingCard('seven-fours', '<4p 4p 3 3|3p 3p 4 4>', 7, 4),
 ];
 
 const sameStructure = (a: unknown, b: unknown): boolean => {
