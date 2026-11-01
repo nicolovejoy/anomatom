@@ -10,14 +10,17 @@ import {
   masterGain,
   presetIndex,
   presetMeta,
+  rowAfterKey,
   settledPick,
   start,
   stepIndex,
   stepKey,
   toggle,
+  turnsWheel,
   volumePatch,
   wheelIndexAt,
   wheelNotch,
+  wheelPlace,
 } from './deck-model';
 import { derived } from './derived';
 import { cardGroups, presetPatch } from './first-minute';
@@ -61,7 +64,8 @@ describe('stepIndex', () => {
 
 describe('the label', () => {
   test('a juggling preset: notation, name, balls', () => {
-    expect(deckLabel(loaded('classic'))).toEqual({ pattern: '531', name: copy.presets.classic!.name, meta: '3 balls', valid: true });
+    expect(deckLabel(loaded('classic'))).toEqual({ pattern: '531', name: copy.presets.classic!.name, meta: '3 balls', valid: true, long: false });
+    expect(deckLabel(loaded('passing')).long).toBe(true);
     expect(deckLabel(loaded('polyrhythm')).pattern).toBe('2 2x 2 / 2x 2');
   });
   test('a passing preset counts jugglers', () => {
@@ -70,7 +74,7 @@ describe('the label', () => {
     expect(copy.deck.jugglers(1)).toBe('1 juggler');
   });
   test('a hand-made pattern: its text, "Your pattern", its balls or can’t juggle', () => {
-    expect(deckLabel(typed(['66']))).toEqual({ pattern: '66', name: copy.deck.yourOwn, meta: '6 balls', valid: true });
+    expect(deckLabel(typed(['66']))).toEqual({ pattern: '66', name: copy.deck.yourOwn, meta: '6 balls', valid: true, long: false });
     expect(deckLabel(typed(['432']))).toMatchObject({ pattern: '432', meta: copy.summaryCantJuggle, valid: false });
   });
   test('a preset with no name in copy shows an empty name', () => {
@@ -101,6 +105,58 @@ describe('the wheel', () => {
     expect(wheelNotch(0, 20, 50)).toEqual({ step: null, acc: 20 });
     expect(wheelNotch(20, 40, 50)).toEqual({ step: 1, acc: 0 });
     expect(wheelNotch(0, -100, 50)).toEqual({ step: -1, acc: 0 });
+  });
+});
+
+describe('the wheel by keyboard', () => {
+  test('only the turning keys turn it; Tab moves focus', () => {
+    for (const k of ['ArrowUp', 'ArrowDown', 'PageUp', 'PageDown', 'Home', 'End']) expect(turnsWheel(k), k).toBe(true);
+    for (const k of ['Tab', 'Enter', ' ', 'ArrowLeft', 'a']) expect(turnsWheel(k), k).toBe(false);
+  });
+  test('where a turning key lands, clamped', () => {
+    expect(rowAfterKey('ArrowDown', 3, 10, 7)).toBe(4);
+    expect(rowAfterKey('ArrowUp', 0, 10, 7)).toBe(0);
+    expect(rowAfterKey('PageDown', 5, 10, 7)).toBe(9);
+    expect(rowAfterKey('PageUp', 8, 10, 7)).toBe(1);
+    expect(rowAfterKey('Home', 5, 10, 7)).toBe(0);
+    expect(rowAfterKey('End', 5, 10, 7)).toBe(9);
+    expect(rowAfterKey('Tab', 5, 10, 7)).toBe(5);
+  });
+});
+
+describe('the open phone wheel keeps the juggler in view', () => {
+  test('a tall stage: along its bottom, the figure above', () => {
+    expect(wheelPlace({ left: 0, top: 0, width: 390, height: 600 }, 224, 200, 300)).toEqual({
+      left: 0,
+      top: 376,
+      width: 390,
+      height: 224,
+      padBottom: 224,
+      padRight: 0,
+    });
+  });
+  test('a short stage: down its right side, the figure to the left', () => {
+    expect(wheelPlace({ left: 8, top: 0, width: 420, height: 290 }, 224, 200, 300)).toEqual({
+      left: 218,
+      top: 33,
+      width: 210,
+      height: 224,
+      padBottom: 0,
+      padRight: 210,
+    });
+    expect(wheelPlace({ left: 0, top: 10, width: 800, height: 200 }, 224, 200, 300)).toMatchObject({ left: 500, top: 10, width: 300 });
+  });
+  test('a phone on its side: in the free column under the bar, when it fits there', () => {
+    const stage = { left: 0, top: 0, width: 307, height: 331 };
+    expect(wheelPlace(stage, 224, 200, 300, { left: 307, top: 57, width: 360, height: 274 })).toEqual({
+      left: 307,
+      top: 57,
+      width: 360,
+      height: 224,
+      padBottom: 0,
+      padRight: 0,
+    });
+    expect(wheelPlace(stage, 224, 200, 300, { left: 307, top: 57, width: 360, height: 100 }).padRight).toBe(154);
   });
 });
 

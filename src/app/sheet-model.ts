@@ -65,20 +65,20 @@ export function stepTab(tab: SheetTab, step: 1 | -1): SheetTab {
 export interface Summary {
   /** The pattern as typed; at other ratios than 1:1, both hands with a slash between. */
   readonly text: string;
-  /** "3 balls · 120 bpm"; "4 balls" when the pattern is long; "can't juggle" when invalid. */
+  /** "3 balls", or "can't juggle" when invalid. */
   readonly meta: string;
   readonly valid: boolean;
   /** Long patterns are drawn smaller. */
   readonly long: boolean;
 }
 
-/** What the closed sheet's summary button says. */
-export function summary(a: Analysis, bpm: number, longChars: number): Summary {
+/** What the deck's transport bar says for a hand-made pattern (docs/plans/v4-deck.md). */
+export function summary(a: Analysis, longChars: number): Summary {
   const trimmed = a.inputs.map((t) => t.trim());
   const text = trimmed.every((t) => t === '') ? copy.summaryEmpty : trimmed.join(' / ');
   const long = text.length >= longChars;
   if (a.balls === null) return { text, meta: copy.summaryCantJuggle, valid: false, long };
-  return { text, meta: long ? copy.summaryBalls(a.balls) : copy.summaryMeta(a.balls, bpm), valid: true, long };
+  return { text, meta: copy.summaryBalls(a.balls), valid: true, long };
 }
 
 /** The two lines under the tempo slider: each hand's bpm, or at 1:1 a hand's and the shared beat's. */

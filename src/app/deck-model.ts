@@ -8,6 +8,7 @@ import { cardGroups, cardPattern, matchPreset } from './first-minute';
 import { analyse } from './knobs-model';
 import type { Player } from './player';
 import type { CardGroup, Preset } from './presets';
+import { SHEET } from '../tunables';
 import { summary } from './sheet-model';
 import { kitRows } from './sound-panel-model';
 import type { AppState } from './state';
@@ -45,6 +46,8 @@ export interface DeckLabel {
   /** "3 balls", "2 jugglers", or "can't juggle" for a hand-made pattern that isn't juggleable. */
   readonly meta: string;
   readonly valid: boolean;
+  /** At least SHEET.longSummaryChars long: drawn smaller on a phone. */
+  readonly long: boolean;
 }
 
 /** What the transport bar shows for a state. */
@@ -52,11 +55,11 @@ export function deckLabel(state: AppState, list: readonly Preset[] = deckPresets
   const i = presetIndex(state, list);
   if (i !== null) {
     const p = list[i] as Preset;
-    return { pattern: cardPattern(p), name: copy.presets[p.id]?.name ?? '', meta: presetMeta(p), valid: true };
+    const pattern = cardPattern(p);
+    return { pattern, name: copy.presets[p.id]?.name ?? '', meta: presetMeta(p), valid: true, long: pattern.length >= SHEET.longSummaryChars };
   }
-  // Long from 0 characters: the meta is the balls alone, never the tempo.
-  const s = summary(analyse(state), state.bpm, 0);
-  return { pattern: s.text, name: copy.deck.yourOwn, meta: s.meta, valid: s.valid };
+  const s = summary(analyse(state), SHEET.longSummaryChars);
+  return { pattern: s.text, name: copy.deck.yourOwn, meta: s.meta, valid: s.valid, long: s.long };
 }
 
 /** The tag at the right of a wheel row: 3, 4, 5 or PASS. */
@@ -73,6 +76,52 @@ export function wheelIndexAt(scrollTop: number, rowPx: number, length: number): 
  */
 export function settledPick(row: number, current: number | null, presets: number): number | null {
   return row >= presets || row === current ? null : row;
+}
+
+/** The keys that turn the wheel when a row has focus; Tab and the rest only move focus. */
+const TURN_KEYS = ['ArrowUp', 'ArrowDown', 'PageUp', 'PageDown', 'Home', 'End'];
+
+/** Whether a key pressed in the wheel turns it (and so may pick when it settles). */
+export const turnsWheel = (key: string): boolean => TURN_KEYS.includes(key);
+
+/**
+ * The row a turning key moves the wheel's focus to, from `row`, of `length` rows: one up or
+ * down, a wheel's height (`page` rows) for PageUp and PageDown, the ends for Home and End.
+ */
+export function rowAfterKey(key: string, row: number, length: number, page: number): number {
+  const to = key === 'Home' ? 0 : key === 'End' ? length - 1 : row + ({ ArrowUp: -1, ArrowDown: 1, PageUp: -page, PageDown: page }[key] ?? 0);
+  return Math.min(length - 1, Math.max(0, to));
+}
+
+export interface Box {
+  readonly left: number;
+  readonly top: number;
+  readonly width: number;
+  readonly height: number;
+}
+
+export interface WheelPlace extends Box {
+  /** What the stage keeps clear for the wheel: below the figure, or to its right. */
+  readonly padBottom: number;
+  readonly padRight: number;
+}
+
+/**
+ * Where the open phone wheel sits so the juggler stays in view (ruling B, 2026-10-31): along the
+ * stage's bottom when at least `minFigure` of height stays above it for the figure; else in
+ * `column` (a phone on its side: the free part of the right-hand column under the transport bar)
+ * when the wheel fits there; else down the stage's right side, at most `sideMax` and at most half
+ * the stage wide, centred on the stage's height (or at its top when the stage is shorter).
+ */
+export function wheelPlace(stage: Box, wheelHeight: number, minFigure: number, sideMax: number, column: Box | null = null): WheelPlace {
+  if (stage.height - wheelHeight >= minFigure) {
+    return { left: stage.left, top: stage.top + stage.height - wheelHeight, width: stage.width, height: wheelHeight, padBottom: wheelHeight, padRight: 0 };
+  }
+  if (column && column.height >= wheelHeight) {
+    return { left: column.left, top: column.top, width: column.width, height: wheelHeight, padBottom: 0, padRight: 0 };
+  }
+  const width = Math.min(sideMax, Math.round(stage.width / 2));
+  return { left: stage.left + stage.width - width, top: stage.top + Math.max(0, (stage.height - wheelHeight) / 2), width, height: wheelHeight, padBottom: 0, padRight: width };
 }
 
 /** What has focus when a key is pressed, as far as ← → care. */

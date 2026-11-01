@@ -222,10 +222,6 @@
   font-size: 15px;
 }
 /* Space plays and pauses: a keyboard's hint, so only on a wide screen. */
-#app:not(.is-wide) .space-hint {
-  display: none;
-}
-
 /* Rhythm: ratio chips, the steppers behind More, the lanes. Tempo (styled at the end) sits in the Sound tab. */
 .ratio-chips {
   display: grid;

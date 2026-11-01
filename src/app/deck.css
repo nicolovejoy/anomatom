@@ -59,7 +59,9 @@
   background: var(--raised) !important;
 }
 .deck-pattern {
-  flex: 1 1 auto;
+  /* As wide as its text and no wider, so ‹ and › bracket the name; the volume takes the rest. */
+  flex: 0 1 auto;
+  max-width: 420px;
   min-width: 0;
   min-height: 40px;
   padding: 2px 6px;
@@ -78,12 +80,35 @@
 .deck-pattern.invalid .deck-notation {
   color: var(--warn);
 }
-.deck-sub {
+/* A long pattern (SHEET.longSummaryChars or more) is drawn smaller on a phone. */
+#app:not(.is-wide) .deck-pattern.long .deck-notation {
   font-size: 12px;
-  color: var(--muted);
+}
+/* The second line: the name gives way first; the ball count and "next cycle" always show. */
+.deck-line {
+  display: flex;
+  align-items: baseline;
+  min-width: 0;
+  font-size: 12px;
   white-space: nowrap;
+}
+.deck-sub {
+  display: flex;
+  min-width: 0;
+  color: var(--muted);
+}
+.deck-name {
+  min-width: 0;
   overflow: hidden;
   text-overflow: ellipsis;
+}
+.deck-dot,
+.deck-meta,
+.deck-pending {
+  flex: none;
+}
+.deck-dot {
+  white-space: pre;
 }
 .deck-meta {
   color: var(--valid);
@@ -121,6 +146,11 @@
 }
 .deck-volume .slider {
   width: 76px;
+}
+@media (max-width: 419px) {
+  .deck-volume .slider {
+    width: 52px;
+  }
 }
 
 /* The sound row: Kit, Sound, Details. */
@@ -258,6 +288,9 @@
   letter-spacing: 0.08em;
   text-transform: uppercase;
   color: var(--handle);
+}
+.deck-row:focus-visible {
+  outline-offset: -2px;
 }
 .deck-row.in-band,
 .deck-row.on {

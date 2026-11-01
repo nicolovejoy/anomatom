@@ -566,7 +566,7 @@ export const SHEET = {
   landscape: { maxHeightPx: 480, columnPx: 360, ladderPx: 96 },
   /** A drag on the handle longer than this opens or closes the sheet; shorter is a tap. */
   dragPx: 24,
-  /** A pattern this long or longer is drawn smaller in the closed sheet's summary. */
+  /** A pattern this long or longer is drawn smaller in the deck's transport bar on a phone. */
   longSummaryChars: 7,
 } as const;
 
@@ -592,4 +592,10 @@ export const DECK = {
    * on its side at 844×390) it opens over the stage as on a phone, so the sheet keeps its room.
    */
   dockedMinHeightPx: 560,
+  /**
+   * The open phone wheel keeps the juggler in view: under the figure when the stage has at least
+   * this much height left above it, else beside it, at most sidePx wide.
+   */
+  minFigurePx: 200,
+  sidePx: 300,
 } as const;

@@ -20,9 +20,19 @@ export const test = base.extend({
 export const isCdnError = (text: string, m?: ConsoleMessage): boolean =>
   text.includes(CDN_HOST) || (m?.location().url ?? '').includes(CDN_HOST);
 
-/** Shows one tab of the sheet (docs/plans/phone-sheet.md); on a wide screen the column is always open on one. */
-export const openTab = (page: import('@playwright/test').Page, tab: 'pattern' | 'rhythm' | 'sound') =>
-  page.locator(`#tab-${tab}`).click();
+/**
+ * Shows one tab of the sheet (docs/plans/phone-sheet.md); on a wide screen the column is always
+ * open on one. A closed phone sheet shows no tabs (v4 ruling C): the deck's Details opens it on
+ * Sound, and the tabs show from then on.
+ */
+export async function openTab(page: import('@playwright/test').Page, tab: 'pattern' | 'rhythm' | 'sound') {
+  const button = page.locator(`#tab-${tab}`);
+  if (!(await button.isVisible())) {
+    await page.locator('.deck-details').click();
+    if (tab === 'sound') return;
+  }
+  if ((await button.getAttribute('aria-selected')) !== 'true') await button.click();
+}
 
 /** Stop lives beside the time slider, shown while paused: pause first if playing, then stop. */
 export async function stopPlaying(page: import('@playwright/test').Page) {

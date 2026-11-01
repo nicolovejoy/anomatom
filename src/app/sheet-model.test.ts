@@ -75,25 +75,25 @@ test('Space belongs to selects, text and number inputs and textareas only', () =
 });
 
 describe('the summary', () => {
-  test('a valid 1:1 pattern: the pattern, its balls and the tempo', () => {
+  test('a valid 1:1 pattern: the pattern and its balls', () => {
     const p: [string, string] = ['531', ''];
-    expect(summary(analyse(typed(p, one)), 120, 7)).toEqual({ text: '531', meta: '3 balls · 120 bpm', valid: true, long: false });
+    expect(summary(analyse(typed(p, one)), 7)).toEqual({ text: '531', meta: '3 balls', valid: true, long: false });
   });
   test('one ball is singular', () => {
     const p: [string, string] = ['1', ''];
-    expect(summary(analyse(typed(p, one)), 90, 7).meta).toBe('1 ball · 90 bpm');
+    expect(summary(analyse(typed(p, one)), 7).meta).toBe('1 ball');
   });
-  test('both hands at 3:2, long, so balls only', () => {
+  test('both hands at 3:2: long', () => {
     const p: [string, string] = ['2 2x 2', ' 2x 2 '];
-    expect(summary(analyse(typed(p, threeTwo)), 120, 7)).toEqual({ text: '2 2x 2 / 2x 2', meta: '4 balls', valid: true, long: true });
+    expect(summary(analyse(typed(p, threeTwo)), 7)).toEqual({ text: '2 2x 2 / 2x 2', meta: '4 balls', valid: true, long: true });
   });
   test('invalid says so', () => {
     const p: [string, string] = ['432', ''];
-    expect(summary(analyse(typed(p, one)), 120, 7)).toMatchObject({ text: '432', valid: false, meta: 'can’t juggle' });
+    expect(summary(analyse(typed(p, one)), 7)).toMatchObject({ text: '432', valid: false, meta: 'can’t juggle' });
   });
   test('empty shows a dash', () => {
     const p: [string, string] = ['  ', ''];
-    expect(summary(analyse(typed(p, one)), 120, 7).text).toBe('–');
+    expect(summary(analyse(typed(p, one)), 7).text).toBe('–');
   });
 });
 

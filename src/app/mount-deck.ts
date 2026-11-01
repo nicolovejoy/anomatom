@@ -19,16 +19,21 @@ import {
   keyTarget,
   masterGain,
   presetIndex,
+  rowAfterKey,
   settledPick,
+  start,
   stepIndex,
   stepKey,
   toggle,
+  turnsWheel,
   volumePatch,
   wheelIndexAt,
   wheelNotch,
+  wheelPlace,
 } from './deck-model';
 import { cardPattern, presetPatch } from './first-minute';
 import type { Mount } from './mount';
+import { route } from './route';
 import { kitEdit, nowPlaying, presetEdit } from './now-playing-model';
 import { fillPercent, keepsSpace } from './sheet-model';
 import { applyEdit } from './sound-panel-model';
@@ -54,9 +59,9 @@ export const mountDeck: Mount = (root, { store, player, sound }) => {
         <span class="sr-only play-label">${copy.play}</span>
       </button>
       <button type="button" class="deck-arrow deck-prev" aria-label="${t.previous}">${chevron(true)}</button>
-      <button type="button" class="deck-pattern" aria-controls="deck-wheel" aria-expanded="false">
+      <button type="button" class="deck-pattern">
         <code class="deck-notation"></code>
-        <span class="deck-sub"><span class="deck-name"></span><span class="deck-dot">${t.dot}</span><span class="deck-meta"></span><span id="pending" class="deck-pending" hidden>${copy.nextCycle}</span></span>
+        <span class="deck-line"><span class="deck-sub"><span class="deck-name"></span><span class="deck-dot">${t.dot}</span><span class="deck-meta"></span></span><span id="pending" class="deck-pending" hidden>${copy.nextCycle}</span></span>
       </button>
       <button type="button" class="deck-arrow deck-next" aria-label="${t.next}">${chevron(false)}</button>
       <span class="deck-volume">
@@ -69,10 +74,10 @@ export const mountDeck: Mount = (root, { store, player, sound }) => {
         ${presets
           .map(
             (p, i) =>
-              `<li><button type="button" class="deck-row" data-row="${i}" data-id="${p.id}"><code>${cardPattern(p)}</code><span class="deck-row-name">${copy.presets[p.id]?.name ?? ''}</span><em>${groupTag(p.group)}</em></button></li>`,
+              `<li><button type="button" class="deck-row" tabindex="-1" data-row="${i}" data-id="${p.id}"><code>${cardPattern(p)}</code><span class="deck-row-name">${copy.presets[p.id]?.name ?? ''}</span><em>${groupTag(p.group)}</em></button></li>`,
           )
           .join('')}
-        <li><button type="button" class="deck-row deck-own" data-row="${presets.length}"><span class="deck-row-name">${t.makeYourOwn}</span></button></li>
+        <li><button type="button" class="deck-row deck-own" tabindex="-1" data-row="${presets.length}"><span class="deck-row-name">${t.makeYourOwn}</span></button></li>
       </ol>
     </div>
     <div class="deck-sound">
@@ -151,12 +156,16 @@ export const mountDeck: Mount = (root, { store, player, sound }) => {
   const docked = () => dockedQuery.matches;
   const wheelShown = () => docked() || wheelOpen;
 
-  /** Over the stage on a phone: the stage's left, width and bottom, measured, so it fits every layout. */
+  /**
+   * Over the stage on a phone, measured so it fits every layout: under the figure, or beside it
+   * when the stage is short. The stage keeps that part clear (--wheel-pad-*, style.css), so the
+   * juggler draws in what is left and stays in view (wheelPlace in deck-model.ts).
+   */
   function placeWheel() {
-    if (docked()) {
-      wheel.style.removeProperty('left');
-      wheel.style.removeProperty('top');
-      wheel.style.removeProperty('width');
+    if (docked() || wheel.hidden) {
+      for (const p of ['left', 'top', 'width']) wheel.style.removeProperty(p);
+      app.style.setProperty('--wheel-pad-bottom', '0px');
+      app.style.setProperty('--wheel-pad-right', '0px');
       return;
     }
     const stage = document.querySelector('.stage') as HTMLElement | null;
@@ -164,10 +173,20 @@ export const mountDeck: Mount = (root, { store, player, sound }) => {
     if (!stage || !view) return;
     const s = stage.getBoundingClientRect();
     const v = view.getBoundingClientRect();
-    const height = DECK.rowPx * DECK.wheelRows;
-    wheel.style.left = `${s.left - v.left}px`;
-    wheel.style.width = `${s.width}px`;
-    wheel.style.top = `${Math.max(s.top - v.top, s.bottom - v.top - height)}px`;
+    const box = { left: s.left - v.left, top: s.top - v.top, width: s.width, height: s.height };
+    // A phone on its side: the right-hand column under the transport bar is free while the sheet is closed.
+    let column = null;
+    if (app.classList.contains('is-landscape') && !app.classList.contains('sheet-open')) {
+      const r = root.getBoundingClientRect();
+      const b = (root.querySelector('.deck-bar') as HTMLElement).getBoundingClientRect();
+      column = { left: r.left - v.left, top: b.bottom - v.top, width: r.width, height: v.bottom - b.bottom };
+    }
+    const place = wheelPlace(box, DECK.rowPx * DECK.wheelRows, DECK.minFigurePx, DECK.sidePx, column);
+    wheel.style.left = `${place.left}px`;
+    wheel.style.top = `${place.top}px`;
+    wheel.style.width = `${place.width}px`;
+    app.style.setProperty('--wheel-pad-bottom', `${place.padBottom}px`);
+    app.style.setProperty('--wheel-pad-right', `${place.padRight}px`);
   }
 
   /** Brings the wheel's band to the loaded preset; a hand-made pattern leaves it where it is. */
@@ -186,8 +205,15 @@ export const mountDeck: Mount = (root, { store, player, sound }) => {
     wheel.hidden = !shown;
     app.classList.toggle('deck-docked', docked());
     app.classList.toggle('wheel-open', shown && !docked());
-    patternButton.setAttribute('aria-expanded', String(shown));
-    if (shown) placeWheel();
+    // A docked wheel is always open: the pattern button then only takes focus to it.
+    if (docked()) {
+      patternButton.removeAttribute('aria-expanded');
+      patternButton.removeAttribute('aria-controls');
+    } else {
+      patternButton.setAttribute('aria-controls', 'deck-wheel');
+      patternButton.setAttribute('aria-expanded', String(shown));
+    }
+    placeWheel();
     if (shown && !was) scrollWanted = true;
   }
 
@@ -198,10 +224,21 @@ export const mountDeck: Mount = (root, { store, player, sound }) => {
   };
 
   patternButton.addEventListener('click', () => {
-    if (docked()) return;
+    if (docked()) {
+      rows[roving]?.focus();
+      return;
+    }
     wheelOpen = !wheelOpen;
     showWheel();
   });
+
+  /** One tab stop in the wheel (roving tabindex): the loaded row, else the row last in the band. */
+  let roving = 0;
+  const rove = (row: number) => {
+    rows[roving]?.setAttribute('tabindex', '-1');
+    roving = Math.min(rows.length - 1, Math.max(0, row));
+    rows[roving]?.setAttribute('tabindex', '0');
+  };
 
   /** The row in the band, marked while the wheel turns. */
   let banded = -1;
@@ -212,18 +249,37 @@ export const mountDeck: Mount = (root, { store, player, sound }) => {
     banded = row;
   };
 
-  // Only a turn the reader makes picks: a scroll from the page (snapping after a layout change, the
-  // wheel shown again, a focused row brought into view, the band following an arrow) never does.
+  // Only a turn the reader makes picks: a mouse wheel, a touch, or ↑ ↓ PageUp PageDown Home End
+  // on a row. A scroll from the page (snapping after a layout change, the wheel shown again, Tab
+  // bringing a row into view, the band following an arrow) never does. A turn that does not scroll
+  // (at an end) lapses after two settles, so a later scroll from the page is not taken for one.
   let turning = false;
-  for (const type of ['wheel', 'touchstart', 'keydown']) list.addEventListener(type, () => (turning = true), { passive: true });
+  let turnTimer: ReturnType<typeof setTimeout> | undefined;
+  const turn = () => {
+    turning = true;
+    clearTimeout(turnTimer);
+    turnTimer = setTimeout(() => (turning = false), DECK.settleMs * 2);
+  };
+  for (const type of ['wheel', 'touchstart']) list.addEventListener(type, turn, { passive: true });
+  list.addEventListener('keydown', (e) => {
+    if (!turnsWheel(e.key) || e.ctrlKey || e.metaKey || e.altKey) return;
+    e.preventDefault();
+    turn();
+    const to = rowAfterKey(e.key, roving, rowCount, DECK.wheelRows);
+    rove(to);
+    rows[to]?.focus({ preventScroll: true });
+    list.scrollTo({ top: to * DECK.rowPx, behavior: 'smooth' });
+  });
   let settleTimer: ReturnType<typeof setTimeout> | undefined;
   list.addEventListener('scroll', () => {
     const row = wheelIndexAt(list.scrollTop, DECK.rowPx, rowCount);
     band(row);
+    if (turning) turn();
     clearTimeout(settleTimer);
     settleTimer = setTimeout(() => {
       const user = turning;
       turning = false;
+      clearTimeout(turnTimer);
       if (!user || wheel.hidden) return;
       const at = wheelIndexAt(list.scrollTop, DECK.rowPx, rowCount);
       const chosen = settledPick(at, current(), presets.length);
@@ -240,7 +296,10 @@ export const mountDeck: Mount = (root, { store, player, sound }) => {
         store.set({ sheetTab: 'pattern' });
         return;
       }
+      // A tap on a row is a gesture: it plays the row (ruling A), unlike a step or a settle.
       pick(i);
+      start(player, store.get());
+      rove(i);
       scrollToCurrent(true);
       closeWheel();
     }),
@@ -324,9 +383,11 @@ export const mountDeck: Mount = (root, { store, player, sound }) => {
   );
   document.addEventListener('keyup', (e) => isSpace(e) && e.preventDefault(), { capture: true });
 
-  // Bubbling, so a control that walks its own arrows (the ratio chips) has had them first.
+  // Bubbling, so a control that walks its own arrows (the ratio chips) has had them first. Only
+  // on the play view: under About the arrows scroll the page.
+  const playView = root.closest('.play-view') as HTMLElement | null;
   document.addEventListener('keydown', (e) => {
-    if (e.defaultPrevented || e.isComposing) return;
+    if (e.defaultPrevented || e.isComposing || playView?.hidden || route(location.hash).view === 'about') return;
     const el = e.target instanceof Element ? e.target : null;
     const kind = el ? keyTarget(el.tagName, el instanceof HTMLInputElement ? el.type : null, el.getAttribute('role')) : 'other';
     const delta = stepKey(e.key, kind, { ctrl: e.ctrlKey, meta: e.metaKey, alt: e.altKey });
@@ -347,9 +408,15 @@ export const mountDeck: Mount = (root, { store, player, sound }) => {
     dot.hidden = label.name === '';
     metaEl.textContent = label.meta;
     patternButton.classList.toggle('invalid', !label.valid);
+    patternButton.classList.toggle('long', label.long);
     patternButton.setAttribute('aria-label', t.choose(label.pattern, label.name));
     const i = current();
-    rows.forEach((row, r) => row.classList.toggle('on', r === i));
+    rows.forEach((row, r) => {
+      row.classList.toggle('on', r === i);
+      if (r === i) row.setAttribute('aria-current', 'true');
+      else row.removeAttribute('aria-current');
+    });
+    if (i !== null && !rows[roving]?.matches(':focus')) rove(i);
     const now = nowPlaying(state);
     kitSelect.value = now.kit;
     soundSelect.value = now.preset;
@@ -361,12 +428,13 @@ export const mountDeck: Mount = (root, { store, player, sound }) => {
     const gain = masterGain(state.volume, state.muted);
     root.dataset.master = String(gain);
     sound.setMaster(gain);
-    scrollToCurrent(true);
   }
 
   store.subscribe((state, previous) => {
     const keys = ['parts', 'ratio', 'drafts', 'mapping', 'volume', 'muted'] as const;
     if (keys.some((k) => state[k] !== previous[k])) render();
+    // Only a new pattern moves the band: a volume or sound change mid-turn leaves the wheel be.
+    if (state.parts !== previous.parts || state.ratio !== previous.ratio) scrollToCurrent(true);
   });
   showWheel();
   render();

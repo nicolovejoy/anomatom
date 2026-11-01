@@ -74,10 +74,10 @@ Knob panel, in this order:
 
 1. Siteswap, hand 1 and hand 2: text input plus digit buttons 0-9, `x` and backspace. The validity indicator sits beside each input. At 1:1 only one input shows and takes a vanilla siteswap; at any other ratio both show, with a one-line hint that a digit counts that hand's own beats (`MATH.md` §6).
 2. Ratio: chips 1:1, 3:2, 4:3, 5:4, and two steppers for anything else up to 9:8.
-3. Tempo: bpm of hand 1's own beats, 40-240; hand 2 follows from the ratio. Shown for both hands. At 1:1 a hand beats every other vanilla beat, so the vanilla beat runs at twice this number.
+3. Tempo: bpm of hand 1's own beats, 40-240, default 104; hand 2 follows from the ratio. Shown for both hands. At 1:1 a hand beats every other vanilla beat, so the vanilla beat runs at twice this number. (v4: the first group of the Sound tab.)
 4. Swap two sites: tap two digits in one hand's input, then Swap. Disabled unless two are chosen.
 5. Play / pause, and a time slider across the cycle that scrubs when paused.
-6. Master volume.
+6. Master volume. (v4: in the deck, with a one-tap mute.)
 7. Sound panel button (opens §4.3).
 8. About link.
 
@@ -86,6 +86,8 @@ Live changes: a knob changed during play takes effect at the next cycle boundary
 (v2 wave 2, 2026-10-30) A juggler is a pair of hands. With three or more hands the juggler draws one figure per pair side by side, a pass as an arc between figures, a caption under each; the Pattern view accepts passing siteswap `<3p 3|3p 3>` (`MATH.md` §10) as one input; the Sound panel's Kit becomes one select per juggler and gains a Passes section. The editor shows a passing set as one input holding `<3p 3|3p 3>` (typing a plain siteswap over it returns to one juggler); the digit pad gains a `p` key under `x` while the input holds a `|`; the first-minute set gains the passing card (`<3p 3|3p 3>`, six balls); the short link is `#3p-3|3p-3` (`-` for a space, `p<n>` names the target among three), written only when it round-trips, so the passing card with its kits writes `#v2.`.
 
 (v3, 2026-10-31) Sync siteswap, form 5: `(4,2x)(2x,4)` in the pattern box (`MATH.md` §11). Each pair is the left and right hand throwing on the same beat, every height even, `x` crossing to the other hand; a trailing `*` repeats the sequence with the hands exchanged (`(4,2x)*` is the box) and is never written back. A draft starting with `(` reads as form 5; a sync set shows as one input holding its text, as a vanilla pair does; typing a plain siteswap over it returns to the vanilla pair, and an `a / b` draft over it keeps its grids. An odd height is refused with its digit marked. The digit pad gains no `( , )` keys this wave (a card or a hardware keyboard brings sync in), a sync set's link is `#v2.` (no short form), and swapping throws in a sync set waits for a follow-up.
+
+(v4, 2026-10-31) The deck (`docs/plans/v4-deck.md`) replaces the first-minute card screen and the sheet's head row (summary, share, Play). It sits under the stage: a transport bar (Play/Pause, ‹, the pattern with its name and "3 balls" or "2 jugglers", ›, mute and volume) and a sound row (Kit, Sound, Details). ‹ › and ← → step through every preset, wrapping, and never start sound; a step while playing lands on the next cycle. The pattern wheel lists every preset and, last, "Make your own" (opens the Pattern tab); it picks the row it settles on (no sound), and a tap on a row plays it. On a phone the pattern name opens the wheel over the stage, with the juggler kept in view; on a wide screen at least 560 px tall it stays open at the top of the right-hand column. A first visit (the bare address) opens on the wheel on a phone, playing nothing. On a phone the closed sheet shows no tabs: Details opens it on Sound, Make your own on Pattern. Mute is UI state, never in the link. Tempo moves to the Sound tab and defaults to 104; a short link without `@bpm` plays at 104. The share button is in the top bar beside About; tapping the wordmark offers to start over. Controls are square, with 1 px rules.
 
 (v2, 2026-10-29) The model waves rewire today's sheet minimally (`docs/plans/model-rethink.md` §14, option b); the mixer-style layout comes later in its own plan. Play is always on. The Rhythm tab gains, per hand, a phase stepper in pulses and a ball stepper k; on a hand in a manual cross group the ball stepper is replaced by the group's derived count and "reset". A one-line notice shows the result of the last action and clears on the next. The Pattern view accepts `a / b` at 1:1 (two lines, both at phase 0) as well as the vanilla siteswap, `x<n>` for a cross to hand n, and the letters `a`-`z` for heights 10-35. Still two hands on screen.
 
@@ -113,9 +115,9 @@ A drawer over the play view. Every control edits one field of the Mapping. Defau
 6. Cross-throw accent: velocity boost (0 to 40); downbeat sound (clap, cowbell, none).
 7. Crossings to filter: on/off; cutoff range low-high in Hz.
 8. Pad on downbeat: on/off; instrument (Mellotron, Soundfont pad); chord (a short list: Dm9, Am7, Cmaj7, F6/9, one open fifth).
-9. Reset to preset. (The share button is in the head row, not here: it shares the link, short where the pattern allows, else `#v2.`.)
+9. Reset to preset. (The share button is in the top bar, not here: it shares the link, short where the pattern allows, else `#v2.`.)
 
-(v2, 2026-10-29) The preset list gains "Voice per part", the new default for a fresh state (§6), and item 4 becomes per hand: kit, sample, pan and gain. The Sound tab copy says that the sound is invariant under ball count unless the preset reads flight length.
+(v2, 2026-10-29) The preset list gains "Voice per part", the new default for a fresh state (§6), and item 4 becomes per hand: kit, sample, pan and gain. The Sound tab copy says that the sound is invariant under ball count unless the preset reads flight length. (v4: that note is gone; the Sound tab opens with Tempo.)
 
 (v2 wave 1, 2026-10-30) Item 1 lists five kits: TR-808 (default), Casio RZ-1, LinnDrum LM-2, MFB-512, Roland CR-8000, and sets every part's kit. Sound names stay the TR-808's; each kit plays each on its own sample, borrowing the nearest where it has none (`KIT_ROLES`). The kit is not part of a preset: choosing a kit keeps the preset's name, and choosing a preset keeps the kit.
 

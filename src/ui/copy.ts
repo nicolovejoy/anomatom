@@ -206,10 +206,10 @@ export const copy = {
       ],
     },
   ] as readonly { heading: string; paragraphs: readonly string[] }[],
-  aboutPresetsHeading: 'Where the cards come from',
+  aboutPresetsHeading: 'Where the patterns come from',
   aboutPresets: [
-    'Every card is a pattern jugglers already know, and I play it on the tempo you set. The names are the ones Juggling Lab, the Library of Juggling and Wikipedia’s list of siteswaps use. Where I found no name for a pattern, the card says what it is instead.',
-    'I play every card on a Roland TR-808 unless you pick another kit. The passing cards give each juggler a kit of their own.',
+    'Every pattern on my wheel is one jugglers already know, and I play it on the tempo you set. The names are the ones Juggling Lab, the Library of Juggling and Wikipedia’s list of siteswaps use. Where I found no name for a pattern, the wheel says what it is instead.',
+    'I play every pattern on a Roland TR-808 unless you pick another kit. The passing patterns give each juggler a kit of their own.',
   ],
   aboutColotomyHeading: 'A note on the gong cycle',
   aboutColotomy: [
@@ -333,7 +333,6 @@ export const copy = {
   sheetGrabClose: 'Close the knobs',
   /** The closed sheet's summary: the pattern, then what it is. Opens the Pattern tab. */
   summaryOpen: 'Edit the pattern',
-  summaryMeta: (balls: number, bpm: number) => `${balls} ball${balls === 1 ? '' : 's'} · ${bpm} bpm`,
   summaryBalls: (balls: number) => `${balls} ball${balls === 1 ? '' : 's'}`,
   summaryCantJuggle: 'can’t juggle',
   summaryEmpty: '–',
@@ -438,7 +437,8 @@ export const copy = {
     mixed: 'Mixed',
     custom: 'Custom',
     details: 'Details',
-    detailsLabel: 'All sound settings',
+    /** Starts with the visible word, so a voice command "click Details" finds it (WCAG 2.5.3). */
+    detailsLabel: 'Details, all sound settings',
     wheelLabel: 'Patterns',
     makeYourOwn: 'Make your own',
     /** The transport bar's name line for a pattern that is no preset. */

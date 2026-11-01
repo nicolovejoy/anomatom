@@ -121,9 +121,8 @@ for (const size of SIZES) {
       await expect(page.locator('#play')).toHaveText('Play');
     });
 
-    test('clicking a wheel row plays it', async ({ page }) => {
+    test('clicking a wheel row plays it, from stopped too', async ({ page }) => {
       await page.goto('/#3');
-      await page.locator('#play').click();
       if (!size.docked) {
         await expect(page.locator('.deck-wheel')).toBeHidden();
         await page.locator('.deck-pattern').click();
@@ -132,7 +131,10 @@ for (const size of SIZES) {
       await page.locator('.deck-row[data-id="classic"]').click();
       await expect(notation(page)).toHaveText('531');
       await expect(page.locator('#play')).toHaveText('Pause');
+      await expect.poll(() => scheduled(page)).toBeGreaterThan(0);
       await expect(page.locator('.deck-row[data-id="classic"]')).toHaveClass(/\bon\b/);
+      await expect(page.locator('.deck-row[data-id="classic"]')).toHaveAttribute('aria-current', 'true');
+      await expect(page.locator('.deck-row[aria-current]')).toHaveCount(1);
       // On a phone the pick closes the wheel; docked, it stays.
       await expect(page.locator('.deck-wheel')).toBeVisible({ visible: size.docked });
       await page.screenshot({ path: `${SHOTS}/deck-wheel-pick-${size.name}.png` });
@@ -183,12 +185,18 @@ for (const size of SIZES) {
         await expect(wheel).toBeHidden();
         await page.locator('.deck-pattern').click();
         await expect(wheel).toBeVisible();
-        // Over the stage, not over the deck.
+        // Over the stage, not over the deck, and clear of the juggler, which stays in view (ruling B).
         const w = (await wheel.boundingBox())!;
         const bar = (await page.locator('.deck-bar').boundingBox())!;
         const stage = (await page.locator('.stage').boundingBox())!;
         expect(w.y + w.height).toBeLessThanOrEqual(Math.max(bar.y, stage.y + stage.height) + 1);
         expect(w.x).toBeGreaterThanOrEqual(stage.x - 1);
+        await expect(page.locator('.deck-pattern')).toHaveAttribute('aria-expanded', 'true');
+        await expect.poll(async () => {
+          const j = (await page.locator('.region-juggler').boundingBox())!;
+          const clear = j.y + j.height <= w.y + 1 || j.x + j.width <= w.x + 1;
+          return clear && j.height >= 80 && j.width >= 120;
+        }).toBe(true);
         await page.screenshot({ path: `${SHOTS}/deck-wheel-open-${size.name}.png` });
         await page.locator('.deck-pattern').click();
         await expect(wheel).toBeHidden();
@@ -211,7 +219,6 @@ test.describe('phone', () => {
     await page.locator('.deck-row[data-id="passing"]').click();
     await expect(page.locator('.deck-meta')).toHaveText('2 jugglers');
     await expect(page.locator('#deck-kit')).toHaveValue('mixed');
-    await page.locator('#play').click();
     await expect.poll(() => scheduled(page)).toBeGreaterThan(0);
     await expect(page.locator('.juggler')).toHaveAttribute('data-balls', '6');
     await expect(page.locator('.ladder')).toHaveAttribute('data-balls', '6');
@@ -257,6 +264,81 @@ test.describe('phone', () => {
   });
 });
 
+test.describe('phone, more', () => {
+  test.use({ viewport: { width: 390, height: 844 } });
+
+  test('a first visit keeps the juggler in view above the open wheel; the closed sheet shows no tabs', async ({ page }) => {
+    await page.goto('/');
+    const w = (await page.locator('.deck-wheel').boundingBox())!;
+    await expect.poll(async () => {
+      const j = (await page.locator('.region-juggler').boundingBox())!;
+      return j.y + j.height <= w.y + 1 && j.height >= 150;
+    }).toBe(true);
+    await expect(page.locator('.sheet-tabs')).toBeHidden();
+    await expect(page.locator('.sheet-grab')).toBeHidden();
+    await page.waitForTimeout(500);
+    await page.screenshot({ path: `${SHOTS}/deck-phone-bare-wheel.png` });
+  });
+
+  test('a long pattern is drawn smaller, and next cycle stays on screen', async ({ page }) => {
+    await page.goto('/#3');
+    await page.locator('#play').click();
+    await page.locator('.deck-pattern').click();
+    const last = page.locator('.deck-row:not(.deck-own)').last();
+    await last.click();
+    await expect(page.locator('.deck-pattern')).toHaveClass(/\blong\b/);
+    const size = await notation(page).evaluate((el) => parseFloat(getComputedStyle(el).fontSize));
+    expect(size).toBeLessThan(16);
+    await expect(page.locator('#pending')).toBeVisible();
+    const box = (await page.locator('#pending').boundingBox())!;
+    const pattern = (await page.locator('.deck-pattern').boundingBox())!;
+    expect(box.x + box.width).toBeLessThanOrEqual(pattern.x + pattern.width + 1);
+    expect(box.width).toBeGreaterThan(20);
+  });
+
+  test('Details is named Details', async ({ page }) => {
+    await page.goto('/#3');
+    await expect(page.getByRole('button', { name: /^Details/ })).toBeVisible();
+  });
+});
+
+test.describe('wide, the wheel by keyboard', () => {
+  test.use({ viewport: { width: 1280, height: 800 } });
+
+  test('one tab stop; Tab passes through without picking; ↓ turns it and picks without sound', async ({ page }) => {
+    await page.goto('/#3');
+    await expect(page.locator('.deck-row[tabindex="0"]')).toHaveCount(1);
+    await expect(page.locator('.deck-pattern')).not.toHaveAttribute('aria-expanded', /.*/);
+    await page.locator('.deck-pattern').click();
+    await expect(page.locator('.deck-row[data-id="cascade"]')).toBeFocused();
+    for (let i = 0; i < 8; i++) await page.keyboard.press('Tab');
+    await page.waitForTimeout(500);
+    await expect(notation(page)).toHaveText('3');
+    await page.locator('.deck-row[data-id="cascade"]').focus();
+    await page.keyboard.press('ArrowDown');
+    await page.keyboard.press('ArrowDown');
+    await expect(page.locator('.deck-row[data-id="pause"]')).toBeFocused();
+    await expect(notation(page)).toHaveText('441');
+    expect(await scheduled(page)).toBe(0);
+    // Enter picks and plays the focused row.
+    await page.keyboard.press('ArrowDown');
+    await page.keyboard.press('Enter');
+    await expect(notation(page)).toHaveText('531');
+    await expect(page.locator('#play')).toHaveText('Pause');
+  });
+
+  test('← → do nothing while About shows', async ({ page }) => {
+    await page.goto('/#51');
+    await page.locator('.about-link').click();
+    await expect(page).toHaveURL(/#about$/);
+    await expect(page.locator('.region-about')).toBeVisible();
+    await page.keyboard.press('ArrowRight');
+    await page.keyboard.press('ArrowRight');
+    await page.locator('.region-about a', { hasText: 'Back to the pattern' }).click();
+    await expect(notation(page)).toHaveText('51');
+  });
+});
+
 test('About has a section per layer', async ({ page }) => {
   await page.goto('/#about');
   await expect(page.locator('.about section h3')).toContainText([
@@ -266,7 +348,7 @@ test('About has a section per layer', async ({ page }) => {
     'Flights, objects and k balls',
     'Parts, streams and inherent patterns',
     'Notation',
-    'Where the cards come from',
+    'Where the patterns come from',
     'A note on the gong cycle',
   ]);
 });

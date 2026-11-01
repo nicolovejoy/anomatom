@@ -115,6 +115,19 @@
   box-shadow: inset 0 -3px 0 var(--accent);
 }
 
+/* Closed on a phone (and on its side), the sheet shows no handle and no tabs: Details opens it on
+   Sound and Make your own on Pattern; its tabs show once it is open (ruling C). What stays is the
+   head, which takes no room unless paused (Stop, the time slider) or the drums failed. */
+#app:not(.is-wide):not(.sheet-open) .sheet-grab,
+#app:not(.is-wide):not(.sheet-open) .sheet-tabs {
+  display: none;
+}
+#app:not(.is-wide):not(.sheet-open) .sheet {
+  gap: 0;
+  padding-bottom: env(safe-area-inset-bottom);
+  border-top: 0;
+}
+
 /* The open panel scrolls inside the sheet. */
 .sheet-panels {
   flex: 1 1 auto;

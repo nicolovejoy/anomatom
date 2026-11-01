@@ -4,7 +4,7 @@ import { partsFromVanilla } from '../src/core';
 import { encodeState } from '../src/app/hash';
 import { defaultState } from '../src/app/state';
 import { applyPreset } from '../src/sound/mapping';
-import { expect, test } from './fixtures';
+import { expect, openTab, test } from './fixtures';
 
 test.use({ viewport: { width: 390, height: 844 } });
 
@@ -22,7 +22,7 @@ test('share copies the live short link when navigator.share is absent', async ({
   expect(box.width).toBeGreaterThanOrEqual(44);
   expect(box.height).toBeGreaterThanOrEqual(44);
   await page.screenshot({ path: 'test-results/share-top-bar.png' });
-  await page.locator('#tab-pattern').click();
+  await openTab(page, 'pattern');
   // Straight after an edit: the live state, not the debounced hash.
   await page.locator('#hand-0').fill('441');
   await page.locator('#share-top').click();
@@ -38,7 +38,7 @@ test('share copies the live short link when navigator.share is absent', async ({
 
 test('typing passing siteswap writes the short link #3p-3|3p-3, and the link reopens it', async ({ page }) => {
   await page.goto('/#3');
-  await page.locator('#tab-pattern').click();
+  await openTab(page, 'pattern');
   await expect(page.locator('.key-pass')).toBeHidden();
   await page.locator('#hand-0').fill('<3p 3|3p 3>');
   await expect(page.locator('.key-pass')).toBeVisible();
@@ -52,7 +52,7 @@ test('typing passing siteswap writes the short link #3p-3|3p-3, and the link reo
 
 test('the p key types a pass mark at the caret', async ({ page }) => {
   await page.goto('/#3p-3|3p-3');
-  await page.locator('#tab-pattern').click();
+  await openTab(page, 'pattern');
   await page.locator('#hand-0').fill('<3|3>');
   await page.locator('.key-pass').click();
   await expect(page.locator('#hand-0')).toHaveValue('<3|3>p');
@@ -60,7 +60,7 @@ test('the p key types a pass mark at the caret', async ({ page }) => {
 
 test('the Sound tab no longer has a copy button', async ({ page }) => {
   await page.goto('/#531');
-  await page.locator('#tab-sound').click();
+  await openTab(page, 'sound');
   await expect(page.locator('#sp-copy')).toHaveCount(0);
 });
 

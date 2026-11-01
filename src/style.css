@@ -196,6 +196,12 @@ button:disabled {
 .region-sheet {
   flex: 0 0 auto;
 }
+/* The open phone wheel sits over the stage; the stage keeps that part clear, so the juggler and
+   the ladder draw in what is left and stay in view (mount-deck.ts sets the two lengths). */
+#app.wheel-open .stage {
+  padding-bottom: var(--wheel-pad-bottom, 0px);
+  padding-right: var(--wheel-pad-right, 0px);
+}
 /* Open on a phone: the sheet takes the height the stage and the deck leave, up to its share. */
 #app.sheet-open:not(.is-wide) .region-sheet {
   flex: 0 1 var(--sheet-open-height, 62dvh);
