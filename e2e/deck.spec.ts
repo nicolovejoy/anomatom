@@ -165,15 +165,15 @@ for (const size of SIZES) {
       await page.screenshot({ path: `${SHOTS}/deck-wheel-pick-${size.name}.png` });
     });
 
-    test('mute sets the master to 0 and back; the slider unmutes', async ({ page }) => {
+    test('the master opens at half; mute sets it to 0 and back; the slider unmutes', async ({ page }) => {
       await page.goto('/#3');
       const master = () => page.locator('.region-deck').getAttribute('data-master');
-      await expect.poll(master).toBe('1');
+      await expect.poll(master).toBe('0.5');
       await page.locator('#mute').click();
       await expect(page.locator('#mute')).toHaveAttribute('aria-pressed', 'true');
       await expect.poll(master).toBe('0');
       await page.locator('#mute').click();
-      await expect.poll(master).toBe('1');
+      await expect.poll(master).toBe('0.5');
       await page.locator('#mute').click();
       await page.locator('#volume').fill('0.4');
       await expect.poll(master).toBe('0.4');
