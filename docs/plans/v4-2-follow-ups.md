@@ -1,6 +1,6 @@
 # v4.2 · follow-ups
 
-Status: planned 2026-11-01 (governor Opus, session 1208). Nico: "good to go".
+Status: merged and smoked 2026-11-01 (governor Opus, session 1208; PRs 72 plan, 73 F1 (Sonnet); one Opus fresh-eyes review, its should-fixes fixed before merge: the names test waits on the 400 faces and counts its rows). Names: seven-fours "Seven, two fours"; rising-passes "Rising" (the room is about 55 px; the reviewer offered "Climbing" or "3, 4, 5", Nico to choose). The notch flake was reproduced once in about 900 runs and not caught; the fix re-centres the pointer on the button and waits for each step's hash, the likely cause, not proven. Checkpoint smoke headless on anomatom.com: deck and done-means specs, 120 passed on Edge and WebKit.
 
 Carried from v4.1 (`docs/plans/v4-1-polish.md`, status line).
 
