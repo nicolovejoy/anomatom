@@ -442,9 +442,9 @@ export const copy = {
     'four-count': { name: 'Four-count' },
     'five-pass': { name: 'A high pass, then 3 and 1' },
     'seven-four-count': { name: 'Seven, alternating 3 and 4' },
-    'seven-fours': { name: 'Seven, two fours passed' },
+    'seven-fours': { name: 'Seven, two fours' },
     'seven-pass': { name: 'A 7 pass against a 3' },
-    'rising-passes': { name: 'Two-count with 3, 4 and 5 passes inserted' },
+    'rising-passes': { name: 'Rising' },
   } as Record<string, { name: string }>,
 };
 
