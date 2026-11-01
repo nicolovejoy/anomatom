@@ -32,10 +32,15 @@ const payloadOf = (hash: string) => route(hash).state ?? '';
 const roundTrip = (state: AppState) => decodeState(payloadOf(encodeState(state)));
 
 describe('encodeState', () => {
+  test('an old link written at the former default keeps its 120 bpm', () => {
+    const old = '#v2.eyJwIjpbeyJzIjoyLCJmIjowLCJ1IjoxLCJ0IjpbWzMsMV1dfSx7InMiOjIsImYiOjEsInUiOjEsInQiOltbMywwXV19XSwiciI6WzEsMV0sInQiOjEyMCwibSI6InZvaWNlLXBlci1wYXJ0In0';
+    expect(decodeState(payloadOf(old))?.bpm).toBe(120);
+  });
+
   test('the default state encodes to a stable string', () => {
-    // A change here breaks every shared link: bump the scheme version instead.
+    // The default tempo may change (104 now); a change in the encoding breaks every shared link: bump the scheme version instead.
     expect(encodeState(defaultState())).toBe(
-      '#v2.eyJwIjpbeyJzIjoyLCJmIjowLCJ1IjoxLCJ0IjpbWzMsMV1dfSx7InMiOjIsImYiOjEsInUiOjEsInQiOltbMywwXV19XSwiciI6WzEsMV0sInQiOjEyMCwibSI6InZvaWNlLXBlci1wYXJ0In0',
+      '#v2.eyJwIjpbeyJzIjoyLCJmIjowLCJ1IjoxLCJ0IjpbWzMsMV1dfSx7InMiOjIsImYiOjEsInUiOjEsInQiOltbMywwXV19XSwiciI6WzEsMV0sInQiOjEwNCwibSI6InZvaWNlLXBlci1wYXJ0In0',
     );
   });
 

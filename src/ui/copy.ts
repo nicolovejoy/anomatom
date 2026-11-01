@@ -428,6 +428,12 @@ export const copy = {
   shareLabel: 'Share this pattern',
   linkCopied: 'Link copied',
   linkNotCopied: 'Link not copied',
+  /** The wordmark is a button: it asks before starting over. */
+  /** Read after the site name inside the wordmark button, for screen readers. */
+  wordmarkHint: 'start over',
+  resetQuestion: 'Start over?',
+  resetConfirm: 'Reset',
+  resetCancel: 'Cancel',
 
   // -------------------------------------------------------------------------------------------
   // Phone sheet, stream B: first minute

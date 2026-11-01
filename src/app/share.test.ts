@@ -12,6 +12,7 @@ function setup(initialHash = '', initial: AppState = defaultState()) {
   const store = createStore(initial);
   let hash = initialHash;
   const replaced: string[] = [];
+  const pushed: string[] = [];
   let due: { fn: () => void; ms: number } | null = null;
   const cancel = vi.fn(() => {
     due = null;
@@ -22,6 +23,10 @@ function setup(initialHash = '', initial: AppState = defaultState()) {
     replaceHash: (h) => {
       hash = h;
       replaced.push(h);
+    },
+    pushHash: (h) => {
+      hash = h;
+      pushed.push(h);
     },
     after: (fn, ms) => {
       due = { fn, ms };
@@ -34,6 +39,7 @@ function setup(initialHash = '', initial: AppState = defaultState()) {
     store,
     share,
     replaced,
+    pushed,
     cancel,
     setHash: (h: string) => (hash = h),
     hash: () => hash,
@@ -256,13 +262,17 @@ describe('a pasted link on an open page', () => {
     expect(s.sheetTab).toBe('sound');
   });
 
-  test('an emptied hash or #about does not reset anything', () => {
+  test('#about does not reset anything; an emptied hash is the bare address, so the defaults', () => {
     const t = setup('', linked);
     t.share.start();
-    for (const h of ['', '#', '#about']) {
+    t.setHash('#about');
+    t.share.onHashChange();
+    expect(t.store.get().parts).toEqual(linked.parts);
+    for (const h of ['', '#']) {
+      t.store.set({ parts: linked.parts });
       t.setHash(h);
       t.share.onHashChange();
-      expect(t.store.get().parts).toEqual(linked.parts);
+      expect(t.store.get().parts).toEqual(defaultState().parts);
     }
   });
 });
@@ -356,5 +366,134 @@ describe('the short link in the address', () => {
     other.share.start();
     expect(other.store.get().bpm).toBe(140);
     expect(other.store.get().parts).toEqual(vanillaParts('531'));
+  });
+});
+
+describe('history: push for parts, replace for the rest', () => {
+  const started = (hash = encodeHash(defaultState())) => {
+    const t = setup(hash);
+    t.share.start();
+    return t;
+  };
+
+  test('a parts change pushes a new entry', () => {
+    const t = started();
+    t.store.set({ parts: vanillaParts('441') });
+    t.fire();
+    expect(t.pushed).toEqual([encodeHash({ ...defaultState(), parts: vanillaParts('441') })]);
+    expect(t.replaced).toEqual([]);
+  });
+
+  test('a tempo or mapping change replaces the current entry', () => {
+    const t = started();
+    t.store.set({ bpm: 90 });
+    t.fire();
+    t.store.set({ mapping: applyPreset('height-drum') });
+    t.fire();
+    expect(t.pushed).toEqual([]);
+    expect(t.replaced).toHaveLength(2);
+  });
+
+  test('two quick parts edits inside the debounce push once, with the last', () => {
+    const t = started();
+    t.store.set({ parts: vanillaParts('441') });
+    t.store.set({ parts: vanillaParts('531') });
+    t.fire();
+    expect(t.pushed).toEqual([encodeHash({ ...defaultState(), parts: vanillaParts('531') })]);
+  });
+
+  test('a parts edit with a tempo change in the same quiet period still pushes', () => {
+    const t = started();
+    t.store.set({ parts: vanillaParts('441') });
+    t.store.set({ bpm: 90 });
+    t.fire();
+    expect(t.pushed).toHaveLength(1);
+    expect(t.replaced).toEqual([]);
+  });
+
+  test('a push flag does not leak into the next write', () => {
+    const t = started();
+    t.store.set({ parts: vanillaParts('441') });
+    t.fire();
+    t.store.set({ bpm: 90 });
+    t.fire();
+    expect(t.pushed).toHaveLength(1);
+    expect(t.replaced).toHaveLength(1);
+  });
+
+  test('a parts change that leaves the hash as it is writes nothing', () => {
+    const t = started();
+    t.store.set({ parts: vanillaParts('441') });
+    t.store.set({ parts: defaultState().parts });
+    t.fire();
+    expect(t.pushed).toEqual([]);
+    expect(t.replaced).toEqual([]);
+  });
+
+  test('while About shows nothing is written, and the push flag is spent', () => {
+    const t = started('#about');
+    t.store.set({ parts: vanillaParts('441') });
+    t.fire();
+    expect(t.pushed).toEqual([]);
+    t.setHash(encodeHash(defaultState()));
+    t.store.set({ bpm: 90 });
+    t.fire();
+    expect(t.pushed).toEqual([]);
+    expect(t.replaced).toHaveLength(1);
+  });
+
+  test('popstate to an older hash restores its state and writes no entry', () => {
+    const t = started();
+    t.store.set({ parts: vanillaParts('441') });
+    t.fire();
+    const newer = t.hash();
+    t.setHash(encodeHash(defaultState())); // Back
+    t.share.onHashChange();
+    expect(t.store.get().parts).toEqual(defaultState().parts);
+    t.fire();
+    expect(t.pushed).toHaveLength(1);
+    expect(t.replaced).toEqual([]);
+    t.setHash(newer); // Forward
+    t.share.onHashChange();
+    expect(t.store.get().parts).toEqual(vanillaParts('441'));
+    t.fire();
+    expect(t.pushed).toHaveLength(1);
+  });
+
+  test('popstate drops a write that was waiting', () => {
+    const t = started();
+    t.store.set({ parts: vanillaParts('441') });
+    t.setHash(encodeHash({ ...defaultState(), bpm: 90 }));
+    t.share.onHashChange();
+    expect(t.cancel).toHaveBeenCalled();
+    t.fire();
+    expect(t.pushed).toEqual([]);
+  });
+
+  test('Back to a bare-address entry restores the default state', () => {
+    const t = started('');
+    t.store.set({ parts: vanillaParts('441') });
+    t.fire();
+    expect(t.pushed).toHaveLength(1);
+    for (const bare of ['', '#']) {
+      t.store.set({ parts: vanillaParts('441') });
+      t.setHash(bare);
+      t.share.onHashChange();
+      expect(t.store.get().parts).toEqual(defaultState().parts);
+    }
+  });
+
+  test('flush on the way out replaces, never pushes', () => {
+    const t = started();
+    t.store.set({ parts: vanillaParts('441') });
+    t.share.flush();
+    expect(t.pushed).toEqual([]);
+    expect(t.replaced).toEqual([encodeHash({ ...defaultState(), parts: vanillaParts('441') })]);
+  });
+
+  test('restoring on load never pushes', () => {
+    const t = started(encodeHash(linked));
+    t.fire();
+    expect(t.pushed).toEqual([]);
   });
 });

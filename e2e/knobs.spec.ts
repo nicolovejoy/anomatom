@@ -40,8 +40,8 @@ test('ratio chips, steppers, tempo for both hands, and the accent at 3:2', async
   await page.goto('/#v1.e30');
   await openTab(page, 'rhythm');
   await page.locator('.chip', { hasText: '3:2' }).click();
-  await expect(page.locator('.tempo-both')).toHaveText('Hand 1 beats at 120 bpm, hand 2 at 80.');
-  await expect(page.locator('.tempo-hands')).toHaveText(/Hand 1 · 120 bpm\s*Hand 2 · 80 bpm/);
+  await expect(page.locator('.tempo-both')).toHaveText('Hand 1 beats at 104 bpm, hand 2 at 69.3.');
+  await expect(page.locator('.tempo-hands')).toHaveText(/Hand 1 · 104 bpm\s*Hand 2 · 69.3 bpm/);
   // Arrow keys walk the chips.
   await page.locator('.chip', { hasText: '3:2' }).press('ArrowRight');
   await expect(page.locator('.chip', { hasText: '4:3' })).toHaveAttribute('aria-pressed', 'true');
@@ -203,7 +203,7 @@ test('phone: the closed sheet, the summary opens Pattern, tabs switch and close,
   await page.goto('/#v1.e30');
   // Closed: the summary, Play and the tabs; no panel. The juggler and the ladder stay.
   await expect(page.locator('.summary')).toBeVisible();
-  await expect(page.locator('.summary')).toContainText('3 balls · 120 bpm');
+  await expect(page.locator('.summary')).toContainText('3 balls · 104 bpm');
   await expect(page.locator('#play')).toBeVisible();
   await expect(page.locator('#tab-rhythm')).toBeVisible();
   await expect(hand1(page)).toBeHidden();

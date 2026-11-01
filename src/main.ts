@@ -12,6 +12,7 @@ import { mountSoundPanel } from './app/mount-sound-panel';
 import { mountSheet } from './app/mount-sheet';
 import { mountAbout } from './app/mount-about';
 import { mountShare } from './app/mount-share';
+import { mountTopbar } from './app/mount-topbar';
 import { createDrumSound } from './sound/drum-sound';
 import { browserContext, drumMachine } from './sound/drum-machine.browser';
 import { copy } from './ui/copy';
@@ -20,8 +21,23 @@ const app = document.getElementById('app');
 if (app) {
   app.innerHTML = `
     <header class="topbar">
-      <h1 class="wordmark">${copy.title}</h1>
-      <a href="#about" class="about-link" aria-label="${copy.aboutButtonLabel}">${copy.aboutButtonGlyph}</a>
+      <div class="topbar-main">
+        <h1 class="wordmark-wrap"><button type="button" class="wordmark">${copy.title}<span class="sr-only">, ${copy.wordmarkHint}</span></button></h1>
+        <span class="topbar-actions">
+          <span id="share-status-top" class="share-status-top" role="status" aria-live="polite"></span>
+          <button id="share-top" type="button" class="topbar-button" data-share aria-label="${copy.shareLabel}">
+            <svg aria-hidden="true" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 15V3"/><path d="M7 8l5-5 5 5"/><path d="M5 12v7a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-7"/></svg>
+          </button>
+          <a href="#about" class="about-link" aria-label="${copy.aboutButtonLabel}">${copy.aboutButtonGlyph}</a>
+        </span>
+      </div>
+      <div class="topbar-confirm" role="group" aria-labelledby="reset-question" hidden>
+        <span id="reset-question" class="reset-question">${copy.resetQuestion}</span>
+        <span class="topbar-actions">
+          <button type="button" class="reset-go">${copy.resetConfirm}</button>
+          <button type="button" class="reset-cancel">${copy.resetCancel}</button>
+        </span>
+      </div>
     </header>
     <div class="play-view">
       <div class="stage">
@@ -64,6 +80,7 @@ if (app) {
     [mountFirstMinute, region('first-minute')],
     [mountAbout, region('about')],
     [mountShare, app],
+    [mountTopbar, app.querySelector('.topbar') as HTMLElement],
   ];
   const draws = mounts
     .map(([mount, root]): Mounted => mount(root, ctx))
