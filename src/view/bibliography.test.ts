@@ -13,7 +13,7 @@ describe('parseBibliography', () => {
       'Rhythm, meter and perception',
     ]);
     const all = sections.flatMap((s) => s.entries);
-    expect(all.map((e) => e.number)).toEqual(Array.from({ length: 23 }, (_, i) => i + 1));
+    expect(all.map((e) => e.number)).toEqual(Array.from({ length: 25 }, (_, i) => i + 1));
     expect(all.filter((e) => e.url === null).map((e) => e.number)).toEqual([2, 17]);
     expect(all[1]?.text).not.toContain('Listed from');
     expect(all[0]?.url).toBe('https://www.cecm.sfu.ca/organics/papers/buhler/paper/html/node1.html');
