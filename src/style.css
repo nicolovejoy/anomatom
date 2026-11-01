@@ -85,14 +85,73 @@ button:disabled {
 .topbar {
   height: 44px;
   padding: 0 8px 0 20px;
+}
+.topbar-main,
+.topbar-confirm {
+  height: 100%;
   display: flex;
   align-items: center;
   justify-content: space-between;
 }
+.topbar-main[hidden],
+.topbar-confirm[hidden] {
+  display: none;
+}
+.topbar-actions {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+.wordmark-wrap {
+  margin: 0;
+}
 .wordmark {
   margin: 0;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: inherit;
+  cursor: pointer;
   font: 700 19px/1 var(--font-mark);
   letter-spacing: -0.02em;
+}
+.topbar-button {
+  width: 44px;
+  height: 44px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 0;
+  background: none;
+  color: var(--text-2);
+  cursor: pointer;
+}
+.share-status-top {
+  color: var(--valid);
+  font-size: 12px;
+  white-space: nowrap;
+}
+.share-status-top:empty {
+  display: none;
+}
+.reset-question {
+  font-weight: 600;
+}
+.reset-go,
+.reset-cancel {
+  min-height: 36px;
+  padding: 0 14px;
+  border: 1px solid var(--rule);
+  border-radius: 0;
+  background: none;
+  color: inherit;
+  font: inherit;
+  cursor: pointer;
+}
+.reset-go {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: var(--ground);
 }
 .topbar .about-link {
   width: 44px;

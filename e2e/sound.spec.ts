@@ -157,7 +157,7 @@ test('a junk hash loads the defaults and the page works', async ({ page }) => {
     await page.goto('/' + junk);
     await page.reload();
     await expect(page.locator('#hand-0')).toHaveValue('3');
-    await expect(page.locator('#bpm')).toHaveValue('120');
+    await expect(page.locator('#bpm')).toHaveValue('104');
     await openPanel(page);
     await expect(page.locator('#sp-preset')).toHaveValue('voice-per-part');
     await expect(page.locator('#play')).toBeEnabled();

@@ -124,7 +124,7 @@ test.describe('SPEC 7.3: the 3:2 demo', () => {
     await expect.poll(() => scheduled(page)).toBeGreaterThan(0);
     await expect(ladder(page)).toHaveAttribute('data-balls', '4');
     await expect(page.locator('canvas.juggler')).toHaveAttribute('data-balls', '4');
-    await expect(page.locator('.tempo-both')).toHaveText('Hand 1 beats at 120 bpm, hand 2 at 80.');
+    await expect(page.locator('.tempo-both')).toHaveText('Hand 1 beats at 104 bpm, hand 2 at 69.3.');
     await stopPlaying(page);
   });
 

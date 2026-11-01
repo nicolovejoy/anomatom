@@ -12,7 +12,7 @@ export const MAX_RATIO = 9;
 export const MAX_PERIOD = 16;
 
 /** Tempo of hand 1's beats. */
-export const DEFAULT_BPM = 120;
+export const DEFAULT_BPM = 104;
 export const BPM_RANGE = { min: 40, max: 240 } as const;
 /** What the card screen's tempo stepper adds or takes away per press. */
 export const TEMPO_STEP = 5;
@@ -571,3 +571,10 @@ export const SHEET = {
   /** A pattern this long or longer is drawn smaller in the closed sheet's summary. */
   longSummaryChars: 7,
 } as const;
+
+// ---------------------------------------------------------------------------------------------
+// v4 D2: top bar reset
+// ---------------------------------------------------------------------------------------------
+
+/** The wordmark's "Start over?" question withdraws itself after this long. */
+export const RESET = { confirmMs: 6000 } as const;

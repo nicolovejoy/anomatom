@@ -428,6 +428,11 @@ export const copy = {
   shareLabel: 'Share this pattern',
   linkCopied: 'Link copied',
   linkNotCopied: 'Link not copied',
+  /** The wordmark is a button: it asks before starting over. */
+  wordmarkLabel: 'anomatom: start over',
+  resetQuestion: 'Start over?',
+  resetConfirm: 'Reset',
+  resetCancel: 'Cancel',
 
   // -------------------------------------------------------------------------------------------
   // Phone sheet, stream B: first minute

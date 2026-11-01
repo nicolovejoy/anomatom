@@ -6,8 +6,12 @@
 //   any knob change: only the fields that differ are set, so the knobs queue them for the next
 //   cycle and nothing restarts or plays. A hash that carries no state is ignored when empty or
 //   `#about`, and is junk otherwise: junk loads the defaults (never throws).
-// - Every change to the parts, ratio, tempo or Mapping rewrites the hash (`replaceState`, so
-//   no history entry) after `SHARE.hashDebounceMs` of quiet, except while About is showing.
+// - Every change to the parts, ratio, tempo or Mapping rewrites the hash after
+//   `SHARE.hashDebounceMs` of quiet, except while About is showing. A write that follows a change
+//   to the parts is a `pushState` (a new history entry, so Back returns to the old pattern);
+//   every other write replaces the current entry. Two parts edits inside one quiet period push once.
+// - A `popstate` (Back, Forward) restores like a pasted link, and drops any write still waiting:
+//   the entry the person went to is the truth now. A restore never writes a new entry.
 // - `lastStateHash` in the store is kept current at once (About's back link), not debounced. It
 //   rides in the same `store.set` as the change it follows (a `store.derive` deriver),
 //   so listeners run once per change, not twice.
@@ -21,6 +25,8 @@ export interface ShareDeps {
   hash(): string;
   /** `history.replaceState` with this hash. */
   replaceHash(hash: string): void;
+  /** `history.pushState` with this hash: a new entry. */
+  pushHash(hash: string): void;
   after(fn: () => void, ms: number): unknown;
   cancel(handle: unknown): void;
   readonly debounceMs: number;
@@ -78,14 +84,22 @@ export function createShare(deps: ShareDeps) {
   const { store } = deps;
   let timer: unknown;
   let pending = false;
+  /** The waiting write follows a change to the parts, so it is a new history entry. */
+  let push = false;
+  /** Set while a restore sets the store: the change comes from the hash, not from the person. */
+  let restoring = false;
 
   function write() {
     if (pending) deps.cancel(timer);
     pending = false;
+    const asPush = push;
+    push = false;
     // About owns the hash while it shows; the back link holds the state.
     if (route(deps.hash()).view === 'about') return;
     const hash = encodeHash(store.get());
-    if (deps.hash() !== hash) deps.replaceHash(hash);
+    if (deps.hash() === hash) return;
+    if (asPush) deps.pushHash(hash);
+    else deps.replaceHash(hash);
   }
 
   function restore() {
@@ -101,7 +115,21 @@ export function createShare(deps: ShareDeps) {
       mapping: decoded?.mapping ?? d.mapping,
     };
     const patch = changedFields(store.get(), target);
-    if (Object.keys(patch).length > 0) store.set(patch);
+    if (Object.keys(patch).length === 0) return;
+    restoring = true;
+    try {
+      store.set(patch);
+    } finally {
+      restoring = false;
+    }
+  }
+
+  /** Back, Forward or a pasted link: what is waiting to be written is stale. */
+  function arrive() {
+    if (pending) deps.cancel(timer);
+    pending = false;
+    push = false;
+    restore();
   }
 
   return {
@@ -112,6 +140,7 @@ export function createShare(deps: ShareDeps) {
       );
       store.subscribe((state, previous) => {
         if (!sharedChanged(state, previous)) return;
+        if (!restoring && state.parts !== previous.parts) push = true;
         if (pending) deps.cancel(timer);
         pending = true;
         timer = deps.after(write, deps.debounceMs);
@@ -121,8 +150,8 @@ export function createShare(deps: ShareDeps) {
       const hash = encodeHash(store.get());
       if (hash !== store.get().lastStateHash) store.set({ lastStateHash: hash });
     },
-    /** A pasted link, or any hash change on an open page. */
-    onHashChange: restore,
+    /** A pasted link, Back or Forward, or any hash change on an open page. */
+    onHashChange: arrive,
     /** Writes the hash now, if a write is waiting (the page is going away). */
     flush() {
       if (pending) write();
