@@ -608,6 +608,8 @@ export const DECK = {
    */
   notationPx: 16,
   notationMinPx: 11,
+  /** How many times the fit measures again and shrinks again before it settles for an ellipsis. */
+  notationFitTries: 8,
   /** The volume slider's width on a phone (narrower than SHEET.wideMinWidthPx); wider screens use sliderPx. */
   phoneSliderPx: 80,
   sliderPx: 76,

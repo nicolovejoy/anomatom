@@ -69,6 +69,17 @@ export function fitFontPx(natural: number, available: number, base: number, min:
   return Math.max(min, Math.floor((base * available * 10) / natural) / 10);
 }
 
+/**
+ * The next size to try when the notation, drawn at `size`, still measures `natural` px against
+ * `available`: text does not always scale in proportion (a browser that rounds each glyph's advance
+ * to whole pixels, as Chromium on Linux does, draws 11.1 px Plex Mono 7 px a glyph, not 6.66), so
+ * the fit is measured again and shrunk again. Null when it fits or is already at `min`.
+ */
+export function nextFit(size: number, natural: number, available: number, min: number): number | null {
+  if (natural <= available || size <= min) return null;
+  return Math.max(min, Math.min(fitFontPx(natural, available, size, min), Math.round((size - 0.1) * 10) / 10));
+}
+
 /** The tag at the right of a wheel row: 3, 4, 5 or PASS. */
 export const groupTag = (group: CardGroup): string => copy.deck.groupTags[group];
 

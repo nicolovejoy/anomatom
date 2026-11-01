@@ -17,6 +17,7 @@ import {
   deckLabel,
   deckPresets,
   fitFontPx,
+  nextFit,
   groupTag,
   keyTarget,
   loopDelta,
@@ -494,18 +495,34 @@ export const mountDeck: Mount = (root, { store, player, sound }) => {
    * free width, so the notation's box is the space and its scrollWidth the text.
    */
   let fittedText = '';
+  /** The text's own width, to a fraction of a pixel (scrollWidth is rounded and never less than the box). */
+  const textWidth = () => {
+    const range = document.createRange();
+    range.selectNodeContents(notation);
+    return range.getBoundingClientRect().width;
+  };
   function fitNotation() {
     notation.style.fontSize = `${DECK.notationPx}px`;
-    if (notation.clientWidth === 0) return; // hidden (About shows): fitted when it shows again
-    // A pixel spare: scrollWidth is rounded, and a fraction over would ellipsize.
-    const size = fitFontPx(notation.scrollWidth, notation.clientWidth - 1, DECK.notationPx, DECK.notationMinPx);
-    if (size !== DECK.notationPx) notation.style.fontSize = `${size}px`;
+    const room = notation.clientWidth;
+    if (room === 0) return; // hidden (About shows): fitted when it shows again
+    let size = fitFontPx(textWidth(), room, DECK.notationPx, DECK.notationMinPx);
+    // Then measured again at that size, since glyphs may not scale in proportion (nextFit).
+    for (let i = 0; i < DECK.notationFitTries && size !== DECK.notationPx; i++) {
+      notation.style.fontSize = `${size}px`;
+      const next = nextFit(size, textWidth(), room, DECK.notationMinPx);
+      if (next === null) break;
+      size = next;
+    }
+    notation.style.fontSize = `${size}px`;
   }
   // The bar's width changes as the window turns and as the play view shows again after About.
   const bar = $<HTMLDivElement>('.deck-bar');
   if (typeof ResizeObserver === 'function') new ResizeObserver(fitNotation).observe(bar);
   else window.addEventListener('resize', fitNotation);
+  // The web fonts arrive after the first fit (fonts.ready can resolve before Plex Mono is even
+  // asked for): each finished load fits again, with the real glyphs.
   void document.fonts?.ready.then(fitNotation);
+  document.fonts?.addEventListener('loadingdone', fitNotation);
 
   function render() {
     const state = store.get();

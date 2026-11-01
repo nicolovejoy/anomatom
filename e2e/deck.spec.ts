@@ -318,15 +318,31 @@ test.describe('phone', () => {
         if (w.loads[w.loads.length - 1] !== t) w.loads.push(t);
       }).observe(el, { childList: true, characterData: true, subtree: true });
     });
-    await page.locator('.deck-wheel-list').hover();
-    // About 40 rows up, more than the list holds, without a pause long enough to settle.
-    for (let i = 0; i < 40; i++) {
-      await page.mouse.wheel(0, -32);
-      await page.waitForTimeout(40);
-    }
-    await expect(notation(page)).not.toHaveText('3');
+    // 40 rows up, more than the list holds, one row every 30 ms: a reader's turn (a wheel event,
+    // then the scroll) driven inside the page, so no pause from the test runner (a CI hiccup
+    // between two driven notches once outlasted the settle) can split the spin in two.
+    const spin = 40;
+    await page.locator('.deck-wheel-list').evaluate(
+      (list, n) =>
+        new Promise<void>((done) => {
+          let i = 0;
+          const tick = () => {
+            list.dispatchEvent(new WheelEvent('wheel', { deltaY: -32, bubbles: true }));
+            list.scrollBy({ top: -32, behavior: 'instant' });
+            i += 1;
+            if (i < n) setTimeout(tick, 30);
+            else done();
+          };
+          tick();
+        }),
+      spin,
+    );
+    // Round the loop: the row `spin` places above Cascade, of the presets and Make your own.
+    const length = PRESETS.length + 1;
+    const landed = PRESETS[(((-spin) % length) + length) % length]!;
+    await expect(notation(page)).toHaveText(landed.texts[0]!);
     await page.waitForTimeout(1000);
-    expect(await page.evaluate(() => (window as unknown as { loads: string[] }).loads)).toHaveLength(1);
+    expect(await page.evaluate(() => (window as unknown as { loads: string[] }).loads)).toEqual([landed.texts[0]]);
     await expect.poll(async () => (await page.locator('.deck-row.in-band code').textContent()) === (await notation(page).textContent())).toBe(true);
     await expect.poll(async () => (await wheelRowsShown(page)).every((r) => r !== null)).toBe(true);
     expect(await scheduled(page)).toBe(0);
@@ -334,9 +350,13 @@ test.describe('phone', () => {
 
   test('the seven-object pass shows whole in the bar', async ({ page }) => {
     await page.goto('/');
+    // The fit is for the real glyphs: wait until IBM Plex Mono has loaded (the app fits again on each font load).
+    await page.evaluate(() => document.fonts.load('500 16px "IBM Plex Mono"'));
+    await expect.poll(() => page.evaluate(() => [...document.fonts].some((f) => f.family.includes('IBM Plex Mono') && f.status === 'loaded'))).toBe(true);
     await page.locator('.deck-row[data-id="seven-pass"]').click();
     await expect(notation(page)).toHaveText('<7p 1 3 1|3p 3 3 3>');
-    await expect.poll(() => notation(page).evaluate((el) => el.scrollWidth <= el.clientWidth)).toBe(true);
+    const fit = () => notation(page).evaluate((el) => `${getComputedStyle(el).fontSize} ${el.scrollWidth}/${el.clientWidth}`);
+    await expect.poll(async () => notation(page).evaluate((el) => el.scrollWidth <= el.clientWidth), { message: `not ellipsized (size scrollWidth/clientWidth: ${await fit()})` }).toBe(true);
     const px = await notation(page).evaluate((el) => parseFloat(getComputedStyle(el).fontSize));
     expect(px).toBeGreaterThanOrEqual(11);
     const slider = (await page.locator('#volume').boundingBox())!;

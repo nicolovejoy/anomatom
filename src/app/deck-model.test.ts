@@ -26,6 +26,7 @@ import {
   loopDelta,
   rowsThatFit,
   fitFontPx,
+  nextFit,
   nearEnd,
   wheelNotch,
   wheelPlace,
@@ -237,6 +238,13 @@ describe('the open phone wheel keeps the juggler in view', () => {
 });
 
 describe('the notation fits', () => {
+  test('measured again: shrinks on when the text did not scale down in proportion; stops when it fits or at the floor', () => {
+    // 19 glyphs of 7 px (rounded advances) at 11.3 px: 133 px in 132 available.
+    expect(nextFit(11.3, 133, 132, 11)).toBe(11.2);
+    expect(nextFit(13, 200, 100, 11)).toBe(11);
+    expect(nextFit(11.3, 132, 132, 11)).toBeNull();
+    expect(nextFit(11, 140, 132, 11)).toBeNull();
+  });
   test('full size when it fits; shrunk to fit, a tenth of a pixel at a time; never below the floor', () => {
     expect(fitFontPx(100, 120, 16, 11)).toBe(16);
     expect(fitFontPx(120, 120, 16, 11)).toBe(16);
