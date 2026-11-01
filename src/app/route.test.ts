@@ -34,6 +34,13 @@ test('a short link may carry a preset segment', () => {
   expect(route('#531~height-drum@140')).toEqual({ view: 'play', state: '531~height-drum@140', version: 'short' });
 });
 
+test('a sync link: parentheses and the comma unescaped, or percent-encoded', () => {
+  expect(route('#(4,2x)(2x,4)')).toEqual({ view: 'play', state: '(4,2x)(2x,4)', version: 'short' });
+  expect(route('#(4,2x)(2x,4)~height-drum@140').version).toBe('short');
+  expect(route('#%284%2C4%29')).toEqual({ view: 'play', state: '(4,4)', version: 'short' });
+  expect(route('#(4,4)*').state).toBeNull();
+});
+
 test('a passing link: | between jugglers, - for the space (ruling 6)', () => {
   expect(route('#3p-3|3p-3')).toEqual({ view: 'play', state: '3p-3|3p-3', version: 'short' });
   expect(route('#3p-3|3p-3~height-drum@140')).toEqual({ view: 'play', state: '3p-3|3p-3~height-drum@140', version: 'short' });

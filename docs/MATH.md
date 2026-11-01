@@ -220,4 +220,4 @@ Source. Juggling Lab's notation page (https://jugglinglab.org/html/ssnotation.ht
 
 The way back. `isSyncSet` recognises the layout (two manual parts of equal length at spacing 2, phase 0, unit 1, every height even, a throw landing in its own part or the other one), and `syncText` writes it as pairs, never in the `*` form. It is disjoint from a vanilla pair, whose second part sits at phase 1, so `textOf` can try each in turn.
 
-App: `parseSync`, `partsFromSync`, `isSyncSet` and `syncText` in `src/core/sync.ts`; the editor reads a draft starting with `(` as form 5 and shows a sync set as one input; a sync set's link is `#v2.`.
+App: `parseSync`, `partsFromSync`, `isSyncSet` and `syncText` in `src/core/sync.ts`; the editor reads a draft starting with `(` as form 5 and shows a sync set as one input; a sync set's link is the short `#(4,2x)(2x,4)` (with `~PRESET` and `@BPM`) when it round-trips, else `#v2.`.

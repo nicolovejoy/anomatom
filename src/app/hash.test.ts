@@ -373,12 +373,13 @@ describe('short links (grammar in route.ts)', () => {
       polyrhythm: '#3:2/2-2x-2/2x-2~height-drum',
     };
     const seen: string[] = [];
-    // A sync card has no short form this wave (v3 ruling 5): it writes #v2. and round-trips.
+    // A sync card takes its short form (v4.3 ruling 3).
+    const sync: Record<string, string> = { box: '#(4,2x)(2x,4)~height-drum', 'sync-fountain': '#(4,4)~height-drum' };
     for (const p of PRESETS.filter((c) => c.parts.length === 2 && isSyncSet(c.parts))) {
       const state = { parts: p.parts, ratio: p.ratio, bpm: DEFAULT_BPM, mapping: p.mapping };
       const hash = encodeHash(state);
-      expect(hash.startsWith('#v2.'), p.id).toBe(true);
-      expect(encodeState(decodeState(route(hash).state as string) as NonNullable<ReturnType<typeof decodeState>>)).toBe(encodeState(state));
+      expect(hash, p.id).toBe(sync[p.id]);
+      roundTrips(hash, state);
     }
     for (const p of PRESETS.filter((c) => c.parts.length === 2 && !isSyncSet(c.parts))) {
       seen.push(p.id);
@@ -519,14 +520,58 @@ describe('short passing links (ruling 6)', () => {
   });
 });
 
-describe('sync links (v3 ruling 5)', () => {
-  test('the box is a #v2. link that round-trips', () => {
-    const r = partsFromSync('(4,2x)(2x,4)');
-    if (!r.ok) throw new Error('box');
-    const state = { parts: r.parts, ratio: { a: 1, b: 1 }, bpm: DEFAULT_BPM, mapping: withPartCount(DEFAULT_MAPPING, 2) };
+describe('sync links (v3 ruling 5, v4.3 ruling 3)', () => {
+  const syncState = (text: string, extra: Partial<Parameters<typeof encodeHash>[0]> = {}) => {
+    const r = partsFromSync(text);
+    if (!r.ok) throw new Error(text);
+    return { parts: r.parts, ratio: { a: 1, b: 1 }, bpm: DEFAULT_BPM, mapping: withPartCount(DEFAULT_MAPPING, 2), ...extra };
+  };
+
+  test.each(['(4,2x)(2x,4)', '(4,4)', '(6x,4)(4,6x)', '(4x,2x)'])('%s encodes short and round-trips', (text) => {
+    const state = syncState(text);
     const hash = encodeHash(state);
-    expect(hash.startsWith('#v2.')).toBe(true);
-    const back = decodeState(route(hash).state as string);
-    expect(back?.parts).toEqual(r.parts);
+    expect(hash).toBe(`#${text}`);
+    const r = route(hash);
+    expect(r.version).toBe('short');
+    const back = decodeState(r.state as string, 'short');
+    expect(back?.parts).toEqual(state.parts);
+    expect(encodeState(back as NonNullable<typeof back>)).toBe(encodeState(state));
+  });
+
+  test('with a preset and a tempo', () => {
+    const mapping = withPartCount(applyPreset('height-drum'), 2);
+    expect(encodeHash(syncState('(4,2x)(2x,4)', { mapping }))).toBe('#(4,2x)(2x,4)~height-drum');
+    expect(encodeHash(syncState('(4,2x)(2x,4)', { mapping, bpm: 140 }))).toBe('#(4,2x)(2x,4)~height-drum@140');
+    expect(encodeHash(syncState('(4,2x)(2x,4)', { bpm: 90 }))).toBe('#(4,2x)(2x,4)@90');
+    const back = decodeState('(4,2x)(2x,4)~height-drum@140', 'short');
+    expect(back?.bpm).toBe(140);
+    expect(presetOf(back!.mapping)).toBe('height-drum');
+  });
+
+  test('a non-default mapping or a phase writes #v2.', () => {
+    const base = withPartCount(applyPreset('height-drum'), 2);
+    const odd = { ...base, parts: base.parts.map((v, i) => (i === 0 ? { ...v, pan: 0.9 } : v)) } as Mapping;
+    expect(encodeHash(syncState('(4,2x)(2x,4)', { mapping: odd })).startsWith('#v2.')).toBe(true);
+    const s = syncState('(4,2x)(2x,4)');
+    expect(encodeHash({ ...s, parts: withPhase(s.parts, 0, 1, 1) }).startsWith('#v2.')).toBe(true);
+  });
+
+  test('an old #v2. sync link still decodes', () => {
+    const s = syncState('(4,2x)(2x,4)');
+    const back = decodeState(route(encodeState(s)).state as string, 2);
+    expect(back?.parts).toEqual(s.parts);
+    expect(isSyncSet(back!.parts)).toBe(true);
+  });
+
+  test('percent-encoded forms decode through route', () => {
+    expect(route('#%284%2C2x%29%282x%2C4%29%7Eheight-drum')).toEqual({ view: 'play', state: '(4,2x)(2x,4)~height-drum', version: 'short' });
+  });
+
+  test('junk gives null, and a hash that is not even shaped like a link is no state', () => {
+    for (const bad of ['(4,', '(4,2x', '(3,4)', '(4,4)*', '(4,4) (4,4)', '(4,4)~nope', '(', '()', '(4,4)'.repeat(60)]) {
+      expect(decodeState(bad, 'short')).toBeNull();
+    }
+    expect(route('#(4,')).toEqual({ view: 'play', state: '(4,', version: 'short' });
+    expect(route('#(4,$').state).toBeNull();
   });
 });
