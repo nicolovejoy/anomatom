@@ -77,3 +77,26 @@ test('an old #v2. link and an old #v1. link still open, and restore their state'
   await expect(page.locator('#hand-0')).toHaveValue('531');
   await expect(page.locator('#bpm')).toHaveValue('95');
 });
+
+test('the Box card writes #(4,2x)(2x,4)~height-drum, unescaped, and the link plays the box in a new page', async ({ page, context }) => {
+  await page.goto('/');
+  await page.locator('.deck-row[data-id="box"]').click();
+  await expect(page.locator('.deck-notation')).toHaveText('(4,2x)(2x,4)');
+  // The browser keeps ( ) and , as written in location.hash; if one escaped them the text would differ.
+  await expect.poll(() => page.evaluate(() => location.hash)).toBe('#(4,2x)(2x,4)~height-drum');
+  const other = await context.newPage();
+  await other.goto(page.url());
+  await openTab(other, 'pattern');
+  await expect(other.locator('#hand-0')).toHaveValue('(4,2x)(2x,4)');
+  await expect(other.locator('canvas.juggler')).toHaveAttribute('data-balls', '3');
+});
+
+test('a percent-encoded sync link opens the box; a junk sync hash loads the defaults', async ({ page }) => {
+  await page.goto('/#%284%2C2x%29%282x%2C4%29');
+  await openTab(page, 'pattern');
+  await expect(page.locator('#hand-0')).toHaveValue('(4,2x)(2x,4)');
+  await page.goto('/#(4,');
+  await page.reload();
+  await openTab(page, 'pattern');
+  await expect(page.locator('#hand-0')).not.toHaveValue(/\(/);
+});
