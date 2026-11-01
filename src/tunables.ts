@@ -15,8 +15,8 @@ export const MAX_PERIOD = 16;
 export const DEFAULT_BPM = 104;
 export const BPM_RANGE = { min: 40, max: 240 } as const;
 
-/** Master volume when the page opens, 0 to 1. */
-export const DEFAULT_VOLUME = 1;
+/** Master volume when the page opens, 0 to 1: the middle of the slider (Nico, 2026-11-01). */
+export const DEFAULT_VOLUME = 0.5;
 
 /** How far ahead of the audio clock events are handed to the sampler, and how often. */
 export const LOOKAHEAD_SECONDS = 0.1;

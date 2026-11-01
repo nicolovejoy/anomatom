@@ -70,7 +70,7 @@ test('unsubscribe stops a listener, including one removed during a notification'
   const store = createStore();
   const fn = vi.fn();
   const off = store.subscribe(fn);
-  store.set({ volume: 0.5 });
+  store.set({ volume: 0.6 });
   off();
   store.set({ volume: 0.25 });
   expect(fn).toHaveBeenCalledTimes(1);
