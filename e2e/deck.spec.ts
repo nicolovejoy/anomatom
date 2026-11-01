@@ -364,6 +364,20 @@ test.describe('phone', () => {
     await page.screenshot({ path: `${SHOTS}/deck-seven-pass-390x844.png` });
   });
 
+  test('every wheel row shows its name whole', async ({ page }) => {
+    await page.goto('/');
+    // The names are measured with the real glyphs: both web fonts loaded first.
+    await page.evaluate(() => Promise.all([document.fonts.load('500 16px "IBM Plex Mono"'), document.fonts.load('400 16px "IBM Plex Sans"')]));
+    await expect.poll(() => page.evaluate(() => [...document.fonts].some((f) => f.family.includes('IBM Plex Mono') && f.status === 'loaded'))).toBe(true);
+    await expect.poll(() => page.evaluate(() => [...document.fonts].some((f) => f.family.includes('IBM Plex Sans') && f.status === 'loaded'))).toBe(true);
+    await expect(page.locator('.deck-wheel')).toBeVisible();
+    await expect
+      .poll(() => page.locator('.deck-row-name').evaluateAll((els) => els.filter((el) => el.scrollWidth > el.clientWidth).map((el) => el.textContent)))
+      .toEqual([]);
+    await page.locator('.deck-row[data-id="rising-passes"]').scrollIntoViewIfNeeded();
+    await page.screenshot({ path: `${SHOTS}/deck-wheel-names-390x844.png` });
+  });
+
   test('scrolling the wheel picks the row it settles on', async ({ page }) => {
     await page.goto('/');
     const list = page.locator('.deck-wheel-list');
@@ -378,12 +392,33 @@ test.describe('phone', () => {
   });
 
   test('a mouse wheel over the pattern name steps one pattern a notch', async ({ page }) => {
+    // Deterministic (it once flaked on WebKit under load). A notch is only taken when it lands on
+    // the pattern button, so each one waits on state the app shows, not on time: the fonts have
+    // loaded and the bar has fitted again (the button may move as they arrive), the button is what
+    // sits under the pointer's point, and the last step has finished (its link is in the address,
+    // which the app writes once the change has settled).
     await page.goto('/#3');
-    await page.locator('.deck-pattern').hover();
-    await page.mouse.wheel(0, 100);
+    await page.evaluate(() => document.fonts.load('500 16px "IBM Plex Mono"'));
+    await expect.poll(() => page.evaluate(() => [...document.fonts].some((f) => f.family.includes('IBM Plex Mono') && f.status === 'loaded'))).toBe(true);
+    const button = page.locator('.deck-pattern');
+    const notch = async (deltaY: number) => {
+      let at = { x: 0, y: 0 };
+      await expect
+        .poll(async () => {
+          const box = (await button.boundingBox())!;
+          at = { x: box.x + box.width / 2, y: box.y + box.height / 2 };
+          return page.evaluate(({ x, y }) => document.elementFromPoint(x, y)?.closest('.deck-pattern') !== null, at);
+        })
+        .toBe(true);
+      await page.mouse.move(at.x, at.y);
+      await page.mouse.wheel(0, deltaY);
+    };
+    await notch(100);
     await expect(notation(page)).toHaveText('51');
-    await page.mouse.wheel(0, -100);
+    await expect(page).toHaveURL(/#51/);
+    await notch(-100);
     await expect(notation(page)).toHaveText('3');
+    await expect(page).toHaveURL(/#3/);
   });
 });
 
