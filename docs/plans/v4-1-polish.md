@@ -1,6 +1,6 @@
 # v4.1: polish
 
-Status: planned 2026-10-31 (governor Opus, session 1197). From the v4 hand smoke (headless, 390×844) and Nico's answers the same day.
+Status: merged 2026-10-31 (governor Opus, session 1197; PRs 70 plan, 71 E1 (Opus); one Opus fresh-eyes review, two should-fix fixed: a continuous spin now loops and picks once, held arrow keys land on the loaded row). Rulings in review: every wide screen too short to dock the wheel (under 560 px tall, landscape phones and short desktops) opens it in the right-hand column, over the sheet, replacing v4's over-the-stage rule; at 667×375 the column shows 5 rows; the mute button is 32 px; wheel arrow keys wrap, Home and End go to the ends; credits and the repo link stay under Sources and details. Follow-ups: the longest passing names ellipsize in the wheel at 390 px and rising-passes ellipsizes in the bar; re-centring while a finger rests on the wheel needs a real-iPhone check; a WebKit mouse-wheel-notch e2e flaked once under load.
 
 ## Rulings (governor, 2026-10-31; Nico chose 3's labels)
 
