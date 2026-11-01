@@ -95,8 +95,11 @@ test('a percent-encoded sync link opens the box; a junk sync hash loads the defa
   await page.goto('/#%284%2C2x%29%282x%2C4%29');
   await openTab(page, 'pattern');
   await expect(page.locator('#hand-0')).toHaveValue('(4,2x)(2x,4)');
+  await expect(page.locator('canvas.juggler')).toHaveAttribute('data-balls', '3');
   await page.goto('/#(4,');
   await page.reload();
   await openTab(page, 'pattern');
-  await expect(page.locator('#hand-0')).not.toHaveValue(/\(/);
+  // The defaults: the cascade, three balls.
+  await expect(page.locator('#hand-0')).toHaveValue('3');
+  await expect(page.locator('canvas.juggler')).toHaveAttribute('data-balls', '3');
 });
