@@ -389,7 +389,7 @@ describe('switches', () => {
         prev = f.bounds;
       }
     }
-  });
+  }, 20_000); // Heavy sweep; slow CI runners took over 5 s.
 
   test('the scene settles to the new pattern after the switch', () => {
     const big = frame([single(vanilla('97531'))], START).bounds.top;
