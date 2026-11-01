@@ -30,11 +30,13 @@ import {
   pieces,
   reduceRatio,
   showsPassKey,
+  showsSyncKeys,
   siteCovering,
   splitInputs,
   statusLines,
   stepRatio,
   swapAction,
+  swapRefusal,
   toggleSite,
   warnSites,
   type Analysis,
@@ -67,8 +69,14 @@ const INPUTS = Array.from({ length: MAX_LANES }, (_, i) => i);
 const LANES = INPUTS;
 /** A step cell per beat of the longest period, shown up to the lane's steps. */
 const CELLS = Array.from({ length: MAX_PERIOD }, (_, i) => i);
-/** The pad in the order it is laid out, four to a row. */
-const PAD_KEYS = ['1', '2', '3', 'backspace', '4', '5', '6', 'x', '7', '8', '9', '0', 'p'];
+/** The pad in the order it is laid out, four to a row: the sync keys make a fourth row, and p (when shown) sits beside x. */
+const PAD_KEYS = ['1', '2', '3', 'backspace', '4', '5', '6', 'x', '7', '8', '9', '0', '(', ',', ')', 'p'];
+/** Sync siteswap's keys (form 5): `(` always, `,` and `)` only while `showsSyncKeys`. */
+const SYNC_KEYS: Record<string, { text: string; label: string; hidden: boolean }> = {
+  '(': { text: copy.openPairKey, label: copy.openPairKeyLabel, hidden: false },
+  ',': { text: copy.commaKey, label: copy.commaKeyLabel, hidden: true },
+  ')': { text: copy.closePairKey, label: copy.closePairKeyLabel, hidden: true },
+};
 /** A lane's steppers: rate and steps above the step row, then hits, balls and phase under it. */
 const RHYTHM_KINDS = ['rate', 'steps', 'hits', 'balls', 'phase'] as const;
 type RhythmKind = (typeof RHYTHM_KINDS)[number];
@@ -167,6 +175,9 @@ export const mountKnobs: Mount = (root, { store, player, sound }) => {
           if (k === 'x') return `<button type="button" class="key key-op" data-key="x" aria-label="${copy.crossKeyLabel}">${copy.crossKey}</button>`;
           // The pass key sits beside x (the pad turns five columns wide) and shows only for passing siteswap (`showsPassKey`).
           if (k === 'p') return `<button type="button" class="key key-op key-pass" data-key="p" aria-label="${copy.passKeyLabel}" hidden>${copy.passKey}</button>`;
+          const sync = SYNC_KEYS[k];
+          if (sync !== undefined)
+            return `<button type="button" class="key key-op key-sync" data-key="${k}" aria-label="${sync.label}"${sync.hidden ? ' hidden' : ''}>${sync.text}</button>`;
           if (k === 'backspace')
             return `<button type="button" class="key key-op" data-key="backspace" aria-label="${copy.backspaceKeyLabel}">${copy.backspaceKey}</button>`;
           return `<button type="button" class="key" data-key="${k}">${k}</button>`;
@@ -215,6 +226,7 @@ export const mountKnobs: Mount = (root, { store, player, sound }) => {
   const indicators = rows.map((r) => r.querySelector('.indicator') as HTMLSpanElement);
   const hint = $<HTMLParagraphElement>('.one-hand-hint');
   const passKey = $<HTMLButtonElement>('.key-pass');
+  const pairKeys = [',', ')'].map((k) => $<HTMLButtonElement>(`.digit-pad [data-key="${k}"]`));
   const status = $<HTMLDivElement>('#status');
   const fixesRow = $<HTMLDivElement>('.fixes');
   const fixesLabel = $<HTMLParagraphElement>('.fixes-label');
@@ -243,7 +255,8 @@ export const mountKnobs: Mount = (root, { store, player, sound }) => {
   /** The store's schedule: there always is one, juggleable or not (design §6). */
   let schedule: Schedule = store.derived().schedule;
   let selection: SiteSelection | null = null;
-  let swapFailed = false;
+  /** Why the last Swap changed nothing, shown until the selection changes; null when it did not fail. */
+  let swapFailed: string | null = null;
   /** The player state the transport controls show. */
   let shownState: PlayerView['state'] = 'stopped';
   /** Where the digit pad types: the last focused input, and each input's caret (null: the end). */
@@ -275,7 +288,7 @@ export const mountKnobs: Mount = (root, { store, player, sound }) => {
     });
     const n = selection?.sites.length ?? 0;
     swapButton.disabled = n !== 2;
-    swapNote.textContent = swapFailed ? copy.swapImpossible : n === 0 ? copy.swapHint : copy.swapChosen(n);
+    swapNote.textContent = swapFailed !== null ? swapFailed : n === 0 ? copy.swapHint : copy.swapChosen(n);
   }
 
   let fixToken = 0;
@@ -500,6 +513,8 @@ export const mountKnobs: Mount = (root, { store, player, sound }) => {
     hint.textContent = state.parts.length > MAX_EDITOR_PARTS ? copy.lanesHint : copy.oneHandHint;
     if (activeHand >= shown) activeHand = 0;
     passKey.hidden = !showsPassKey(state, derived(state), activeHand);
+    const pairs = showsSyncKeys(state, derived(state), activeHand);
+    for (const key of pairKeys) key.hidden = !pairs;
     renderRhythm(state);
     for (const chip of chips) {
       // Pressed only for its exact a:b: 2:2 from the steppers is not the 1:1 chip, which still normalises it.
@@ -521,7 +536,7 @@ export const mountKnobs: Mount = (root, { store, player, sound }) => {
       // Sites index the old text; a new text starts the choice over.
       if (previous) {
         selection = null;
-        swapFailed = false;
+        swapFailed = null;
       }
       check(state);
     }
@@ -611,7 +626,7 @@ export const mountKnobs: Mount = (root, { store, player, sound }) => {
       if (site === null) return;
       chosenRange = range;
       selection = toggleSite(selection, h, site);
-      swapFailed = false;
+      swapFailed = null;
       renderMirrors();
     };
     input.addEventListener('focus', () => (activeHand = h));
@@ -655,7 +670,7 @@ export const mountKnobs: Mount = (root, { store, player, sound }) => {
       });
       if (!hit) return;
       selection = toggleSite(selection, h, Number(hit.dataset.site));
-      swapFailed = false;
+      swapFailed = null;
       renderMirrors();
     });
   });
@@ -679,7 +694,7 @@ export const mountKnobs: Mount = (root, { store, player, sound }) => {
     if (action !== null) store.dispatch(action);
     // A swap that cannot be made changes nothing.
     if (store.get().parts === state.parts) {
-      swapFailed = true;
+      swapFailed = swapRefusal(state, sites[0] as number, sites[1] as number);
       renderMirrors();
     }
   });

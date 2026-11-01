@@ -2,7 +2,7 @@
 // values into elements. `Analysis` is a thin view over `derived(state)` (derived.ts): what the
 // inputs show, the indicators, the warning sites, the status lines and the fixes, in the robot's
 // words.
-import { gcd, isPassingSet, isSyncSet, isVanillaPair, mod, parseThrows, periodOf, throwsOf, vanillaIndex } from '../core';
+import { gcd, isPassingSet, isSyncSet, isVanillaPair, mod, parseThrows, periodOf, swapSites, throwsOf, vanillaIndex } from '../core';
 import type { Fault, ParseError, Part, PartIndex, Parts, Ratio, Schedule, ThrowId } from '../core';
 import { hitFor, type Mapping } from '../sound/mapping';
 import { BPM_RANGE, MAX_EDITOR_PARTS, MAX_RATIO } from '../tunables';
@@ -107,6 +107,15 @@ export function inputText(state: AppState, d: Derived, i: number): string {
 /** Whether the digit pad shows its `p` key: while input `i` holds a `|` (passing siteswap, form 4), or the parts are a passing set. */
 export function showsPassKey(state: AppState, d: Derived, i: number): boolean {
   return isPassingSet(state.parts) || inputText(state, d, i).includes('|');
+}
+
+/**
+ * Whether the digit pad shows its `,` and `)` keys (v4.3 ruling 1): while input `i` holds a `(`
+ * (sync siteswap, form 5), or the parts are a sync set. The `(` key shows always, so a sync
+ * pattern can be started from the pad.
+ */
+export function showsSyncKeys(state: AppState, d: Derived, i: number): boolean {
+  return isSyncSet(state.parts) || inputText(state, d, i).includes('(');
 }
 
 /** The beat of a part that pulse `pulse` (in [0, cycle)) is, counted from 1 within the cycle. */
@@ -410,7 +419,8 @@ export function toggleSite(sel: SiteSelection | null, hand: number, site: number
 export function swapAction(state: AppState, input: number, i: number, j: number): Action | null {
   if (inputPerPart(state) || splitInputs(state)) return { type: 'swapSites', part: input, i, j };
   if (isVanillaPair(state.parts)) return { type: 'swapSites', part: 0, i, j };
-  if (isPassingSet(state.parts) || isSyncSet(state.parts)) return null;
+  if (isPassingSet(state.parts)) return null;
+  if (isSyncSet(state.parts)) return syncSwap(state, i, j);
   let offset = 0;
   for (const [part, p] of state.parts.entries()) {
     const n = periodOf(p);
@@ -419,6 +429,37 @@ export function swapAction(state: AppState, input: number, i: number, j: number)
     offset += n;
   }
   return null;
+}
+
+/**
+ * A swap on a sync set (v4.3 ruling 2): its one input shows the pairs in order, left then right,
+ * so site 2j + k is beat j of part k. Two throws of one hand swap on that part (MATH.md §3 at
+ * step 2, the spacing, which the reducer takes from the part); throws of different hands do not.
+ * Nor does a swap that would make a crossing 0 (a 0 is no throw and cannot cross, MATH.md §11),
+ * nor one on the sites of a draft that does not read, since they are not the parts' throws.
+ */
+function syncSwap(state: AppState, i: number, j: number): Action | null {
+  const draft = state.drafts[0];
+  if (draft != null && !parseDraft(state, 0, draft).ok) return null;
+  if (i % 2 !== j % 2 || crossesAtZero(state.parts, i, j)) return null;
+  return { type: 'swapSites', part: i % 2, i: Math.floor(i / 2), j: Math.floor(j / 2) };
+}
+
+/** Whether swapping sync sites i and j of one hand would leave a 0 crossing to the other hand. */
+function crossesAtZero(parts: Parts, i: number, j: number): boolean {
+  const p = parts[i % 2] as Part;
+  const swapped = swapSites(throwsOf(p), Math.floor(i / 2), Math.floor(j / 2), p.spacing);
+  return swapped?.some((t) => t.height === 0 && t.to !== null) ?? false;
+}
+
+/**
+ * Why Swap changed nothing. Over a sync set: two throws in different hands, or a throw that would
+ * have to cross at 0. Otherwise the earlier throw would land before it is thrown.
+ */
+export function swapRefusal(state: Pick<AppState, 'parts'>, i: number, j: number): string {
+  if (isSyncSet(state.parts) && i % 2 !== j % 2) return copy.swapOneHand;
+  if (isSyncSet(state.parts) && crossesAtZero(state.parts, i, j)) return copy.swapZeroCross;
+  return copy.swapImpossible;
 }
 
 // ---------------------------------------------------------------------------------------------

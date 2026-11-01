@@ -184,7 +184,7 @@
   background: var(--raised);
   font: 22px var(--font-mono);
 }
-/* While the p key shows the pad is five columns: the twelve keys keep their columns and rows, p sits beside x. */
+/* While the p key shows the pad is five columns: the other keys (the sync row too) keep their columns and rows, p sits beside x. */
 .digit-pad:has(.key-pass:not([hidden])) {
   grid-template-columns: repeat(5, minmax(0, 1fr));
 }

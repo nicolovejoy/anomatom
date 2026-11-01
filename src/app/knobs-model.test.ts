@@ -3,6 +3,7 @@ import { scheduleOf, typed } from '../test/schedules';
 import { partsFromOnsets } from '../core';
 import { BPM_RANGE, MAX_RATIO } from '../tunables';
 import type { PlayerView, Segment } from '../view/types';
+import { copy } from '../ui/copy';
 import { reduce } from './actions';
 import { derived } from './derived';
 import {
@@ -14,6 +15,7 @@ import {
   draftAction,
   joinInputs,
   showsPassKey,
+  showsSyncKeys,
   splitInputs,
   splitText,
   editChanged,
@@ -30,6 +32,7 @@ import {
   statusLines,
   stepRatio,
   swapAction,
+  swapRefusal,
   toggleSite,
   warnSites,
 } from './knobs-model';
@@ -534,7 +537,46 @@ describe('a sync set in the editor (v3 ruling 5)', () => {
   test('a fix is written in sync notation: (4,2x)(2x,2) offers the box', () => {
     expect(derived(sync('(4,2x)(2x,2)')).fixTexts).toContainEqual(['(4,2x)(2x,4)']);
   });
-  test('no swap over a sync set this wave', () => {
-    expect(swapAction(sync(), 0, 0, 2)).toBeNull();
+  test('swap on a sync set (v4.3 ruling 2): the box, the left hand\'s two throws, gives (4x,2x)(2,4)', () => {
+    const box = sync();
+    // Sites in the one input: 4 (0), 2x (1), 2x (2), 4 (3); the left hand's are 0 and 2.
+    const action = swapAction(box, 0, 0, 2);
+    expect(action).toEqual({ type: 'swapSites', part: 0, i: 0, j: 1 });
+    const swapped = reduce(box, action!);
+    expect(derived(swapped).texts).toEqual(['(4x,2x)(2,4)']);
+    expect(analyse(swapped).balls).toBe(3);
+    // The right hand's two (2x, 4) would make 6 and a 0 crossing to the left hand: refused.
+    expect(swapAction(box, 0, 1, 3)).toBeNull();
+    expect(swapRefusal(box, 1, 3)).toBe(copy.swapZeroCross);
+    // (6x,4)(4,6x): the left hand's 6x and 4 swap to 6 and 4x, still five balls.
+    const five = sync('(6x,4)(4,6x)');
+    const left = reduce(five, swapAction(five, 0, 0, 2)!);
+    expect(derived(left).texts).toEqual(['(6,4)(4x,6x)']);
+    expect(analyse(left).balls).toBe(5);
+    // After the swap the same pair, by its parts, swaps back.
+    expect(derived(reduce({ ...swapped, drafts: [null, null] }, swapAction(swapped, 0, 2, 0)!)).texts).toEqual(['(4,2x)(2x,4)']);
+  });
+  test('swap on a sync set: throws in different hands give null, and so does a draft that does not read', () => {
+    expect(swapAction(sync(), 0, 0, 1)).toBeNull();
+    expect(swapAction(sync(), 0, 0, 3)).toBeNull();
+    const open = reduce(sync(), { type: 'editDraft', part: 0, text: '(4,2x)(2x' });
+    expect(swapAction(open, 0, 0, 2)).toBeNull();
+    expect(swapRefusal(sync(), 0, 1)).toBe(copy.swapOneHand);
+    expect(swapRefusal(sync(), 0, 2)).toBe(copy.swapImpossible);
+    expect(swapRefusal(typed(['531']), 0, 1)).toBe(copy.swapImpossible);
+  });
+  test('(4,4) has one throw per hand: nothing to swap', () => {
+    const fountain = sync('(4,4)');
+    expect(swapAction(fountain, 0, 0, 1)).toBeNull();
+  });
+  test('the , and ) keys show while the input holds a ( or the parts are a sync set (v4.3 ruling 1)', () => {
+    const show = (s: AppState) => showsSyncKeys(s, derived(s), 0);
+    expect(show(typed(['531']))).toBe(false);
+    expect(show(reduce(defaultState(), { type: 'editDraft', part: 0, text: '3p 3|3 3p' }))).toBe(false);
+    expect(show(reduce(defaultState(), { type: 'editDraft', part: 0, text: '(' }))).toBe(true);
+    expect(show(reduce(defaultState(), { type: 'editDraft', part: 0, text: '(4,2x' }))).toBe(true);
+    expect(show({ ...sync(), drafts: [null, null] })).toBe(true);
+    // Typed over a sync set, a plain siteswap leaves the set, and the keys go.
+    expect(show(reduce(sync(), { type: 'editDraft', part: 0, text: '531' }))).toBe(false);
   });
 });

@@ -18,7 +18,8 @@ test('typing (4,2x)(2x,4) plays the box: three balls, one input, and 531 typed o
   await page.locator('#hand-0').fill('(4,2x)(2x,4)');
   await expect(page.locator('#status')).toContainText('3');
   await expect(page.locator('#hand-1')).toBeHidden();
-  await expect.poll(() => new URL(page.url()).hash).toMatch(/^#v2\./);
+  // Its link is the short form (v4.3 S2).
+  await expect.poll(() => new URL(page.url()).hash).toBe('#(4,2x)(2x,4)');
   await expect(page.locator('#play')).toBeEnabled();
   await page.locator('#play').click();
   await expect(page.locator('#play')).toHaveText('Pause');
