@@ -203,6 +203,13 @@ export const copy = {
   /** Passing siteswap's mark: the throw before it goes to the other juggler. Shown while the pattern has a |. */
   passKey: 'p',
   passKeyLabel: 'Mark the throw before the cursor as a pass to the other juggler',
+  /** Sync siteswap's keys (form 5): `(` shows always, `,` and `)` while the pattern has a ( or is a sync pattern. */
+  openPairKey: '(',
+  openPairKeyLabel: 'Open a pair: two throws made together, the left hand’s first',
+  commaKey: ',',
+  commaKeyLabel: 'Between the left hand’s throw and the right hand’s',
+  closePairKey: ')',
+  closePairKeyLabel: 'Close the pair',
   backspaceKey: '⌫',
   backspaceKeyLabel: 'Backspace',
   /** The validity indicator beside each input: a mark, and what it says to a screen reader. */
@@ -225,6 +232,8 @@ export const copy = {
   swapHint: 'Tap two throws in one pattern, or select each with Shift and an arrow key, then Swap.',
   swapChosen: (count: number) => (count === 1 ? 'One throw chosen; tap one more.' : 'Two throws chosen.'),
   swapImpossible: 'I can’t swap those: the earlier throw would have to land before it is thrown.',
+  swapOneHand: 'I can’t swap those: in a sync pattern both throws must be the same hand’s.',
+  swapZeroCross: 'I can’t swap those: a throw would have to reach the other hand the moment it is thrown.',
   scrubLabel: 'Time in the cycle',
   volumeLabel: 'Volume',
   nextCycle: 'Next cycle',
