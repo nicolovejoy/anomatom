@@ -127,6 +127,8 @@ The share link encodes pattern, ratio, tempo and the whole Mapping in the URL ha
 
 Static page. Three short sections: the idea (ladder diagram = piano roll; polyrhythm = two hand grids), how the sound is made (one clock, Events, the Mapping), and the bibliography from `BIBLIOGRAPHY.md` with links. Credits: sani.js, smplr, and the L6 repo whose audio code this reuses. Link back to the play view and to the repo.
 
+v4.1 (docs/plans/v4-1-polish.md, ruling 4): one page in three layers, and no other prose. What anomatom is in two lines and how to use it in three; a glossary of four or five terms, one line each; then, under "Sources and details", the bibliography with a pointer to `MATH.md`, the credits and the repo link.
+
 ## 5. Behaviour rules
 
 1. One clock. The audio clock is the reference; the picture reads it every frame. There is no second timeline.

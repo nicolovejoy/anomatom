@@ -95,20 +95,23 @@ describe('the About page cites only checked sources', () => {
   const unopened = new Set(
     [...bibliography.matchAll(/^(\d+)\..*\n<!--/gm)].map((m) => Number(m[1])),
   );
-  const prose = [...copy.aboutLayers.flatMap((l) => l.paragraphs), ...copy.aboutPresets, ...copy.aboutColotomy];
+  const prose = [...copy.aboutIntro, ...copy.aboutHow, ...copy.aboutGlossary.map((g) => g.text)];
   const cited = [...new Set(prose.flatMap((t) => [...t.matchAll(/\[(\d+(?:, \d+)*)\]/g)].flatMap((m) => (m[1] as string).split(', ').map(Number))))];
 
   test('the marker finds the unopened entries', () => {
     expect([...unopened].sort((a, b) => a - b)).toEqual([2, 17, 23]);
   });
   test('every cited number is a bibliography entry and none is unopened', () => {
-    expect(cited.length).toBeGreaterThan(5);
     for (const n of cited) {
       expect(new RegExp(`^${n}\\. `, 'm').test(bibliography), `entry ${n}`).toBe(true);
       expect(unopened.has(n), `entry ${n} is unopened`).toBe(false);
     }
   });
-  test('each layer of the model has a section', () => {
-    expect(copy.aboutLayers.map((l) => l.heading)).toHaveLength(6);
+  test('three short layers: two lines on what it is, three on how to use it, four or five words', () => {
+    expect(copy.aboutIntro).toHaveLength(2);
+    expect(copy.aboutHow).toHaveLength(3);
+    expect(copy.aboutGlossary.length).toBeGreaterThanOrEqual(4);
+    expect(copy.aboutGlossary.length).toBeLessThanOrEqual(5);
+    expect(copy.aboutGlossary.map((g) => g.term)).toEqual(expect.arrayContaining(['Siteswap', 'Cascade', 'Pass', 'Sync']));
   });
 });

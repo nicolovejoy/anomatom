@@ -46,8 +46,6 @@ export interface DeckLabel {
   /** "3 balls", "2 jugglers", or "can't juggle" for a hand-made pattern that isn't juggleable. */
   readonly meta: string;
   readonly valid: boolean;
-  /** At least SHEET.longSummaryChars long: drawn smaller on a phone. */
-  readonly long: boolean;
 }
 
 /** What the transport bar shows for a state. */
@@ -55,19 +53,59 @@ export function deckLabel(state: AppState, list: readonly Preset[] = deckPresets
   const i = presetIndex(state, list);
   if (i !== null) {
     const p = list[i] as Preset;
-    const pattern = cardPattern(p);
-    return { pattern, name: copy.presets[p.id]?.name ?? '', meta: presetMeta(p), valid: true, long: pattern.length >= SHEET.longSummaryChars };
+    return { pattern: cardPattern(p), name: copy.presets[p.id]?.name ?? '', meta: presetMeta(p), valid: true };
   }
   const s = summary(analyse(state), SHEET.longSummaryChars);
-  return { pattern: s.text, name: copy.deck.yourOwn, meta: s.meta, valid: s.valid, long: s.long };
+  return { pattern: s.text, name: copy.deck.yourOwn, meta: s.meta, valid: s.valid };
+}
+
+/**
+ * The notation's font size so it fits its space (ruling 2 of docs/plans/v4-1-polish.md): `base`
+ * when the text, `natural` px wide at `base`, fits in `available` px; else scaled down to fit, to a
+ * tenth of a pixel, but never below `min` (past that the CSS ellipsizes it).
+ */
+export function fitFontPx(natural: number, available: number, base: number, min: number): number {
+  if (natural <= available || natural <= 0) return base;
+  return Math.max(min, Math.floor((base * available * 10) / natural) / 10);
 }
 
 /** The tag at the right of a wheel row: 3, 4, 5 or PASS. */
 export const groupTag = (group: CardGroup): string => copy.deck.groupTags[group];
 
-/** The wheel row in the band at `scrollTop`, rows `rowPx` tall, `length` rows. */
-export function wheelIndexAt(scrollTop: number, rowPx: number, length: number): number {
-  return Math.min(length - 1, Math.max(0, Math.round(scrollTop / rowPx)));
+/*
+ * The wheel loops (ruling 1 of docs/plans/v4-1-polish.md): it turns forever both ways, so above
+ * Cascade come Make your own and the last passing patterns. Its rows are the presets then Make
+ * your own, `length` in all; each sits at a place in the scroll list (its CSS `order`). The list
+ * keeps the row in the band at the middle place, `centrePlace`, by turning which row sits at place
+ * 0 (the `offset`) whenever the wheel rests, so there are always rows above and below the band
+ * and never a blank one. Assumes `length` is more than the rows shown.
+ */
+
+/** The middle place of `length`: the band's row sits there whenever the wheel rests. */
+export const centrePlace = (length: number): number => Math.floor(length / 2);
+
+/** `n` mod `length`, never negative. */
+const wrap = (n: number, length: number): number => ((n % length) + length) % length;
+
+/** The offset (the row at place 0) that puts `row` at the middle place. */
+export const offsetFor = (row: number, length: number): number => wrap(row - centrePlace(length), length);
+
+/** The place `row` takes under `offset`: its CSS order. */
+export const placeOf = (row: number, offset: number, length: number): number => wrap(row - offset, length);
+
+/** The scrollTop that brings place `place` into the band, rows `rowPx` tall, `half` rows above the band. */
+export const scrollForPlace = (place: number, rowPx: number, half: number): number => (place - half) * rowPx;
+
+/** The row in the band at `scrollTop`: the place `half` rows below the top of the view, clamped to the list, through `offset`. */
+export function wheelRowAt(scrollTop: number, rowPx: number, half: number, offset: number, length: number): number {
+  const place = Math.min(length - 1, Math.max(0, Math.round(scrollTop / rowPx) + half));
+  return wrap(place + offset, length);
+}
+
+/** The shortest way round the wheel from row `from` to row `to`: a signed number of rows. */
+export function loopDelta(from: number, to: number, length: number): number {
+  const d = wrap(to - from, length);
+  return d > length / 2 ? d - length : d;
 }
 
 /**
@@ -86,11 +124,13 @@ export const turnsWheel = (key: string): boolean => TURN_KEYS.includes(key);
 
 /**
  * The row a turning key moves the wheel's focus to, from `row`, of `length` rows: one up or
- * down, a wheel's height (`page` rows) for PageUp and PageDown, the ends for Home and End.
+ * down, a wheel's height (`page` rows) for PageUp and PageDown, round the loop; the first row
+ * (Cascade) for Home and the last (Make your own) for End.
  */
 export function rowAfterKey(key: string, row: number, length: number, page: number): number {
-  const to = key === 'Home' ? 0 : key === 'End' ? length - 1 : row + ({ ArrowUp: -1, ArrowDown: 1, PageUp: -page, PageDown: page }[key] ?? 0);
-  return Math.min(length - 1, Math.max(0, to));
+  if (key === 'Home') return 0;
+  if (key === 'End') return length - 1;
+  return wrap(row + ({ ArrowUp: -1, ArrowDown: 1, PageUp: -page, PageDown: page }[key] ?? 0), length);
 }
 
 export interface Box {
@@ -104,24 +144,35 @@ export interface WheelPlace extends Box {
   /** What the stage keeps clear for the wheel: below the figure, or to its right. */
   readonly padBottom: number;
   readonly padRight: number;
+  /** The rows it shows: `rows`, or fewer (odd, at least 3) where the column is short. */
+  readonly rows: number;
+}
+
+/** The most rows, odd, at most `rows` and at least 3, that fit in `height`; 0 when not even 3 do. */
+export function rowsThatFit(height: number, rowPx: number, rows: number): number {
+  for (let n = rows; n >= 3; n -= 2) if (n * rowPx <= height) return n;
+  return 0;
 }
 
 /**
- * Where the open phone wheel sits so the juggler stays in view (ruling B, 2026-10-31): along the
- * stage's bottom when at least `minFigure` of height stays above it for the figure; else in
- * `column` (a phone on its side: the free part of the right-hand column under the transport bar)
- * when the wheel fits there; else down the stage's right side, at most `sideMax` and at most half
- * the stage wide, centred on the stage's height (or at its top when the stage is shorter).
+ * Where the open wheel sits when it is not docked, so the juggler and the beat ladder stay in
+ * view. Given `column` (a phone on its side, or a wide screen too short to dock: the right-hand
+ * column below Kit and Sound), in that column, with as many rows as fit there (ruling 5 of
+ * docs/plans/v4-1-polish.md). Else along the stage's bottom when at least `minFigure` of height
+ * stays above it for the figure (a phone); else down the stage's right side, at most `sideMax`
+ * and at most half the stage wide, centred on the stage's height (or at its top when shorter).
  */
-export function wheelPlace(stage: Box, wheelHeight: number, minFigure: number, sideMax: number, column: Box | null = null): WheelPlace {
-  if (stage.height - wheelHeight >= minFigure) {
-    return { left: stage.left, top: stage.top + stage.height - wheelHeight, width: stage.width, height: wheelHeight, padBottom: wheelHeight, padRight: 0 };
+export function wheelPlace(stage: Box, rowPx: number, rows: number, minFigure: number, sideMax: number, column: Box | null = null): WheelPlace {
+  const fit = column ? rowsThatFit(column.height, rowPx, rows) : 0;
+  if (column && fit > 0) {
+    return { left: column.left, top: column.top, width: column.width, height: fit * rowPx, padBottom: 0, padRight: 0, rows: fit };
   }
-  if (column && column.height >= wheelHeight) {
-    return { left: column.left, top: column.top, width: column.width, height: wheelHeight, padBottom: 0, padRight: 0 };
+  const wheelHeight = rowPx * rows;
+  if (stage.height - wheelHeight >= minFigure) {
+    return { left: stage.left, top: stage.top + stage.height - wheelHeight, width: stage.width, height: wheelHeight, padBottom: wheelHeight, padRight: 0, rows };
   }
   const width = Math.min(sideMax, Math.round(stage.width / 2));
-  return { left: stage.left + stage.width - width, top: stage.top + Math.max(0, (stage.height - wheelHeight) / 2), width, height: wheelHeight, padBottom: 0, padRight: width };
+  return { left: stage.left + stage.width - width, top: stage.top + Math.max(0, (stage.height - wheelHeight) / 2), width, height: wheelHeight, padBottom: 0, padRight: width, rows };
 }
 
 /** What has focus when a key is pressed, as far as ← → care. */

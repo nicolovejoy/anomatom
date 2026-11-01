@@ -13,13 +13,19 @@ import type { PresetName } from '../sound/mapping';
 import { DECK, KIT_IDS, KNOBS, SHEET } from '../tunables';
 import { copy } from '../ui/copy';
 import {
+  centrePlace,
   deckLabel,
   deckPresets,
+  fitFontPx,
   groupTag,
   keyTarget,
+  loopDelta,
   masterGain,
+  offsetFor,
+  placeOf,
   presetIndex,
   rowAfterKey,
+  scrollForPlace,
   settledPick,
   start,
   stepIndex,
@@ -27,9 +33,9 @@ import {
   toggle,
   turnsWheel,
   volumePatch,
-  wheelIndexAt,
   wheelNotch,
   wheelPlace,
+  wheelRowAt,
 } from './deck-model';
 import { cardPattern, presetPatch } from './first-minute';
 import type { Mount } from './mount';
@@ -83,7 +89,7 @@ export const mountDeck: Mount = (root, { store, player, sound }) => {
     <div class="deck-sound">
       <label class="deck-field"><span class="deck-k">${t.kit}</span>
         <select id="deck-kit">
-          <option value="mixed" disabled hidden>${t.mixed}</option>
+          <option value="mixed" disabled hidden></option>
           ${KIT_IDS.map((k) => `<option value="${k}">${copy.kitNames[k] ?? k}</option>`).join('')}
         </select></label>
       <label class="deck-field"><span class="deck-k">${t.sound}</span>
@@ -112,8 +118,13 @@ export const mountDeck: Mount = (root, { store, player, sound }) => {
   const soundSelect = $<HTMLSelectElement>('#deck-sound');
   const details = $<HTMLButtonElement>('.deck-details');
 
+  const mixedOption = kitSelect.querySelector('option[value="mixed"]') as HTMLOptionElement;
+  const rowItems = rows.map((r) => r.parentElement as HTMLLIElement);
+
   root.style.setProperty('--deck-row', `${DECK.rowPx}px`);
   root.style.setProperty('--deck-rows', String(DECK.wheelRows));
+  root.style.setProperty('--deck-slider', `${DECK.sliderPx}px`);
+  root.style.setProperty('--deck-slider-phone', `${DECK.phoneSliderPx}px`);
 
   // -------------------------------------------------------------------------------------------
   // Play, and the pattern: step, pick
@@ -163,7 +174,8 @@ export const mountDeck: Mount = (root, { store, player, sound }) => {
    */
   function placeWheel() {
     if (docked() || wheel.hidden) {
-      for (const p of ['left', 'top', 'width']) wheel.style.removeProperty(p);
+      for (const p of ['left', 'top', 'width', '--deck-rows']) wheel.style.removeProperty(p);
+      shownRows = DECK.wheelRows;
       app.style.setProperty('--wheel-pad-bottom', '0px');
       app.style.setProperty('--wheel-pad-right', '0px');
       return;
@@ -174,29 +186,68 @@ export const mountDeck: Mount = (root, { store, player, sound }) => {
     const s = stage.getBoundingClientRect();
     const v = view.getBoundingClientRect();
     const box = { left: s.left - v.left, top: s.top - v.top, width: s.width, height: s.height };
-    // A phone on its side: the right-hand column under the transport bar is free while the sheet is closed.
+    // A phone on its side, or a wide screen too short to dock: the right-hand column below Kit and
+    // Sound, over the sheet, so the wheel covers neither the beat ladder nor Kit and Sound.
     let column = null;
-    if (app.classList.contains('is-landscape') && !app.classList.contains('sheet-open')) {
-      const r = root.getBoundingClientRect();
-      const b = (root.querySelector('.deck-bar') as HTMLElement).getBoundingClientRect();
-      column = { left: r.left - v.left, top: b.bottom - v.top, width: r.width, height: v.bottom - b.bottom };
+    if (app.classList.contains('is-landscape') || app.classList.contains('is-wide')) {
+      const k = (root.querySelector('.deck-sound') as HTMLElement).getBoundingClientRect();
+      column = { left: k.left - v.left, top: k.bottom - v.top, width: k.width, height: v.bottom - k.bottom };
     }
-    const place = wheelPlace(box, DECK.rowPx * DECK.wheelRows, DECK.minFigurePx, DECK.sidePx, column);
+    const place = wheelPlace(box, DECK.rowPx, DECK.wheelRows, DECK.minFigurePx, DECK.sidePx, column);
     wheel.style.left = `${place.left}px`;
     wheel.style.top = `${place.top}px`;
     wheel.style.width = `${place.width}px`;
+    if (place.rows !== shownRows) {
+      shownRows = place.rows;
+      wheel.style.setProperty('--deck-rows', String(place.rows));
+      scrollWanted = true;
+    }
     app.style.setProperty('--wheel-pad-bottom', `${place.padBottom}px`);
     app.style.setProperty('--wheel-pad-right', `${place.padRight}px`);
+  }
+
+  // The loop (deck-model.ts): each row's place in the list is its CSS order; `offset` is the row
+  // at place 0. While the wheel rests, the band's row sits at the middle place.
+  let shownRows: number = DECK.wheelRows;
+  const half = () => (shownRows - 1) / 2;
+  let offset = 0;
+  const rowAt = () => wheelRowAt(list.scrollTop, DECK.rowPx, half(), offset, rowCount);
+
+  /**
+   * Turns the list so `row` sits at the middle place, moving scrollTop by as many rows as `row`
+   * moved, so nothing on screen shifts. Programmatic: never a turn by the reader.
+   */
+  function recentre(row: number) {
+    const next = offsetFor(row, rowCount);
+    if (next === offset) return;
+    // Read before the order changes: a browser may re-snap to the moved row on the next layout
+    // (WebKit does), so the new scrollTop is set outright, never added to the live one.
+    const top = list.scrollTop + (centrePlace(rowCount) - placeOf(row, offset, rowCount)) * DECK.rowPx;
+    offset = next;
+    rowItems.forEach((li, r) => (li.style.order = String(placeOf(r, offset, rowCount))));
+    list.scrollTop = top;
+  }
+
+  /** Brings `row` into the band, the shortest way round the loop. */
+  function scrollToRow(row: number, smooth: boolean) {
+    if (wheel.hidden) return;
+    if (!smooth) {
+      recentre(row);
+      list.scrollTop = scrollForPlace(centrePlace(rowCount), DECK.rowPx, half());
+      return;
+    }
+    const from = rowAt();
+    recentre(from);
+    const top = scrollForPlace(centrePlace(rowCount) + loopDelta(from, row, rowCount), DECK.rowPx, half());
+    if (Math.abs(list.scrollTop - top) < 1) return;
+    list.scrollTo({ top, behavior: 'smooth' });
   }
 
   /** Brings the wheel's band to the loaded preset; a hand-made pattern leaves it where it is. */
   let scrollWanted = true;
   function scrollToCurrent(smooth: boolean) {
     const i = current();
-    if (i === null || wheel.hidden) return;
-    const top = i * DECK.rowPx;
-    if (Math.abs(list.scrollTop - top) < 1) return;
-    list.scrollTo({ top, behavior: smooth ? 'smooth' : 'auto' });
+    if (i !== null) scrollToRow(i, smooth);
   }
 
   function showWheel() {
@@ -265,14 +316,14 @@ export const mountDeck: Mount = (root, { store, player, sound }) => {
     if (!turnsWheel(e.key) || e.ctrlKey || e.metaKey || e.altKey) return;
     e.preventDefault();
     turn();
-    const to = rowAfterKey(e.key, roving, rowCount, DECK.wheelRows);
+    const to = rowAfterKey(e.key, roving, rowCount, shownRows);
     rove(to);
     rows[to]?.focus({ preventScroll: true });
-    list.scrollTo({ top: to * DECK.rowPx, behavior: 'smooth' });
+    scrollToRow(to, true);
   });
   let settleTimer: ReturnType<typeof setTimeout> | undefined;
   list.addEventListener('scroll', () => {
-    const row = wheelIndexAt(list.scrollTop, DECK.rowPx, rowCount);
+    const row = rowAt();
     band(row);
     if (turning) turn();
     clearTimeout(settleTimer);
@@ -280,8 +331,11 @@ export const mountDeck: Mount = (root, { store, player, sound }) => {
       const user = turning;
       turning = false;
       clearTimeout(turnTimer);
-      if (!user || wheel.hidden) return;
-      const at = wheelIndexAt(list.scrollTop, DECK.rowPx, rowCount);
+      if (wheel.hidden) return;
+      const at = rowAt();
+      // At rest, the band's row goes back to the middle place, so the wheel can turn on either way.
+      recentre(at);
+      if (!user) return;
       const chosen = settledPick(at, current(), presets.length);
       if (chosen !== null) pick(chosen);
     }, DECK.settleMs);
@@ -400,6 +454,24 @@ export const mountDeck: Mount = (root, { store, player, sound }) => {
   // Rendering the store
   // -------------------------------------------------------------------------------------------
 
+  /**
+   * The notation shrinks to fit its space, down to DECK.notationMinPx, before it ellipsizes
+   * (fitFontPx in deck-model.ts). Measured at full size: the pattern button shrinks to the bar's
+   * free width, so the notation's box is the space and its scrollWidth the text.
+   */
+  function fitNotation() {
+    notation.style.fontSize = `${DECK.notationPx}px`;
+    if (notation.clientWidth === 0) return; // hidden (About shows): fitted when it shows again
+    // A pixel spare: scrollWidth is rounded, and a fraction over would ellipsize.
+    const size = fitFontPx(notation.scrollWidth, notation.clientWidth - 1, DECK.notationPx, DECK.notationMinPx);
+    if (size !== DECK.notationPx) notation.style.fontSize = `${size}px`;
+  }
+  // The bar's width changes as the window turns and as the play view shows again after About.
+  const bar = $<HTMLDivElement>('.deck-bar');
+  if (typeof ResizeObserver === 'function') new ResizeObserver(fitNotation).observe(bar);
+  else window.addEventListener('resize', fitNotation);
+  void document.fonts?.ready.then(fitNotation);
+
   function render() {
     const state = store.get();
     const label = deckLabel(state, presets);
@@ -408,7 +480,7 @@ export const mountDeck: Mount = (root, { store, player, sound }) => {
     dot.hidden = label.name === '';
     metaEl.textContent = label.meta;
     patternButton.classList.toggle('invalid', !label.valid);
-    patternButton.classList.toggle('long', label.long);
+    fitNotation();
     patternButton.setAttribute('aria-label', t.choose(label.pattern, label.name));
     const i = current();
     rows.forEach((row, r) => {
@@ -418,6 +490,7 @@ export const mountDeck: Mount = (root, { store, player, sound }) => {
     });
     if (i !== null && !rows[roving]?.matches(':focus')) rove(i);
     const now = nowPlaying(state);
+    mixedOption.textContent = now.kitLabel;
     kitSelect.value = now.kit;
     soundSelect.value = now.preset;
     volume.value = String(state.volume);
@@ -445,8 +518,10 @@ export const mountDeck: Mount = (root, { store, player, sound }) => {
       if (scrollWanted && !wheel.hidden) {
         scrollWanted = false;
         placeWheel();
-        scrollToCurrent(false);
-        band(current() ?? banded);
+        // A hand-made pattern keeps the row last in the band, or Cascade the first time.
+        const row = current() ?? Math.max(0, banded);
+        scrollToRow(row, false);
+        band(row);
       }
       if (view.state !== shownState) {
         shownState = view.state;

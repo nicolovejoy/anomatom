@@ -117,6 +117,14 @@ export const copy = {
     'MFB-512': 'MFB-512',
     'Roland CR-8000': 'Roland CR-8000',
   } as Record<string, string>,
+  /** By KIT_IDS id: the deck's Kit select joins these when the jugglers' kits differ ("TR-808 / LM-2"). */
+  kitShortNames: {
+    'TR-808': 'TR-808',
+    'Casio-RZ1': 'RZ-1',
+    'LM-2': 'LM-2',
+    'MFB-512': 'MFB-512',
+    'Roland CR-8000': 'CR-8000',
+  } as Record<string, string>,
   padInstrumentNames: { mellotron: 'Mellotron', soundfont: 'Soundfont pad' },
   padChordNames: { Dm9: 'Dm9', Am7: 'Am7', Cmaj7: 'Cmaj7', F69: 'F6/9', open5: 'Open fifth' } as Record<string, string>,
   /** The kit's sounds, by smplr's group name. */
@@ -143,81 +151,36 @@ export const copy = {
   // D: About
   // -------------------------------------------------------------------------------------------
 
-  aboutIdeaHeading: 'The idea',
-  aboutIdea: [
-    'A siteswap ladder diagram is a piano roll. Each throw is a note. It starts when a ball leaves a hand and ends when the ball lands, so the height of the throw is the length of the note.',
-    'My hands are two voices. Give each hand its own beat and I play a polyrhythm: three beats in one hand against two in the other is two grids laid over each other.',
-    'The rule that keeps two balls from landing in one hand at once is the rule that keeps two notes from ending on one beat in one voice. If I can juggle it, I can play it.',
-  ],
-  aboutSoundHeading: 'How I make sound',
-  aboutSound: [
-    'I keep one clock, the audio clock. Nothing else keeps time. The picture reads it on every frame.',
-    'From your pattern I build a list of Events: a throw or a catch, in a hand, at a whole-number pulse. I turn pulses into seconds only when I schedule a sound or draw a frame.',
-    'The Mapping decides what each Event sounds like: which drum, how long, how loud, and which side. The sound panel edits the Mapping and nothing else does.',
-  ],
   /**
-   * One section per layer of the model (docs/plans/model-rethink.md §3). Numbers in brackets are
-   * the bibliography's. Only entries opened and checked are cited: 1, 5, 13, 16, 18, 19, 20, 22.
+   * The About page in three layers (docs/plans/v4-1-polish.md, ruling 4): what anomatom is and how
+   * to use it; a short glossary; then, under "Sources and details", the bibliography, a pointer to
+   * the math notes, the credits and the repo. No other prose.
    */
-  aboutLayers: [
-    {
-      heading: 'Time and the lattice',
-      paragraphs: [
-        'I count time in whole pulses. A pulse is the largest step that every hand’s beats fall on, so I never use a fraction of one.',
-        'I turn pulses into seconds only when I schedule a sound or draw a frame. If you ask a hand to start between two pulses, I make the pulses finer until it fits.',
-      ],
-    },
-    {
-      heading: 'Grids: ratio and displacement',
-      paragraphs: [
-        'A hand throws on a grid: beats a fixed number of pulses apart, starting at a phase. If two of my hands have different spacings, I am playing a polyrhythm, such as 3 against 2.',
-        'Two grids with the same spacing and a different phase are a displacement, as in Clapping Music. Krebs separates the two as grouping dissonance, layers that do not fit, and displacement dissonance, layers that fit and are not aligned [19]. 1:1 can mean two things: hands that strike together, or hands that take turns. For me they are one parameter, the phase.',
-        'My grids are even. Beats that are unevenly spaced are not something I play.',
-      ],
-    },
-    {
-      heading: 'Lines, necklaces and Euclidean rhythms',
-      paragraphs: [
-        'A line is the pattern of hits on a grid, repeated. A line that repeats has no first beat, so turning it gives the same necklace [16]. Toussaint’s book has chapters on necklaces and Euclidean rhythms [18].',
-        'Some well-known lines are Euclidean: E(k, n) spreads k hits over n pulses as evenly as it can. Toussaint shows E(3, 8) as the tresillo, E(4, 9) as Brubeck’s Rondo a la Turk, E(7, 12) as a common West African bell pattern and E(5, 16) as the bossa-nova necklace [16].',
-        'Son clave is not one of them. Its gaps are 3, 3, 4, 2 and 4, three different lengths, so it is nearly even and not maximally even. It stays a preset.',
-      ],
-    },
-    {
-      heading: 'Flights, objects and k balls',
-      paragraphs: [
-        'A hit can be a throw. It flies to a later hit, in the same hand or the other, and carries one ball. The balls are the paths those flights make, and I count them.',
-        'For a pattern I can juggle, the average of the digits is the number of balls. Buhler and his co-authors give this for juggling sequences [1], and Polster’s survey states it as a theorem [5].',
-        'So any line of hits is a pattern I can juggle with one ball: each throw is as long as the gap to the next hit. Give a hand k balls and each throw flies k hits ahead. That changes my picture and not my sound.',
-      ],
-    },
-    {
-      heading: 'Parts, streams and inherent patterns',
-      paragraphs: [
-        'A part is a hand: a grid, a line and a phase. Listeners do not hear parts. They hear streams, notes the ear gathers into one line. Bregman’s book introduces the auditory stream [20].',
-        'Kubik described how, in East and Central African instrumental music, the ear groups the notes into conflicting gestalten [22]. I borrow that idea for the mbira card: two hands interlock, and I listen for a third line that neither plays.',
-      ],
-    },
-    {
-      heading: 'Notation',
-      paragraphs: [
-        'I write a pattern three ways. Vanilla siteswap, as in 531, for two hands. Two or three jugglers write passing siteswap, as in <3p 3|3p 3>: a sequence for each juggler between bars, and a p after a throw sends it to the other juggler. Digits for each hand, as in 2 2x 2 / 2x 2: a digit is a flight length in that hand’s own beats, a 0 is a beat with no throw and an x sends the throw to the other hand.',
-        'The third is Multihand Notation, which Juggling Lab keeps inside: a matrix of hands and event times, named for Ed Carstens [13]. It has no standard text form. I do not read it yet.',
-      ],
-    },
-  ] as readonly { heading: string; paragraphs: readonly string[] }[],
-  aboutPresetsHeading: 'Where the patterns come from',
-  aboutPresets: [
-    'Every pattern on my wheel is one jugglers already know, and I play it on the tempo you set. The names are the ones Juggling Lab, the Library of Juggling and Wikipedia’s list of siteswaps use. Where I found no name for a pattern, the wheel says what it is instead.',
-    'I play every pattern on a Roland TR-808 unless you pick another kit. The passing patterns give each juggler a kit of their own.',
+  aboutIntro: [
+    'anomatom juggles a pattern and plays a drum on every throw.',
+    'The height of a throw is the length of its note, so a juggling pattern is a rhythm you can see and hear.',
   ],
-  aboutColotomyHeading: 'A note on the gong cycle',
-  aboutColotomy: [
-    'I hear the gong cycle of Javanese and Balinese music as nested grids: the big gong once per cycle, kempul and kenong at halves and quarters, kethuk at finer points. That is called colotomic structure.',
-    'It is not a polyrhythm, because every level is a power of two. But my cycle line and my downbeat accent are a two-level version of it.',
+  aboutHowHeading: 'How to use it',
+  aboutHow: [
+    'Pick a pattern from the wheel, or step through them with ‹ and ›.',
+    'Tap Play. Space plays and pauses too.',
+    'Details changes the sound; Make your own lets you type a pattern.',
   ],
+  aboutGlossaryHeading: 'Words',
+  aboutGlossary: [
+    { term: 'Siteswap', text: 'The jugglers’ notation. Each digit is one throw, and the number is how many beats it stays in the air: 441 and 531 are three-ball classics.' },
+    { term: 'Cascade', text: 'The plainest pattern, 3: every throw the same height, each one crossing to the other hand.' },
+    { term: 'Pass', text: 'A throw to another juggler, marked with a p, as in <3p 3|3p 3>.' },
+    { term: 'Sync', text: 'Both hands throw at once, written as a pair in brackets, as in (4,4).' },
+    { term: 'Ratio', text: 'How fast two hands beat against each other: at 3:2, hand 1 takes three beats while hand 2 takes two.' },
+  ] as readonly { term: string; text: string }[],
+  aboutSourcesHeading: 'Sources and details',
   aboutReadingHeading: 'What I read',
-  aboutReadingIntro: 'The numbers are the ones the math notes cite.',
+  /** Before the link to the math notes, which cite the bibliography by these numbers. */
+  aboutMathLead: 'The numbers are the ones my ',
+  aboutMathLink: 'math notes',
+  aboutMathUrl: 'https://github.com/nicolovejoy/anomatom/blob/main/docs/MATH.md',
+  aboutMathTail: ' cite: the theory behind the patterns, and the cases I test.',
   aboutCreditsHeading: 'Credits',
   aboutCredits: [
     { name: 'sani.js', url: 'https://github.com/monkape/sani.js', note: 'whose motion model my juggler ports. MIT.' },
@@ -433,8 +396,9 @@ export const copy = {
     unmute: 'Unmute',
     kit: 'Kit',
     sound: 'Sound',
-    /** Kit when the jugglers' kits differ; Sound when the mapping is hand-made. */
-    mixed: 'Mixed',
+    /** Between the kits' short names when the jugglers' kits differ. */
+    kitJoin: ' / ',
+    /** Sound when the mapping follows no preset's rule. */
     custom: 'Custom',
     details: 'Details',
     /** Starts with the visible word, so a voice command "click Details" finds it (WCAG 2.5.3). */

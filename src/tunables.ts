@@ -598,4 +598,13 @@ export const DECK = {
    */
   minFigurePx: 200,
   sidePx: 300,
+  /**
+   * The transport bar's notation (docs/plans/v4-1-polish.md, ruling 2): this size, shrunk to fit
+   * its space down to notationMinPx before it ellipsizes.
+   */
+  notationPx: 16,
+  notationMinPx: 11,
+  /** The volume slider's width on a phone (narrower than SHEET.wideMinWidthPx); wider screens use sliderPx. */
+  phoneSliderPx: 80,
+  sliderPx: 76,
 } as const;
