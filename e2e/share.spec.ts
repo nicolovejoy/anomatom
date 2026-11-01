@@ -1,4 +1,4 @@
-// The share button (v2 plan, ruling 5; in the top bar from v4 D2) and the short links it copies
+// The share button (v2 plan, ruling 5; in the top bar from v4) and the short links it copies
 // (ruling 4), headless. The clipboard is read for real, so this runs on Chromium-family browsers only.
 import { partsFromVanilla } from '../src/core';
 import { encodeState } from '../src/app/hash';
@@ -10,25 +10,23 @@ test.use({ viewport: { width: 390, height: 844 } });
 
 test('share copies the live short link when navigator.share is absent', async ({ page, context, browserName }) => {
   test.skip(browserName !== 'chromium', 'clipboard permissions are Chromium-only');
-  // The head row and its share button went with the deck (v4 D1); D2 puts share in the top bar.
-  await page.goto('/#531@140');
-  test.skip((await page.locator('#share').count()) === 0, 'share moves to the top bar in v4 D2');
   await context.grantPermissions(['clipboard-read', 'clipboard-write']);
   await page.addInitScript(() => {
     Object.defineProperty(navigator, 'share', { configurable: true, value: undefined });
   });
   await page.goto('/#531@140');
-  await expect(page.locator('#share')).toBeVisible();
-  await expect(page.locator('#share')).toHaveAttribute('aria-label', 'Share this pattern');
-  const box = (await page.locator('#share').boundingBox())!;
+  // In the top bar since v4 (D2); the head row it sat in went with the deck (D1).
+  await expect(page.locator('#share-top')).toBeVisible();
+  await expect(page.locator('#share-top')).toHaveAttribute('aria-label', 'Share this pattern');
+  const box = (await page.locator('#share-top').boundingBox())!;
   expect(box.width).toBeGreaterThanOrEqual(44);
   expect(box.height).toBeGreaterThanOrEqual(44);
-  await page.screenshot({ path: 'test-results/share-head-row.png' });
+  await page.screenshot({ path: 'test-results/share-top-bar.png' });
   await page.locator('#tab-pattern').click();
   // Straight after an edit: the live state, not the debounced hash.
   await page.locator('#hand-0').fill('441');
-  await page.locator('#share').click();
-  await expect(page.locator('#share-status')).toHaveText('Link copied');
+  await page.locator('#share-top').click();
+  await expect(page.locator('#share-status-top')).toHaveText('Link copied');
   const copied = await page.evaluate(() => navigator.clipboard.readText());
   expect(copied).toBe(new URL('/#441@140', page.url()).href);
   await page.screenshot({ path: 'test-results/share-copied.png' });

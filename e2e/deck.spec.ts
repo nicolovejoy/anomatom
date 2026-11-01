@@ -2,6 +2,7 @@
 // transport bar, the arrows and keys, the wheel, mute, Kit, Details, Make your own, square
 // corners, no page scroll, no console errors. Screenshots go to e2e/shots/.
 import { mkdirSync } from 'node:fs';
+import { PRESETS } from '../src/app/presets';
 import { expect, isCdnError, openTab, test, type Page } from './fixtures';
 
 const SHOTS = 'e2e/shots';
@@ -39,6 +40,10 @@ for (const size of SIZES) {
       await expect(page.locator('#play')).toBeVisible();
       await expect(page.locator('.deck-sound')).toBeVisible();
       await expect(page.locator('.deck-wheel')).toBeVisible();
+      // Every preset (27 with v4's passing cards) and Make your own.
+      expect(PRESETS.length).toBeGreaterThanOrEqual(27);
+      await expect(page.locator('.deck-row')).toHaveCount(PRESETS.length + 1);
+      await expect(page.locator('.deck-row').last()).toHaveText('Make your own');
       await expect(notation(page)).toHaveText('3');
       await expect(page.locator('.deck-meta')).toHaveText('3 balls');
       await expect(page.locator('.deck-details')).toBeVisible({ visible: !size.docked && size.width < 760 });

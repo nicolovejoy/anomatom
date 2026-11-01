@@ -23,11 +23,10 @@ export const mountShare: Mount = (root, { store }) => {
   window.addEventListener('popstate', share.onHashChange);
   // A reload or close within the debounce still keeps the last edit in the address.
   window.addEventListener('pagehide', share.flush);
-  // The share buttons (top bar; the head row's, mount-knobs.ts): the live state, not the debounced hash.
+  // The top bar's share button: the live state, not the debounced hash.
   let statusTimer: ReturnType<typeof setTimeout> | undefined;
   root.addEventListener('click', (event) => {
-    // The top bar's button and the sheet head row's (D1 removes the latter).
-    const button = (event.target as Element).closest('#share, [data-share]');
+    const button = (event.target as Element).closest('[data-share]');
     if (!button) return;
     const url = shareUrl(location.href, store.get());
     const clipboard = navigator.clipboard as Clipboard | undefined;
@@ -35,7 +34,7 @@ export const mountShare: Mount = (root, { store }) => {
       share: typeof navigator.share === 'function' ? (data) => navigator.share(data) : undefined,
       writeText: clipboard ? (text) => clipboard.writeText(text) : undefined,
     }).then((outcome) => {
-      const status = root.querySelector(button.id === 'share' ? '#share-status' : '#share-status-top');
+      const status = root.querySelector('#share-status-top');
       if (!status || outcome === 'shared' || outcome === 'cancelled') return;
       status.textContent = outcome === 'copied' ? copy.linkCopied : copy.linkNotCopied;
       clearTimeout(statusTimer);
