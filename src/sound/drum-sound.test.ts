@@ -1,5 +1,6 @@
 import { describe, expect, test, vi } from 'vitest';
-import { DEFAULT_MAPPING, PARAM_SMOOTH_SECONDS } from '../tunables';
+import { PARAM_SMOOTH_SECONDS } from '../tunables';
+import { VOICE_PER_PART as DEFAULT_MAPPING } from '../test/mappings';
 import { createDrumSound, type Kit } from './drum-sound';
 import type { Hit } from './mapping';
 

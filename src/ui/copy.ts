@@ -21,7 +21,7 @@ export const copy = {
   // -------------------------------------------------------------------------------------------
 
   title: 'anomatom',
-  placeholder: 'I am anomatom, a juggling robot. Type a pattern and press Play: I juggle it and play every throw on a drum machine, a Roland TR-808 unless you pick another kit.',
+  placeholder: 'I am anomatom, a juggling robot. Type a pattern and press Play: I juggle it and play every throw on a drum machine.',
   patternLabel: 'Pattern',
   handLabel: (hand: number) => `Hand ${hand + 1} pattern`,
   ratioLabel: 'Ratio',
@@ -101,15 +101,7 @@ export const copy = {
   // C: Mapping and sound
   // -------------------------------------------------------------------------------------------
 
-  /** Labels for the sound panel's choices (SPEC §4.3); controls stay labels, not sentences. */
-  presetNames: {
-    'voice-per-part': 'Voice per part',
-    'height-drum': 'Height to drum',
-    'height-pitch': 'Height to pitch',
-    'ball-pitch': 'Ball to pitch',
-    custom: 'Custom',
-  },
-  /** By KIT_IDS id. */
+  /** The drum machines, by DRUMMER_KITS id. */
   kitNames: {
     'TR-808': 'Roland TR-808',
     'Casio-RZ1': 'Casio RZ-1',
@@ -117,36 +109,8 @@ export const copy = {
     'MFB-512': 'MFB-512',
     'Roland CR-8000': 'Roland CR-8000',
   } as Record<string, string>,
-  /** By KIT_IDS id: the deck's Kit select joins these when the jugglers' kits differ ("TR-808 / LM-2"). */
-  kitShortNames: {
-    'TR-808': 'TR-808',
-    'Casio-RZ1': 'RZ-1',
-    'LM-2': 'LM-2',
-    'MFB-512': 'MFB-512',
-    'Roland CR-8000': 'CR-8000',
-  } as Record<string, string>,
-  padInstrumentNames: { mellotron: 'Mellotron', soundfont: 'Soundfont pad' },
-  padChordNames: { Dm9: 'Dm9', Am7: 'Am7', Cmaj7: 'Cmaj7', F69: 'F6/9', open5: 'Open fifth' } as Record<string, string>,
-  /** The kit's sounds, by smplr's group name. */
-  sampleNames: {
-    clap: 'Clap',
-    clave: 'Clave',
-    'conga-hi': 'Conga, high',
-    'conga-low': 'Conga, low',
-    'conga-mid': 'Conga, mid',
-    cowbell: 'Cowbell',
-    cymbal: 'Cymbal',
-    'hihat-close': 'Hi-hat, closed',
-    'hihat-open': 'Hi-hat, open',
-    kick: 'Kick',
-    maraca: 'Maraca',
-    'mid-tom': 'Tom, mid',
-    rimshot: 'Rimshot',
-    snare: 'Snare',
-    'tom-hi': 'Tom, high',
-    'tom-low': 'Tom, low',
-  } as Record<string, string>,
-  noSample: 'None',
+  /** An old link asked for a sound per hand (Voice per part, gone in v5): what I play instead. */
+  voicePerPartGone: 'That link gave each hand its own sound. I no longer do that, so I play it by the height of each throw.',
   // -------------------------------------------------------------------------------------------
   // D: About
   // -------------------------------------------------------------------------------------------
@@ -350,38 +314,34 @@ export const copy = {
   // F: Sound panel and share
   // -------------------------------------------------------------------------------------------
 
-  kitLabel: 'Kit',
-  /** With three or more parts the Kit row is one select per juggler; `juggler` counts from 0. */
-  jugglerKitLabel: (juggler: number) => `Juggler ${juggler + 1} kit`,
-  passesHeading: 'Passes',
-  passAccentLabel: 'Accent',
-  passSampleLabel: 'Pass sound',
-  /** The pass sound select's no-sample option: the pass keeps the sound it would have had. */
-  passSampleOwn: 'Its own sound',
-  presetLabel: 'Preset',
-  perHeightHeading: 'Sound for each throw height',
-  heightLabel: (height: number) => `Height ${height}`,
-  partsHeading: 'Parts',
-  /** `part` counts from 0; the reader sees it from 1. */
-  partSoundLabel: (part: number) => `Part ${part + 1} sound`,
-  panLabel: (part: number) => `Part ${part + 1} pan`,
-  gainLabel: (part: number) => `Part ${part + 1} gain`,
-  /** Design §7: the sound does not follow the ball count unless the preset reads flight length. */
-  catchesHeading: 'Catches',
-  catchesOn: 'Play a sound on each catch',
-  catchSoundLabel: 'Catch sound',
-  accentHeading: 'Cross throws',
-  accentLabel: 'Accent',
-  downbeatLabel: 'Cross landing on a shared beat',
-  filterHeading: 'Crossings to filter',
-  filterOn: 'Open the filter as crossings grow',
-  filterLowLabel: 'Lowest cutoff (Hz)',
-  filterHighLabel: 'Highest cutoff (Hz)',
-  padHeading: 'Pad on the downbeat',
-  padOn: 'Play a chord at the start of each cycle',
-  padInstrumentLabel: 'Pad instrument',
-  padChordLabel: 'Chord',
-  resetToPreset: 'Reset to preset',
+  /**
+   * The Sound panel (docs/plans/v5-sound-model.md, ruling 7), top to bottom: Volume, Listen for,
+   * Tempo, Drum machines, Also play. Words from the agreed vocabulary: pattern, juggler, hand,
+   * throw, catch, height, ball, sound, drum machine.
+   */
+  listenHeading: 'Listen for',
+  /** The choices, read after "Listen for", by Listen. */
+  listenNames: { height: 'the height of each throw', ball: 'each ball', pitch: 'the height, as a pitch' },
+  /** The ⓘ beside Listen for, and its lines: one plain line per choice. */
+  listenInfoGlyph: 'ⓘ',
+  listenInfoLabel: 'What each choice means',
+  listenInfo: {
+    height: 'The height of each throw: each height has its own drum, so a 3, a 5 and a 7 each sound different.',
+    ball: 'Each ball: every ball keeps one sound wherever it goes, whatever its height.',
+    pitch: 'The height, as a pitch: each height has its own note, and the higher the throw, the lower the sound.',
+  },
+  drummersHeading: 'Drum machines',
+  /** One row per juggler on stage; `juggler` counts from 0. */
+  drummerJuggler: (juggler: number) => `Juggler ${juggler + 1}`,
+  changeDrummers: 'Change drum machines',
+  alsoHeading: 'Also play',
+  /** The three switches, and what each plays. */
+  alsoNames: { catches: 'Catches', downbeat: 'Downbeat', pad: 'Pad' },
+  alsoHints: {
+    catches: 'A sound on each catch',
+    downbeat: 'A clap when a throw to the other hand is caught on a beat every hand shares',
+    pad: 'A chord at the start of each cycle',
+  },
   shareLabel: 'Share this pattern',
   linkCopied: 'Link copied',
   linkNotCopied: 'Link not copied',
@@ -406,12 +366,8 @@ export const copy = {
     choose: (pattern: string, name: string) => `${pattern}, ${name}. Choose a pattern`,
     mute: 'Mute',
     unmute: 'Unmute',
-    kit: 'Kit',
-    sound: 'Sound',
-    /** Between the kits' short names when the jugglers' kits differ. */
-    kitJoin: ' / ',
-    /** Sound when the mapping follows no preset's rule. */
-    custom: 'Custom',
+    /** The deck's one sound control: what the sound follows (its options are `listenNames`). */
+    listen: 'Listen for',
     details: 'Details',
     /** Starts with the visible word, so a voice command "click Details" finds it (WCAG 2.5.3). */
     detailsLabel: 'Details, all sound settings',
@@ -434,28 +390,19 @@ export const copy = {
     shower: { name: 'Shower' },
     pause: { name: 'Half box' },
     classic: { name: 'High, middle, low' },
-    'two-in-ones': { name: 'Two-in-ones, alternating' },
     boston: { name: 'Boston shuffle' },
-    flash: { name: 'Flash' },
     box: { name: 'Box' },
     fountain: { name: 'Fountain' },
     'half-shower': { name: 'Half-shower' },
-    'high-low-fountain': { name: 'High, low, fountain' },
     'tower-4': { name: 'Four balls, stepping down' },
     polyrhythm: { name: 'Two hands, 3 against 2' },
-    'sync-fountain': { name: 'Synchronous fountain' },
     'five-cascade': { name: 'Cascade' },
     'five-744': { name: 'Five balls, one high throw' },
-    'five-645': { name: 'Five balls, three heights' },
     ramp: { name: 'Five balls, a ramp' },
     passing: { name: 'Two-count' },
     ultimates: { name: 'Ultimates' },
     'three-count': { name: 'Three-count' },
-    'four-count': { name: 'Four-count' },
-    'five-pass': { name: 'A high pass, then 3 and 1' },
-    'seven-four-count': { name: 'Seven, alternating 3 and 4' },
     'seven-fours': { name: 'Seven, two fours' },
-    'seven-pass': { name: 'A 7 pass against a 3' },
     'rising-passes': { name: 'Rising' },
   } as Record<string, { name: string }>,
 };

@@ -1,5 +1,5 @@
 // The deck (docs/plans/v4-deck.md, rulings 1 to 4): the transport bar (Play/Pause, ‹, the pattern,
-// ›, mute and volume), the sound row (Kit, Sound, Details) and the pattern wheel. On a phone the
+// ›, mute and volume), the sound row (Listen for, Details) and the pattern wheel. On a phone the
 // wheel opens over the stage from the pattern name; on a wide screen tall enough it stays open at
 // the top of the right-hand column. The logic is in deck-model.ts; this file is elements and events.
 //
@@ -8,9 +8,8 @@
 // (keepsSpace in sheet-model.ts); ← and → step the pattern except in a field, a select, a slider
 // or a tab (stepKey in deck-model.ts). A select hands focus to Play after a choice, so both keys
 // work again at once.
-import { PRESET_NAMES } from '../sound/mapping';
-import type { PresetName } from '../sound/mapping';
-import { DECK, KIT_IDS, KNOBS, SHEET } from '../tunables';
+import { LISTENS, type Listen } from '../sound/drummers';
+import { DECK, KNOBS, SHEET } from '../tunables';
 import { copy } from '../ui/copy';
 import {
   centrePlace,
@@ -42,9 +41,7 @@ import {
 import { cardPattern, presetPatch } from './first-minute';
 import type { Mount } from './mount';
 import { route } from './route';
-import { kitEdit, nowPlaying, presetEdit } from './now-playing-model';
 import { fillPercent, keepsSpace } from './sheet-model';
-import { applyEdit } from './sound-panel-model';
 import './deck.css';
 
 const chevron = (left: boolean) =>
@@ -89,15 +86,9 @@ export const mountDeck: Mount = (root, { store, player, sound }) => {
       </ol>
     </div>
     <div class="deck-sound">
-      <label class="deck-field"><span class="deck-k">${t.kit}</span>
-        <select id="deck-kit">
-          <option value="mixed" disabled hidden></option>
-          ${KIT_IDS.map((k) => `<option value="${k}">${copy.kitNames[k] ?? k}</option>`).join('')}
-        </select></label>
-      <label class="deck-field"><span class="deck-k">${t.sound}</span>
-        <select id="deck-sound">
-          <option value="custom" disabled hidden>${t.custom}</option>
-          ${PRESET_NAMES.map((n) => `<option value="${n}">${copy.presetNames[n] ?? n}</option>`).join('')}
+      <label class="deck-field"><span class="deck-k">${t.listen}</span>
+        <select id="deck-listen">
+          ${LISTENS.map((l) => `<option value="${l}">${copy.listenNames[l]}</option>`).join('')}
         </select></label>
       <button type="button" class="deck-details" aria-label="${t.detailsLabel}">${t.details}</button>
     </div>`;
@@ -116,11 +107,9 @@ export const mountDeck: Mount = (root, { store, player, sound }) => {
   const wheel = $<HTMLDivElement>('.deck-wheel');
   const list = $<HTMLOListElement>('.deck-wheel-list');
   const rows = [...root.querySelectorAll<HTMLButtonElement>('.deck-row')];
-  const kitSelect = $<HTMLSelectElement>('#deck-kit');
-  const soundSelect = $<HTMLSelectElement>('#deck-sound');
+  const listenSelect = $<HTMLSelectElement>('#deck-listen');
   const details = $<HTMLButtonElement>('.deck-details');
 
-  const mixedOption = kitSelect.querySelector('option[value="mixed"]') as HTMLOptionElement;
   const rowItems = rows.map((r) => r.parentElement as HTMLLIElement);
 
   root.style.setProperty('--deck-row', `${DECK.rowPx}px`);
@@ -188,8 +177,8 @@ export const mountDeck: Mount = (root, { store, player, sound }) => {
     const s = stage.getBoundingClientRect();
     const v = view.getBoundingClientRect();
     const box = { left: s.left - v.left, top: s.top - v.top, width: s.width, height: s.height };
-    // A phone on its side, or a wide screen too short to dock: the right-hand column below Kit and
-    // Sound, over the sheet, so the wheel covers neither the beat ladder nor Kit and Sound.
+    // A phone on its side, or a wide screen too short to dock: the right-hand column below the
+    // sound row, over the sheet, so the wheel covers neither the beat ladder nor Listen for.
     let column = null;
     if (app.classList.contains('is-landscape') || app.classList.contains('is-wide')) {
       const k = (root.querySelector('.deck-sound') as HTMLElement).getBoundingClientRect();
@@ -421,19 +410,14 @@ export const mountDeck: Mount = (root, { store, player, sound }) => {
   window.addEventListener('resize', follow);
 
   // -------------------------------------------------------------------------------------------
-  // Volume, mute, Kit, Sound, Details
+  // Volume, mute, Listen for, Details
   // -------------------------------------------------------------------------------------------
 
   volume.addEventListener('input', () => store.set(volumePatch(Number(volume.value))));
   mute.addEventListener('click', () => store.set({ muted: !store.get().muted }));
 
-  const edit = (e: Parameters<typeof applyEdit>[1]) => store.set({ mapping: applyEdit(store.get().mapping, e) });
-  kitSelect.addEventListener('change', () => {
-    edit(kitEdit(kitSelect.value));
-    playButton.focus();
-  });
-  soundSelect.addEventListener('change', () => {
-    edit(presetEdit(soundSelect.value as PresetName));
+  listenSelect.addEventListener('change', () => {
+    store.dispatch({ type: 'setListen', listen: listenSelect.value as Listen });
     playButton.focus();
   });
   details.addEventListener('click', () => {
@@ -545,10 +529,7 @@ export const mountDeck: Mount = (root, { store, player, sound }) => {
       else row.removeAttribute('aria-current');
     });
     if (i !== null && !rows[roving]?.matches(':focus')) rove(i);
-    const now = nowPlaying(state);
-    mixedOption.textContent = now.kitLabel;
-    kitSelect.value = now.kit;
-    soundSelect.value = now.preset;
+    listenSelect.value = state.listen;
     volume.value = String(state.volume);
     volume.style.setProperty('--fill', `${fillPercent(state.volume, 0, 1)}%`);
     mute.setAttribute('aria-pressed', String(state.muted));
@@ -560,7 +541,7 @@ export const mountDeck: Mount = (root, { store, player, sound }) => {
   }
 
   store.subscribe((state, previous) => {
-    const keys = ['parts', 'ratio', 'drafts', 'mapping', 'volume', 'muted'] as const;
+    const keys = ['parts', 'ratio', 'drafts', 'listen', 'volume', 'muted'] as const;
     if (keys.some((k) => state[k] !== previous[k])) render();
     // Only a new pattern moves the band: a volume or sound change mid-turn leaves the wheel be.
     if (state.parts !== previous.parts || state.ratio !== previous.ratio) scrollToCurrent(true);

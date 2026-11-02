@@ -3,7 +3,7 @@
 // presentational rules on top: the colour dot, the voice name, the cell grid, the ratio chips,
 // and the cell under the playhead. mount-knobs.ts turns these values into elements.
 import { mod } from '../core';
-import type { Mapping } from '../sound/mapping';
+import type { Listen } from '../sound/drummers';
 import { LANES_UI } from '../tunables';
 import { copy } from '../ui/copy';
 import { partColour } from '../view/colours';
@@ -19,15 +19,10 @@ export const laneDot = (part: number, lanes: number): string | null => (lanes >=
 export const ratioChipsShown = (lanes: number): boolean => lanes === 2;
 
 /**
- * The name of the sound a lane plays, as the Sound tab names it. A mapping that reads throw
- * height or ball picks the sound per throw, not per hand, and says so.
+ * The name of the sound a lane plays: what every throw's sound follows (docs/plans/v5-sound-model.md,
+ * ruling 1), its height (as a drum or as a pitch) or its ball. Never a sound per hand.
  */
-export function voiceName(mapping: Mapping, part: number): string {
-  if (mapping.byBall !== null) return copy.voiceByBall;
-  if (mapping.byHeight) return copy.voiceByHeight;
-  const sample = mapping.parts[part]?.sample ?? null;
-  return sample === null ? copy.noSample : (copy.sampleNames[sample] ?? sample);
-}
+export const voiceName = (listen: Listen): string => (listen === 'ball' ? copy.voiceByBall : copy.voiceByHeight);
 
 /**
  * Step cells per row. A short period fills its row (never under `minColumns`, so one step is not

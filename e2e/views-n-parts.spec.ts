@@ -1,4 +1,4 @@
-// Views for N parts (docs/plans/lanes.md, wave 1 C; ruling 4), headless: `#v2.` links with three
+// Views for N parts (docs/plans/lanes.md, wave 1 C; ruling 4), headless: `#v3.` links with three
 // and four parts, built with the app's own `encodeState`, play with the juggler drawing figures by
 // pairing and the ladder one lane per part, and both pictures agree on the ball count. Canvas
 // content is checked by screenshot: saved to test-results, and to $VIEWS_SHOTS when it is set
@@ -38,7 +38,7 @@ const LABELS: Record<number, string> = {
   4: 'My 4 hands juggling the pattern as 2 jugglers side by side, left to right: hands 1 and 2, hands 3 and 4.',
 };
 
-/** `encodeState` writes the `#v2.` prefix itself. */
+/** `encodeState` writes the `#v3.` prefix itself. */
 const link = (parts: Parts) => '/' + encodeState({ ...defaultState(), parts });
 
 function watchErrors(page: Page) {

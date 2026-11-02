@@ -299,10 +299,10 @@ describe('the transport', () => {
     pause: vi.fn(),
   });
   const s: AppState = defaultState();
-  test('stopped: Play plays the store’s schedule, mapping and tempo', () => {
+  test('stopped: Play plays the store’s schedule, derived mapping and tempo', () => {
     const p = fake('stopped');
     toggle(p, s);
-    expect(p.play).toHaveBeenCalledWith(derived(s).schedule, s.mapping, s.bpm);
+    expect(p.play).toHaveBeenCalledWith(derived(s).schedule, derived(s).mapping, s.bpm);
   });
   test('paused: Play resumes', () => {
     const p = fake('paused');

@@ -424,7 +424,7 @@ export const mountKnobs: Mount = (root, { store, player, sound }) => {
       const dot = laneDot(h, rhythm.length);
       lane.dot.hidden = dot === null;
       lane.el.style.setProperty('--lane-colour', dot ?? 'var(--text-2)');
-      const voice = voiceName(state.mapping, h);
+      const voice = voiceName(state.listen);
       lane.voiceName.textContent = voice;
       lane.voice.setAttribute('aria-label', copy.voiceLabel(h, voice));
       lane.remove.hidden = removeAction(row) === null;
@@ -544,8 +544,8 @@ export const mountKnobs: Mount = (root, { store, player, sound }) => {
     schedule = derived(state).schedule;
     if (editChanged(previous, state)) player.setEdit(schedule, state.bpm);
     // Test hook: what one cycle sounds like, so a browser test can see the ball knob leave it alone.
-    if (!previous || schedule !== derived(previous).schedule || state.mapping !== previous.mapping) {
-      root.dataset.cycleSamples = cycleSamples(schedule, state.mapping);
+    if (!previous || schedule !== derived(previous).schedule || derived(state).mapping !== derived(previous).mapping) {
+      root.dataset.cycleSamples = cycleSamples(schedule, derived(state).mapping);
     }
   }
 
@@ -768,17 +768,17 @@ export const mountKnobs: Mount = (root, { store, player, sound }) => {
   });
 
   /**
-   * The voice name: the Sound tab, scrolled to that hand's sound, pan and gain, which flash once
-   * (sound-panel.css). The sound select takes focus, so the keyboard lands where the eye does.
+   * The voice name: the Sound tab, scrolled to Listen for (what every hand's sound follows), which
+   * flashes once (sound-panel.css), and that hand's juggler's drum machine, which flashes too. The
+   * chosen Listen for button takes focus, so the keyboard lands where the eye does.
    */
   function showVoice(h: number) {
     store.set({ sheetTab: 'sound' });
-    const select = document.getElementById(`sp-part-sample-${h}`);
-    if (!select) return;
-    select.closest('.sp-row')?.scrollIntoView({ block: 'start' });
-    (select as HTMLSelectElement).focus({ preventScroll: true });
-    for (const field of document.querySelectorAll(`.sound-panel [data-part="${h}"]`)) {
-      const row = field.closest('.sp-row');
+    const group = document.querySelector('.sound-panel .sp-listen');
+    if (!group) return;
+    group.scrollIntoView({ block: 'start' });
+    group.querySelector<HTMLButtonElement>('.sp-choice[aria-pressed="true"]')?.focus({ preventScroll: true });
+    for (const row of [group, document.querySelector(`.sound-panel .sp-drummer[data-juggler="${Math.floor(h / 2)}"]`)]) {
       if (!row) continue;
       // Restarts the animation when the same hand is shown twice.
       row.classList.remove('sp-flash');

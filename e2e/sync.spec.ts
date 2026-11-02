@@ -54,7 +54,8 @@ test('Box sits in the wheel under 3 balls, plays the box, and Make your own show
   await expect(row).toHaveCount(1);
   await expect(row).toContainText('Box');
   await expect(row.locator('em')).toHaveText('3');
-  await expect(page.locator('.deck-row[data-id="sync-fountain"]')).toContainText('Synchronous fountain');
+  // The synchronous fountain was cut in v5 (§4): the box is the one sync card.
+  await expect(page.locator('.deck-row[data-id="sync-fountain"]')).toHaveCount(0);
   await row.click();
   // A tap on a row plays it.
   await expect(page.locator('.deck-notation')).toHaveText('(4,2x)(2x,4)');

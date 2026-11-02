@@ -1,7 +1,6 @@
 import { describe, expect, test } from 'vitest';
 import { judge, onsetsOf, partsFromLines, partsFromOnsets, ratesOf, textOf, throwsOf, withPhase } from '../core';
 import type { Part, Parts } from '../core';
-import { applyPreset, voiceForNewPart } from '../sound/mapping';
 import { lineParts, typed, vanillaParts } from '../test/schedules';
 import { BPM_RANGE, MAX_LANES, MAX_PERIOD, MAX_RATE } from '../tunables';
 import { groupOf, inputPerPart, isManualGroup, parseDraft, reduce, rescale, type Action } from './actions';
@@ -330,13 +329,54 @@ describe('setBpm and loadPreset', () => {
     expect(reduce(defaultState(), { type: 'setBpm', bpm: 1 }).bpm).toBe(BPM_RANGE.min);
   });
 
-  test('loadPreset replaces the parts and ratio, and the mapping when given', () => {
-    const s = { ...typed(['4#']), notice: 'x' };
+  test('loadPreset replaces the parts and ratio, and leaves the sound alone (v5 ruling 5)', () => {
+    const s = { ...typed(['4#']), notice: 'x', listen: 'pitch' as const, also: { catches: true, downbeat: false, pad: true }, kitShift: 3 };
     const parts = lineParts(['2 2x 2', '2x 2'], threeTwo);
     const next = reduce(s, { type: 'loadPreset', parts, ratio: threeTwo });
-    expect(next).toMatchObject({ parts, ratio: threeTwo, bpm: s.bpm, mapping: s.mapping, drafts: [null, null], notice: null });
-    const m = applyPreset('height-drum');
-    expect(reduce(s, { type: 'loadPreset', parts, ratio: threeTwo, mapping: m })).toMatchObject({ mapping: m });
+    expect(next).toMatchObject({ parts, ratio: threeTwo, bpm: s.bpm, drafts: [null, null], notice: null });
+    expect(next.listen).toBe(s.listen);
+    expect(next.also).toBe(s.also);
+    expect(next.kitShift).toBe(s.kitShift);
+  });
+});
+
+describe('the sound (v5 rulings 1 to 3)', () => {
+  test('setListen: one of the three, else nothing', () => {
+    const s = { ...defaultState(), notice: 'x' };
+    expect(reduce(s, { type: 'setListen', listen: 'pitch' })).toMatchObject({ listen: 'pitch', notice: null });
+    const d = defaultState();
+    expect(reduce(d, { type: 'setListen', listen: d.listen })).toBe(d);
+    expect(reduce(d, { type: 'setListen', listen: 'voice-per-part' as never })).toBe(d);
+  });
+
+  test('setAlso: one switch at a time; the same value, or an unknown switch, changes nothing', () => {
+    const d = defaultState();
+    expect(reduce(d, { type: 'setAlso', key: 'catches', on: true }).also).toEqual({ catches: true, downbeat: true, pad: false });
+    expect(reduce(d, { type: 'setAlso', key: 'downbeat', on: false }).also).toEqual({ catches: false, downbeat: false, pad: false });
+    expect(reduce(d, { type: 'setAlso', key: 'pad', on: true }).also).toEqual({ catches: false, downbeat: true, pad: true });
+    expect(reduce(d, { type: 'setAlso', key: 'downbeat', on: true })).toBe(d);
+    expect(reduce(d, { type: 'setAlso', key: 'filter' as never, on: true })).toBe(d);
+  });
+
+  test('nextKits: every juggler to the next drum machine, wrapping after the fifth', () => {
+    let s = defaultState();
+    const seen: number[] = [];
+    for (let i = 0; i < 6; i++) {
+      s = reduce(s, { type: 'nextKits' });
+      seen.push(s.kitShift);
+    }
+    expect(seen).toEqual([1, 2, 3, 4, 0, 1]);
+  });
+
+  test('change the sound, load two patterns: the sound stays, and the derived mapping follows the parts', () => {
+    const passing = lineParts(['2', '2'], one);
+    let s = reduce(defaultState(), { type: 'setListen', listen: 'pitch' });
+    s = reduce(s, { type: 'nextKits' });
+    s = reduce(s, { type: 'loadPreset', parts: passing, ratio: one });
+    s = reduce(s, { type: 'loadPreset', parts: typed(['<3p 3|3p 3>']).parts, ratio: one });
+    expect(s.listen).toBe('pitch');
+    expect(s.kitShift).toBe(1);
+    expect(derived(s).mapping.parts.map((v) => v.kit)).toEqual(['LM-2', 'LM-2', 'MFB-512', 'MFB-512']);
   });
 });
 
@@ -367,8 +407,6 @@ describe('swapSites (MATH.md §3)', () => {
 });
 
 describe('lanes (docs/plans/lanes.md)', () => {
-  const voice = (sample: string) => ({ kit: 'TR-808', sample, pan: 0, gain: 1 });
-  const withVoices = (s: AppState, ...samples: string[]): AppState => ({ ...s, mapping: { ...s.mapping, parts: samples.map(voice) } });
   const flights = (s: AppState) => s.parts.map((p) => p.flights);
 
   test('addLane: a default part on the last part’s rate and steps, phase 0, one onset on beat 0, k = 1', () => {
@@ -384,8 +422,7 @@ describe('lanes (docs/plans/lanes.md)', () => {
     const v = reduce(defaultState(), { type: 'addLane' });
     expect(v.parts[2]).toMatchObject({ phase: 0, flights: { kind: 'default', onsets: [true], k: 1 } });
     expect(v.parts[2]?.spacing).toBe(v.parts[0]?.spacing);
-    expect(v.mapping.parts).toHaveLength(3);
-    expect(v.mapping.parts[2]).toEqual(voiceForNewPart(defaultState().mapping, 2));
+    expect(derived(v).mapping.parts).toHaveLength(3);
     expect(v.notice).toBeNull();
   });
 
@@ -402,7 +439,7 @@ describe('lanes (docs/plans/lanes.md)', () => {
     expect(s.parts).toHaveLength(1);
     expect(s.parts[0]).toEqual({ spacing: 1, phase: 0, unit: 1, flights: { kind: 'default', onsets: [true], k: 1 } });
     expect(s.notice).toBe('I reset hand 1 to 1 ball.');
-    expect(s.mapping.parts).toEqual([defaultState().mapping.parts[0]]);
+    expect(derived(s).mapping.parts).toHaveLength(1);
     expect(s.drafts).toEqual([null]);
     // The only lane stays; a missing one is refused.
     const quiet = { ...s, notice: null };
@@ -411,18 +448,15 @@ describe('lanes (docs/plans/lanes.md)', () => {
     expect(reduce(d, { type: 'removeLane', part: 2 })).toBe(d);
   });
 
-  test('removeLane: a lone lane goes with its voice; crosses into later lanes are renumbered', () => {
+  test('removeLane: a lone lane goes; crosses into later lanes are renumbered', () => {
     const r = partsFromLines(['1', '2 2x3 2', '2x2 2'], one, [6, 2, 3]);
-    const s = withVoices(at((r as { parts: Parts }).parts), 'kick', 'snare', 'clap');
+    const s = at((r as { parts: Parts }).parts);
     const next = reduce(s, { type: 'removeLane', part: 0 });
     expect(texts(next.parts)).toEqual(['2 2x 2', '2x 2']);
     expect(judge(next.parts).ok).toBe(true);
     expect(next.notice).toBeNull();
-    expect(next.mapping.parts.map((p) => p.sample)).toEqual(['snare', 'clap']);
+    expect(derived(next).mapping.parts).toHaveLength(2);
     expect(next.ratio).toEqual(threeTwo);
-    // A mapping that borrows voices (fewer than the parts) keeps what it has, up to the parts left.
-    const borrowing = withVoices(at((r as { parts: Parts }).parts), 'kick', 'snare');
-    expect(reduce(borrowing, { type: 'removeLane', part: 2 }).mapping.parts.map((p) => p.sample)).toEqual(['kick', 'snare']);
     // The last lane of a cross group: the other one is reset, and named as numbered after.
     const tail = reduce(s, { type: 'removeLane', part: 2 });
     expect(tail.notice).toBe('I reset hand 2 to 1 ball.');
@@ -519,7 +553,7 @@ describe('lanes (docs/plans/lanes.md)', () => {
     expect(refused.notice).toBe('That would make the cycle too long for me.');
   });
 
-  test('the ratio follows the parts after every action; the mapping has a voice per part', () => {
+  test('the ratio follows the parts after every action; the derived mapping has a voice per part', () => {
     // A preset whose ratio disagrees with its parts: the parts win.
     const parts = lineParts(['2', '2'], threeTwo);
     const loaded = reduce(defaultState(), { type: 'loadPreset', parts, ratio: { a: 5, b: 4 } });
@@ -527,9 +561,9 @@ describe('lanes (docs/plans/lanes.md)', () => {
     // Agreeing, unreduced, it is kept as written (the steppers' 2:2).
     const two = reduce(defaultState(), { type: 'loadPreset', parts: lineParts(['2', '2'], one), ratio: { a: 2, b: 2 } });
     expect(two.ratio).toEqual({ a: 2, b: 2 });
-    // Fewer parts than voices: the tail goes.
-    const three = withVoices(at(partsFromOnsets([on('x'), on('x'), on('x')], [1, 1, 1])), 'kick', 'snare', 'clap');
-    expect(reduce(three, { type: 'loadPreset', parts, ratio: threeTwo }).mapping.parts.map((p) => p.sample)).toEqual(['kick', 'snare']);
+    const three = at(partsFromOnsets([on('x'), on('x'), on('x')], [1, 1, 1]));
+    expect(derived(three).mapping.parts).toHaveLength(3);
+    expect(derived(reduce(three, { type: 'loadPreset', parts, ratio: threeTwo })).mapping.parts).toHaveLength(2);
   });
 });
 

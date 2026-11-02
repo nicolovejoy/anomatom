@@ -69,7 +69,7 @@ if (app) {
   const ctx: AppContext = { store, player, sound };
 
   // Samples preload on page open; a press before they arrive is silent (SPEC §5.4).
-  sound.preload(store.get().mapping);
+  sound.preload(store.derived().mapping);
 
   const mounts: [Mount, HTMLElement][] = [
     [mountJuggler, region('juggler')],

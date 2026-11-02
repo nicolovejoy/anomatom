@@ -103,8 +103,8 @@ describe('the knob row: phase, balls and hits', () => {
     expect(up.parts[1]).toBe(s.parts[1]);
     expect(analyse(up).balls).toBe(3);
     expect(ballsAction({ ...h1, k: KNOBS.maxBalls }, 1)).toBeNull();
-    // Voice per part: the knob changes the picture, never the sound.
-    const sound = (x: AppState) => cycleSamples(derived(x).schedule, x.mapping);
+    // Height to drum on a default part: the knob changes the picture, never the sound.
+    const sound = (x: AppState) => cycleSamples(derived(x).schedule, { ...derived(x).mapping, byHeight: false, parts: derived(x).mapping.parts.map((v) => ({ ...v, sample: 'kick' })) });
     expect(sound(up)).toBe(sound(s));
   });
 

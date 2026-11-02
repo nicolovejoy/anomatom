@@ -5,28 +5,27 @@ import { expect, openTab, test } from './fixtures';
 test.describe('phone portrait', () => {
   test.use({ viewport: { width: 390, height: 844 } });
 
-  test('Space plays and pauses right after a Sound tab select changes', async ({ page }) => {
+  test('Space plays and pauses right after the deck’s Listen for select changes', async ({ page }) => {
     await page.goto('/#v1.e30');
-    await openTab(page, 'sound');
-    for (const [id, index] of [['#sp-kit', 0], ['#sp-preset', 1]] as const) {
-      await page.locator(id).focus();
-      await expect(page.locator(id)).toBeFocused();
-      await page.locator(id).selectOption({ index });
-      await expect(page.locator(id)).not.toBeFocused();
-    }
+    const id = '#deck-listen';
+    await page.locator(id).focus();
+    await expect(page.locator(id)).toBeFocused();
+    await page.locator(id).selectOption({ index: 2 });
+    await expect(page.locator(id)).not.toBeFocused();
     await page.keyboard.press('Space');
     await expect(page.locator('#play')).toHaveText('Pause');
     await page.keyboard.press('Space');
     await expect(page.locator('#play')).toHaveText('Play');
   });
 
-  test('Space plays from a focused checkbox instead of toggling it', async ({ page }) => {
+  test('Space plays from a focused switch instead of toggling it', async ({ page }) => {
     await page.goto('/#v1.e30');
     await openTab(page, 'sound');
-    await page.locator('#sp-filter-on').focus();
+    const pad = page.locator('.sp-switch[data-also="pad"]');
+    await pad.focus();
     await page.keyboard.press('Space');
     await expect(page.locator('#play')).toHaveText('Pause');
-    await expect(page.locator('#sp-filter-on')).not.toBeChecked();
+    await expect(pad).toHaveAttribute('aria-checked', 'false');
   });
 
   test('Home and End on the tabs go to the first and last', async ({ page }) => {

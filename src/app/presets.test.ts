@@ -1,7 +1,7 @@
 import { describe, expect, test } from 'vitest';
 import bibliography from '../../docs/BIBLIOGRAPHY.md?raw';
 import { buildSchedule, cycleOf, isPassingSet, isSyncSet, judge } from '../core';
-import { KIT_IDS, KIT_SAMPLES, PASSING_CARD } from '../tunables';
+import { partsFromPassing, partsFromSync, partsFromVanilla } from '../core';
 import { copy } from '../ui/copy';
 import { isPresetParts, PRESETS } from './presets';
 
@@ -19,9 +19,8 @@ describe.each(PRESETS)('preset $id', (p) => {
   test('has its name', () => {
     expect(copy.presets[p.id]?.name).toBeTruthy();
   });
-  test('plays height to drum, on samples the kit has', () => {
-    expect(p.mapping.byHeight).toBe(true);
-    for (const v of p.mapping.parts) expect(KIT_SAMPLES).toContain(v.sample);
+  test('carries no sound (v5 ruling 5)', () => {
+    expect(p).not.toHaveProperty('mapping');
   });
   test('sits in the group of its ball count, passing apart', () => {
     expect(p.group).toBe(isPassingSet(p.parts) ? 'passing' : String(p.balls));
@@ -38,27 +37,47 @@ describe('the cards', () => {
     expect(ids.indexOf('pause')).toBeLessThan(ids.indexOf('classic'));
     expect(ids.indexOf('polyrhythm')).toBeLessThan(ids.indexOf('ramp'));
   });
-  test('every kit of PASSING_CARD is a kit the app has', () => {
-    for (const v of PASSING_CARD.voices) expect(KIT_IDS).toContain(v.kit);
+  test('the deck is the 18 of v5 §4, in this order', () => {
+    expect(PRESETS.map((p) => [p.id, p.group, p.texts.join(' / ')])).toEqual([
+      ['cascade', '3', '3'],
+      ['shower', '3', '51'],
+      ['pause', '3', '441'],
+      ['classic', '3', '531'],
+      ['boston', '3', '52512'],
+      ['box', '3', '(4,2x)(2x,4)'],
+      ['fountain', '4', '4'],
+      ['half-shower', '4', '53'],
+      ['tower-4', '4', '7531'],
+      ['polyrhythm', '4', '2 2x 2 / 2x 2'],
+      ['five-cascade', '5', '5'],
+      ['five-744', '5', '744'],
+      ['ramp', '5', '97531'],
+      ['passing', 'passing', '<3p 3|3p 3>'],
+      ['ultimates', 'passing', '<3p|3p>'],
+      ['three-count', 'passing', '<3p 3 3|3p 3 3>'],
+      ['seven-fours', 'passing', '<4p 4p 3 3|3p 3p 4 4>'],
+      ['rising-passes', 'passing', '<3p 4p 5p 3 0 3|3p 3 3p 3 3p 3>'],
+    ]);
+    expect(Object.keys(copy.presets).sort()).toEqual(PRESETS.map((p) => p.id).sort());
   });
-  test('the passing cards give each juggler a kit and a pan, on four voices', () => {
-    for (const p of PRESETS.filter((q) => q.group === 'passing')) {
-      expect(p.parts.length, p.id).toBe(4);
-      expect(p.mapping.parts.map((v) => [v.kit, v.pan]), p.id).toEqual([['TR-808', -0.8], ['TR-808', -0.4], ['LM-2', 0.4], ['LM-2', 0.8]]);
+  test('the nine cut cards still read as typed patterns (v5 ruling 10)', () => {
+    for (const text of ['423', '55500', '534', '645']) expect(judge((partsFromVanilla(text) as { ok: true; parts: never }).parts).ok, text).toBe(true);
+    expect(judge((partsFromSync('(4,4)') as { ok: true; parts: never }).parts).ok).toBe(true);
+    for (const text of ['<3p 3 3 3|3p 3 3 3>', '<5p 3 1|3 3 3p>', '<3p 3 4 4|4 4 3p 3>', '<7p 1 3 1|3p 3 3 3>']) {
+      expect(judge((partsFromPassing(text) as { ok: true; parts: never }).parts).ok, text).toBe(true);
     }
-    expect(PRESETS.find((q) => q.id === 'passing')!.texts).toEqual(['<3p 3|3p 3>']);
+  });
+  test('the passing cards are four hands, two jugglers', () => {
+    for (const p of PRESETS.filter((q) => q.group === 'passing')) expect(p.parts.length, p.id).toBe(4);
   });
   test('the v4 passing cards (ruling 8): sourced notation, the ball count the source states, last in the group', () => {
     const sourced: Record<string, [string, number]> = {
-      'five-pass': ['<5p 3 1|3 3 3p>', 6],
-      'seven-four-count': ['<3p 3 4 4|4 4 3p 3>', 7],
       'seven-fours': ['<4p 4p 3 3|3p 3p 4 4>', 7],
-      'seven-pass': ['<7p 1 3 1|3p 3 3 3>', 6],
       'rising-passes': ['<3p 4p 5p 3 0 3|3p 3 3p 3 3p 3>', 6],
     };
     const ids = PRESETS.map((q) => q.id);
     for (const q of PRESETS.filter((x) => x.group === 'passing')) expect([6, 7], q.id).toContain(q.balls);
-    expect(ids.slice(-5)).toEqual(Object.keys(sourced));
+    expect(ids.slice(-2)).toEqual(Object.keys(sourced));
     for (const [id, [text, balls]] of Object.entries(sourced)) {
       const q = PRESETS.find((x) => x.id === id)!;
       expect([q.group, q.texts, q.balls], id).toEqual(['passing', [text], balls]);
@@ -66,13 +85,10 @@ describe('the cards', () => {
       expect(buildSchedule(q.parts).balls, id).toBe(balls);
     }
   });
-  test('the sync cards (v3 ruling 5): the box in 3 balls, the synchronous fountain in 4, each one sync text', () => {
+  test('the sync card (v3 ruling 5): the box in 3 balls, one sync text', () => {
     const box = PRESETS.find((q) => q.id === 'box')!;
-    const fountain = PRESETS.find((q) => q.id === 'sync-fountain')!;
     expect([box.group, box.texts, isSyncSet(box.parts)]).toEqual(['3', ['(4,2x)(2x,4)'], true]);
-    expect([fountain.group, fountain.texts, isSyncSet(fountain.parts)]).toEqual(['4', ['(4,4)'], true]);
     expect(copy.presets.box?.name).toBe('Box');
-    expect(copy.presets['sync-fountain']?.name).toBe('Synchronous fountain');
   });
   test('ids are unique', () => {
     expect(new Set(PRESETS.map((p) => p.id)).size).toBe(PRESETS.length);

@@ -1,5 +1,8 @@
 // SPEC §3 "Mapping": the rules that turn an Event into a sound. Pure.
 //
+// The Mapping is derived, never stored (docs/plans/v5-sound-model.md, ruling 2): `mappingOf` in
+// drummers.ts builds it from what the sound follows, the Also play switches and the drum machines.
+//
 // A Mapping edit takes effect at once. Nothing here caches or remembers: `hitFor`, `padHitsAt`
 // and `filterCutoff` are functions of their arguments, so the player reads the store's current
 // mapping on every look-ahead tick and an edit is heard from the next window (about
@@ -13,13 +16,10 @@ import {
   FILTER_HZ_RANGE,
   FILTER_OPEN_HZ,
   MAX_HEIGHT,
-  MAX_MAPPING_PARTS,
   MAX_VELOCITY,
   PAD_CHORDS,
   PAD_HOLD_PULSES,
   PAD_VELOCITY,
-  PRESET_MAPPINGS,
-  SOUND_LANES,
 } from '../tunables';
 
 /** A sample name in the kit, e.g. `kick`, or null for silence. */
@@ -27,8 +27,6 @@ export type Sample = string | null;
 
 export type PadInstrument = 'mellotron' | 'soundfont';
 export type PadChord = 'Dm9' | 'Am7' | 'Cmaj7' | 'F69' | 'open5';
-export const PAD_INSTRUMENT_IDS: readonly PadInstrument[] = ['mellotron', 'soundfont'];
-export const PAD_CHORD_IDS: readonly PadChord[] = ['Dm9', 'Am7', 'Cmaj7', 'F69', 'open5'];
 
 export interface Mapping {
   /** One voice per part, in part order; a part past the end borrows voice `part mod length`. */
@@ -54,7 +52,7 @@ export interface Mapping {
   readonly pad: { readonly on: boolean; readonly instrument: PadInstrument; readonly chord: PadChord };
 }
 
-/** What a part sounds like: its kit, its voice for the voice-per-part preset, and where and how loud it sits. */
+/** What a part sounds like: its kit, its own sound when the mapping does not read height, and where and how loud it sits. */
 export interface PartVoice {
   readonly kit: string;
   readonly sample: Sample;
@@ -69,84 +67,6 @@ export interface Hit {
   readonly pan: number;
   readonly gain: number;
   readonly durationPulses: number;
-}
-
-export type PresetName = keyof typeof PRESET_MAPPINGS;
-export const PRESET_NAMES = Object.keys(PRESET_MAPPINGS) as readonly PresetName[];
-
-/**
- * The preset a mapping equals field for field, kits aside, or 'custom'. Derived, never stored, so it
- * cannot go stale. The kit is not part of a preset (v2 wave 1, ruling 2): the Kit select changes every
- * part's kit and the preset's name stays. So "equals a preset" does not mean "is the preset's mapping":
- * `isPresetMapping` says that.
- */
-export function presetOf(mapping: Mapping): PresetName | 'custom' {
-  // A preset grown or shrunk to the mapping's voice count is still that preset (lanes ruling 5).
-  return (
-    PRESET_NAMES.find((name) =>
-      deepEqual(withKitsOf(withPartCount(PRESET_MAPPINGS[name], mapping.parts.length), mapping), mapping),
-    ) ?? 'custom'
-  );
-}
-
-/** True when the mapping is the named preset's, its kits too (grown or shrunk to the mapping's voice count). */
-export function isPresetMapping(mapping: Mapping, name: PresetName): boolean {
-  return deepEqual(withPartCount(PRESET_MAPPINGS[name], mapping.parts.length), mapping);
-}
-
-/** The preset's mapping; choosing a preset rewrites every field but the kits (SPEC §4.3; see `withKitsOf`). */
-export function applyPreset(name: PresetName): Mapping {
-  return PRESET_MAPPINGS[name];
-}
-
-/**
- * `mapping` with the kits of `from`: part i takes `from`'s part i's kit, a part past `from`'s last its
- * first part's (the kit selector sets every part). The same object when no kit changes.
- */
-export function withKitsOf(mapping: Mapping, from: Mapping): Mapping {
-  const kitAt = (i: number) => (from.parts[i] ?? from.parts[0])?.kit;
-  if (mapping.parts.every((v, i) => (kitAt(i) ?? v.kit) === v.kit)) return mapping;
-  return { ...mapping, parts: mapping.parts.map((v, i) => ({ ...v, kit: kitAt(i) ?? v.kit })) };
-}
-
-function deepEqual(a: unknown, b: unknown): boolean {
-  if (a === b) return true;
-  if (typeof a !== 'object' || typeof b !== 'object' || a === null || b === null) return false;
-  if (Array.isArray(a) !== Array.isArray(b)) return false;
-  const ka = Object.keys(a);
-  const kb = Object.keys(b);
-  return (
-    ka.length === kb.length &&
-    ka.every((k) => k in b && deepEqual((a as Record<string, unknown>)[k], (b as Record<string, unknown>)[k]))
-  );
-}
-
-/**
- * The voice a part added at `index` gets: entry `index mod length` of SOUND_LANES.voices, in the
- * kit of the mapping's first voice (the kit selector is global today), pan mirrored on every odd lap.
- */
-export function voiceForNewPart(mapping: Mapping, index: number): PartVoice {
-  const rotation = SOUND_LANES.voices;
-  const entry = rotation[index % rotation.length] as (typeof rotation)[number];
-  const lap = Math.floor(index / rotation.length);
-  return {
-    kit: mapping.parts[0]?.kit ?? SOUND_LANES.kit,
-    sample: entry.sample,
-    pan: lap % 2 === 0 ? entry.pan : -entry.pan,
-    gain: SOUND_LANES.gain,
-  };
-}
-
-/**
- * The mapping with exactly `n` voices (1 to MAX_MAPPING_PARTS): a new part takes the next voice of the
- * rotation, a removed part drops the trailing voice. The same object when nothing changes.
- */
-export function withPartCount(mapping: Mapping, n: number): Mapping {
-  const count = Math.min(MAX_MAPPING_PARTS, Math.max(1, Math.trunc(n)));
-  if (!Number.isFinite(count) || count === mapping.parts.length) return mapping;
-  const parts = mapping.parts.slice(0, count);
-  for (let i = parts.length; i < count; i++) parts.push(voiceForNewPart(mapping, i));
-  return { ...mapping, parts };
 }
 
 /** One note of the downbeat pad, in the pad instrument's note names. */

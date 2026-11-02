@@ -58,8 +58,8 @@ for (const size of SIZES) {
       await expect(page.locator('#play')).toBeVisible();
       await expect(page.locator('.deck-sound')).toBeVisible();
       await expect(page.locator('.deck-wheel')).toBeVisible();
-      // Every preset (27 with v4's passing cards) and Make your own.
-      expect(PRESETS.length).toBeGreaterThanOrEqual(27);
+      // Every preset (the 18 of v5 §4) and Make your own.
+      expect(PRESETS.length).toBe(18);
       await expect(page.locator('.deck-row')).toHaveCount(PRESETS.length + 1);
       await expect(page.locator('.deck-row').last()).toHaveText('Make your own');
       await expect(notation(page)).toHaveText('3');
@@ -132,10 +132,10 @@ for (const size of SIZES) {
       await expect(page.locator('#play')).toHaveText('Pause');
       await page.keyboard.press('Space');
       await expect(page.locator('#play')).toHaveText('Play');
-      // Kit to LM-2 writes the hash; focus goes to Play, so Space plays.
-      await page.locator('#deck-kit').selectOption('LM-2');
+      // Listen for pitch writes the hash; focus goes to Play, so Space plays.
+      await page.locator('#deck-listen').selectOption('pitch');
       await expect(page.locator('#play')).toBeFocused();
-      await expect.poll(() => page.evaluate(() => location.hash)).toMatch(/^#v2\./);
+      await expect.poll(() => page.evaluate(() => location.hash)).toBe('#51~pitch');
       await page.keyboard.press('Space');
       await expect(page.locator('#play')).toHaveText('Pause');
       // A step while paused stays paused.
@@ -180,14 +180,15 @@ for (const size of SIZES) {
       await expect(page.locator('#mute')).toHaveAttribute('aria-pressed', 'false');
     });
 
-    test('Details (or the Sound tab, wide) shows tempo first; Make your own opens the Pattern tab', async ({ page }) => {
+    test('Details (or the Sound tab, wide) shows volume first, then Listen for and tempo; Make your own opens the Pattern tab', async ({ page }) => {
       await page.goto('/#3');
       if (size.width < 760) await page.locator('.deck-details').click();
       else await openTab(page, 'sound');
       await expect(page.locator('#tab-sound')).toHaveAttribute('aria-selected', 'true');
       await expect(page.locator('#bpm')).toBeVisible();
-      const first = await page.locator('.sound-panel').evaluate((el) => el.firstElementChild?.classList.contains('tempo'));
-      expect(first).toBe(true);
+      // v5 ruling 7: Volume, Listen for, then Tempo (as the mocks place it), Drum machines, Also play.
+      const order = await page.locator('.sound-panel').evaluate((el) => [...el.children].map((c) => c.classList[1]));
+      expect(order).toEqual(['sp-volume', 'sp-listen', 'tempo', 'sp-drummers', 'sp-also']);
       await expect(page.locator('#panel-rhythm #tempo')).toHaveCount(0);
       await expect(page.locator('#panel-rhythm #volume')).toHaveCount(0);
       expect(await page.evaluate(() => document.documentElement.scrollHeight <= window.innerHeight)).toBe(true);
@@ -256,14 +257,12 @@ test.describe('phone', () => {
     await page.goto('/');
     await page.locator('.deck-row[data-id="passing"]').click();
     await expect(page.locator('.deck-meta')).toHaveText('2 jugglers');
-    // v4.1 ruling 3: the jugglers' kits by short name, and the rule the mapping follows.
-    await expect(page.locator('#deck-kit')).toHaveValue('mixed');
-    await expect(page.locator('#deck-kit option:checked')).toHaveText('TR-808 / LM-2');
-    await expect(page.locator('#deck-sound')).toHaveValue('height-drum');
-    await expect(page.locator('#deck-sound option:checked')).toHaveText('Height to drum');
-    // Choosing a kit still sets every part.
-    await page.locator('#deck-kit').selectOption('LM-2');
-    await expect(page.locator('#deck-kit option:checked')).toHaveText('LinnDrum LM-2');
+    // v5 ruling 7: the deck's one sound control is Listen for; a card leaves it as it was.
+    await expect(page.locator('#deck-kit')).toHaveCount(0);
+    await expect(page.locator('#deck-listen')).toHaveValue('ball');
+    await expect(page.locator('#deck-listen option:checked')).toHaveText('each ball');
+    await page.locator('#deck-listen').selectOption('height');
+    await page.locator('#play').click();
     await expect.poll(() => scheduled(page)).toBeGreaterThan(0);
     await expect(page.locator('.juggler')).toHaveAttribute('data-balls', '6');
     await expect(page.locator('.ladder')).toHaveAttribute('data-balls', '6');
@@ -349,11 +348,11 @@ test.describe('phone', () => {
   });
 
   test('the seven-object pass shows whole in the bar', async ({ page }) => {
-    await page.goto('/');
+    // Cut from the deck in v5 (§4): it still opens as a typed pattern, by its short link.
+    await page.goto('/#7p-1-3-1|3p-3-3-3');
     // The fit is for the real glyphs: wait until IBM Plex Mono has loaded (the app fits again on each font load).
     await page.evaluate(() => document.fonts.load('500 16px "IBM Plex Mono"'));
     await expect.poll(() => page.evaluate(() => [...document.fonts].some((f) => f.family.includes('IBM Plex Mono') && f.status === 'loaded'))).toBe(true);
-    await page.locator('.deck-row[data-id="seven-pass"]').click();
     await expect(notation(page)).toHaveText('<7p 1 3 1|3p 3 3 3>');
     const fit = () => notation(page).evaluate((el) => `${getComputedStyle(el).fontSize} ${el.scrollWidth}/${el.clientWidth}`);
     await expect.poll(async () => notation(page).evaluate((el) => el.scrollWidth <= el.clientWidth), { message: `not ellipsized (size scrollWidth/clientWidth: ${await fit()})` }).toBe(true);
@@ -497,8 +496,9 @@ test.describe('wide, the wheel by keyboard', () => {
       await page.keyboard.press('ArrowUp');
       await page.waitForTimeout(30);
     }
-    // 25 up from Cascade, of the presets and Make your own: row 3 (531).
-    const target = String(PRESETS.length + 1 - 25);
+    // 25 up from Cascade, round the loop of the presets and Make your own (19 rows since v5): row 13.
+    const rows = PRESETS.length + 1;
+    const target = String((((-25) % rows) + rows) % rows);
     await expect(page.locator('.deck-row:focus')).toHaveAttribute('data-row', target);
     await expect(page.locator('.deck-row.in-band')).toHaveAttribute('data-row', target, { timeout: 8000 });
     await expect(page.locator('.deck-row[aria-current]')).toHaveAttribute('data-row', target, { timeout: 8000 });

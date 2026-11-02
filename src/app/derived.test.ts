@@ -1,6 +1,7 @@
 import { describe, expect, test } from 'vitest';
 import { judge } from '../core';
 import { lineParts, typed, vanillaParts } from '../test/schedules';
+import { mappingOf } from '../sound/drummers';
 import { derived } from './derived';
 import { defaultState } from './state';
 
@@ -11,8 +12,22 @@ describe('derived', () => {
     const s = typed(['441']);
     const d = derived(s);
     expect(derived(s)).toBe(d);
-    expect(derived({ ...s, volume: 0.1 })).toBe(d);
-    expect(derived(typed(['441']))).not.toBe(d);
+    const v = derived({ ...s, volume: 0.1 });
+    expect(v.schedule).toBe(d.schedule);
+    expect(v.texts).toBe(d.texts);
+    expect(v.mapping).toBe(d.mapping);
+    expect(derived(typed(['441'])).schedule).not.toBe(d.schedule);
+  });
+
+  test('the mapping (v5 ruling 2): mappingOf the sound and the part count, one object per sound and count', () => {
+    const s = typed(['441']);
+    const d = derived(s);
+    expect(d.mapping).toEqual(mappingOf(s.listen, s.also, s.kitShift, 2));
+    expect(derived(typed(['531'])).mapping).toBe(d.mapping);
+    expect(derived({ ...s, listen: 'pitch' }).mapping).not.toBe(d.mapping);
+    expect(derived({ ...s, also: { ...s.also, pad: true } }).mapping.pad.on).toBe(true);
+    expect(derived({ ...s, kitShift: 1 }).mapping.parts[0]?.kit).toBe('LM-2');
+    expect(derived(typed(['<3p 3|3p 3>'])).mapping.parts).toHaveLength(4);
   });
 
   test('the schedule, the texts and the groups', () => {

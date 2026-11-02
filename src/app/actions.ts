@@ -22,7 +22,9 @@
 // - `ratio` follows the parts (ruling 2 of docs/plans/lanes.md): after every action it reduces to
 //   `ratioOf(parts)`. It stays stored only because the ratio steppers show it unreduced (2:2 is
 //   not the 1:1 chip); setRatio is the one action that sets it, and only over two parts.
-// - Every action that changes how many parts there are gives the mapping that many voices.
+// - The sound (docs/plans/v5-sound-model.md, rulings 1 to 5) is global: setListen, setAlso and
+//   nextKits change it, and nothing else does. Loading a pattern keeps it. The Mapping is derived
+//   (`derived(state).mapping`), so a change to the parts needs no voices of its own.
 import {
   crossGroups,
   cycleOf,
@@ -50,7 +52,7 @@ import {
   withPhase,
 } from '../core';
 import type { ParseError, Part, PartIndex, Parts, Ratio, Throw } from '../core';
-import { withPartCount, type Mapping } from '../sound/mapping';
+import { isListen, wrapKitShift, type Also, type Listen } from '../sound/drummers';
 import {
   BPM_RANGE,
   MAX_EDITOR_PARTS,
@@ -72,7 +74,14 @@ export type Action =
   | { type: 'resetGroup'; part: PartIndex }
   | { type: 'setRatio'; ratio: Ratio }
   | { type: 'setBpm'; bpm: number }
-  | { type: 'loadPreset'; parts: Parts; ratio: Ratio; mapping?: Mapping }
+  /** A pattern from the deck: its parts and ratio, and nothing else; the sound stays (ruling 5). */
+  | { type: 'loadPreset'; parts: Parts; ratio: Ratio }
+  /** What a throw's sound follows. */
+  | { type: 'setListen'; listen: Listen }
+  /** One Also play switch. */
+  | { type: 'setAlso'; key: keyof Also; on: boolean }
+  /** Change drum machines: every juggler moves to the next kit at once (ruling 3). */
+  | { type: 'nextKits' }
   | { type: 'generate'; part: PartIndex; hits: number }
   | { type: 'swapSites'; part: PartIndex; i: number; j: number }
   | { type: 'addLane' }
@@ -154,11 +163,9 @@ export function parseDraft(state: Pick<AppState, 'parts' | 'ratio'>, part: PartI
 export function reduce(state: AppState, action: Action): AppState {
   const next = step(state.notice === null ? state : { ...state, notice: null }, action);
   if (next.parts === state.parts) return next;
-  // The ratio follows the parts, and the mapping has a voice per part.
+  // The ratio follows the parts.
   const r = ratioOf(next.parts);
-  const ratio = next.ratio.a * r.b === next.ratio.b * r.a ? next.ratio : r;
-  const mapping = next.parts.length === state.parts.length ? next.mapping : withPartCount(next.mapping, next.parts.length);
-  return ratio === next.ratio && mapping === next.mapping ? next : { ...next, ratio, mapping };
+  return next.ratio.a * r.b === next.ratio.b * r.a ? next : { ...next, ratio: r };
 }
 
 function step(s: AppState, action: Action): AppState {
@@ -202,8 +209,16 @@ function step(s: AppState, action: Action): AppState {
         parts: action.parts,
         drafts: action.parts.map(() => null),
         ratio: action.ratio,
-        mapping: action.mapping ?? s.mapping,
       };
+    case 'setListen':
+      return isListen(action.listen) && action.listen !== s.listen ? { ...s, listen: action.listen } : s;
+    case 'setAlso': {
+      const { key, on } = action;
+      if (!(key === 'catches' || key === 'downbeat' || key === 'pad') || s.also[key] === on) return s;
+      return { ...s, also: { ...s.also, [key]: on } };
+    }
+    case 'nextKits':
+      return { ...s, kitShift: wrapKitShift(s.kitShift + 1) };
     case 'swapSites':
       return swapSites(s, action.part, action.i, action.j);
     case 'addLane':
@@ -398,7 +413,7 @@ function addLane(s: AppState): AppState {
 }
 
 /**
- * Part `part` removed, with its voice. The rest of a cross group it was in loses the crosses that
+ * Part `part` removed. The rest of a cross group it was in loses the crosses that
  * fed it, so those parts are re-derived at k = 1, with a notice naming them as they are numbered
  * after. Crosses into later parts are renumbered. The last part cannot be removed.
  */
@@ -414,11 +429,7 @@ function removeLane(s: AppState, part: PartIndex): AppState {
         ? p
         : manualPart(p, p.flights.throws.map((t) => (t.to === null ? t : { height: t.height, to: renumber(t.to) }))),
     );
-  const voices = s.mapping.parts;
-  // A voice per part: the removed part's goes with it (withPartCount, in reduce, only trims the tail).
-  // A mapping that borrows voices keeps them all.
-  const mapping = voices.length === s.parts.length ? { ...s.mapping, parts: voices.filter((_, i) => i !== part) } : s.mapping;
-  return { ...withParts(s, normalise(parts), changed ? copy.resetNotice(others.map(renumber)) : null), mapping };
+  return withParts(s, normalise(parts), changed ? copy.resetNotice(others.map(renumber)) : null);
 }
 
 /**

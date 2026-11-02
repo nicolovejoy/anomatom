@@ -1,11 +1,12 @@
 // The app's state and the one store that holds it. Pure: no DOM, no timers. Stored state holds
-// primitives only (docs/plans/model-rethink.md §12a): the parts, ratio, tempo, volume, Mapping
-// and UI state. Everything derived comes from `derived(state)` (derived.ts); every transition
+// primitives only (docs/plans/model-rethink.md §12a): the parts, ratio, tempo, volume, the sound
+// (docs/plans/v5-sound-model.md, ruling 1) and UI state. Everything derived, the Mapping too, comes
+// from `derived(state)` (derived.ts); every transition
 // with a rule is an action handled by `reduce` (actions.ts), sent with `store.dispatch`.
 import { partsFromVanilla } from '../core/parts';
 import type { Parts, Ratio } from '../core/types';
-import type { Mapping } from '../sound/mapping';
-import { DEFAULT_BPM, DEFAULT_MAPPING, DEFAULT_PATTERN, DEFAULT_VOLUME } from '../tunables';
+import type { Also, Listen } from '../sound/drummers';
+import { DEFAULT_ALSO, DEFAULT_BPM, DEFAULT_KIT_SHIFT, DEFAULT_LISTEN, DEFAULT_PATTERN, DEFAULT_VOLUME } from '../tunables';
 import { reduce, type Action } from './actions';
 import { derived, type Derived } from './derived';
 
@@ -22,8 +23,13 @@ export interface AppState {
   readonly bpm: number;
   /** Master volume, 0 to 1. Not part of the share link. */
   readonly volume: number;
-  readonly mapping: Mapping;
-  /** The last play-view state hash (`#v2.…`), for About's back link; null before there is one. */
+  /** What a throw's sound follows. Global: loading a pattern never changes it (ruling 5). */
+  readonly listen: Listen;
+  /** Also play: catches, the downbeat clap, the pad chord. Global. */
+  readonly also: Also;
+  /** Juggler j plays DRUMMER_KITS[(j + kitShift) mod length]; 0 to DRUMMER_KITS.length - 1. Global. */
+  readonly kitShift: number;
+  /** The last play-view state hash (`#v3.…` or a short link), for About's back link; null before there is one. */
   readonly lastStateHash: string | null;
   /** UI state: which tab of the phone sheet is open, or null when it is closed (docs/plans/phone-sheet.md). Never in the share hash. */
   readonly sheetTab: SheetTab | null;
@@ -51,7 +57,9 @@ export function defaultState(): AppState {
     ratio: { a: 1, b: 1 },
     bpm: DEFAULT_BPM,
     volume: DEFAULT_VOLUME,
-    mapping: DEFAULT_MAPPING,
+    listen: DEFAULT_LISTEN,
+    also: DEFAULT_ALSO,
+    kitShift: DEFAULT_KIT_SHIFT,
     lastStateHash: null,
     sheetTab: null,
     muted: false,

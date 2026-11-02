@@ -32,7 +32,7 @@ export type Pad = Kit;
 
 /**
  * `destination` is the node to play into (the part's gain), not the context's output; `kit` is one of
- * KIT_IDS. The kit plays a hit's sample name as a role (KIT_ROLES).
+ * DRUMMER_KITS. The kit plays a hit's sample name as a role (KIT_ROLES).
  */
 export type LoadKit = (context: AudioContext, part: PartIndex, destination: AudioNode, kit: string) => Promise<Kit>;
 

@@ -8,11 +8,11 @@
 import { expect, test, vi } from 'vitest';
 import { scheduleOf } from '../test/schedules';
 import type { DrumSound } from '../sound/drum-sound';
-import { applyPreset } from '../sound/mapping';
+import { HEIGHT_DRUM } from '../test/mappings';
 import { LOOKAHEAD_SECONDS, SCHEDULER_INTERVAL_MS } from '../tunables';
 
 /** These tests hear the sound by throw height; the default preset now plays one voice per part. */
-const DEFAULT_MAPPING = applyPreset('height-drum');
+const DEFAULT_MAPPING = HEIGHT_DRUM;
 import { createPlayer } from './player';
 
 /** SPEC §7.6: 2 ms. */

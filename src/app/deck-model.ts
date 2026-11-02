@@ -10,7 +10,7 @@ import type { Player } from './player';
 import type { CardGroup, Preset } from './presets';
 import { SHEET } from '../tunables';
 import { summary } from './sheet-model';
-import { kitRows } from './sound-panel-model';
+import { jugglerCount } from '../sound/drummers';
 import type { AppState } from './state';
 
 /** Every preset in `cardGroups()` order: what ‹ › and the wheel walk. Read afresh, so new presets join. */
@@ -35,7 +35,7 @@ export function stepIndex(current: number | null, delta: -1 | 1, length: number)
 
 /** "3 balls" for a juggling preset, "2 jugglers" for a passing one. */
 export function presetMeta(p: Preset): string {
-  return p.group === 'passing' ? copy.deck.jugglers(kitRows(p.parts.length)) : copy.summaryBalls(p.balls);
+  return p.group === 'passing' ? copy.deck.jugglers(jugglerCount(p.parts.length)) : copy.summaryBalls(p.balls);
 }
 
 export interface DeckLabel {
@@ -242,7 +242,7 @@ type Transport = Pick<Player, 'view' | 'playing' | 'play' | 'resume' | 'pause'>;
 /** Starts the store's pattern from stopped, or resumes from paused; playing, nothing. */
 export function start(player: Transport, state: AppState): void {
   if (player.view().state === 'paused') player.resume();
-  else if (!player.playing()) player.play(derived(state).schedule, state.mapping, state.bpm);
+  else if (!player.playing()) player.play(derived(state).schedule, derived(state).mapping, state.bpm);
 }
 
 /** Play/Pause: pauses while playing, else starts. */

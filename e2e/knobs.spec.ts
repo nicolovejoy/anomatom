@@ -233,7 +233,7 @@ test('phone: the closed sheet shows no tabs; Details opens it, tabs switch and c
   // Escape closes, focus back on the deck's Details.
   await page.locator('.deck-details').click();
   await expect(page.locator('.sound-panel')).toBeVisible();
-  await page.locator('#sp-preset').focus();
+  await page.locator('.sp-choice').first().focus();
   await page.keyboard.press('Escape');
   await expect(page.locator('.sound-panel')).toBeHidden();
   await expect(page.locator('.deck-details')).toBeFocused();

@@ -2,7 +2,11 @@ import { expect, test } from 'vitest';
 import { buildSchedule, partsFromLines, partsFromPassing, partsFromVanilla } from '../core';
 import { BASE_VELOCITY, MAX_VELOCITY } from '../tunables';
 import type { Event, Parts, Schedule } from '../core';
-import { applyPreset, hitFor } from './mapping';
+import { BALL_PITCH, HEIGHT_DRUM, HEIGHT_PITCH, VOICE_PER_PART } from '../test/mappings';
+import { hitFor, type Mapping } from './mapping';
+
+const PRESETS: Record<string, Mapping> = { 'height-drum': HEIGHT_DRUM, 'height-pitch': HEIGHT_PITCH, 'ball-pitch': BALL_PITCH, 'voice-per-part': VOICE_PER_PART };
+const applyPreset = (name: string) => PRESETS[name] as Mapping;
 
 function scheduleOf(parts: Parts): Schedule {
   return buildSchedule(parts);

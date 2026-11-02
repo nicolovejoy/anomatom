@@ -1,4 +1,4 @@
-// Kits (v2 wave 1, rulings 1 and 2), headless, on a stubbed CDN. Audio output is not observable,
+// Drum machines (v2 wave 1, ruling 1; v5 ruling 3), headless, on a stubbed CDN. Audio output is not observable,
 // so the test tells kits apart by their samples: the stub serves the TR-808 a very short silent WAV
 // and the LM-2 a tenth of a second, and every AudioBufferSourceNode.start records its buffer's length.
 import { expect, openTab, test, type Page } from './fixtures';
@@ -27,14 +27,14 @@ const LONGER_THAN = 0.05;
 
 const kits: Record<string, string[]> = {
   'TR-808': ['kick/1', 'snare/1'],
-  // The roles the default mapping plays (kick, snare), on the LM-2's own samples (KIT_ROLES).
+  // The roles height plays for the cascade (kick, snare), on the LM-2's own samples (KIT_ROLES).
   'LM-2': ['kick', 'snare-m'],
 };
 
 /** Durations of every buffer started so far, in order. */
 const starts = (page: Page) => page.evaluate(() => (window as unknown as { __starts: number[] }).__starts.slice());
 
-test('switching the kit while playing: the next hits are the new kit\'s, with no error', async ({ page, context }) => {
+test('Change drum machines while playing: the next hits are the next kit’s, with no error', async ({ page, context }) => {
   const errors: string[] = [];
   page.on('console', (m) => m.type() === 'error' && errors.push(m.text()));
   page.on('pageerror', (e) => errors.push(e.message));
@@ -63,22 +63,17 @@ test('switching the kit while playing: the next hits are the new kit\'s, with no
     };
   });
 
-  await page.goto('/#v1.e30');
+  // The cascade by height: every throw a 3, the snare, on the TR-808.
+  await page.goto('/#3~height');
   await expect(page.locator('.sound-status')).toHaveAttribute('data-state', 'ready');
   await page.locator('#play').click();
   await expect.poll(async () => (await starts(page)).length, { timeout: 5_000 }).toBeGreaterThan(2);
   expect((await starts(page)).every((d) => d > 0 && d < LONGER_THAN)).toBe(true);
 
   await openTab(page, 'sound');
-  await expect(page.locator('#sp-kit option')).toHaveText([
-    'Roland TR-808',
-    'Casio RZ-1',
-    'LinnDrum LM-2',
-    'MFB-512',
-    'Roland CR-8000',
-  ]);
-  await page.locator('#sp-kit').selectOption('LM-2');
-  await expect(page.locator('#sp-preset')).toHaveValue('voice-per-part');
+  await expect(page.locator('.sp-drummer .sp-kit')).toHaveText(['Roland TR-808']);
+  await page.locator('#sp-change-kits').click();
+  await expect(page.locator('.sp-drummer .sp-kit')).toHaveText(['LinnDrum LM-2']);
   // The LM-2 comes in and plays from its first hit after that; the TR-808's hits stop.
   await expect.poll(async () => (await starts(page)).some((d) => d > LONGER_THAN), { timeout: 5_000 }).toBe(true);
   const firstNew = (await starts(page)).findIndex((d) => d > LONGER_THAN);
@@ -86,28 +81,28 @@ test('switching the kit while playing: the next hits are the new kit\'s, with no
   // Hits already handed to the sampler keep their sound (about one look-ahead); after that, only the LM-2.
   const after = (await starts(page)).slice(firstNew + 2);
   expect(after.every((d) => d > LONGER_THAN)).toBe(true);
-  expect(urls.some((u) => u.includes('/LM-2/kick.'))).toBe(true);
   expect(urls.some((u) => u.includes('/LM-2/snare-m.'))).toBe(true);
-  // The link carries the kit compactly: the preset's name and the kit, not every field.
-  const mapping = async () => {
+  // The link carries the shift compactly: `k`, and `l` for height (v5 ruling 6).
+  const payload = async () => {
     const hash = await page.evaluate(() => location.hash);
-    if (!hash.startsWith('#v2.')) return null;
-    return JSON.parse(Buffer.from(hash.slice(4), 'base64url').toString('utf8')).m;
+    if (!hash.startsWith('#v3.')) return null;
+    const { l, k } = JSON.parse(Buffer.from(hash.slice(4), 'base64url').toString('utf8'));
+    return { l, k };
   };
-  await expect.poll(mapping, { timeout: 5_000 }).toEqual({ n: 'voice-per-part', k: 'LM-2' });
+  await expect.poll(payload, { timeout: 5_000 }).toEqual({ l: 'height', k: 1 });
   await page.screenshot({ path: 'test-results/kits-lm2.png', fullPage: true });
   expect(errors).toEqual([]);
 
-  // Opening the link in a new tab restores the kit. (A new tab, not a reload: WebKit logs a fetch that
-  // a reload cancels as an access-control error.)
+  // Opening the link in a new tab restores the drum machine. (A new tab, not a reload: WebKit logs a
+  // fetch that a reload cancels as an access-control error.)
   const link = await page.evaluate(() => location.hash);
   const fresh = await context.newPage();
   fresh.on('console', (m) => m.type() === 'error' && errors.push(m.text()));
   fresh.on('pageerror', (e) => errors.push(e.message));
   await fresh.goto(`/${link}`);
   await openTab(fresh, 'sound');
-  await expect(fresh.locator('#sp-kit')).toHaveValue('LM-2');
-  await expect(fresh.locator('#sp-preset')).toHaveValue('voice-per-part');
+  await expect(fresh.locator('.sp-drummer .sp-kit')).toHaveText(['LinnDrum LM-2']);
+  await expect(fresh.locator('.sp-choice[data-listen="height"]')).toHaveAttribute('aria-pressed', 'true');
   await expect(fresh.locator('.sound-status')).toHaveAttribute('data-state', 'ready');
   expect(errors).toEqual([]);
 });

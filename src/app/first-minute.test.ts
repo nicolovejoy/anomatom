@@ -1,7 +1,7 @@
 import { describe, expect, test } from 'vitest';
-import { applyPreset } from '../sound/mapping';
 import { lineParts, typed, vanillaParts } from '../test/schedules';
 import { reduce } from './actions';
+import { derived } from './derived';
 import { cardGroups, cardPattern, playingPreset, presetPatch, scheduleFor } from './first-minute';
 import { judge } from '../core';
 import { PRESETS } from './presets';
@@ -22,21 +22,25 @@ describe('presets', () => {
     const s = tapped('passing');
     expect(s.parts).toHaveLength(4);
     expect(analyse(s).balls).toBe(6);
-    expect(s.mapping.parts.map((v) => v.kit)).toEqual(['TR-808', 'TR-808', 'LM-2', 'LM-2']);
+    expect(derived(s).mapping.parts.map((v) => v.kit)).toEqual(['TR-808', 'TR-808', 'LM-2', 'LM-2']);
+    expect(derived(s).mapping.parts.map((v) => v.pan)).toEqual([-0.8, -0.4, 0.4, 0.8]);
     expect(analyse(s).inputs).toEqual(['<3p 3|3p 3>']);
   });
-  test('the polyrhythm card is the canonical two-hand pattern at 3:2, with its mapping preset', () => {
+  test('the polyrhythm card is the canonical two-hand pattern at 3:2, and no sound', () => {
     expect(presetPatch(preset('polyrhythm'))).toEqual({
       type: 'loadPreset',
       parts: lineParts(['2 2x 2', '2x 2'], { a: 3, b: 2 }),
       ratio: { a: 3, b: 2 },
-      mapping: applyPreset('height-drum'),
     });
     expect(cardPattern(preset('polyrhythm'))).toBe('2 2x 2 / 2x 2');
     expect(cardPattern(preset('pause'))).toBe('441');
   });
-  test('the juggling cards play height to drum (design §7), whatever the default', () => {
-    for (const p of PRESETS.filter((q) => q.parts.length === 2)) expect(tapped(p.id).mapping, p.id).toBe(applyPreset('height-drum'));
+  test('a card keeps the reader’s sound (v5 ruling 5)', () => {
+    const mine = { ...defaultState(), listen: 'pitch' as const, kitShift: 2 };
+    for (const p of PRESETS) {
+      const s = reduce(mine, presetPatch(p));
+      expect([s.listen, s.also, s.kitShift], p.id).toEqual([mine.listen, mine.also, mine.kitShift]);
+    }
   });
   test('a juggling card leaves the reader’s tempo alone', () => {
     const s = reduce({ ...defaultState(), bpm: 77 }, presetPatch(preset('classic')));
@@ -82,7 +86,6 @@ describe('cardGroups', () => {
     expect(cardPattern(preset('passing'))).toBe('<3p 3|3p 3>');
     expect(cardPattern(preset('three-count'))).toBe('<3p 3 3|3p 3 3>');
     expect(cardPattern(preset('box'))).toBe('(4,2x)(2x,4)');
-    expect(cardPattern(preset('sync-fountain'))).toBe('(4,4)');
   });
 });
 

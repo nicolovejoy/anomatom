@@ -76,12 +76,13 @@ test('lanes: add a hand, rates 3:4:5, toggle cells, remove a hand, the link roun
   await expect(page.locator('.lane:visible .cell.now')).toHaveCount(3);
   await page.locator('#play').click();
 
-  // The voice name opens the Sound tab on that hand's sound, which flashes.
+  // The voice name opens the Sound tab on Listen for, which flashes with that hand's drum machine.
   await lane(page, 2).locator('.lane-voice').click();
   await expect(page.locator('#tab-sound')).toHaveAttribute('aria-selected', 'true');
-  await expect(page.locator('#sp-part-sample-2')).toBeFocused();
-  await expect(page.locator('#sp-part-sample-2')).toBeInViewport();
-  await expect(page.locator('.sp-row.sp-flash')).toHaveCount(3);
+  await expect(page.locator('.sp-choice[aria-pressed="true"]')).toBeFocused();
+  await expect(page.locator('.sp-listen')).toBeInViewport();
+  await expect(page.locator('.sp-flash')).toHaveCount(2);
+  await expect(page.locator('.sp-drummer.sp-flash')).toHaveAttribute('data-juggler', '1');
   await openTab(page, 'rhythm');
 
   // Add a fourth, then remove it: back to three, and Add a hand stops at four.
@@ -101,7 +102,7 @@ test('lanes: add a hand, rates 3:4:5, toggle cells, remove a hand, the link roun
   await expect(lane(page, 2).locator('.lane-voice')).toBeFocused();
 
   // The link round trip: a fresh load of the URL shows the same lanes.
-  await expect.poll(() => page.url()).toContain('#v2.');
+  await expect.poll(() => page.url()).toContain('#v3.');
   const before = {
     rates: await page.locator('.lane:visible .rstep[data-kind="rate"] output').allTextContents(),
     steps: await page.locator('.lane:visible .rstep[data-kind="steps"] output').allTextContents(),
