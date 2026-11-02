@@ -149,10 +149,10 @@
   width: var(--deck-slider-phone, 80px);
 }
 
-/* The sound row: Kit, Sound, Details. */
+/* The sound row: Listen for, Details. */
 .deck-sound {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) auto;
+  grid-template-columns: minmax(0, 1fr) auto;
   border-top: 1px solid var(--rule);
   background: var(--surface);
 }
@@ -192,7 +192,7 @@
 }
 #app.is-wide .deck-sound {
   grid-area: sound;
-  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  grid-template-columns: minmax(0, 1fr);
   border-top: 0;
   border-bottom: 1px solid var(--rule);
 }

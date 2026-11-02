@@ -8,9 +8,9 @@ test.use({ viewport: { width: 390, height: 844 } });
 
 const shot = (page: Page, name: string) => page.screenshot({ path: `test-results/model-ui-${name}.png` });
 
-/** A `#v2.` link to parts in short keys (src/app/hash.ts) at 1:1 and 120 bpm, default mapping. */
+/** A `#v3.` link to parts in short keys (src/app/hash.ts) at 1:1 and 120 bpm, the sound following the height. */
 const link = (parts: readonly Record<string, unknown>[]) =>
-  '/#v2.' + Buffer.from(JSON.stringify({ p: parts, r: [1, 1], t: 120 })).toString('base64url');
+  '/#v3.' + Buffer.from(JSON.stringify({ p: parts, r: [1, 1], t: 120, l: 'height' })).toString('base64url');
 const line = (onsets: string, phase = 0) => ({ s: 1, f: phase, u: 1, o: onsets, k: 1 });
 /** Clapping Music: two parts on a 12-pulse lattice, both on `x x x . x x . x . x x .`. */
 const CLAPPING = link([line('111011010110'), line('111011010110')]);
@@ -45,7 +45,7 @@ test('Clapping Music: the phase stepper keeps the cycle at 12 at every step', as
   await expect(page.locator('.deck-meta')).toHaveText(/^2 balls\b/);
 });
 
-test('the ball stepper changes the summary’s ball count and not the sound', async ({ page }) => {
+test('the ball stepper changes the summary’s ball count, and the sound with the heights', async ({ page }) => {
   await page.goto(CLAPPING);
   await openRhythm(page);
   await expect(page.locator('.deck-meta')).toHaveText(/^2 balls\b/);
@@ -55,11 +55,13 @@ test('the ball stepper changes the summary’s ball count and not the sound', as
   await step(page, 'balls', 0, 1);
   await expect(cell(page, 'balls', 0).locator('output')).toHaveText('2');
   await expect(page.locator('.deck-meta')).toHaveText(/^3 balls\b/);
-  expect(await samples(page)).toBe(before);
-  // The hook does see a change in the sound: a Hits step moves it.
+  // v5 dropped Voice per part, the one rule a ball count did not change: the sound follows the higher throws.
+  await expect(page.locator('[data-cycle-samples]')).not.toHaveAttribute('data-cycle-samples', before as string);
+  // A Hits step moves it too.
+  const two = await samples(page);
   await step(page, 'hits', 0, -1);
   await expect(cell(page, 'hits', 0).locator('output')).toHaveText('7');
-  await expect(page.locator('[data-cycle-samples]')).not.toHaveAttribute('data-cycle-samples', before as string);
+  await expect(page.locator('[data-cycle-samples]')).not.toHaveAttribute('data-cycle-samples', two as string);
 });
 
 test('a manual group shows its count and Reset; Reset brings the steppers back', async ({ page }) => {

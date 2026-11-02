@@ -1,14 +1,17 @@
 import { expect, test } from 'vitest';
 import { copy } from '../ui/copy';
-import { KIT_IDS, KIT_SAMPLES, PAD_CHORDS } from '../tunables';
-import { PAD_CHORD_IDS, PAD_INSTRUMENT_IDS, PRESET_NAMES } from './mapping';
+import { DRUMMER_KITS, PAD_CHORDS, PAD_INSTRUMENTS, SOUND_FIXED } from '../tunables';
+import { ALSO_KEYS, LISTENS } from './drummers';
 
-test('every kit, sound, preset, chord and pad instrument has a display name', () => {
-  expect(Object.keys(copy.kitNames).sort()).toEqual([...KIT_IDS].sort());
-  expect(Object.keys(copy.kitShortNames).sort()).toEqual([...KIT_IDS].sort());
-  expect(Object.keys(copy.sampleNames).sort()).toEqual([...KIT_SAMPLES].sort());
-  expect(Object.keys(copy.presetNames).sort()).toEqual([...PRESET_NAMES, 'custom'].sort());
-  expect(Object.keys(copy.padChordNames).sort()).toEqual([...PAD_CHORD_IDS].sort());
-  expect(Object.keys(PAD_CHORDS).sort()).toEqual([...PAD_CHORD_IDS].sort());
-  expect(Object.keys(copy.padInstrumentNames).sort()).toEqual([...PAD_INSTRUMENT_IDS].sort());
+test('every drum machine, Listen for choice and Also play switch has words to show', () => {
+  expect(Object.keys(copy.kitNames).sort()).toEqual([...DRUMMER_KITS].sort());
+  expect(Object.keys(copy.listenNames).sort()).toEqual([...LISTENS].sort());
+  expect(Object.keys(copy.listenInfo).sort()).toEqual([...LISTENS].sort());
+  expect(Object.keys(copy.alsoNames).sort()).toEqual([...ALSO_KEYS].sort());
+  expect(Object.keys(copy.alsoHints).sort()).toEqual([...ALSO_KEYS].sort());
+});
+
+test('the fixed pad is one the sampler knows', () => {
+  expect(PAD_CHORDS[SOUND_FIXED.pad.chord].length).toBeGreaterThan(0);
+  expect(PAD_INSTRUMENTS[SOUND_FIXED.pad.instrument]).toBeTruthy();
 });

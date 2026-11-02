@@ -1,36 +1,148 @@
-/* The sound panel (SPEC 4.3): the sheet's Sound tab. Colours and fonts are style.css's custom
-   properties. */
+/* The Sound panel (SPEC 4.3; docs/plans/v5-sound-model.md, ruling 7): the sheet's Sound tab.
+   Volume, Listen for, Tempo, Drum machines, Also play. Colours and fonts are style.css's custom
+   properties; the section labels, sliders and tempo readout are knobs.css's. */
 .sound-panel {
   display: flex;
   flex-direction: column;
-  gap: 12px;
+  gap: 4px;
   padding-bottom: 8px;
   font-size: 15px;
 }
-.sound-panel fieldset {
-  margin: 0;
-  padding: 4px 12px 10px;
-  border: 1px solid var(--rule);
-  border-radius: 0;
-}
-.sound-panel legend {
-  padding: 0 6px;
-  font-size: 13px;
-  letter-spacing: 0.06em;
-  text-transform: uppercase;
-  color: var(--muted);
-}
-.sound-panel .sp-row {
+.sound-panel .group {
   display: flex;
-  flex-wrap: wrap;
+  flex-direction: column;
+  gap: 8px;
+  padding: 8px 0 12px;
+  border-bottom: 1px solid var(--rule);
+}
+.sound-panel .group:last-child {
+  border-bottom: 0;
+}
+.sound-panel .sp-head {
+  display: flex;
   align-items: center;
-  gap: 8px 12px;
-  margin: 6px 0;
+  justify-content: space-between;
+}
+.sound-panel button {
+  border-radius: 0;
+  font: inherit;
+  color: inherit;
+}
+
+/* Listen for: three choices, the chosen one ringed in the accent. */
+.sound-panel .sp-info {
+  min-width: 44px;
+  height: 44px;
+  margin: -10px -10px -10px 0;
+  border: 0;
+  background: none;
+  color: var(--muted);
+  font-size: 18px;
+}
+.sound-panel .sp-info[aria-expanded='true'] {
+  color: var(--accent);
+}
+.sound-panel .sp-lines {
+  margin: 0;
+  padding: 0 0 0 18px;
+  font-size: 14px;
+  line-height: 1.45;
+  color: var(--text-2);
+}
+.sound-panel .sp-choice {
+  min-height: 44px;
+  padding: 0 12px;
+  border: 1px solid var(--rule);
+  background: none;
+  text-align: left;
+  color: var(--text-2);
+}
+.sound-panel .sp-choice[aria-pressed='true'] {
+  border-color: var(--accent);
+  background: var(--raised);
+  color: var(--text);
+  font-weight: 600;
+}
+
+/* Drum machines: each juggler on stage and its kit, read only, then the one button. */
+.sound-panel .sp-drummer-list {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.sound-panel .sp-drummer {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-height: 32px;
   scroll-margin-top: 12px;
 }
-/* A hand's rows, flashed once when its lane's voice name opens this tab (mount-knobs.ts). */
-.sound-panel .sp-row.sp-flash {
-  border-radius: 0;
+.sound-panel .sp-drummer::before {
+  content: '';
+  flex: none;
+  width: 10px;
+  height: 10px;
+  background: var(--juggler, var(--muted));
+}
+.sound-panel .sp-drummer-name {
+  flex: 0 0 6.5em;
+  color: var(--text-2);
+}
+.sound-panel .sp-kit {
+  color: var(--text);
+}
+.sound-panel .sp-button {
+  align-self: flex-start;
+  height: 44px;
+  padding: 0 18px;
+  border: 0;
+  background: var(--raised);
+}
+
+/* Also play: a switch each, the name and what it plays. */
+.sound-panel .sp-switch {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  min-height: 48px;
+  padding: 0;
+  border: 0;
+  background: none;
+  text-align: left;
+}
+.sound-panel .sp-switch-text {
+  display: flex;
+  flex-direction: column;
+}
+.sound-panel .sp-switch-hint {
+  font-size: 13px;
+  color: var(--muted);
+}
+.sound-panel .sp-toggle {
+  position: relative;
+  flex: none;
+  width: 40px;
+  height: 24px;
+  background: var(--rule);
+}
+.sound-panel .sp-toggle i {
+  position: absolute;
+  top: 3px;
+  left: 3px;
+  width: 18px;
+  height: 18px;
+  background: var(--ground);
+}
+.sound-panel .sp-switch[aria-checked='true'] .sp-toggle {
+  background: var(--accent);
+}
+.sound-panel .sp-switch[aria-checked='true'] .sp-toggle i {
+  left: 19px;
+}
+
+/* A group flashed once when a lane's voice name opens this tab (mount-knobs.ts). */
+.sound-panel .sp-flash {
   animation: sp-flash 1.6s ease-out;
 }
 @keyframes sp-flash {
@@ -44,71 +156,7 @@
   }
 }
 @media (prefers-reduced-motion: reduce) {
-  .sound-panel .sp-row.sp-flash {
+  .sound-panel .sp-flash {
     animation-duration: 0.01s;
   }
-}
-.sound-panel .sp-row > label:first-child:not(:only-child) {
-  flex: 0 0 9em;
-  color: var(--text-2);
-}
-.sound-panel select,
-.sound-panel input[type='number'] {
-  min-width: 0;
-  height: 44px;
-  padding: 0 10px;
-  border: 0;
-  border-radius: 0;
-  background: var(--raised);
-}
-.sound-panel select {
-  flex: 1 1 8em;
-}
-.sound-panel input[type='number'] {
-  width: 7em;
-  font-family: var(--font-mono);
-}
-.sound-panel input[type='checkbox'] {
-  width: 20px;
-  height: 20px;
-  vertical-align: -4px;
-  margin: 0 8px 0 0;
-}
-.sound-panel .sp-row > label:only-child {
-  min-height: 44px;
-  display: flex;
-  align-items: center;
-}
-.sound-panel .sp-row output {
-  min-width: 3em;
-  text-align: right;
-  font: 14px var(--font-mono);
-  color: var(--muted);
-}
-.sound-panel button {
-  height: 44px;
-  padding: 0 18px;
-  border: 0;
-  border-radius: 0;
-  background: var(--raised);
-}
-/* Range rows keep label, slider and readout on one line, even at 390 px. */
-.sound-panel .sp-row:has(input[type='range']) {
-  flex-wrap: nowrap;
-}
-.sound-panel .sp-row:has(input[type='range']) > label:first-child {
-  flex: 0 0 7em;
-}
-.sound-panel .sp-row input[type='range'] {
-  flex: 1 1 8em;
-  min-width: 0;
-  height: 44px;
-}
-
-/* Tempo, the first group (docs/plans/v4-deck.md, ruling 4); its readout and slider are knobs.css's. */
-.sound-panel .group {
-  display: flex;
-  flex-direction: column;
-  padding: 4px 0 6px;
-  border-bottom: 1px solid var(--rule);
 }

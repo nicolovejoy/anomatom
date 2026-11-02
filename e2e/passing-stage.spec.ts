@@ -11,10 +11,7 @@ import { expect, isCdnError, test } from './fixtures';
 const SHOTS = process.env.PASSING_STAGE_SHOTS;
 
 const six = lineParts(['3', '3', '3', '3', '3', '3'], { a: 1, b: 1 });
-// A mapping with one voice per part, as a link of six parts carries.
-const base = defaultState();
-const voices = six.map((_, i) => ({ kit: 'TR-808', sample: i % 2 ? 'snare' : 'kick', pan: 0, gain: 1 }));
-const link = encodeState({ ...base, parts: six, mapping: { ...base.mapping, parts: voices } }); // already starts with #v2.
+const link = encodeState({ ...defaultState(), parts: six }); // already starts with #v3.
 
 for (const [name, viewport] of [
   ['portrait', { width: 390, height: 844 }],

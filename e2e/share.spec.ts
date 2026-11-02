@@ -3,7 +3,7 @@
 import { partsFromVanilla } from '../src/core';
 import { encodeState } from '../src/app/hash';
 import { defaultState } from '../src/app/state';
-import { applyPreset } from '../src/sound/mapping';
+
 import { expect, openTab, test } from './fixtures';
 
 test.use({ viewport: { width: 390, height: 844 } });
@@ -64,13 +64,24 @@ test('the Sound tab no longer has a copy button', async ({ page }) => {
   await expect(page.locator('#sp-copy')).toHaveCount(0);
 });
 
-test('an old #v2. link and an old #v1. link still open, and restore their state', async ({ page }) => {
+test('a #v3. link, an old #v2. link and an old #v1. link still open, and restore their state', async ({ page }) => {
   const parts = partsFromVanilla('441');
   if (!parts.ok) throw new Error('441 reads');
-  const v2 = encodeState({ ...defaultState(), parts: parts.parts, bpm: 150, mapping: applyPreset('ball-pitch') });
-  await page.goto('/' + v2);
+  const v3 = encodeState({ ...defaultState(), parts: parts.parts, bpm: 150, listen: 'pitch', kitShift: 2 });
+  expect(v3.startsWith('#v3.')).toBe(true);
+  await page.goto('/' + v3);
   await expect(page.locator('#hand-0')).toHaveValue('441');
   await expect(page.locator('#bpm')).toHaveValue('150');
+  await openTab(page, 'sound');
+  await expect(page.locator('.sp-choice[data-listen="pitch"]')).toHaveAttribute('aria-pressed', 'true');
+  await expect(page.locator('.sp-drummer .sp-kit')).toHaveText(['MFB-512']);
+  // A v2 link carried a whole Mapping: Ball to pitch on the LM-2 reads as ball, one drum machine on.
+  const v2 = '#v2.' + Buffer.from(JSON.stringify({ p: [{ s: 2, f: 0, u: 1, t: [[4, 1], [4, 1], [1, 1]] }, { s: 2, f: 1, u: 1, t: [[4, 0], [4, 0], [1, 0]] }], r: [1, 1], t: 150, m: { n: 'ball-pitch', k: 'LM-2' } })).toString('base64url');
+  await page.goto('/' + v2);
+  await page.reload();
+  await expect(page.locator('#bpm')).toHaveValue('150');
+  await expect(page.locator('.sp-choice[data-listen="ball"]')).toHaveAttribute('aria-pressed', 'true');
+  await expect(page.locator('.sp-drummer .sp-kit')).toHaveText(['LinnDrum LM-2']);
   const v1 = '#v1.' + Buffer.from(JSON.stringify({ p: ['531', ''], r: [1, 1], t: 95 })).toString('base64url');
   await page.goto('/' + v1);
   await page.reload();
@@ -78,12 +89,13 @@ test('an old #v2. link and an old #v1. link still open, and restore their state'
   await expect(page.locator('#bpm')).toHaveValue('95');
 });
 
-test('the Box card writes #(4,2x)(2x,4)~height-drum, unescaped, and the link plays the box in a new page', async ({ page, context }) => {
+test('the Box card writes #(4,2x)(2x,4)~height, unescaped, and the link plays the box in a new page', async ({ page, context }) => {
   await page.goto('/');
+  await page.locator('#deck-listen').selectOption('height');
   await page.locator('.deck-row[data-id="box"]').click();
   await expect(page.locator('.deck-notation')).toHaveText('(4,2x)(2x,4)');
   // The browser keeps ( ) and , as written in location.hash; if one escaped them the text would differ.
-  await expect.poll(() => page.evaluate(() => location.hash)).toBe('#(4,2x)(2x,4)~height-drum');
+  await expect.poll(() => page.evaluate(() => location.hash)).toBe('#(4,2x)(2x,4)~height');
   const other = await context.newPage();
   await other.goto(page.url());
   await openTab(other, 'pattern');
