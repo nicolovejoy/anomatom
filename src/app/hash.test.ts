@@ -1,32 +1,23 @@
 import { describe, expect, test } from 'vitest';
 import { buildSchedule, isSyncSet, partsFromOnsets, partsFromPassing, partsFromSync, withPhase } from '../core';
 import type { Parts } from '../core';
-import { applyPreset, PRESET_NAMES, presetOf, withPartCount, type Mapping } from '../sound/mapping';
 import { lineParts, vanillaParts } from '../test/schedules';
-import { BPM_RANGE, DEFAULT_BPM, DEFAULT_MAPPING, MAX_LINK_CYCLE, MAX_PARTS } from '../tunables';
+import { BPM_RANGE, DEFAULT_ALSO, DEFAULT_BPM, MAX_LINK_CYCLE, MAX_PARTS } from '../tunables';
+import { copy } from '../ui/copy';
 import cards from './fixtures/v1-cards.json';
-import { decodeState, encodeHash, encodeState } from './hash';
+import { decodeState, encodeHash, encodeState, type Shared } from './hash';
 import { PRESETS } from './presets';
 import { defaultParts, defaultState, type AppState } from './state';
 import { route } from './route';
 
 const b64 = (value: unknown) =>
   btoa(JSON.stringify(value)).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+const json = (hash: string) => JSON.parse(atob(payloadOf(hash).replace(/-/g, '+').replace(/_/g, '/')));
 
-const custom: Mapping = {
-  byHeight: true,
-  perHeight: { 1: 'clap', 2: null, 3: 'snare', 4: 'cowbell', 5: 'kick', 6: 'kick', 7: 'maraca', 8: 'cymbal', 9: 'tom-hi' },
-  byBall: ['kick', 'clave'],
-  parts: [
-    { kit: 'TR-808', sample: 'conga-hi', pan: -0.25, gain: 0.5 },
-    { kit: 'TR-808', sample: null, pan: 1, gain: 0 },
-  ],
-  catches: { on: true, sample: 'rimshot' },
-  crossAccent: { velocity: 33, downbeat: null },
-  pass: { velocity: 11, sample: 'cowbell' },
-  filter: { on: true, low: 250, high: 9000 },
-  pad: { on: true, instrument: 'soundfont', chord: 'F69' },
-};
+/** A sound that is no default in any of its three fields. */
+const mine = { listen: 'pitch', also: { catches: true, downbeat: false, pad: true }, kitShift: 3 } as const;
+const soundOf = (s: Pick<AppState, 'listen' | 'also' | 'kitShift'> | null | undefined) => s && { listen: s.listen, also: s.also, kitShift: s.kitShift };
+const DEFAULT_SOUND = { listen: 'ball', also: DEFAULT_ALSO, kitShift: 0 };
 
 const payloadOf = (hash: string) => route(hash).state ?? '';
 const roundTrip = (state: AppState) => decodeState(payloadOf(encodeState(state)));
@@ -34,26 +25,26 @@ const roundTrip = (state: AppState) => decodeState(payloadOf(encodeState(state))
 describe('encodeState', () => {
   test('an old link written at the former default keeps its 120 bpm', () => {
     const old = '#v2.eyJwIjpbeyJzIjoyLCJmIjowLCJ1IjoxLCJ0IjpbWzMsMV1dfSx7InMiOjIsImYiOjEsInUiOjEsInQiOltbMywwXV19XSwiciI6WzEsMV0sInQiOjEyMCwibSI6InZvaWNlLXBlci1wYXJ0In0';
-    expect(decodeState(payloadOf(old))?.bpm).toBe(120);
+    expect(decodeState(payloadOf(old), 2)?.bpm).toBe(120);
   });
 
   test('the default state encodes to a stable string', () => {
     // The default tempo may change (104 now); a change in the encoding breaks every shared link: bump the scheme version instead.
     expect(encodeState(defaultState())).toBe(
-      '#v2.eyJwIjpbeyJzIjoyLCJmIjowLCJ1IjoxLCJ0IjpbWzMsMV1dfSx7InMiOjIsImYiOjEsInUiOjEsInQiOltbMywwXV19XSwiciI6WzEsMV0sInQiOjEwNCwibSI6InZvaWNlLXBlci1wYXJ0In0',
+      '#v3.eyJwIjpbeyJzIjoyLCJmIjowLCJ1IjoxLCJ0IjpbWzMsMV1dfSx7InMiOjIsImYiOjEsInUiOjEsInQiOltbMywwXV19XSwiciI6WzEsMV0sInQiOjEwNH0',
     );
   });
 
   test('route() takes the payload straight out of it', () => {
     const hash = encodeState(defaultState());
-    expect(route(hash)).toEqual({ view: 'play', state: hash.slice('#v2.'.length), version: 2 });
+    expect(route(hash)).toEqual({ view: 'play', state: hash.slice('#v3.'.length), version: 3 });
   });
 
   test('never carries volume, drafts, the notice, the last hash or UI state', () => {
     const state: AppState = {
       ...defaultState(),
       volume: 0.123,
-      lastStateHash: '#v2.secret',
+      lastStateHash: '#v3.secret',
       drafts: ['33', null],
       notice: 'I reset hand 1 to 1 ball.',
     };
@@ -62,44 +53,45 @@ describe('encodeState', () => {
     expect(encodeState(withUi)).toBe(encodeState(defaultState()));
   });
 
-  test('is url-safe, and a custom mapping stays compact', () => {
-    const hash = encodeState({ ...defaultState(), mapping: custom });
-    expect(hash).toMatch(/^#v2\.[A-Za-z0-9_-]+$/);
-    expect(hash.length).toBeLessThan(500);
+  test('is url-safe; the sound keys ride only when they are not the defaults (v5 ruling 6)', () => {
+    expect(encodeState({ ...defaultState(), ...mine })).toMatch(/^#v3\.[A-Za-z0-9_-]+$/);
+    expect(Object.keys(json(encodeState(defaultState())))).toEqual(['p', 'r', 't']);
+    expect(json(encodeState({ ...defaultState(), ...mine }))).toMatchObject({ l: 'pitch', a: [1, 0, 1], k: 3 });
+    expect(Object.keys(json(encodeState({ ...defaultState(), listen: 'height' })))).toEqual(['p', 'r', 't', 'l']);
+    expect(Object.keys(json(encodeState({ ...defaultState(), also: { ...DEFAULT_ALSO, catches: true } })))).toEqual(['p', 'r', 't', 'a']);
+    expect(Object.keys(json(encodeState({ ...defaultState(), kitShift: 1 })))).toEqual(['p', 'r', 't', 'k']);
+    // Equal by content is the default, whatever the object.
+    expect(encodeState({ ...defaultState(), also: { ...DEFAULT_ALSO } })).toBe(encodeState(defaultState()));
   });
 
-  test('a preset mapping travels as its name; parts in short keys', () => {
-    for (const name of PRESET_NAMES) {
-      const json = atob(payloadOf(encodeState({ ...defaultState(), mapping: applyPreset(name) })).replace(/-/g, '+').replace(/_/g, '/'));
-      expect(JSON.parse(json).m).toBe(name);
-    }
+  test('parts in short keys', () => {
     const parts = partsFromOnsets([[true, false, true]], [1], [2]);
-    const json = atob(payloadOf(encodeState({ ...defaultState(), parts })).replace(/-/g, '+').replace(/_/g, '/'));
-    expect(JSON.parse(json).p).toEqual([{ s: 1, f: 0, u: 1, o: '101', k: 2 }]);
+    expect(json(encodeState({ ...defaultState(), parts })).p).toEqual([{ s: 1, f: 0, u: 1, o: '101', k: 2 }]);
     // A default part's phase is stored within its period (3 beats of 2 pulses), where it means the same.
     const late = [{ spacing: 2, phase: 13, unit: 2, flights: { kind: 'default' as const, onsets: [true, false, true], k: 1 } }];
-    const lateJson = atob(payloadOf(encodeState({ ...defaultState(), parts: late })).replace(/-/g, '+').replace(/_/g, '/'));
-    expect(JSON.parse(lateJson).p[0].f).toBe(1);
+    expect(json(encodeState({ ...defaultState(), parts: late })).p[0].f).toBe(1);
   });
 });
 
 describe('round trip', () => {
   test('the default state', () => {
     const d = defaultState();
-    expect(roundTrip(d)).toEqual({ parts: d.parts, ratio: d.ratio, bpm: d.bpm, mapping: d.mapping });
+    expect(roundTrip(d)).toEqual({ parts: d.parts, ratio: d.ratio, bpm: d.bpm, ...DEFAULT_SOUND, notice: null });
   });
 
-  test('every preset', () => {
-    for (const name of PRESET_NAMES) {
-      const back = roundTrip({ ...defaultState(), mapping: applyPreset(name) });
-      expect(back?.mapping).toEqual(applyPreset(name));
-      expect(presetOf(back?.mapping as Mapping)).toBe(name);
+  test('with and without each optional key', () => {
+    for (const listen of ['height', 'ball', 'pitch'] as const) expect(roundTrip({ ...defaultState(), listen })?.listen).toBe(listen);
+    for (let bits = 0; bits < 8; bits++) {
+      const also = { catches: (bits & 1) !== 0, downbeat: (bits & 2) !== 0, pad: (bits & 4) !== 0 };
+      expect(roundTrip({ ...defaultState(), also })?.also).toEqual(also);
     }
+    for (const kitShift of [0, 1, 2, 3, 4]) expect(roundTrip({ ...defaultState(), kitShift })?.kitShift).toBe(kitShift);
+    expect(soundOf(roundTrip({ ...defaultState(), ...mine }))).toEqual(mine);
   });
 
-  test('a custom mapping, a ratio, manual parts with crosses, a tempo', () => {
-    const state: AppState = { ...defaultState(), parts: lineParts(['2 2x 2', '2x 2'], { a: 3, b: 2 }), ratio: { a: 3, b: 2 }, bpm: 90, mapping: custom };
-    expect(roundTrip(state)).toEqual({ parts: state.parts, ratio: state.ratio, bpm: 90, mapping: custom });
+  test('a sound, a ratio, manual parts with crosses, a tempo', () => {
+    const state: AppState = { ...defaultState(), parts: lineParts(['2 2x 2', '2x 2'], { a: 3, b: 2 }), ratio: { a: 3, b: 2 }, bpm: 90, ...mine };
+    expect(roundTrip(state)).toEqual({ parts: state.parts, ratio: state.ratio, bpm: 90, ...mine, notice: null });
   });
 
   test('default parts with k and a phase, and three parts', () => {
@@ -110,23 +102,70 @@ describe('round trip', () => {
     expect(roundTrip({ ...defaultState(), parts: three })?.parts).toEqual(three);
   });
 
-  test('a mapping that is one edit off a preset round-trips as custom', () => {
-    const edited: Mapping = { ...applyPreset('height-pitch'), catches: { on: true, sample: 'clave' } };
-    const back = roundTrip({ ...defaultState(), mapping: edited });
-    expect(back?.mapping).toEqual(edited);
-    expect(presetOf(back?.mapping as Mapping)).toBe('custom');
+  test('junk sound keys take their defaults, one by one', () => {
+    const v3 = (value: unknown) => soundOf(decodeState(b64(value), 3));
+    expect(v3({ l: 'height-drum', a: 'x', k: 'x' })).toEqual(DEFAULT_SOUND);
+    expect(v3({ l: 'toString', a: [2, 'x', null], k: 1.5 })).toEqual(DEFAULT_SOUND);
+    expect(v3({ a: [1] })).toEqual({ ...DEFAULT_SOUND, also: { ...DEFAULT_ALSO, catches: true } });
+    expect(v3({ k: 7 })?.kitShift).toBe(2);
+    expect(v3({ k: -1 })?.kitShift).toBe(4);
+    // A decoded also equal to the default is the default object.
+    expect(decodeState(b64({ a: [0, 1, 0] }), 3)?.also).toBe(DEFAULT_ALSO);
+  });
+});
+
+describe('v2 links still open (v5 ruling 6)', () => {
+  const v2 = (m: unknown) => decodeState(b64({ m }), 2);
+
+  test('the old default (Voice per part) plays by height, with a notice', () => {
+    const old = '#v2.eyJwIjpbeyJzIjoyLCJmIjowLCJ1IjoxLCJ0IjpbWzMsMV1dfSx7InMiOjIsImYiOjEsInUiOjEsInQiOltbMywwXV19XSwiciI6WzEsMV0sInQiOjEyMCwibSI6InZvaWNlLXBlci1wYXJ0In0';
+    const r = route(old);
+    expect(r.version).toBe(2);
+    const s = decodeState(r.state as string, 2);
+    expect(s?.parts).toEqual(vanillaParts('3'));
+    expect(soundOf(s)).toEqual({ listen: 'height', also: DEFAULT_ALSO, kitShift: 0 });
+    expect(s?.notice).toBe(copy.voicePerPartGone);
   });
 
-  test('every combination of the on/off flags', () => {
-    for (const bits of [0, 1, 2, 3, 4, 5, 6, 7]) {
-      const m: Mapping = {
-        ...custom,
-        catches: { ...custom.catches, on: (bits & 1) !== 0 },
-        filter: { ...custom.filter, on: (bits & 2) !== 0 },
-        pad: { ...custom.pad, on: (bits & 4) !== 0 },
-      };
-      expect(roundTrip({ ...defaultState(), mapping: m })?.mapping).toEqual(m);
+  test('each preset name: its rule, no notice', () => {
+    expect(v2('height-drum')).toMatchObject({ listen: 'height', also: DEFAULT_ALSO, kitShift: 0, notice: null });
+    expect(v2('height-pitch')).toMatchObject({ listen: 'pitch', notice: null });
+    expect(v2('ball-pitch')).toMatchObject({ listen: 'ball', notice: null });
+  });
+
+  test('a preset on kits, and the passing card’s mapping, keep their first kit as the shift', () => {
+    expect(v2({ n: 'height-drum', k: 'LM-2' })).toMatchObject({ listen: 'height', kitShift: 1 });
+    const passingCard = {
+      h: ['hihat-close', 'hihat-close', 'snare', 'tom-low', 'kick', 'kick', 'kick', 'kick', 'kick'],
+      b: null,
+      p: [['TR-808', 'kick', -0.8, 1], ['TR-808', 'snare', -0.4, 1], ['LM-2', 'hihat-close', 0.4, 1], ['LM-2', 'clap', 0.8, 1]],
+      y: 1, c: [0, 'rimshot'], d: [20, 'clap'], f: [0, 400, 12000], a: [0, 'mellotron', 'Dm9'], q: [20, null],
+    };
+    expect(v2(passingCard)).toMatchObject({ listen: 'height', also: DEFAULT_ALSO, kitShift: 0, notice: null });
+  });
+
+  test('a custom mapping: ball from a ball list, also from its switches', () => {
+    const custom = {
+      h: ['clap', null, 'snare', 'cowbell', 'kick', 'kick', 'maraca', 'cymbal', 'tom-hi'],
+      b: ['kick', 'clave'],
+      p: [['MFB-512', 'conga-hi', -0.25, 0.5], ['TR-808', null, 1, 0]],
+      y: 1, c: [1, 'rimshot'], d: [33, null], f: [1, 250, 9000], a: [1, 'soundfont', 'F69'], q: [11, 'cowbell'],
+    };
+    expect(v2(custom)).toMatchObject({ listen: 'ball', also: { catches: true, downbeat: false, pad: true }, kitShift: 2, notice: null });
+    expect(v2({ ...custom, b: null })).toMatchObject({ listen: 'height' });
+    expect(v2({ ...custom, y: 0 })).toMatchObject({ listen: 'height', notice: copy.voicePerPartGone });
+  });
+
+  test('junk m is the old default: height, with a notice; no m at all is today’s default', () => {
+    expect(v2(undefined)).toMatchObject({ ...DEFAULT_SOUND, notice: null });
+    for (const m of [null, 12, [1, 2], 'height-banana']) {
+      expect(v2(m), String(m)).toMatchObject({ listen: 'height', also: DEFAULT_ALSO, kitShift: 0, notice: copy.voicePerPartGone });
     }
+  });
+
+  test('a v2 link with a sound of its own re-encodes as v3 with that sound', () => {
+    const s = v2({ n: 'height-pitch', k: 'Roland CR-8000' }) as Shared;
+    expect(json(encodeState({ ...defaultState(), ...s }))).toMatchObject({ l: 'pitch', k: 3 });
   });
 });
 
@@ -142,7 +181,8 @@ describe('v1 links still open', () => {
         schedule.events.map((e) => [e.kind, e.pulse, e.part, e.ball, e.height, e.flight, e.cross ? 1 : 0]),
         card.id,
       ).toEqual(card.events);
-      expect(s?.mapping).toEqual(applyPreset('height-drum'));
+      expect(soundOf(s), card.id).toEqual({ listen: 'height', also: DEFAULT_ALSO, kitShift: 0 });
+      expect(s?.notice).toBeNull();
     }
   });
 
@@ -172,7 +212,9 @@ describe('v1 links still open', () => {
 
 describe('junk', () => {
   const d = defaultState();
-  const defaults = { parts: d.parts, ratio: d.ratio, bpm: d.bpm, mapping: DEFAULT_MAPPING };
+  const defaults = { parts: d.parts, ratio: d.ratio, bpm: d.bpm, ...DEFAULT_SOUND, notice: null };
+  /** An old scheme's empty sound: the old default, Voice per part, read as height with a notice. */
+  const old = { ...defaults, listen: 'height', notice: copy.voicePerPartGone };
 
   test('not a payload at all gives null', () => {
     for (const junk of ['', '!!!', 'not base64 at all', '%%%%', b64([1, 2]).slice(0, 3), 'bnVsbA', 'MTIz', 'InN0ciI']) {
@@ -187,11 +229,14 @@ describe('junk', () => {
 
   test('an empty object is all defaults, in either scheme', () => {
     expect(decodeState(b64({}))).toEqual(defaults);
+    // An old link with no `m` says nothing about sound: today's defaults, no notice.
+    expect(decodeState(b64({}), 2)).toEqual(defaults);
     expect(decodeState(b64({}), 1)).toEqual(defaults);
   });
 
   test('unknown fields are ignored', () => {
     expect(decodeState(b64({ zzz: 1, v: 0.1, volume: 0.5, m: { zzz: [1] } }))).toEqual(defaults);
+    expect(decodeState(b64({ zzz: 1, v: 0.1, volume: 0.5, m: { zzz: [1] } }), 2)).toEqual(old);
   });
 
   test('missing fields come from the defaults, one by one', () => {
@@ -199,11 +244,6 @@ describe('junk', () => {
     // `r` is derived from the parts: one that disagrees with them is ignored, one that agrees is kept as written.
     expect(decodeState(b64({ r: [4, 3] }))).toEqual(defaults);
     expect(decodeState(b64({ r: [2, 2] }))).toEqual({ ...defaults, ratio: { a: 2, b: 2 } });
-    expect(decodeState(b64({ m: { f: [1] } }))?.mapping?.filter).toEqual({
-      on: true,
-      low: DEFAULT_MAPPING.filter.low,
-      high: DEFAULT_MAPPING.filter.high,
-    });
   });
 
   test('parts that are not a sound model give the default pattern', () => {
@@ -236,31 +276,10 @@ describe('junk', () => {
   });
 
   test('wrong types fall back per field', () => {
-    const junk = decodeState(
-      b64({
-        r: ['a', {}],
-        t: 'fast',
-        m: { h: 'x', b: 5, p: [[1, 2, null, 'x'], 7], y: 'yes', v: [[null, 'x'], 7], c: ['y', 4], d: [{}, 9], f: [2, 'lo', null], a: [true, 'organ', 'C#'] },
-      }),
-    );
+    const junk = decodeState(b64({ r: ['a', {}], t: 'fast', l: 5, a: { c: 1 }, k: '2' }));
     expect(junk).toEqual(defaults);
     expect(decodeState(b64({ r: 'x', m: 12 }))).toEqual(defaults);
-    expect(decodeState(b64({ m: [1, 2] }))).toEqual(defaults);
-  });
-
-  test('unknown samples, instruments, chords and presets are not trusted', () => {
-    const m = decodeState(
-      b64({ m: { h: ['../evil', 'kick'], c: [1, 'nope'], d: [10, 'nope'], a: [1, 'tuba', 'Zm9'] } }),
-    )?.mapping as Mapping;
-    expect(m.perHeight[1]).toBe(DEFAULT_MAPPING.perHeight[1]);
-    expect(m.perHeight[2]).toBe('kick');
-    expect(m.catches).toEqual({ on: true, sample: DEFAULT_MAPPING.catches.sample });
-    expect(m.crossAccent).toEqual({ velocity: 10, downbeat: DEFAULT_MAPPING.crossAccent.downbeat });
-    expect(m.pad).toEqual({ on: true, instrument: DEFAULT_MAPPING.pad.instrument, chord: DEFAULT_MAPPING.pad.chord });
-    expect(decodeState(b64({ m: 'height-banana' }))?.mapping).toEqual(DEFAULT_MAPPING);
-    expect(decodeState(b64({ m: { b: ['kick', 'banana'] } }))?.mapping?.byBall).toBeNull();
-    expect(decodeState(b64({ m: { b: [] } }))?.mapping?.byBall).toBeNull();
-    expect(decodeState(b64({ m: 'ball-pitch' }))?.mapping).toEqual(applyPreset('ball-pitch'));
+    expect(decodeState(b64({ r: 'x', m: 12 }), 2)).toEqual(old);
   });
 
   test('numbers are clamped into range and rounded where whole', () => {
@@ -272,17 +291,12 @@ describe('junk', () => {
           { s: 9, f: 0, u: 9, o: '1', k: 1 },
           { s: 1, f: 0, u: 1, o: '1', k: 1 },
         ],
-        m: { p: [['TR-808', 'kick', -5, 5], ['TR-808', 'snare', 0.5, -1]], d: [999], f: [1, 1, 1e9] },
+        k: 12,
       }),
     ) as AppState;
     expect(s.bpm).toBe(BPM_RANGE.max);
     expect(s.ratio).toEqual({ a: 1, b: 9 });
-    expect(s.mapping.parts).toEqual([
-      { kit: 'TR-808', sample: 'kick', pan: -1, gain: 1 },
-      { kit: 'TR-808', sample: 'snare', pan: 0.5, gain: 0 },
-    ]);
-    expect(s.mapping.crossAccent.velocity).toBe(40);
-    expect(s.mapping.filter).toMatchObject({ low: 100, high: 20000 });
+    expect(s.kitShift).toBe(2);
     expect(decodeState(b64({ t: 0 }))?.bpm).toBe(BPM_RANGE.min);
     expect(decodeState(b64({ t: 100.4, r: [2.6, 3.2] }))).toMatchObject({ bpm: 100, ratio: { a: 3, b: 3 } });
     const oneTwo = [
@@ -293,27 +307,8 @@ describe('junk', () => {
   });
 });
 
-describe('byBall (C nit 3)', () => {
-  const fallback = DEFAULT_MAPPING.byBall;
-  const byBall = (b: unknown) => decodeState(b64({ m: { b } }))?.mapping?.byBall;
-
-  test('a bad byBall falls back to the default mapping’s, silently', () => {
-    for (const bad of [5, 'kick', {}, [], ['kick', 'banana'], ['kick', 3], [null], true]) {
-      expect(byBall(bad)).toEqual(fallback);
-    }
-    expect(decodeState(b64({ m: {} }))?.mapping?.byBall).toEqual(fallback);
-  });
-
-  test('a good list is used, and an explicit null is none', () => {
-    expect(byBall(['kick', 'clave'])).toEqual(['kick', 'clave']);
-    expect(byBall(null)).toBeNull();
-  });
-});
-
 describe('lanes: three and four parts (docs/plans/lanes.md)', () => {
   const x = (s: string) => [...s].map((c) => c === 'x');
-  const voices = (n: number) =>
-    Array.from({ length: n }, (_, i) => ({ kit: 'TR-808', sample: i % 2 ? 'snare' : 'kick', pan: 0, gain: 1 }));
   const rOf = (hash: string) => JSON.parse(atob(payloadOf(hash).replace(/-/g, '+').replace(/_/g, '/'))).r;
 
   test('three parts at rates 3, 4 and 5, with a phase, k = 2 and a manual lone part, round-trip; r is the first two rates', () => {
@@ -321,11 +316,11 @@ describe('lanes: three and four parts (docs/plans/lanes.md)', () => {
       ...partsFromOnsets([x('x..x'), x('xx')], [20, 15], [1, 2]),
       { spacing: 12, phase: 6, unit: 12, flights: { kind: 'manual', throws: [{ height: 36, to: null }, { height: 0, to: null }, { height: 0, to: null }] } },
     ];
-    const state: AppState = { ...defaultState(), parts: stack, drafts: [null, null, null], ratio: { a: 3, b: 4 }, mapping: { ...custom, parts: voices(3) } };
+    const state: AppState = { ...defaultState(), parts: stack, drafts: [null, null, null], ratio: { a: 3, b: 4 }, ...mine };
     const back = roundTrip(state);
     expect(back?.parts).toEqual(stack);
     expect(back?.ratio).toEqual({ a: 3, b: 4 });
-    expect(back?.mapping.parts).toEqual(voices(3));
+    expect(soundOf(back)).toEqual(mine);
     expect(rOf(encodeState(state))).toEqual([3, 4]);
   });
 
@@ -334,18 +329,11 @@ describe('lanes: three and four parts (docs/plans/lanes.md)', () => {
       ...lineParts(['2 2x 2', '2x 2'], { a: 3, b: 2 }),
       ...partsFromOnsets([x('x.'), x('x')], [6, 6]),
     ];
-    const state: AppState = { ...defaultState(), parts: four, drafts: four.map(() => null), mapping: { ...custom, parts: voices(4) } };
+    const state: AppState = { ...defaultState(), parts: four, drafts: four.map(() => null), ...mine };
     const back = roundTrip(state);
     expect(back?.parts).toEqual(four);
     expect(back?.ratio).toEqual({ a: 3, b: 2 });
     expect(buildSchedule(back?.parts as Parts).verdict.ok).toBe(true);
-    expect(back?.mapping.parts).toEqual(voices(4));
-  });
-
-  test('a preset name decodes with one voice per part', () => {
-    const three = partsFromOnsets([x('x'), x('x'), x('x')], [1, 1, 1]);
-    const back = decodeState(b64({ p: three.map((p) => ({ s: p.spacing, f: 0, u: p.unit, o: '1', k: 1 })), m: 'voice-per-part' }));
-    expect(back?.mapping.parts).toHaveLength(3);
   });
 
   test('the ratio written is the parts’, whatever the state holds', () => {
@@ -355,95 +343,108 @@ describe('lanes: three and four parts (docs/plans/lanes.md)', () => {
 });
 
 describe('short links (grammar in route.ts)', () => {
-  const shared = (s: AppState) => ({ parts: s.parts, ratio: s.ratio, bpm: s.bpm, mapping: s.mapping });
-  const roundTrips = (hash: string, state: Pick<AppState, 'parts' | 'ratio' | 'bpm' | 'mapping'>) => {
+  const shared = (s: AppState): Shared => ({ parts: s.parts, ratio: s.ratio, bpm: s.bpm, listen: s.listen, also: s.also, kitShift: s.kitShift });
+  const roundTrips = (hash: string, state: Shared) => {
     const r = route(hash);
     expect(r.version).toBe('short');
     const back = decodeState(r.state as string, 'short');
     expect(back).not.toBeNull();
     expect(encodeState(back as NonNullable<typeof back>)).toBe(encodeState(state));
   };
+  const at = (p: (typeof PRESETS)[number], listen: Shared['listen'] = 'ball'): Shared => ({ ...shared(defaultState()), parts: p.parts, ratio: p.ratio, listen });
 
   test('every two-part card takes its shortest form and round-trips', () => {
     const short: Record<string, string> = {
-      cascade: '#3~height-drum',
-      pause: '#441~height-drum',
-      classic: '#531~height-drum',
-      ramp: '#97531~height-drum',
-      polyrhythm: '#3:2/2-2x-2/2x-2~height-drum',
+      cascade: '#3',
+      pause: '#441',
+      classic: '#531',
+      ramp: '#97531',
+      polyrhythm: '#3:2/2-2x-2/2x-2',
+      box: '#(4,2x)(2x,4)',
     };
     const seen: string[] = [];
-    // A sync card takes its short form (v4.3 ruling 3).
-    const sync: Record<string, string> = { box: '#(4,2x)(2x,4)~height-drum', 'sync-fountain': '#(4,4)~height-drum' };
-    for (const p of PRESETS.filter((c) => c.parts.length === 2 && isSyncSet(c.parts))) {
-      const state = { parts: p.parts, ratio: p.ratio, bpm: DEFAULT_BPM, mapping: p.mapping };
-      const hash = encodeHash(state);
-      expect(hash, p.id).toBe(sync[p.id]);
-      roundTrips(hash, state);
-    }
-    for (const p of PRESETS.filter((c) => c.parts.length === 2 && !isSyncSet(c.parts))) {
+    for (const p of PRESETS.filter((c) => c.parts.length === 2)) {
       seen.push(p.id);
-      const state = { parts: p.parts, ratio: p.ratio, bpm: DEFAULT_BPM, mapping: p.mapping };
-      const hash = encodeHash(state);
-      if (p.id in short) expect(hash).toBe(short[p.id]);
-      roundTrips(hash, state);
+      const hash = encodeHash(at(p));
+      if (p.id in short) expect(hash, p.id).toBe(short[p.id]);
+      roundTrips(hash, at(p));
+      // Listen for height or pitch names itself after a ~.
+      for (const listen of ['height', 'pitch'] as const) {
+        const named = encodeHash(at(p, listen));
+        expect(named.endsWith(`~${listen}`), p.id).toBe(true);
+        roundTrips(named, at(p, listen));
+      }
     }
     expect(Object.keys(short).every((id) => seen.includes(id))).toBe(true);
   });
+
   test('the tempo rides after @ unless it is the default', () => {
     const base = { ...shared(defaultState()), parts: vanillaParts('531') };
     expect(encodeHash({ ...base, bpm: 140 })).toBe('#531@140');
     expect(encodeHash({ ...base, bpm: DEFAULT_BPM })).toBe('#531');
     roundTrips('#531@140', { ...base, bpm: 140 });
-    const drum = { ...base, mapping: applyPreset('height-drum'), bpm: 140 };
-    expect(encodeHash(drum)).toBe('#531~height-drum@140');
-    roundTrips('#531~height-drum@140', drum);
+    const drum = { ...base, listen: 'height' as const, bpm: 140 };
+    expect(encodeHash(drum)).toBe('#531~height@140');
+    roundTrips('#531~height@140', drum);
     expect(decodeState('531~nope', 'short')).toBeNull();
     expect(decodeState('531~custom', 'short')).toBeNull();
+    expect(decodeState('531~toString', 'short')).toBeNull();
     const hands = { ...base, parts: lineParts(['2 2x 2', '2x 2'], { a: 3, b: 2 }), ratio: { a: 3, b: 2 } };
     expect(encodeHash({ ...hands, bpm: 90 })).toBe('#3:2/2-2x-2/2x-2@90');
   });
 
-  test('a changed mapping, a phase, a third part or a odd tempo fall back to #v2.', () => {
+  test('old ~names still read (v5 ruling 6); Voice per part reads as height, with a notice', () => {
+    const named = (name: string) => decodeState(`531~${name}@140`, 'short');
+    expect(named('height-drum')).toMatchObject({ listen: 'height', notice: null, bpm: 140 });
+    expect(named('height-pitch')).toMatchObject({ listen: 'pitch', notice: null });
+    expect(named('ball-pitch')).toMatchObject({ listen: 'ball', notice: null });
+    expect(named('voice-per-part')).toMatchObject({ listen: 'height', notice: copy.voicePerPartGone });
+    for (const listen of ['height', 'ball', 'pitch'] as const) expect(named(listen)).toMatchObject({ listen, notice: null });
+    // Re-encoded, an old name writes the new one.
+    expect(encodeHash(named('height-drum') as Shared)).toBe('#531~height@140');
+    expect(route('#531~voice-per-part')).toEqual({ view: 'play', state: '531~voice-per-part', version: 'short' });
+  });
+
+  test('other switches or drum machines, a phase, a third part or an odd tempo fall back to #v3.', () => {
     const base = { ...shared(defaultState()), parts: vanillaParts('531') };
-    const v2 = (s: typeof base) => expect(encodeHash(s).startsWith('#v2.')).toBe(true);
-    v2({ ...base, mapping: custom });
-    v2({ ...base, parts: withPhase(base.parts, 1, 2, 1) });
-    v2({ ...base, bpm: 100.5 });
-    v2({ ...base, parts: lineParts(['3', '3', '3'], { a: 1, b: 1 }) });
+    const v3 = (s: Shared) => expect(encodeHash(s).startsWith('#v3.')).toBe(true);
+    v3({ ...base, also: { ...DEFAULT_ALSO, pad: true } });
+    v3({ ...base, kitShift: 1 });
+    v3({ ...base, ...mine });
+    v3({ ...base, parts: withPhase(base.parts, 1, 2, 1) });
+    v3({ ...base, bpm: 100.5 });
+    v3({ ...base, parts: lineParts(['3', '3', '3'], { a: 1, b: 1 }) });
     const hands = { ...base, parts: lineParts(['2 2x 2', '2x 2'], { a: 3, b: 2 }), ratio: { a: 3, b: 2 } };
-    v2({ ...hands, parts: withPhase(hands.parts, 1, 2, 1) });
-    v2({ ...hands, mapping: custom });
+    v3({ ...hands, parts: withPhase(hands.parts, 1, 2, 1) });
+    v3({ ...hands, kitShift: 4 });
     // Two parts at 1:1 that are not one siteswap (a hand each) have no short form.
-    v2({ ...base, parts: lineParts(['3', '4'], { a: 1, b: 1 }) });
+    v3({ ...base, parts: lineParts(['3', '4'], { a: 1, b: 1 }) });
     // Default-rule parts are not written throws.
-    v2({ ...base, parts: partsFromOnsets([[true, false], [true]], [1, 1]) });
+    v3({ ...base, parts: partsFromOnsets([[true, false], [true]], [1, 1]) });
+    // And each round-trips through #v3. with its sound.
+    const back = decodeState(payloadOf(encodeHash({ ...base, ...mine })));
+    expect(soundOf(back)).toEqual(mine);
   });
 
-  test('a preset on another kit has no short form and round-trips through #v2. with the kit intact', () => {
-    const base = { ...shared(defaultState()), parts: vanillaParts('531') };
-    const lm2: Mapping = { ...base.mapping, parts: base.mapping.parts.map((v) => ({ ...v, kit: 'LM-2' })) };
-    const state = { ...base, mapping: lm2 };
-    expect(presetOf(lm2)).toBe('voice-per-part');
-    const hash = encodeHash(state);
-    expect(hash.startsWith('#v2.')).toBe(true);
-    const back = decodeState(hash.slice('#v2.'.length));
-    expect(back?.mapping.parts.map((v) => v.kit)).toEqual(['LM-2', 'LM-2']);
-    expect(encodeState(back as NonNullable<typeof back>)).toBe(encodeState(state));
-  });
-
-  test('a short link is decoded by the parsers the Pattern tab uses', () => {
+  test('a short link is decoded by the parsers the Pattern tab uses, on the default sound', () => {
     const typed = decodeState('531', 'short');
     expect(typed?.parts).toEqual(vanillaParts('531'));
     expect(typed?.ratio).toEqual({ a: 1, b: 1 });
     expect(typed?.bpm).toBe(DEFAULT_BPM);
-    expect(typed?.mapping).toEqual(DEFAULT_MAPPING);
+    expect(soundOf(typed)).toEqual(DEFAULT_SOUND);
+    expect(typed?.notice).toBeNull();
     expect(decodeState('531@9999', 'short')?.bpm).toBe(BPM_RANGE.max);
     expect(decodeState('531@', 'short')?.bpm).toBe(DEFAULT_BPM);
     expect(decodeState('531@abc', 'short')?.bpm).toBe(DEFAULT_BPM);
     const hands = decodeState('6:4/2-2x-2/2x-2', 'short');
     expect(hands?.ratio).toEqual({ a: 6, b: 4 });
     expect(hands?.parts).toEqual(lineParts(['2 2x 2', '2x 2'], { a: 6, b: 4 }));
+  });
+
+  test('a cut card (v5 §4) still opens from its short link', () => {
+    for (const text of ['423', '55500', '534', '645']) expect(decodeState(`${text}~height-drum`, 'short')?.parts, text).toEqual(vanillaParts(text));
+    expect(decodeState('(4,4)~height-drum', 'short')?.parts).toHaveLength(2);
+    expect(decodeState('3p-3-3-3|3p-3-3-3~height-drum', 'short')?.parts).toHaveLength(4);
   });
 
   test('junk short forms decode to nothing, so the defaults load', () => {
@@ -463,48 +464,45 @@ describe('short passing links (ruling 6)', () => {
     if (!r.ok) throw new Error(text);
     return r.parts;
   };
-  const base = (): Pick<AppState, 'parts' | 'ratio' | 'bpm' | 'mapping'> => ({
-    parts: passing('<3p 3|3p 3>'),
-    ratio: { a: 1, b: 1 },
-    bpm: DEFAULT_BPM,
-    mapping: withPartCount(DEFAULT_MAPPING, 4),
-  });
+  const base = (): Shared => ({ ...defaultState(), parts: passing('<3p 3|3p 3>'), ratio: { a: 1, b: 1 }, bpm: DEFAULT_BPM });
   const back = (hash: string) => {
     const r = route(hash);
     expect(r.version).toBe('short');
     return decodeState(r.state as string, 'short');
   };
 
-  test('#3p-3|3p-3 round-trips, tempo and preset included', () => {
+  test('#3p-3|3p-3 round-trips, tempo and listen included', () => {
     const state = base();
     expect(encodeHash(state)).toBe('#3p-3|3p-3');
     expect(encodeState(back('#3p-3|3p-3') as NonNullable<ReturnType<typeof back>>)).toBe(encodeState(state));
-    const drum = { ...state, mapping: withPartCount(applyPreset('height-drum'), 4), bpm: 140 };
-    expect(encodeHash(drum)).toBe('#3p-3|3p-3~height-drum@140');
-    expect(encodeState(back('#3p-3|3p-3~height-drum@140') as NonNullable<ReturnType<typeof back>>)).toBe(encodeState(drum));
+    const drum = { ...state, listen: 'height' as const, bpm: 140 };
+    expect(encodeHash(drum)).toBe('#3p-3|3p-3~height@140');
+    expect(encodeState(back('#3p-3|3p-3~height@140') as NonNullable<ReturnType<typeof back>>)).toBe(encodeState(drum));
   });
   test('three jugglers write p<n>', () => {
-    const state = { ...base(), parts: passing('<3p2 3|3p3 3|3p1 3>'), mapping: withPartCount(DEFAULT_MAPPING, 6) };
+    const state = { ...base(), parts: passing('<3p2 3|3p3 3|3p1 3>') };
     expect(encodeHash(state)).toBe('#3p2-3|3p3-3|3p1-3');
     expect(back('#3p2-3|3p3-3|3p1-3')?.parts).toEqual(state.parts);
   });
   test('a percent-encoded | still reads', () => {
     expect(route('#3p-3%7C3p-3')).toEqual({ view: 'play', state: '3p-3|3p-3', version: 'short' });
   });
-  test('the passing card, with its kits, writes #v2. and round-trips', () => {
+  test('the passing card carries no sound, so it is a short link now; on other drum machines it writes #v3.', () => {
     const card = PRESETS.find((p) => p.id === 'passing')!;
-    const state = { parts: card.parts, ratio: card.ratio, bpm: DEFAULT_BPM, mapping: card.mapping };
-    const hash = encodeHash(state);
-    expect(hash.startsWith('#v2.')).toBe(true);
-    const out = decodeState(hash.slice('#v2.'.length));
-    expect(out?.mapping.parts.map((v) => v.kit)).toEqual(['TR-808', 'TR-808', 'LM-2', 'LM-2']);
-    expect(encodeState(out as NonNullable<typeof out>)).toBe(encodeState(state));
+    const state = { ...base(), parts: card.parts, ratio: card.ratio };
+    expect(encodeHash(state)).toBe('#3p-3|3p-3');
+    const shifted = { ...state, kitShift: 1 };
+    const hash = encodeHash(shifted);
+    expect(hash.startsWith('#v3.')).toBe(true);
+    const out = decodeState(payloadOf(hash));
+    expect(out?.kitShift).toBe(1);
+    expect(encodeState(out as NonNullable<typeof out>)).toBe(encodeState(shifted));
   });
-  test('a changed mapping or phase falls back to #v2.', () => {
-    expect(encodeHash({ ...base(), mapping: custom }).startsWith('#v2.')).toBe(true);
-    expect(encodeHash({ ...base(), parts: withPhase(base().parts, 1, 2, 1) }).startsWith('#v2.')).toBe(true);
+  test('a changed switch or a phase falls back to #v3.', () => {
+    expect(encodeHash({ ...base(), also: { ...DEFAULT_ALSO, catches: true } }).startsWith('#v3.')).toBe(true);
+    expect(encodeHash({ ...base(), parts: withPhase(base().parts, 1, 2, 1) }).startsWith('#v3.')).toBe(true);
     // Four manual parts that are not a passing set have no short form.
-    expect(encodeHash({ ...base(), parts: lineParts(['3', '3', '3', '3'], { a: 1, b: 1 }) }).startsWith('#v2.')).toBe(true);
+    expect(encodeHash({ ...base(), parts: lineParts(['3', '3', '3', '3'], { a: 1, b: 1 }) }).startsWith('#v3.')).toBe(true);
   });
   test('#3p3 with no | stays vanilla, with a 25', () => {
     expect(back('#3p3')?.parts).toEqual(vanillaParts('3p3'));
@@ -521,10 +519,10 @@ describe('short passing links (ruling 6)', () => {
 });
 
 describe('sync links (v3 ruling 5, v4.3 ruling 3)', () => {
-  const syncState = (text: string, extra: Partial<Parameters<typeof encodeHash>[0]> = {}) => {
+  const syncState = (text: string, extra: Partial<Shared> = {}): Shared => {
     const r = partsFromSync(text);
     if (!r.ok) throw new Error(text);
-    return { parts: r.parts, ratio: { a: 1, b: 1 }, bpm: DEFAULT_BPM, mapping: withPartCount(DEFAULT_MAPPING, 2), ...extra };
+    return { ...defaultState(), parts: r.parts, ratio: { a: 1, b: 1 }, bpm: DEFAULT_BPM, ...extra };
   };
 
   test.each(['(4,2x)(2x,4)', '(4,4)', '(6x,4)(4,6x)', '(4x,2x)'])('%s encodes short and round-trips', (text) => {
@@ -538,33 +536,33 @@ describe('sync links (v3 ruling 5, v4.3 ruling 3)', () => {
     expect(encodeState(back as NonNullable<typeof back>)).toBe(encodeState(state));
   });
 
-  test('with a preset and a tempo', () => {
-    const mapping = withPartCount(applyPreset('height-drum'), 2);
-    expect(encodeHash(syncState('(4,2x)(2x,4)', { mapping }))).toBe('#(4,2x)(2x,4)~height-drum');
-    expect(encodeHash(syncState('(4,2x)(2x,4)', { mapping, bpm: 140 }))).toBe('#(4,2x)(2x,4)~height-drum@140');
+  test('with a listen and a tempo', () => {
+    expect(encodeHash(syncState('(4,2x)(2x,4)', { listen: 'height' }))).toBe('#(4,2x)(2x,4)~height');
+    expect(encodeHash(syncState('(4,2x)(2x,4)', { listen: 'pitch', bpm: 140 }))).toBe('#(4,2x)(2x,4)~pitch@140');
     expect(encodeHash(syncState('(4,2x)(2x,4)', { bpm: 90 }))).toBe('#(4,2x)(2x,4)@90');
     const back = decodeState('(4,2x)(2x,4)~height-drum@140', 'short');
     expect(back?.bpm).toBe(140);
-    expect(presetOf(back!.mapping)).toBe('height-drum');
+    expect(back?.listen).toBe('height');
   });
 
-  test('a non-default mapping or a phase writes #v2.', () => {
-    const base = withPartCount(applyPreset('height-drum'), 2);
-    const odd = { ...base, parts: base.parts.map((v, i) => (i === 0 ? { ...v, pan: 0.9 } : v)) } as Mapping;
-    expect(encodeHash(syncState('(4,2x)(2x,4)', { mapping: odd })).startsWith('#v2.')).toBe(true);
+  test('other drum machines or a phase write #v3.', () => {
+    expect(encodeHash(syncState('(4,2x)(2x,4)', { kitShift: 2 })).startsWith('#v3.')).toBe(true);
     const s = syncState('(4,2x)(2x,4)');
-    expect(encodeHash({ ...s, parts: withPhase(s.parts, 0, 1, 1) }).startsWith('#v2.')).toBe(true);
+    expect(encodeHash({ ...s, parts: withPhase(s.parts, 0, 1, 1) }).startsWith('#v3.')).toBe(true);
   });
 
   test('an old #v2. sync link still decodes', () => {
     const s = syncState('(4,2x)(2x,4)');
-    const back = decodeState(route(encodeState(s)).state as string, 2);
+    const parts = json(encodeState(s)).p;
+    const back = decodeState(b64({ p: parts, r: [1, 1], t: 104, m: 'height-drum' }), 2);
     expect(back?.parts).toEqual(s.parts);
     expect(isSyncSet(back!.parts)).toBe(true);
+    expect(back?.listen).toBe('height');
   });
 
   test('percent-encoded forms decode through route', () => {
     expect(route('#%284%2C2x%29%282x%2C4%29%7Eheight-drum')).toEqual({ view: 'play', state: '(4,2x)(2x,4)~height-drum', version: 'short' });
+    expect(route('#%284%2C2x%29%282x%2C4%29%7Epitch')).toEqual({ view: 'play', state: '(4,2x)(2x,4)~pitch', version: 'short' });
   });
 
   test('junk gives null, and a hash that is not even shaped like a link is no state', () => {

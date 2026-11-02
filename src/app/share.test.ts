@@ -1,7 +1,7 @@
 import { describe, expect, test, vi } from 'vitest';
-import { applyPreset } from '../sound/mapping';
 import { lineParts, vanillaParts } from '../test/schedules';
-import { DEFAULT_MAPPING } from '../tunables';
+import { DEFAULT_ALSO } from '../tunables';
+import { copy } from '../ui/copy';
 import { encodeHash } from './hash';
 import { changedFields, createShare, quietly, shareLink, shareUrl } from './share';
 import { createStore, defaultState, type AppState } from './state';
@@ -58,18 +58,21 @@ const linked: AppState = {
   parts: lineParts(['441', '2'], { a: 3, b: 2 }),
   ratio: { a: 3, b: 2 },
   bpm: 90,
-  mapping: { ...DEFAULT_MAPPING, crossAccent: { velocity: 33, downbeat: null }, pad: { ...DEFAULT_MAPPING.pad, on: true } },
+  listen: 'pitch',
+  also: { catches: false, downbeat: false, pad: true },
+  kitShift: 2,
 };
 
 describe('restoring on load', () => {
-  test('a link restores pattern, ratio, tempo and the whole Mapping, and sets nothing else', () => {
+  test('a link restores pattern, ratio, tempo and the whole sound, and sets nothing else', () => {
     const t = setup(encodeHash(linked));
     t.share.start();
     const s = t.store.get();
     expect(s.parts).toEqual(linked.parts);
     expect(s.ratio).toEqual(linked.ratio);
     expect(s.bpm).toBe(90);
-    expect(s.mapping).toEqual(linked.mapping);
+    expect([s.listen, s.also, s.kitShift]).toEqual([linked.listen, linked.also, linked.kitShift]);
+    expect(s.notice).toBeNull();
     expect(s.volume).toBe(defaultState().volume);
     expect(s.sheetTab).toBeNull();
   });
@@ -121,8 +124,18 @@ describe('restoring on load', () => {
       expect(() => t.share.start()).not.toThrow();
       const s = t.store.get();
       expect(s.parts).toEqual(defaultState().parts);
-      expect(s.mapping).toBe(DEFAULT_MAPPING);
+      expect(s.listen).toBe(defaultState().listen);
+      expect(s.also).toBe(DEFAULT_ALSO);
       expect(t.replaced).toEqual([]);
+    }
+  });
+
+  test('an old link that asked for Voice per part plays by height, and says so (v5 ruling 6)', () => {
+    for (const h of ['#531~voice-per-part', '#v2.' + btoa(JSON.stringify({ p: [{ s: 2, f: 0, u: 2, t: [[6, 1]] }, { s: 2, f: 1, u: 2, t: [[6, 0]] }], r: [1, 1], t: 104, m: 'voice-per-part' })).replace(/=+$/, '')]) {
+      const t = setup(h);
+      t.share.start();
+      expect(t.store.get().listen, h).toBe('height');
+      expect(t.store.get().notice, h).toBe(copy.voicePerPartGone);
     }
   });
 
@@ -174,8 +187,8 @@ describe('writing the hash', () => {
   test('the last state hash follows at once, before the write', () => {
     const t = setup();
     t.share.start();
-    t.store.set({ mapping: applyPreset('height-pitch') });
-    expect(t.store.get().lastStateHash).toBe(encodeHash({ ...defaultState(), mapping: applyPreset('height-pitch') }));
+    t.store.set({ listen: 'pitch' });
+    expect(t.store.get().lastStateHash).toBe(encodeHash({ ...defaultState(), listen: 'pitch' }));
     expect(t.replaced).toEqual([]);
   });
 
@@ -225,17 +238,19 @@ describe('a pasted link on an open page', () => {
     expect(t.store.get().bpm).toBe(150);
     expect(t.store.get().parts).toEqual(vanillaParts('531'));
     expect(t.store.get().ratio).toBe(before.ratio);
-    expect(t.store.get().mapping).toBe(before.mapping);
+    expect(t.store.get().also).toBe(before.also);
     const changes = seen.flat();
     expect(changes).toEqual(expect.arrayContaining(['bpm', 'parts']));
-    expect(changes).not.toContain('mapping');
+    expect(changes).not.toContain('listen');
+    expect(changes).not.toContain('also');
+    expect(changes).not.toContain('kitShift');
     expect(changes).not.toContain('ratio');
   });
 
   test('coming back from About to the state it left is a no-op', () => {
     const t = setup();
     t.share.start();
-    t.store.set({ bpm: 100, mapping: applyPreset('ball-pitch') });
+    t.store.set({ bpm: 100, listen: 'height', kitShift: 3 });
     const settled = t.store.get();
     const heard = vi.fn();
     t.store.subscribe(heard);
@@ -247,7 +262,7 @@ describe('a pasted link on an open page', () => {
     expect(t.store.get().parts).toBe(settled.parts);
   });
 
-  test('a junk hash resets the four shared fields to the defaults and leaves volume and the panel', () => {
+  test('a junk hash resets the shared fields to the defaults and leaves volume and the panel', () => {
     const t = setup('', linked);
     t.share.start();
     t.store.set({ volume: 0.4, sheetTab: 'sound' });
@@ -257,7 +272,7 @@ describe('a pasted link on an open page', () => {
     expect(s.parts).toEqual(defaultState().parts);
     expect(s.ratio).toEqual({ a: 1, b: 1 });
     expect(s.bpm).toBe(defaultState().bpm);
-    expect(s.mapping).toEqual(DEFAULT_MAPPING);
+    expect([s.listen, s.also, s.kitShift]).toEqual(['ball', DEFAULT_ALSO, 0]);
     expect(s.volume).toBe(0.4);
     expect(s.sheetTab).toBe('sound');
   });
@@ -281,18 +296,20 @@ describe('changedFields', () => {
   const d = defaultState();
   test('equal values by content are not changes', () => {
     expect(
-      changedFields(d, { parts: vanillaParts('3'), ratio: { ...d.ratio }, bpm: d.bpm, mapping: applyPreset('voice-per-part') }),
+      changedFields(d, { parts: vanillaParts('3'), ratio: { ...d.ratio }, bpm: d.bpm, listen: 'ball', also: { ...d.also }, kitShift: 0 }),
     ).toEqual({});
   });
 
   test('each differing field is reported alone', () => {
-    const same = { parts: d.parts, ratio: d.ratio, bpm: d.bpm, mapping: d.mapping };
+    const same = { parts: d.parts, ratio: d.ratio, bpm: d.bpm, listen: d.listen, also: d.also, kitShift: d.kitShift };
     // New parts bring fresh drafts, so the inputs show them.
     expect(changedFields(d, { ...same, parts: vanillaParts('4') })).toEqual({ parts: vanillaParts('4'), drafts: [null, null] });
     expect(Object.keys(changedFields(d, { ...same, ratio: { a: 3, b: 2 } }))).toEqual(['ratio']);
     expect(Object.keys(changedFields(d, { ...same, ratio: { a: 1, b: 2 } }))).toEqual(['ratio']);
     expect(Object.keys(changedFields(d, { ...same, bpm: 99 }))).toEqual(['bpm']);
-    expect(Object.keys(changedFields(d, { ...same, mapping: applyPreset('ball-pitch') }))).toEqual(['mapping']);
+    expect(Object.keys(changedFields(d, { ...same, listen: 'height' }))).toEqual(['listen']);
+    expect(Object.keys(changedFields(d, { ...same, also: { ...d.also, pad: true } }))).toEqual(['also']);
+    expect(Object.keys(changedFields(d, { ...same, kitShift: 1 }))).toEqual(['kitShift']);
   });
 });
 
@@ -384,14 +401,18 @@ describe('history: push for parts, replace for the rest', () => {
     expect(t.replaced).toEqual([]);
   });
 
-  test('a tempo or mapping change replaces the current entry', () => {
+  test('a tempo or sound change replaces the current entry', () => {
     const t = started();
     t.store.set({ bpm: 90 });
     t.fire();
-    t.store.set({ mapping: applyPreset('height-drum') });
+    t.store.set({ listen: 'height' });
+    t.fire();
+    t.store.dispatch({ type: 'nextKits' });
+    t.fire();
+    t.store.dispatch({ type: 'setAlso', key: 'pad', on: true });
     t.fire();
     expect(t.pushed).toEqual([]);
-    expect(t.replaced).toHaveLength(2);
+    expect(t.replaced).toHaveLength(4);
   });
 
   test('two quick parts edits inside the debounce push once, with the last', () => {

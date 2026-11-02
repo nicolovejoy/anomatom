@@ -1,168 +1,86 @@
-// The mapping's share-link form (design §8): a preset name when the mapping is one, kits and all;
-// `{ n: name, k: kits }` when it is a preset on other kits (`k` one kit id for every part, or one per
-// part); else an object of short keys. Pure. Decoding trusts nothing: junk is repaired field by field (unknown
-// fields ignored, missing or mistyped ones taken from the defaults, numbers clamped, sample and kit
-// names checked), so a link can never produce a mapping the player cannot play.
+// Old links' sound (docs/plans/v5-sound-model.md, ruling 6). `#v1.` and `#v2.` links carried a
+// whole Mapping as `m`, and short links named a preset with `~name`; v5 keeps only what the sound
+// follows, three switches and a drum machine shift. This reads an old `m` (or a preset name) into
+// those, so every old link keeps opening. Pure. Junk never throws: whatever does not read is taken
+// from what an old link meant by default (Voice per part, on the TR-808).
 //
-//   h  nine samples for heights 1-9 (string or null)
-//   b  the ball-to-pitch list, or null
-//   p  per part: [kit, sample, pan, gain]
-//   y  byHeight (0|1)
-//   c  [catches on (0|1), catch sample]
-//   d  [cross accent velocity, downbeat sample]
-//   f  [filter on (0|1), low Hz, high Hz]
-//   a  [pad on (0|1), instrument, chord]
-//   q  [pass accent velocity, pass sample]; absent in a link from before passing
-// Old `#v1.` links carry `v: [[pan, gain], [pan, gain]]` for the two hands instead of `p` and `y`;
-// they decode to parts of the TR-808 with the default's sample per part, and read height as they did.
-import {
-  CROSS_BOOST_RANGE,
-  DEFAULT_MAPPING,
-  FILTER_HZ_RANGE,
-  GAIN_RANGE,
-  KIT_IDS,
-  KIT_SAMPLES,
-  MAX_HEIGHT,
-  MAX_MAPPING_PARTS,
-  PAN_RANGE,
-  PASS_BOOST_RANGE,
-} from '../tunables';
-import {
-  applyPreset,
-  isPresetMapping,
-  PAD_CHORD_IDS,
-  PAD_INSTRUMENT_IDS,
-  presetOf,
-  PRESET_NAMES,
-  voiceForNewPart,
-  withPartCount,
-  type Mapping,
-  type PartVoice,
-  type Sample,
-} from './mapping';
+// What an old `m` was: a preset name; `{ n: name, k: kits }` (a preset on other kits, `k` one kit
+// id or one per part); or an object of short keys:
+//   h  nine samples for heights 1-9      b  the ball-to-pitch list, or null
+//   p  per part: [kit, sample, pan, gain] y  byHeight (0|1)
+//   c  [catches on (0|1), catch sample]  d  [cross accent velocity, downbeat sample]
+//   a  [pad on (0|1), instrument, chord] (f and q, the filter and the pass, are dropped)
+// `#v1.` links carry `v: [[pan, gain], …]` instead of `p` and `y`; they read height.
+import { DEFAULT_KIT_SHIFT, DRUMMER_KITS, KIT_SAMPLES, LISTEN_RULES, MAX_HEIGHT } from '../tunables';
+import type { Also, Listen } from './drummers';
+import type { Sample } from './mapping';
 
-export function encodeMapping(m: Mapping): unknown {
-  const name = presetOf(m);
-  if (name !== 'custom') {
-    if (isPresetMapping(m, name)) return name;
-    const kits = m.parts.map((v) => v.kit);
-    return { n: name, k: kits.every((k) => k === kits[0]) ? kits[0] : kits };
-  }
-  return {
-    h: Array.from({ length: MAX_HEIGHT }, (_, i) => m.perHeight[i + 1] ?? null),
-    b: m.byBall,
-    p: m.parts.map((v) => [v.kit, v.sample, v.pan, v.gain]),
-    y: m.byHeight ? 1 : 0,
-    c: [m.catches.on ? 1 : 0, m.catches.sample],
-    d: [m.crossAccent.velocity, m.crossAccent.downbeat],
-    f: [m.filter.on ? 1 : 0, m.filter.low, m.filter.high],
-    a: [m.pad.on ? 1 : 0, m.pad.instrument, m.pad.chord],
-    q: [m.pass.velocity, m.pass.sample],
-  };
+/** The sound an old link asked for, and whether it asked for Voice per part (gone: read as height, with a notice). */
+export interface LegacySound {
+  readonly listen: Listen;
+  readonly also: Also;
+  readonly kitShift: number;
+  readonly voicePerPart: boolean;
 }
 
-/** `partCount`, when the caller knows it, gives a preset name the voices for that many parts. */
-export function decodeMapping(value: unknown, partCount?: number): Mapping {
-  if (typeof value === 'string') {
-    const name = PRESET_NAMES.find((n) => n === value);
-    const base = name ? applyPreset(name) : DEFAULT_MAPPING;
-    return partCount === undefined ? base : withPartCount(base, partCount);
-  }
-  if (!isRecord(value)) return DEFAULT_MAPPING;
-  // Only a string: a nested `n` would recurse as deep as the link is long.
-  if (typeof value.n === 'string') return withKits(decodeMapping(value.n, partCount), value.k);
-  const d = DEFAULT_MAPPING;
-  const sample = (v: unknown, fallback: Sample): Sample =>
-    v === null ? null : typeof v === 'string' && KIT_SAMPLES.includes(v) ? v : fallback;
-  const bool = (v: unknown, fallback: boolean) => (v === 1 || v === 0 ? v === 1 : fallback);
+/** Old preset names, as `m` and as a short link's `~name`, and what each now follows. */
+export const LEGACY_PRESETS: Readonly<Record<string, Listen>> = {
+  'voice-per-part': 'height',
+  'height-drum': 'height',
+  'height-pitch': 'pitch',
+  'ball-pitch': 'ball',
+};
+
+/** What every old preset switched on: the downbeat clap, nothing else. */
+const PRESET_ALSO: Also = { catches: false, downbeat: true, pad: false };
+
+const presetSound = (name: string, kitShift = DEFAULT_KIT_SHIFT): LegacySound => ({
+  listen: Object.hasOwn(LEGACY_PRESETS, name) ? (LEGACY_PRESETS[name] as Listen) : 'height',
+  also: PRESET_ALSO,
+  kitShift,
+  voicePerPart: !Object.hasOwn(LEGACY_PRESETS, name) || name === 'voice-per-part',
+});
+
+/** The index of a kit in DRUMMER_KITS, else the default shift. */
+const shiftOf = (kit: unknown): number => {
+  const i = DRUMMER_KITS.indexOf(kit as string);
+  return i === -1 ? DEFAULT_KIT_SHIFT : i;
+};
+
+/** An old link's `m`, read by ruling 6. */
+export function legacySound(value: unknown): LegacySound {
+  if (typeof value === 'string') return presetSound(value);
+  if (!isRecord(value)) return presetSound('voice-per-part');
+  // Only a string names a preset: a nested `n` would recurse as deep as the link is long.
+  if (typeof value.n === 'string') return presetSound(value.n, shiftOf(Array.isArray(value.k) ? value.k[0] : value.k));
   const arr = (v: unknown): unknown[] => (Array.isArray(v) ? v : []);
-  const pick = <T extends string>(v: unknown, ids: readonly T[], fallback: T): T =>
-    ids.find((id) => id === v) ?? fallback;
-
-  const h = arr(value.h);
-  const perHeight = Object.fromEntries(
-    Array.from({ length: MAX_HEIGHT }, (_, i) => [i + 1, sample(h[i], d.perHeight[i + 1] ?? null)]),
-  );
-  // byBall: an explicit null means none; a list of known sounds is used; anything else (missing,
-  // wrong type, empty, one unknown sound) falls back to the default mapping's, silently.
+  const bool = (v: unknown, fallback: boolean) => (v === 1 || v === 0 ? v === 1 : fallback);
+  const known = (v: unknown): v is string => typeof v === 'string' && KIT_SAMPLES.includes(v);
+  const p = arr(value.p);
+  // A link from before parts read height, as every mapping then did; else the default, Voice per part, did not.
+  const byHeight = bool(value.y, p.length === 0 && arr(value.v).length > 0);
   const b = value.b;
-  const byBall =
-    b === null
-      ? null
-      : Array.isArray(b) && b.length > 0 && b.every((s) => typeof s === 'string' && KIT_SAMPLES.includes(s))
-        ? (b as string[])
-        : d.byBall;
-
-  const voice = (kit: unknown, smp: unknown, pan: unknown, gain: unknown, i: number): PartVoice => {
-    const f = d.parts[i] ?? voiceForNewPart(d, i);
-    return {
-      kit: pick(kit, KIT_IDS, f.kit),
-      sample: sample(smp, f.sample),
-      pan: numberIn(pan, PAN_RANGE.min, PAN_RANGE.max, f.pan),
-      gain: numberIn(gain, GAIN_RANGE.min, GAIN_RANGE.max, f.gain),
-    };
-  };
-  const p = arr(value.p).slice(0, MAX_MAPPING_PARTS);
-  const v = arr(value.v).slice(0, MAX_MAPPING_PARTS);
-  const parts =
-    p.length > 0
-      ? p.map((entry, i) => {
-          const [kit, smp, pan, gain] = arr(entry);
-          return voice(kit, smp, pan, gain, i);
-        })
-      : v.length > 0
-        ? v.map((entry, i) => {
-            const [pan, gain] = arr(entry);
-            return voice(undefined, undefined, pan, gain, i);
-          })
-        : d.parts;
-  const [catchOn, catchSample] = arr(value.c);
-  const [velocity, downbeat] = arr(value.d);
-  const [filterOn, low, high] = arr(value.f);
-  const [padOn, instrument, chord] = arr(value.a);
-  const [passVelocity, passSample] = arr(value.q);
+  const byBall = Array.isArray(b) && b.length > 0 && b.every(known);
+  const h = arr(value.h);
+  const pitch = LISTEN_RULES.pitch.perHeight;
+  const height = LISTEN_RULES.height.perHeight;
+  // Each height's sample as the old decoder repaired it: a known sample or null, else the default's.
+  const sampleAt = (i: number): Sample => (h[i] === null ? null : known(h[i]) ? h[i] : (height[i + 1] ?? null));
+  const isPitch = Array.from({ length: MAX_HEIGHT }, (_, i) => sampleAt(i) === pitch[i + 1]).every(Boolean);
+  const [catches] = arr(value.c);
+  const [, downbeat] = arr(value.d);
+  const [pad] = arr(value.a);
   return {
-    parts,
-    // A link from before parts read height, as every mapping then did.
-    byHeight: bool(value.y, p.length === 0 && v.length > 0 ? true : d.byHeight),
-    perHeight,
-    byBall,
-    catches: { on: bool(catchOn, d.catches.on), sample: sample(catchSample, d.catches.sample) },
-    crossAccent: {
-      velocity: numberIn(velocity, CROSS_BOOST_RANGE.min, CROSS_BOOST_RANGE.max, d.crossAccent.velocity),
-      downbeat: sample(downbeat, d.crossAccent.downbeat),
+    listen: !byHeight ? 'height' : byBall ? 'ball' : isPitch ? 'pitch' : 'height',
+    also: {
+      catches: bool(catches, false),
+      // null: no clap; a sound: a clap (of some kind); missing or junk: the default's clap.
+      downbeat: downbeat !== null,
+      pad: bool(pad, false),
     },
-    filter: {
-      on: bool(filterOn, d.filter.on),
-      low: numberIn(low, FILTER_HZ_RANGE.min, FILTER_HZ_RANGE.max, d.filter.low),
-      high: numberIn(high, FILTER_HZ_RANGE.min, FILTER_HZ_RANGE.max, d.filter.high),
-    },
-    pass: {
-      velocity: numberIn(passVelocity, PASS_BOOST_RANGE.min, PASS_BOOST_RANGE.max, d.pass.velocity),
-      sample: sample(passSample, d.pass.sample),
-    },
-    pad: {
-      on: bool(padOn, d.pad.on),
-      instrument: pick(instrument, PAD_INSTRUMENT_IDS, d.pad.instrument),
-      chord: pick(chord, PAD_CHORD_IDS, d.pad.chord),
-    },
+    kitShift: shiftOf(arr(p[0])[0]),
+    voicePerPart: !byHeight,
   };
-}
-
-/** A preset's mapping on the link's kits: one kit id for every part, or one per part; an unknown id keeps the part's kit. */
-function withKits(base: Mapping, k: unknown): Mapping {
-  const kitAt = (i: number): unknown => (Array.isArray(k) ? k[i] : k);
-  const parts = base.parts.map((v, i) => {
-    const kit = KIT_IDS.find((id) => id === kitAt(i));
-    return kit === undefined || kit === v.kit ? v : { ...v, kit };
-  });
-  return parts.every((v, i) => v === base.parts[i]) ? base : { ...base, parts };
-}
-
-/** `value` if it is a finite number, clamped to [min, max]; else the fallback. */
-function numberIn(value: unknown, min: number, max: number, fallback: number): number {
-  if (typeof value !== 'number' || !Number.isFinite(value)) return fallback;
-  return Math.min(max, Math.max(min, value));
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {

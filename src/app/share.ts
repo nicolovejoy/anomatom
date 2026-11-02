@@ -6,7 +6,8 @@
 //   any knob change: only the fields that differ are set, so the knobs queue them for the next
 //   cycle and nothing restarts or plays. A hash that carries no state is ignored when empty or
 //   `#about`, and is junk otherwise: junk loads the defaults (never throws).
-// - Every change to the parts, ratio, tempo or Mapping rewrites the hash after
+// - Every change to the parts, ratio, tempo or sound (what it follows, Also play, the drum
+//   machines) rewrites the hash after
 //   `SHARE.hashDebounceMs` of quiet, except while About is showing. A write that follows a change
 //   to the parts is a `pushState` (except `flush`, on the way out, which replaces) (a new history entry, so Back returns to the old pattern);
 //   every other write replaces the current entry. Two parts edits inside one quiet period push once.
@@ -15,7 +16,7 @@
 // - `lastStateHash` in the store is kept current at once (About's back link), not debounced. It
 //   rides in the same `store.set` as the change it follows (a `store.derive` deriver),
 //   so listeners run once per change, not twice.
-import { decodeState, encodeHash, encodeState } from './hash';
+import { decodeState, encodeHash, encodeState, type Shared } from './hash';
 import { route } from './route';
 import { defaultState, type AppState, type Store } from './state';
 
@@ -32,11 +33,8 @@ export interface ShareDeps {
   readonly debounceMs: number;
 }
 
-/** The fields the link carries. */
-type Shared = Pick<AppState, 'parts' | 'ratio' | 'bpm' | 'mapping'>;
-
-const sameMapping = (a: AppState['mapping'], b: AppState['mapping']) =>
-  a === b || encodeState({ ...defaultState(), mapping: a }) === encodeState({ ...defaultState(), mapping: b });
+const sameAlso = (a: AppState['also'], b: AppState['also']) =>
+  a === b || (a.catches === b.catches && a.downbeat === b.downbeat && a.pad === b.pad);
 
 const sameParts = (a: AppState['parts'], b: AppState['parts']) =>
   a === b || encodeState({ ...defaultState(), parts: a }) === encodeState({ ...defaultState(), parts: b });
@@ -53,12 +51,14 @@ export function changedFields(current: AppState, target: Shared): Partial<AppSta
   }
   if (target.ratio.a !== current.ratio.a || target.ratio.b !== current.ratio.b) patch.ratio = target.ratio;
   if (target.bpm !== current.bpm) patch.bpm = target.bpm;
-  if (!sameMapping(target.mapping, current.mapping)) patch.mapping = target.mapping;
+  if (target.listen !== current.listen) patch.listen = target.listen;
+  if (!sameAlso(target.also, current.also)) patch.also = target.also;
+  if (target.kitShift !== current.kitShift) patch.kitShift = target.kitShift;
   return patch;
 }
 
 const sharedChanged = (a: AppState, b: AppState) =>
-  a.parts !== b.parts || a.ratio !== b.ratio || a.bpm !== b.bpm || a.mapping !== b.mapping;
+  a.parts !== b.parts || a.ratio !== b.ratio || a.bpm !== b.bpm || a.listen !== b.listen || a.also !== b.also || a.kitShift !== b.kitShift;
 
 /**
  * `replace` that never throws: Safari raises SecurityError past 100 `replaceState` calls in 30
@@ -108,15 +108,19 @@ export function createShare(deps: ShareDeps) {
     const { view, state, version } = route(hash);
     if (view === 'about') return;
     if ((hash === '' || hash === '#') && !fromHistory) return;
-    const decoded = state === null ? null : decodeState(state, version ?? 2);
+    const decoded = state === null ? null : decodeState(state, version ?? 3);
     const d = defaultState();
     const target: Shared = {
       parts: decoded?.parts ?? d.parts,
       ratio: decoded?.ratio ?? d.ratio,
       bpm: decoded?.bpm ?? d.bpm,
-      mapping: decoded?.mapping ?? d.mapping,
+      listen: decoded?.listen ?? d.listen,
+      also: decoded?.also ?? d.also,
+      kitShift: decoded?.kitShift ?? d.kitShift,
     };
-    const patch = changedFields(store.get(), target);
+    const patch: Partial<AppState> = changedFields(store.get(), target);
+    // An old link that asked for what is gone (Voice per part) says what it plays instead.
+    if (decoded?.notice) Object.assign(patch, { notice: decoded.notice });
     if (Object.keys(patch).length === 0) return;
     restoring = true;
     try {
