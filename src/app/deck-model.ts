@@ -213,9 +213,10 @@ export function sheetWheelPlace(view: Box, stage: Box, coverTop: number, rowPx: 
 }
 
 /**
- * The phone wheel's phase (ruling 9): at `rest` the controls show; a turn makes it `spinning`
- * and it takes the sheet; when it stops it is `settling` (still shown, the picked row in the
- * band) until the return delay passes, then `rest`. A turn during the settling spins it again.
+ * The upright phone wheel's phase (ruling 9): at `rest` the controls show and an open wheel sits
+ * in its stage place; a reader's turn makes it `spinning` and it takes the sheet; when it stops
+ * it is `settling` (still on the sheet, the picked row in the band) until the return delay
+ * passes, then `rest` and the wheel closes. A turn during the settling spins it again.
  */
 export type WheelPhase = 'rest' | 'spinning' | 'settling';
 export type WheelEvent = 'turn' | 'stop' | 'return' | 'close';

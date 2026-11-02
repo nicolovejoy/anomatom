@@ -21,21 +21,25 @@ test.describe('phone, 390×844', () => {
     const bar = page.locator('.deck-bar');
     await expect(wheel).toBeVisible();
 
-    // Open, the wheel covers the deck and the sheet, edge to edge along the bottom of the page.
+    // At rest, a first visit's open wheel is over the stage: Play and the deck show under it.
+    const rest = (await wheel.boundingBox())!;
+    expect(rest.y + rest.height).toBeLessThanOrEqual((await bar.boundingBox())!.y + 1);
+    await expect(page.locator('#play')).toBeInViewport();
+    await shot(page, 'wheel-rest-first-visit');
+
+    await page.locator('.deck-wheel-list').hover();
+    await page.mouse.wheel(0, 64);
+    await expect.poll(() => phase(page)).not.toBe('rest');
+    await expect(wheel).toBeVisible();
+    // Turning, it takes the sheet: the deck and the sheet are under it, the figure above.
     const w = (await wheel.boundingBox())!;
     const b = (await bar.boundingBox())!;
     expect(w.x).toBe(0);
     expect(w.width).toBe(390);
     expect(w.y).toBeLessThanOrEqual(b.y);
     expect(w.y + w.height).toBeGreaterThanOrEqual(844 - 1);
-    // Hands only on the stage: the figure is still in view above the wheel.
     const stage = (await page.locator('.region-juggler').boundingBox())!;
     expect(stage.height - Math.max(0, stage.y + stage.height - w.y)).toBeGreaterThanOrEqual(200);
-
-    await page.locator('.deck-wheel-list').hover();
-    await page.mouse.wheel(0, 64);
-    await expect.poll(() => phase(page)).not.toBe('rest');
-    await expect(wheel).toBeVisible();
     await shot(page, 'wheel-turning');
 
     // Stopped, the wheel keeps the sheet for the settle delay, then gives it back.
@@ -61,6 +65,8 @@ test.describe('phone, 390×844', () => {
     await page.mouse.wheel(0, 64);
     await expect.poll(() => phase(page)).toBe('settling');
     await page.waitForTimeout(1000);
+    // The wheel moved to the sheet when the turn began: the pointer goes to it again.
+    await page.locator('.deck-wheel-list').hover();
     await page.mouse.wheel(0, 64);
     await expect.poll(() => phase(page)).not.toBe('rest');
     await page.waitForTimeout(900);
@@ -98,6 +104,26 @@ test.describe('phone, 390×844', () => {
 
 test.describe('wide, 1280×800', () => {
   test.use({ viewport: { width: 1280, height: 800 } });
+
+  // A stale goal at rest dragged the docked wheel back to the old pick while Tab walked its rows.
+  test('a pick by the wheel, then Tab through the rows: the focused row stays in view', async ({ page }) => {
+    await page.goto('/');
+    await page.locator('.deck-wheel-list').hover();
+    await page.mouse.wheel(0, 64);
+    await expect(page.locator('.deck-notation')).not.toHaveText('3');
+    await page.waitForTimeout(500);
+    const picked = await page.locator('.deck-notation').textContent();
+    const row = await page.locator('.deck-row.on').getAttribute('data-row');
+    await page.locator('.deck-row.on').focus();
+    for (let i = 0; i < 4; i++) {
+      await page.keyboard.press('Tab');
+      await page.waitForTimeout(250);
+    }
+    await page.waitForTimeout(600);
+    // The band and the pattern stay on the pick; nothing dragged the list back.
+    await expect(page.locator('.deck-row.in-band')).toHaveAttribute('data-row', row!);
+    await expect(page.locator('.deck-notation')).toHaveText(picked!);
+  });
 
   // The band sat two rows short of a typed 97531: the smooth scroll to a row far round the loop
   // crossed the margin where the list turns itself, which cut the scroll off.
