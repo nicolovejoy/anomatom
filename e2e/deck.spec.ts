@@ -523,9 +523,9 @@ test.describe('About', () => {
   test('three layers: what it is and how to use it, the words, then the sources below the glossary', async ({ page }) => {
     await page.goto('/#about');
     await expect(page.locator('.about > section')).toHaveCount(3);
-    await expect(page.locator('.about-intro > p')).toHaveCount(2);
+    await expect(page.locator('.about-intro > p')).toHaveCount(4);
     await expect(page.locator('.about-intro li')).toHaveCount(3);
-    await expect(page.locator('.about-glossary dt')).toHaveText(['Siteswap', 'Cascade', 'Pass', 'Sync', 'Ratio']);
+    await expect(page.locator('.about-glossary dt')).toHaveText(['Siteswap', 'Cascade', 'Pass', 'Sync', 'Ratio', 'Cycle']);
     await expect(page.locator('.about-sources h3')).toHaveText('Sources and details');
     await expect(page.locator('.about-sources a', { hasText: 'math notes' })).toHaveAttribute('href', /docs\/MATH\.md$/);
     const glossary = (await page.locator('.about-glossary').boundingBox())!;
