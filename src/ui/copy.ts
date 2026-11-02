@@ -157,14 +157,16 @@ export const copy = {
    * the math notes, the credits and the repo. No other prose.
    */
   aboutIntro: [
-    'anomatom juggles a pattern and plays a drum on every throw.',
-    'The height of a throw is the length of its note, so a juggling pattern is a rhythm you can see and hear.',
+    'anomatom plays a juggling pattern as a rhythm.',
+    'A pattern has one or more jugglers. Each juggler has two hands, and each hand throws on its beats. Every throw has a height and carries a ball; the height is how many beats the ball stays up.',
+    'The app shows the jugglers throwing and plays one sound for every throw, in time. The sound follows the throw: its height or its ball. Each juggler plays through a drum machine of their own.',
+    'So a pattern you can see becomes a rhythm you can hear.',
   ],
   aboutHowHeading: 'How to use it',
   aboutHow: [
-    'Pick a pattern from the wheel, or step through them with ‹ and ›.',
+    'Pick a pattern from the wheel, or type your own.',
     'Tap Play. Space plays and pauses too.',
-    'Details changes the sound; Make your own lets you type a pattern.',
+    'Share copies a link that opens the same pattern, at the same tempo, with the same sounds.',
   ],
   aboutGlossaryHeading: 'Words',
   aboutGlossary: [
@@ -173,6 +175,7 @@ export const copy = {
     { term: 'Pass', text: 'A throw to another juggler, marked with a p, as in <3p 3|3p 3>.' },
     { term: 'Sync', text: 'Both hands throw at once, written as a pair in parentheses, as in (4,4).' },
     { term: 'Ratio', text: 'How fast two hands beat against each other: at 3:2, hand 1 takes three beats while hand 2 takes two.' },
+    { term: 'Cycle', text: 'How long a pattern runs before every ball is back where it started.' },
   ] as readonly { term: string; text: string }[],
   aboutSourcesHeading: 'Sources and details',
   aboutReadingHeading: 'What I read',
