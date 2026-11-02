@@ -105,7 +105,17 @@ The v1 rule that the last valid pattern keeps playing, with the broken one greye
 
 ### 4.3 Sound panel
 
-A drawer over the play view. Every control edits one field of the Mapping. Defaults are the v1 mapping in §6.
+(v5, 2026-11-02, `docs/plans/v5-sound-model.md` rulings 1 to 7; this replaces the lists below.) A pattern carries no sound. Three global choices do, and loading a card never changes them:
+
+- **Listen for**: what a throw's sound follows. The height of each throw (once Height to drum), each ball (once Ball to pitch; the default), or the height as a pitch (once Height to pitch). An ⓘ beside it shows one plain line per choice. The deck bar's one sound control is the same choice, as a select.
+- **Drum machines**: each juggler on stage plays through a drum machine of their own. The panel lists each juggler with its kit's name, in the juggler's stage colour where the stage has one, read only, and one button, **Change drum machines**, which moves every juggler to the next kit at once (TR-808, LM-2, MFB-512, Roland CR-8000, Casio RZ-1, round again). A solo pattern steps through all five; a passing pattern keeps its jugglers apart.
+- **Also play**: three switches. Catches (a sound on each catch), Downbeat (a clap on a cross caught on a beat every hand shares; on by default), Pad (the Mellotron Dm9 chord at the start of each cycle).
+
+The panel holds, top to bottom: Volume (half by default), Listen for, Tempo, Drum machines, Also play. There is no per-height or per-hand sample, no pan, gain, accent, pass or filter control, no pad instrument or chord, and no kit select: pan comes from the juggler's place on the stage (§6.2). The Mapping is derived from these choices (`mappingOf`), never stored.
+
+The share link (`#v3.`) carries the pattern, ratio, tempo and the three choices, each only when it is not the default. A short link names only what the sound follows (`#531~pitch`), and only when the switches and drum machines are the defaults. Old `#v1.`, `#v2.` and short links keep opening: their Mapping is read into the three choices, and one that asked for Voice per part plays by height, with a notice.
+
+The v4 panel, kept for the record:
 
 1. Kit: TR-808 (only option in v1; the dropdown exists so a second kit is one entry).
 2. Preset: Height to drum (default) · Height to pitch · Ball to pitch. Choosing a preset rewrites the fields below; editing a field afterwards shows "custom".
@@ -121,7 +131,7 @@ A drawer over the play view. Every control edits one field of the Mapping. Defau
 
 (v2 wave 1, 2026-10-30) Item 1 lists five kits: TR-808 (default), Casio RZ-1, LinnDrum LM-2, MFB-512, Roland CR-8000, and sets every part's kit. Sound names stay the TR-808's; each kit plays each on its own sample, borrowing the nearest where it has none (`KIT_ROLES`). The kit is not part of a preset: choosing a kit keeps the preset's name, and choosing a preset keeps the kit.
 
-The share link encodes pattern, ratio, tempo and the whole Mapping in the URL hash. Opening such a link restores all of it and does not auto-play.
+The share link encodes pattern, ratio, tempo and the whole Mapping in the URL hash. Opening such a link restores all of it and does not auto-play. (v5: the link carries the three choices above, not the Mapping.)
 
 ### 4.4 About
 
@@ -145,10 +155,10 @@ v2 rules (2026-10-29):
 9. Sound is never gated. Juggleability decides what the picture draws, never whether a sound plays. Every onset of every part sounds under the Mapping whatever the verdict.
 10. N parts. Nothing in the core or the app state assumes two; a part is an index. Two are shown in the model waves.
 11. Phase is per part, in integer pulses. A requested phase off the lattice refines the lattice (spacings, phases, units and heights scaled together); the cycle readout updates and the pulse length in seconds shrinks so nothing audible moves except the shifted part. Stepping in whole pulses never refines.
-12. Stored state holds primitives only: the parts (grid, onsets, phase, k, manual digits), ratio, tempo, volume, Mapping and UI state. Nothing derived is stored, so nothing derived can disagree with the primitives.
+12. Stored state holds primitives only: the parts (grid, onsets, phase, k, manual digits), ratio, tempo, volume, the sound (v5: what it follows, the Also play switches, the drum machine shift; the Mapping is derived) and UI state. Nothing derived is stored, so nothing derived can disagree with the primitives.
 13. Every transition with a rule is a named action handled by one pure function, `reduce(state, action)` in `src/app/actions.ts`: toggle an onset, set k, set a phase, edit a draft, reset a group, set the ratio, set the tempo, load a preset, generate, swap sites. The rules of `MATH.md` §9.5 and §9.6 live there and nowhere else: editing an `x` makes its cross group manual; an onset change drops a manual group's flights and returns the notice; a phase off the lattice refines it; k is not available on a manual group. Mounts dispatch actions and do not write patches. It is unit tested with fakes at 100% lines.
 14. Everything derived comes from one memoised selector, `derived(state)` in `src/app/derived.ts`, keyed on state identity and computed once per change: the Schedule (with cycle, lattice and verdict), the texts per hand, the cross groups and ball counts, the fixes, and the fractional-mean message. Every mount reads it; none recomputes it. A reset notice is an action result held in `notice`, not derived state.
-15. The share link keeps working: `#v2.` encodes the parts, ratio, tempo and Mapping; old `#v1.` links and short links such as `#531@140` decode to the same Schedule as before.
+15. The share link keeps working: `#v3.` encodes the parts, ratio, tempo and sound (v5; `#v2.` encoded the Mapping); old `#v1.` and `#v2.` links and short links such as `#531@140` decode to the same Schedule as before.
 
 ## 6. Default mapping (v1)
 
@@ -171,6 +181,25 @@ The default is **voice per part**: each part has a kit, a sample, a pan and a ga
 Fallback when the predicates fail. For a part in a faulted group (`event.ball` is null) the hit uses the part's voice, and the event's flight length is the gap from the onset to that part's next onset, the one-ball value, which is always defined. So height-reading presets still produce a sound and the ear never notices that the picture is broken. The Schedule guarantees this value for faulted parts (ruling of 2026-10-29 in `docs/plans/model-waves.md`), so the sound has one code path.
 
 What existing things sound like: the five juggling preset cards keep "Height to drum", because height is what makes `531` interesting to hear; sourcebook presets carry voice per part; old `#v1.…` links carry their mapping and restore it. Only a fresh state with no card and no link takes the new default, so nothing that plays today changes its sound.
+
+### 6.2 The sound model (v5, 2026-11-02)
+
+`docs/plans/v5-sound-model.md`, rulings 1 to 6; this supersedes §6.1. Voice per part is gone from every list, and with it "the sound is invariant under ball count": every rule now reads the throw, so a hand's ball knob changes the sound with the heights. The stored sound is three fields, all global: `listen` (`height`, `ball` or `pitch`; default `ball`), `also` (catches, downbeat, pad; default the downbeat only) and `kitShift` (0 to 4; default 0). Loading a card sets the pattern only.
+
+`mappingOf(listen, also, kitShift, parts)` (`src/sound/drummers.ts`) builds the Mapping the player reads, in the shape the scheduler and drum machine have always read:
+
+| Field | v5 rule |
+| --- | --- |
+| per height, by ball | the rule `listen` names: `height` is the v1 table above, `pitch` nine distinct steps (the higher the throw, the lower the sound), `ball` each ball one sound whatever its height |
+| one voice per hand | hand h belongs to juggler floor(h / 2); its kit is `DRUMMER_KITS[(j + kitShift) mod 5]`, its gain 1 |
+| pan | from the stage: for N jugglers, juggler j (juggler 1 drawn on the left) sits at c = 0 for one, else -0.6 + 1.2·j/(N - 1); its hands at c ∓ d, d = 0.6 for one juggler, else min(0.2, 0.6/(N - 1)). One juggler: -0.6, 0.6; two: -0.8, -0.4, 0.4, 0.8 |
+| catches | rimshot, when `also.catches` |
+| cross accent | +20 velocity; a clap on a coincident pulse when `also.downbeat` |
+| pass | +20 velocity, its own sound |
+| filter | off |
+| pad | Mellotron, Dm9, when `also.pad` |
+
+Old links: an old Mapping reads into the three fields by its rule (Voice per part reads as height, with a notice; a custom mapping is ball when it had a ball list, pitch when its heights were Height to pitch's, else height), `also` from its catches, downbeat sound and pad, and `kitShift` from part 0's kit. A link with no Mapping at all takes today's defaults.
 
 ## 7. Done means
 
