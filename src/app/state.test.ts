@@ -1,6 +1,6 @@
 import { expect, test, vi } from 'vitest';
 import { partsFromVanilla } from '../core';
-import { DEFAULT_ALSO, DEFAULT_BPM, DEFAULT_KIT_SHIFT, DEFAULT_LISTEN, DEFAULT_PATTERN, DEFAULT_VOLUME } from '../tunables';
+import { DEFAULT_ALSO, DEFAULT_BPM, DEFAULT_KIT_SHIFT, DEFAULT_LISTEN, DEFAULT_PANEL, DEFAULT_PATTERN, DEFAULT_VOLUME } from '../tunables';
 import { derived } from './derived';
 import { createStore, defaultState } from './state';
 
@@ -17,6 +17,7 @@ test('the defaults come from the tunables', () => {
     kitShift: DEFAULT_KIT_SHIFT,
     lastStateHash: null,
     sheetTab: null,
+    panel: DEFAULT_PANEL,
     muted: false,
     notice: null,
   });

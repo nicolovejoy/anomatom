@@ -34,7 +34,7 @@ function linkLabel(href: string): string {
   return path.length > 0 && host.length + path.length < 40 ? host + path : host;
 }
 
-/** Layer 1: what anomatom is, in two lines, then how to use it, in three. */
+/** Layer 1: what anomatom is, in two lines, then how to use it, in four. */
 function intro(): HTMLElement {
   const s = el('section');
   s.className = 'about-intro';

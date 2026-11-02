@@ -97,6 +97,16 @@ button:disabled {
 .topbar-confirm[hidden] {
   display: none;
 }
+.topbar-left {
+  display: flex;
+  align-items: center;
+  gap: 20px;
+  min-width: 0;
+}
+/* The pattern name and the panel choice live in the top bar only on the wide layout. */
+.panel-choice {
+  display: none;
+}
 .topbar-actions {
   display: flex;
   align-items: center;
@@ -266,4 +276,86 @@ button:disabled {
 #app.is-wide .region-sheet {
   grid-area: sheet;
   min-height: 0;
+}
+
+/* -------------------------------------------------------------------------------------------
+   The wide layout (docs/plans/v5-sound-model.md, ruling 8; .is-web, set by mount-layout.ts when
+   wide and tall enough). The top bar: the mark, the pattern's name, the Patterns / Sound / Stage
+   choice, Share and About. Below it the stage, with Play and the key caps under it, and one panel
+   beside it: Patterns (the wheel, then the Pattern and Rhythm tabs) or Sound; Stage shows none.
+   ------------------------------------------------------------------------------------------- */
+
+/* A key cap, wherever one shows (the bar, the Sound panel). Square, as the deck is. */
+kbd {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 22px;
+  height: 22px;
+  padding: 0 5px;
+  border: 1px solid var(--handle);
+  background: var(--raised);
+  color: var(--text-2);
+  font: 500 12px var(--font-ui);
+}
+#app.is-web .topbar {
+  height: 56px;
+  padding: 0 8px 0 24px;
+}
+#app.is-web .topbar-main {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
+  column-gap: 16px;
+}
+#app.is-web .topbar-main[hidden] {
+  display: none;
+}
+#app.is-web .topbar-actions {
+  justify-self: end;
+}
+#app.is-web .panel-choice {
+  display: flex;
+  border: 1px solid var(--rule);
+  background: var(--surface);
+}
+.panel-option {
+  height: 36px;
+  padding: 0 16px;
+  border: 0;
+  background: none;
+  color: var(--muted);
+  font-size: 14px;
+  font-weight: 500;
+}
+.panel-option + .panel-option {
+  border-left: 1px solid var(--rule);
+}
+.panel-option:hover {
+  color: var(--text);
+}
+.panel-option[aria-pressed='true'] {
+  background: var(--raised);
+  color: var(--text);
+  font-weight: 600;
+  box-shadow: inset 0 -2px var(--accent);
+}
+#app.is-web .play-view {
+  grid-template-columns: minmax(0, 1fr) var(--sheet-column, 400px);
+  grid-template-rows: auto minmax(0, 1fr) auto;
+  grid-template-areas: 'stage wheel' 'stage sheet' 'bar sheet';
+  height: auto;
+}
+/* Stage: the stage alone, the whole width. */
+#app.is-web.panel-stage .play-view {
+  grid-template-columns: minmax(0, 1fr);
+  grid-template-areas: 'stage' 'stage' 'bar';
+  padding-right: 8px;
+}
+#app.is-web.panel-stage .region-sheet {
+  display: none;
+}
+/* Sound: the Sound panel alone, no tabs; Patterns: Pattern and Rhythm, never Sound. */
+#app.is-web.panel-sound .sheet-tabs,
+#app.is-web .sheet-tab[data-tab='sound'] {
+  display: none;
 }

@@ -529,6 +529,14 @@ export const SHEET = {
 /** The wordmark's "Start over?" question withdraws itself after this long. */
 export const RESET = { confirmMs: 6000 } as const;
 
+/**
+ * The wide layout (docs/plans/v5-sound-model.md, ruling 8): one panel at a time beside the stage.
+ * A first visit opens on the patterns, so a newcomer sees what there is to play (as the phone's
+ * bare address opens the wheel). The layout applies at SHEET.wideMinWidthPx wide and
+ * DECK.dockedMinHeightPx tall; shorter (a phone on its side) keeps the phone's deck.
+ */
+export const DEFAULT_PANEL = 'patterns' as const;
+
 /** The deck (docs/plans/v4-deck.md): the transport bar, the sound row and the pattern wheel. */
 export const DECK = {
   /** Rows the wheel shows; the middle one sits in the band. Odd. */

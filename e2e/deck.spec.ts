@@ -56,7 +56,8 @@ for (const size of SIZES) {
       await page.goto('/');
       await expect(page.locator('.deck-bar')).toBeVisible();
       await expect(page.locator('#play')).toBeVisible();
-      await expect(page.locator('.deck-sound')).toBeVisible();
+      // v5 ruling 8: the wide layout has no sound row (Listen for is in the Sound panel and on ↑ ↓).
+      await expect(page.locator('.deck-sound')).toBeVisible({ visible: !size.docked });
       await expect(page.locator('.deck-wheel')).toBeVisible();
       // Every preset (the 18 of v5 §4) and Make your own.
       expect(PRESETS.length).toBe(18);
@@ -103,7 +104,9 @@ for (const size of SIZES) {
       await expect.poll(() => page.evaluate(() => location.hash)).not.toBe('#3');
       await page.waitForTimeout(800);
       const hash = await page.evaluate(() => location.hash);
-      await page.locator('.deck-prev').click();
+      // No ‹ on the wide layout (v5 ruling 8): ← does it.
+      if (size.docked) await page.keyboard.press('ArrowLeft');
+      else await page.locator('.deck-prev').click();
       await expect(notation(page)).toHaveText('51');
       const fresh = await page.context().newPage();
       await fresh.goto('/' + hash);
@@ -111,7 +114,10 @@ for (const size of SIZES) {
       await fresh.close();
       // ← wraps from the first preset to the last.
       await page.goto('/#3');
-      await page.locator('.deck-prev').click();
+      if (size.docked) {
+        await page.evaluate(() => (document.activeElement as HTMLElement | null)?.blur());
+        await page.keyboard.press('ArrowLeft');
+      } else await page.locator('.deck-prev').click();
       await expect(page.locator('.deck-meta')).toHaveText(/jugglers$/);
       // Not in a text field: there the arrows move the caret.
       await openTab(page, 'pattern');
@@ -127,14 +133,19 @@ for (const size of SIZES) {
       await page.goto('/#3');
       await page.locator('#play').click();
       await expect(page.locator('#play')).toHaveText('Pause');
-      await page.locator('.deck-next').click();
+      if (size.docked) await page.keyboard.press('ArrowRight');
+      else await page.locator('.deck-next').click();
       await expect(notation(page)).toHaveText('51');
       await expect(page.locator('#play')).toHaveText('Pause');
       await page.keyboard.press('Space');
       await expect(page.locator('#play')).toHaveText('Play');
-      // Listen for pitch writes the hash; focus goes to Play, so Space plays.
-      await page.locator('#deck-listen').selectOption('pitch');
-      await expect(page.locator('#play')).toBeFocused();
+      // Listen for pitch writes the hash; focus goes to Play, so Space plays. Wide, ↓ is the
+      // deck's Listen for (ball → pitch), and focus stays where it was.
+      if (size.docked) await page.keyboard.press('ArrowDown');
+      else {
+        await page.locator('#deck-listen').selectOption('pitch');
+        await expect(page.locator('#play')).toBeFocused();
+      }
       await expect.poll(() => page.evaluate(() => location.hash)).toBe('#51~pitch');
       await page.keyboard.press('Space');
       await expect(page.locator('#play')).toHaveText('Pause');
@@ -169,6 +180,14 @@ for (const size of SIZES) {
       await page.goto('/#3');
       const master = () => page.locator('.region-deck').getAttribute('data-master');
       await expect.poll(master).toBe('0.5');
+      if (size.docked) {
+        // The wide layout has one volume, the Sound panel's, and no mute (v5 ruling 8).
+        await expect(page.locator('#mute')).toBeHidden();
+        await page.locator('.panel-option[data-panel="sound"]').click();
+        await page.locator('#sp-volume').fill('0.4');
+        await expect.poll(master).toBe('0.4');
+        return;
+      }
       await page.locator('#mute').click();
       await expect(page.locator('#mute')).toHaveAttribute('aria-pressed', 'true');
       await expect.poll(master).toBe('0');
@@ -197,7 +216,7 @@ for (const size of SIZES) {
       if (!size.docked) {
         await page.keyboard.press('Escape');
         await page.locator('.deck-pattern').click();
-      }
+      } else await page.locator('.panel-option[data-panel="patterns"]').click();
       await page.locator('.deck-own').click();
       await expect(page.locator('#tab-pattern')).toHaveAttribute('aria-selected', 'true');
       await expect(page.locator('#hand-0')).toBeVisible();
@@ -482,6 +501,9 @@ test.describe('wide, the wheel by keyboard', () => {
     await expect(page.locator('.deck-row[data-id="pause"]')).toBeFocused();
     await expect(notation(page)).toHaveText('441');
     expect(await scheduled(page)).toBe(0);
+    // The wheel keeps its own ↑ ↓: Listen for (also on ↑ ↓, v5 ruling 8) stays on ball.
+    await expect.poll(() => page.evaluate(() => location.hash)).toBe('#441');
+    await expect(page.locator('#deck-listen')).toHaveValue('ball');
     // Enter picks and plays the focused row.
     await page.keyboard.press('ArrowDown');
     await page.keyboard.press('Enter');
@@ -524,7 +546,7 @@ test.describe('About', () => {
     await page.goto('/#about');
     await expect(page.locator('.about > section')).toHaveCount(3);
     await expect(page.locator('.about-intro > p')).toHaveCount(4);
-    await expect(page.locator('.about-intro li')).toHaveCount(3);
+    await expect(page.locator('.about-intro li')).toHaveCount(4);
     await expect(page.locator('.about-glossary dt')).toHaveText(['Siteswap', 'Cascade', 'Pass', 'Sync', 'Ratio', 'Cycle']);
     await expect(page.locator('.about-sources h3')).toHaveText('Sources and details');
     await expect(page.locator('.about-sources a', { hasText: 'math notes' })).toHaveAttribute('href', /docs\/MATH\.md$/);

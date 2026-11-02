@@ -36,9 +36,14 @@ for (const size of [
       await openTab(page, 'sound');
       await page.locator('.sp-choice[data-listen="pitch"]').click();
       await expect(pressed(page)).toHaveAttribute('data-listen', 'pitch');
-      await page.locator('.deck-next').click();
+      // The wide layout has no › (v5 ruling 8): → steps there.
+      const next = async () => {
+        if (await page.locator('.deck-next').isVisible()) await page.locator('.deck-next').click();
+        else await page.keyboard.press('ArrowRight');
+      };
+      await next();
       await expect(page.locator('.deck-notation')).toHaveText('51');
-      await page.locator('.deck-next').click();
+      await next();
       await expect(page.locator('.deck-notation')).toHaveText('441');
       await openTab(page, 'sound');
       await expect(pressed(page)).toHaveAttribute('data-listen', 'pitch');

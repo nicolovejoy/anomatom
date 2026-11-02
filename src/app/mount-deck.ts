@@ -1,13 +1,18 @@
 // The deck (docs/plans/v4-deck.md, rulings 1 to 4): the transport bar (Play/Pause, ‹, the pattern,
 // ›, mute and volume), the sound row (Listen for, Details) and the pattern wheel. On a phone the
-// wheel opens over the stage from the pattern name; on a wide screen tall enough it stays open at
-// the top of the right-hand column. The logic is in deck-model.ts; this file is elements and events.
+// wheel opens over the stage from the pattern name.
+//
+// The wide layout (docs/plans/v5-sound-model.md, ruling 8; `.is-web`, wide and tall enough) is
+// different: the pattern name moves to the top bar beside the mark, the bar under the stage is
+// Play alone with key caps (no ‹ ›, no volume: Volume is the Sound panel's), the sound row goes,
+// and the wheel stays open at the top of the right-hand column while the Patterns panel shows.
+// The logic is in deck-model.ts and layout-model.ts; this file is elements and events.
 //
 // This mount owns Play and the keys that drive it: Space plays and pauses from anywhere (one
 // capturing handler), except in a pattern text input and in a control that uses Space itself
-// (keepsSpace in sheet-model.ts); ← and → step the pattern except in a field, a select, a slider
-// or a tab (stepKey in deck-model.ts). A select hands focus to Play after a choice, so both keys
-// work again at once.
+// (keepsSpace in sheet-model.ts); ← and → step the pattern, and on the wide layout ↑ and ↓ step
+// Listen for, except in a field, a select, a slider or a tab (deckKey in layout-model.ts). A
+// select hands focus to Play after a choice, so the keys work again at once.
 import { LISTENS, type Listen } from '../sound/drummers';
 import { DECK, KNOBS, SHEET } from '../tunables';
 import { copy } from '../ui/copy';
@@ -30,7 +35,6 @@ import {
   settledPick,
   start,
   stepIndex,
-  stepKey,
   toggle,
   turnsWheel,
   volumePatch,
@@ -39,6 +43,7 @@ import {
   wheelRowAt,
 } from './deck-model';
 import { cardPattern, presetPatch } from './first-minute';
+import { deckKey, nextListen, webMedia } from './layout-model';
 import type { Mount } from './mount';
 import { route } from './route';
 import { fillPercent, keepsSpace } from './sheet-model';
@@ -63,6 +68,9 @@ export const mountDeck: Mount = (root, { store, player, sound }) => {
         <svg class="icon-pause" aria-hidden="true" width="20" height="20" viewBox="0 0 24 24"><rect x="5" y="4" width="5" height="16" fill="currentColor"/><rect x="14" y="4" width="5" height="16" fill="currentColor"/></svg>
         <span class="sr-only play-label">${copy.play}</span>
       </button>
+      <div class="deck-keys" role="group" aria-label="${t.keysLabel}">${t.keys
+        .map((k) => `<span class="deck-key">${k.caps.map((c) => `<kbd>${c}</kbd>`).join('')}<span>${k.does}</span></span>`)
+        .join('')}</div>
       <button type="button" class="deck-arrow deck-prev" aria-label="${t.previous}">${chevron(true)}</button>
       <button type="button" class="deck-pattern">
         <code class="deck-notation"></code>
@@ -152,11 +160,22 @@ export const mountDeck: Mount = (root, { store, player, sound }) => {
   // The wheel
   // -------------------------------------------------------------------------------------------
 
-  const dockedQuery = window.matchMedia(`(min-width: ${SHEET.wideMinWidthPx}px) and (min-height: ${DECK.dockedMinHeightPx}px)`);
+  // The wide layout (mount-layout.ts sets `.is-web` from the same query): docked in the column.
+  const dockedQuery = window.matchMedia(webMedia(SHEET.wideMinWidthPx, DECK.dockedMinHeightPx));
   // A bare address opens with the wheel open on a phone, so a first visit sees the patterns.
   let wheelOpen = location.hash === '' || location.hash === '#';
   const docked = () => dockedQuery.matches;
-  const wheelShown = () => docked() || wheelOpen;
+  /** Docked, the wheel shows with the Patterns panel; on a phone, while opened. */
+  const wheelShown = () => (docked() ? store.get().panel === 'patterns' : wheelOpen);
+
+  // The pattern button sits in the bar, between ‹ and ›; on the wide layout, in the top bar.
+  const topSlot = document.querySelector('.topbar-pattern');
+  const nextButton = $<HTMLButtonElement>('.deck-next');
+  function placePattern() {
+    if (docked() && topSlot) {
+      if (patternButton.parentElement !== topSlot) topSlot.append(patternButton);
+    } else if (patternButton.nextElementSibling !== nextButton) nextButton.before(patternButton);
+  }
 
   /**
    * Over the stage on a phone, measured so it fits every layout: under the figure, or beside it
@@ -267,6 +286,8 @@ export const mountDeck: Mount = (root, { store, player, sound }) => {
 
   patternButton.addEventListener('click', () => {
     if (docked()) {
+      // In the top bar: shows the patterns, and takes focus to the wheel.
+      store.set({ panel: 'patterns' });
       rows[roving]?.focus();
       return;
     }
@@ -400,7 +421,10 @@ export const mountDeck: Mount = (root, { store, player, sound }) => {
     { capture: true },
   );
 
-  dockedQuery.addEventListener('change', showWheel);
+  dockedQuery.addEventListener('change', () => {
+    placePattern();
+    showWheel();
+  });
   // The stage moves as the sheet opens and closes and the window turns: the wheel follows it.
   const follow = () => {
     if (!wheel.hidden) placeWheel();
@@ -456,17 +480,18 @@ export const mountDeck: Mount = (root, { store, player, sound }) => {
   );
   document.addEventListener('keyup', (e) => isSpace(e) && e.preventDefault(), { capture: true });
 
-  // Bubbling, so a control that walks its own arrows (the ratio chips) has had them first. Only
-  // on the play view: under About the arrows scroll the page.
+  // Bubbling, so a control that walks its own arrows (the ratio chips, the wheel) has had them
+  // first. Only on the play view: under About the arrows scroll the page.
   const playView = root.closest('.play-view') as HTMLElement | null;
   document.addEventListener('keydown', (e) => {
     if (e.defaultPrevented || e.isComposing || playView?.hidden || route(location.hash).view === 'about') return;
     const el = e.target instanceof Element ? e.target : null;
     const kind = el ? keyTarget(el.tagName, el instanceof HTMLInputElement ? el.type : null, el.getAttribute('role')) : 'other';
-    const delta = stepKey(e.key, kind, { ctrl: e.ctrlKey, meta: e.metaKey, alt: e.altKey });
-    if (delta === null) return;
+    const key = deckKey(e.key, kind, { ctrl: e.ctrlKey, meta: e.metaKey, alt: e.altKey, shift: e.shiftKey }, docked());
+    if (key === null) return;
     e.preventDefault();
-    step(delta);
+    if (key.kind === 'step') step(key.delta);
+    else store.dispatch({ type: 'setListen', listen: nextListen(store.get().listen, key.delta) });
   });
 
   // -------------------------------------------------------------------------------------------
@@ -501,8 +526,14 @@ export const mountDeck: Mount = (root, { store, player, sound }) => {
   }
   // The bar's width changes as the window turns and as the play view shows again after About.
   const bar = $<HTMLDivElement>('.deck-bar');
-  if (typeof ResizeObserver === 'function') new ResizeObserver(fitNotation).observe(bar);
-  else window.addEventListener('resize', fitNotation);
+  if (typeof ResizeObserver === 'function') {
+    const fits = new ResizeObserver(fitNotation);
+    fits.observe(bar);
+    // The top bar, not its pattern slot: the slot is as wide as the notation, so watching it
+    // would refit on every fit.
+    const topMain = topSlot?.closest('.topbar-main');
+    if (topMain) fits.observe(topMain);
+  } else window.addEventListener('resize', fitNotation);
   // The web fonts arrive after the first fit (fonts.ready can resolve before Plex Mono is even
   // asked for): each finished load fits again, with the real glyphs.
   void document.fonts?.ready.then(fitNotation);
@@ -545,7 +576,9 @@ export const mountDeck: Mount = (root, { store, player, sound }) => {
     if (keys.some((k) => state[k] !== previous[k])) render();
     // Only a new pattern moves the band: a volume or sound change mid-turn leaves the wheel be.
     if (state.parts !== previous.parts || state.ratio !== previous.ratio) scrollToCurrent(true);
+    if (state.panel !== previous.panel) showWheel();
   });
+  placePattern();
   showWheel();
   render();
 

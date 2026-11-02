@@ -34,6 +34,7 @@ export const mountSoundPanel: Mount = (root, { store, player }) => {
       <div class="group sp-listen" role="group" aria-labelledby="sp-listen-heading">
         <div class="sp-head">
           <span class="section-label" id="sp-listen-heading">${copy.listenHeading}</span>
+          <span class="sp-keys" aria-hidden="true">${copy.listenKeys.map((k) => `<kbd>${k}</kbd>`).join('')}</span>
           <button type="button" id="sp-listen-info" class="sp-info" aria-expanded="false" aria-controls="sp-listen-lines" aria-label="${copy.listenInfoLabel}">${copy.listenInfoGlyph}</button>
         </div>
         <ul id="sp-listen-lines" class="sp-lines" hidden>

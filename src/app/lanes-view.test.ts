@@ -22,9 +22,11 @@ test('the ratio chips show at exactly two lanes', () => {
 
 describe('voiceName', () => {
   test('what every throw’s sound follows: the height (as a drum or a pitch) or the ball', () => {
-    expect(voiceName('height')).toBe(copy.voiceByHeight);
-    expect(voiceName('pitch')).toBe(copy.voiceByHeight);
-    expect(voiceName('ball')).toBe(copy.voiceByBall);
+    expect(voiceName('height')).toBe('The height of each throw');
+    expect(voiceName('pitch')).toBe('The height, as a pitch');
+    expect(voiceName('ball')).toBe('Each ball');
+    // Listen for's own words, capitalised.
+    for (const l of ['height', 'ball', 'pitch'] as const) expect(voiceName(l).toLowerCase()).toBe(copy.listenNames[l]);
   });
 });
 

@@ -13,6 +13,7 @@ import { mountSheet } from './app/mount-sheet';
 import { mountAbout } from './app/mount-about';
 import { mountShare } from './app/mount-share';
 import { mountTopbar } from './app/mount-topbar';
+import { mountLayout } from './app/mount-layout';
 import { createDrumSound } from './sound/drum-sound';
 import { browserContext, drumMachine } from './sound/drum-machine.browser';
 import { copy } from './ui/copy';
@@ -22,7 +23,11 @@ if (app) {
   app.innerHTML = `
     <header class="topbar">
       <div class="topbar-main">
-        <h1 class="wordmark-wrap"><button type="button" class="wordmark">${copy.title}<span class="sr-only">, ${copy.wordmarkHint}</span></button></h1>
+        <span class="topbar-left">
+          <h1 class="wordmark-wrap"><button type="button" class="wordmark">${copy.title}<span class="sr-only">, ${copy.wordmarkHint}</span></button></h1>
+          <span class="topbar-pattern"></span>
+        </span>
+        <span class="panel-choice" role="group" aria-label="${copy.panelLabel}"></span>
         <span class="topbar-actions">
           <span id="share-status-top" class="share-status-top" role="status" aria-live="polite"></span>
           <button id="share-top" type="button" class="topbar-button" data-share aria-label="${copy.shareLabel}">
@@ -72,6 +77,7 @@ if (app) {
   sound.preload(store.derived().mapping);
 
   const mounts: [Mount, HTMLElement][] = [
+    [mountLayout, app],
     [mountJuggler, region('juggler')],
     [mountLadder, region('ladder')],
     [mountDeck, region('deck')],

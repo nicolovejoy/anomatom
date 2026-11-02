@@ -70,6 +70,8 @@ test('Listen for, the switches and the volume follow the store; the deck’s sel
 });
 
 test('Space on the deck’s focused select is the select’s, not play and pause', async ({ page }) => {
+  // The deck's select is the phone's (the wide layout has none: v5 ruling 8).
+  await page.setViewportSize({ width: 390, height: 844 });
   await page.goto('/#v1.e30');
   await page.locator('#deck-listen').focus();
   await page.keyboard.press('Space');
