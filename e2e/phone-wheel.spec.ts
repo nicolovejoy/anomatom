@@ -13,7 +13,18 @@ const shot = async (page: Page, name: string) => {
 const phase = (page: Page) => page.locator('.deck-wheel').getAttribute('data-phase');
 
 test.describe('phone, 390×844', () => {
-  test.use({ viewport: { width: 390, height: 844 } });
+  test.use({ viewport: { width: 390, height: 844 }, hasTouch: true });
+
+  // The wheel moves to the sheet on the first scroll of a turn, not on the touch: the row under the
+  // finger must still be there when the tap's click fires.
+  test('a tap on a row of the open wheel at rest picks it', async ({ page }) => {
+    await page.goto('/');
+    const row = page.locator('.deck-row[data-id="shower"]');
+    await expect(row).toBeInViewport();
+    await row.tap();
+    await expect(page.locator('.deck-notation')).toHaveText('51');
+    await expect(page.locator('.deck-wheel')).toBeHidden();
+  });
 
   test('the wheel takes the sheet while it turns; the controls return 1.5 s after it settles', async ({ page }) => {
     await page.goto('/');
@@ -105,24 +116,31 @@ test.describe('phone, 390×844', () => {
 test.describe('wide, 1280×800', () => {
   test.use({ viewport: { width: 1280, height: 800 } });
 
-  // A stale goal at rest dragged the docked wheel back to the old pick while Tab walked its rows.
-  test('a pick by the wheel, then Tab through the rows: the focused row stays in view', async ({ page }) => {
-    await page.goto('/');
-    await page.locator('.deck-wheel-list').hover();
-    await page.mouse.wheel(0, 64);
-    await expect(page.locator('.deck-notation')).not.toHaveText('3');
-    await page.waitForTimeout(500);
-    const picked = await page.locator('.deck-notation').textContent();
-    const row = await page.locator('.deck-row.on').getAttribute('data-row');
-    await page.locator('.deck-row.on').focus();
-    for (let i = 0; i < 4; i++) {
-      await page.keyboard.press('Tab');
-      await page.waitForTimeout(250);
-    }
-    await page.waitForTimeout(600);
-    // The band and the pattern stay on the pick; nothing dragged the list back.
-    await expect(page.locator('.deck-row.in-band')).toHaveAttribute('data-row', row!);
-    await expect(page.locator('.deck-notation')).toHaveText(picked!);
+  // A stale goal at rest dragged the docked wheel back when the browser scrolled a focused row into
+  // view. Typing the pattern the band is already on issues no scroll, and left the goal set. Focus a
+  // row off screen: the browser brings it in, the band follows, and nothing pulls it back or picks.
+  test('typing the banded pattern, then a row focused off screen: it stays in view, the pattern stays', async ({ page }) => {
+    await page.goto('/#3');
+    await page.locator('.deck-own').click();
+    await page.locator('#hand-0').fill('');
+    await page.locator('#hand-0').pressSequentially('3');
+    await expect(page.locator('.deck-row.on')).toHaveAttribute('data-row', '0');
+    await page.waitForTimeout(800);
+    const row = page.locator('.deck-row[data-row="7"]');
+    // Seven places off the band: outside the seven rows the wheel shows.
+    const within = () =>
+      row.evaluate((r) => {
+        const w = document.querySelector('.deck-wheel')!.getBoundingClientRect();
+        const b = r.getBoundingClientRect();
+        return b.top >= w.top - 1 && b.bottom <= w.bottom + 1;
+      });
+    expect(await within()).toBe(false);
+    await row.focus();
+    await page.waitForTimeout(1200);
+    expect(await within()).toBe(true);
+    // The band (the middle row) went with the scroll, not back to the earlier pick.
+    await expect(page.locator('.deck-row.in-band')).not.toHaveAttribute('data-row', '0');
+    await expect(page.locator('.deck-notation')).toHaveText('3');
   });
 
   // The band sat two rows short of a typed 97531: the smooth scroll to a row far round the loop

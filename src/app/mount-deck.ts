@@ -232,6 +232,8 @@ export const mountDeck: Mount = (root, { store, player, sound }) => {
   let shownRows: number = DECK.wheelRows;
   const half = () => (shownRows - 1) / 2;
   let offset = 0;
+  /** Where the page last set the list's scrollTop itself; the scroll event it causes is not a turn. */
+  let ownTop: number | null = null;
   const rowAt = () => wheelRowAt(list.scrollTop, DECK.rowPx, half(), offset, rowCount);
 
   /**
@@ -247,6 +249,7 @@ export const mountDeck: Mount = (root, { store, player, sound }) => {
     offset = next;
     rowItems.forEach((li, r) => (li.style.order = String(placeOf(r, offset, rowCount))));
     list.scrollTop = top;
+    ownTop = list.scrollTop;
   }
 
   /** Brings `row` into the band, the shortest way round the loop. */
@@ -255,10 +258,13 @@ export const mountDeck: Mount = (root, { store, player, sound }) => {
     if (!smooth) {
       recentre(row);
       list.scrollTop = scrollForPlace(centrePlace(rowCount), DECK.rowPx, half());
+      ownTop = list.scrollTop;
       return false;
     }
     const from = rowAt();
     recentre(from);
+    // The band is already on the row: nothing to scroll, whatever a pixel or two of snap says.
+    if (from === row) return false;
     const top = scrollForPlace(centrePlace(rowCount) + loopDelta(from, row, rowCount), DECK.rowPx, half());
     if (Math.abs(list.scrollTop - top) < 1) return false;
     list.scrollTo({ top, behavior: 'smooth' });
@@ -279,6 +285,10 @@ export const mountDeck: Mount = (root, { store, player, sound }) => {
     // Only a scroll actually issued is a goal: a stale one at rest would drag the band back.
     keyTries = 0;
     seekRow = scrollToRow(i, smooth) ? i : null;
+    // A smooth scroll that moves nothing (the band a pixel or two off) fires no event to end it, so
+    // the goal expires: a scroll from the page much later is never pulled back to it.
+    clearTimeout(seekTimer);
+    if (seekRow !== null) seekTimer = setTimeout(() => (seekRow = null), DECK.settleMs * DECK.keySettleTries);
   }
 
   function showWheel() {
@@ -359,15 +369,19 @@ export const mountDeck: Mount = (root, { store, player, sound }) => {
     turning = true;
     seekRow = null;
     clearTimeout(returnTimer);
-    if (upright() && phase === 'rest') {
-      setPhase('turn');
-      placeWheel();
-    } else if (upright()) setPhase('turn');
     clearTimeout(turnTimer);
     turnTimer = setTimeout(() => (turning = false), DECK.settleMs * 2);
   };
-  // A touch that never scrolls is not a turn: after it ends the wheel goes back to where it was.
+  // The wheel takes the sheet on the first real scroll of a turn, not on the touch or the wheel
+  // event that precedes it: a tap on a row must find the row where the finger landed (ruling 9).
+  // A touch that never scrolls is no turn at all.
   let scrolled = false;
+  const sheetOn = () => {
+    if (!upright()) return;
+    const was = phase;
+    setPhase('turn');
+    if (was === 'rest') placeWheel();
+  };
   const startTurn = () => {
     scrolled = false;
     turn();
@@ -378,6 +392,7 @@ export const mountDeck: Mount = (root, { store, player, sound }) => {
     if (!turnsWheel(e.key) || e.ctrlKey || e.metaKey || e.altKey) return;
     e.preventDefault();
     scrolled = true;
+    sheetOn();
     turn();
     const to = rowAfterKey(e.key, roving, rowCount, shownRows);
     rove(to);
@@ -394,6 +409,7 @@ export const mountDeck: Mount = (root, { store, player, sound }) => {
   // for the scroll again), a bounded number of times.
   let keyRow: number | null = null;
   let seekRow: number | null = null;
+  let seekTimer: ReturnType<typeof setTimeout> | undefined;
   let keyTries = 0;
   let settleTimer: ReturnType<typeof setTimeout> | undefined;
   function settle() {
@@ -419,13 +435,8 @@ export const mountDeck: Mount = (root, { store, player, sound }) => {
     clearTimeout(turnTimer);
     // At rest, the band's row goes back to the middle place, so the wheel can turn on either way.
     recentre(at);
-    if (!user) return;
+    if (!user || !scrolled) return;
     if (upright()) {
-      if (!scrolled && phase === 'spinning') {
-        endPhase();
-        placeWheel();
-        return;
-      }
       setPhase('stop');
       clearTimeout(returnTimer);
       returnTimer = setTimeout(() => {
@@ -444,6 +455,8 @@ export const mountDeck: Mount = (root, { store, player, sound }) => {
     settleTimer = setTimeout(settle, DECK.settleMs);
   }
   list.addEventListener('scroll', () => {
+    const own = ownTop !== null && Math.abs(list.scrollTop - ownTop) < 1;
+    ownTop = null;
     // Near an end mid-spin, the list turns at once (the turn goes on), so a long spin loops
     // forever and picks once, when it settles. A key's smooth scroll, cut short by the turn, is
     // asked for again.
@@ -453,8 +466,12 @@ export const mountDeck: Mount = (root, { store, player, sound }) => {
       if (goal !== null) scrollToRow(goal, true);
     }
     band(rowAt());
-    if (turning) turn();
-    scrolled = true;
+    // A scroll the page made itself (re-placing the wheel, a snap) is no turn and takes no sheet.
+    if (turning && !own) {
+      sheetOn();
+      turn();
+      scrolled = true;
+    }
     armSettle();
   });
 
