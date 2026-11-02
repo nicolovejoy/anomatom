@@ -1,6 +1,6 @@
 import { expect, test, vi } from 'vitest';
 import { partsFromVanilla } from '../core';
-import { DEFAULT_BPM, DEFAULT_MAPPING, DEFAULT_PATTERN, DEFAULT_VOLUME } from '../tunables';
+import { DEFAULT_ALSO, DEFAULT_BPM, DEFAULT_KIT_SHIFT, DEFAULT_LISTEN, DEFAULT_PATTERN, DEFAULT_VOLUME } from '../tunables';
 import { derived } from './derived';
 import { createStore, defaultState } from './state';
 
@@ -12,12 +12,18 @@ test('the defaults come from the tunables', () => {
     ratio: { a: 1, b: 1 },
     bpm: DEFAULT_BPM,
     volume: DEFAULT_VOLUME,
-    mapping: DEFAULT_MAPPING,
+    listen: DEFAULT_LISTEN,
+    also: DEFAULT_ALSO,
+    kitShift: DEFAULT_KIT_SHIFT,
     lastStateHash: null,
     sheetTab: null,
     muted: false,
     notice: null,
   });
+});
+
+test('a fresh page (v5 ruling 1): the ball, half volume, the downbeat clap only, the first drum machines', () => {
+  expect(defaultState()).toMatchObject({ listen: 'ball', volume: 0.5, also: { catches: false, downbeat: true, pad: false }, kitShift: 0 });
 });
 
 test('dispatch runs an action through reduce; derived() is the selector on the current state', () => {

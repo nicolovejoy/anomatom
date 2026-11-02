@@ -1,6 +1,6 @@
 import { describe, expect, test } from 'vitest';
 import type { Schedule } from '../core';
-import { DEFAULT_MAPPING, LANES_UI } from '../tunables';
+import { LANES_UI } from '../tunables';
 import { copy } from '../ui/copy';
 import { partColour } from '../view/colours';
 import type { PlayerView, Segment } from '../view/types';
@@ -21,21 +21,10 @@ test('the ratio chips show at exactly two lanes', () => {
 });
 
 describe('voiceName', () => {
-  test('a voice per part: the part’s own sound, by the Sound tab’s name', () => {
-    const m = { ...DEFAULT_MAPPING, byHeight: false, byBall: null };
-    const sample = m.parts[0]?.sample as string;
-    expect(voiceName(m, 0)).toBe(copy.sampleNames[sample]);
-  });
-  test('a sound the names do not know shows as itself; none, and a missing part, as None', () => {
-    const base = { ...DEFAULT_MAPPING, byHeight: false, byBall: null };
-    const voice = base.parts[0] as (typeof base.parts)[number];
-    expect(voiceName({ ...base, parts: [{ ...voice, sample: 'gong' }] }, 0)).toBe('gong');
-    expect(voiceName({ ...base, parts: [{ ...voice, sample: null }] }, 0)).toBe(copy.noSample);
-    expect(voiceName({ ...base, parts: [] }, 2)).toBe(copy.noSample);
-  });
-  test('a mapping that reads height or ball says so', () => {
-    expect(voiceName({ ...DEFAULT_MAPPING, byHeight: true, byBall: null }, 0)).toBe(copy.voiceByHeight);
-    expect(voiceName({ ...DEFAULT_MAPPING, byHeight: true, byBall: ['C4'] }, 0)).toBe(copy.voiceByBall);
+  test('what every throw’s sound follows: the height (as a drum or a pitch) or the ball', () => {
+    expect(voiceName('height')).toBe(copy.voiceByHeight);
+    expect(voiceName('pitch')).toBe(copy.voiceByHeight);
+    expect(voiceName('ball')).toBe(copy.voiceByBall);
   });
 });
 

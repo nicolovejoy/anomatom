@@ -42,7 +42,8 @@ import type { DrumSound } from '../sound/drum-sound';
 import { filterCutoff, hitFor, padHitsAt, type Hit, type Mapping } from '../sound/mapping';
 import { crossingsOfSchedule } from '../sound/schedule-crossings';
 import { eventsBetween, pulseSeconds, type TimedEvent } from '../sound/transport';
-import { DEFAULT_MAPPING, LOOKAHEAD_SECONDS, SCHEDULER_INTERVAL_MS, START_DELAY_SECONDS } from '../tunables';
+import { mappingOf } from '../sound/drummers';
+import { DEFAULT_ALSO, DEFAULT_KIT_SHIFT, DEFAULT_LISTEN, LOOKAHEAD_SECONDS, SCHEDULER_INTERVAL_MS, START_DELAY_SECONDS } from '../tunables';
 import type { PlayerView, Segment } from '../view/types';
 
 export type { PlayerView, Segment } from '../view/types';
@@ -96,7 +97,8 @@ export function createPlayer(sound: DrumSound, options: PlayerOptions = {}) {
   let segments: readonly Segment[] = [];
   /** `boundaries[i]`: segment i's `endTime` in its own pulses; one per segment but the last. */
   let boundaries: readonly number[] = [];
-  let mapping: Mapping = DEFAULT_MAPPING;
+  /** Until `play` or `setMapping` hands it one: a fresh page's sound on two hands. */
+  let mapping: Mapping = mappingOf(DEFAULT_LISTEN, DEFAULT_ALSO, DEFAULT_KIT_SHIFT, 2);
   /** The cutoff last handed to the sampler; NaN until one has been. */
   let cutoff = Number.NaN;
   let edit: { schedule: Schedule; bpm: number } | null = null;
@@ -281,7 +283,7 @@ export function createPlayer(sound: DrumSound, options: PlayerOptions = {}) {
   return {
     play,
     /**
-     * A Mapping edit (the sound panel, or a restored link): loads what it needs and is read by
+     * A new Mapping (`derived(state).mapping`, after a sound choice or a restored link): loads what it needs and is read by
      * the next look-ahead tick, so it is heard within about LOOKAHEAD_SECONDS.
      */
     setMapping(next: Mapping) {

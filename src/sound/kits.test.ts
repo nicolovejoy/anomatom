@@ -1,17 +1,18 @@
 // Samples are roles (v2 wave 1, ruling 1): every kit plays every TR-808 role on a sample of its own.
 import { describe, expect, test } from 'vitest';
 import { buildSchedule, partsFromLines } from '../core';
-import { DEFAULT_MAPPING, KIT_IDS, KIT_ROLES, KIT_SAMPLES } from '../tunables';
+import { DRUMMER_KITS as KIT_IDS, KIT_ROLES, KIT_SAMPLES } from '../tunables';
 import { copy } from '../ui/copy';
 import { kitSample } from './drum-machine';
+import { mappingOf } from './drummers';
 import kitFiles from './fixtures/kit-samples.json';
-import { applyPreset, hitFor, withPartCount, type Mapping } from './mapping';
+import { hitFor, type Mapping } from './mapping';
 
 describe('KIT_ROLES', () => {
   test('one table per shipped kit, and each kit has a name to show', () => {
     expect(Object.keys(KIT_ROLES).sort()).toEqual([...KIT_IDS].sort());
     expect(Object.keys(copy.kitNames).sort()).toEqual([...KIT_IDS].sort());
-    expect(KIT_IDS[0]).toBe(DEFAULT_MAPPING.parts[0]?.kit);
+    expect(KIT_IDS[0]).toBe(mappingOf('ball', { catches: false, downbeat: true, pad: false }, 0, 2).parts[0]?.kit);
   });
 
   test('every kit covers every role, and only the roles', () => {
@@ -44,12 +45,13 @@ describe('KIT_ROLES', () => {
 });
 
 test('a three-part mapping plays on a second kit: hitFor names the role, the kit picks its sample', () => {
-  // A three-part link: three lines at 1:1, voice per part (kick, snare, hi-hat), every part on the LM-2.
+  // Three lines at 1:1, a part's own sound each (kick, snare, hi-hat), every part on the LM-2.
   const r = partsFromLines(['3', '2', '4'], { a: 1, b: 1 });
   if (!r.ok) throw new Error('parts');
   const schedule = buildSchedule(r.parts);
-  const lm2 = (m: Mapping): Mapping => ({ ...m, parts: m.parts.map((v) => ({ ...v, kit: 'LM-2' })) });
-  const mapping = lm2(withPartCount(applyPreset('voice-per-part'), 3));
+  const base = mappingOf('height', { catches: false, downbeat: true, pad: false }, 0, 3);
+  const samples = ['kick', 'snare', 'hihat-close'];
+  const mapping: Mapping = { ...base, byHeight: false, parts: base.parts.map((v, i) => ({ ...v, kit: 'LM-2', sample: samples[i] ?? null })) };
   const event = (part: number) => schedule.events.find((e) => e.part === part && e.kind === 'throw' && e.height > 0);
   const played = [0, 1, 2].map((part) => {
     const hit = hitFor(event(part) as NonNullable<ReturnType<typeof event>>, mapping, schedule);

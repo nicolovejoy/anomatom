@@ -1,5 +1,6 @@
 import { expect, test, vi } from 'vitest';
-import { DEFAULT_MAPPING, FILTER_OPEN_HZ, PARAM_SMOOTH_SECONDS } from '../tunables';
+import { FILTER_OPEN_HZ, PARAM_SMOOTH_SECONDS } from '../tunables';
+import { VOICE_PER_PART as DEFAULT_MAPPING } from '../test/mappings';
 import { createDrumSound, type Kit, type LoadPad } from './drum-sound';
 import type { Mapping, PadHit } from './mapping';
 

@@ -2,31 +2,18 @@ import { describe, expect, test } from 'vitest';
 import { buildSchedule, partsFromVanilla } from '../core';
 import type { Event, Parts } from '../core';
 import {
-  DEFAULT_MAPPING,
   FILTER_FULL_CROSSINGS,
   FILTER_HZ_RANGE,
   FILTER_OPEN_HZ,
   KIT_SAMPLES,
+  PAD_CHORDS,
   PAD_HOLD_PULSES,
   PAD_VELOCITY,
 } from '../tunables';
-import {
-  applyPreset,
-  filterCutoff,
-  hitFor,
-  isPresetMapping,
-  PAD_CHORD_IDS,
-  PAD_INSTRUMENT_IDS,
-  padHitsAt,
-  presetOf,
-  PRESET_NAMES,
-  type Mapping,
-  type PadChord,
-  withKitsOf,
-  withPartCount,
-} from './mapping';
+import { BALL_PITCH, HEIGHT_PITCH, VOICE_PER_PART as DEFAULT_MAPPING } from '../test/mappings';
+import { LISTENS, mappingOf } from './drummers';
+import { filterCutoff, hitFor, padHitsAt, type Mapping, type PadChord } from './mapping';
 
-const voice = (i: number) => DEFAULT_MAPPING.parts[i] as Mapping['parts'][0];
 const vanilla = buildSchedule((partsFromVanilla('3') as { parts: Parts }).parts);
 
 function throwEvent(height: number, ball = 0): Event {
@@ -38,78 +25,16 @@ const withFilter = (on: boolean, low: number, high: number): Mapping => ({
   filter: { on, low, high },
 });
 
-describe('presets', () => {
-  test('the default is voice per part (design §7), and each preset is itself', () => {
-    expect(presetOf(DEFAULT_MAPPING)).toBe('voice-per-part');
-    expect(DEFAULT_MAPPING.byHeight).toBe(false);
-    expect(DEFAULT_MAPPING.parts.map((v) => [v.kit, v.pan])).toEqual([['TR-808', -0.6], ['TR-808', 0.6]]);
-    expect(PRESET_NAMES.filter((n) => applyPreset(n).byHeight)).toEqual(['height-drum', 'height-pitch', 'ball-pitch']);
-    for (const name of PRESET_NAMES) expect(presetOf(applyPreset(name))).toBe(name);
-    expect(PRESET_NAMES).toEqual(['voice-per-part', 'height-drum', 'height-pitch', 'ball-pitch']);
-  });
-
-  test('the presets differ', () => {
-    expect(new Set(PRESET_NAMES.map((n) => JSON.stringify(applyPreset(n)))).size).toBe(4);
-  });
-
-  test('any edit, however small or nested, is custom; editing back is the preset again', () => {
-    const edits: Mapping[] = [
-      { ...DEFAULT_MAPPING, perHeight: { ...DEFAULT_MAPPING.perHeight, 3: 'clap' } },
-      { ...DEFAULT_MAPPING, parts: [{ ...voice(0), pan: -0.5 }, voice(1)] },
-      { ...DEFAULT_MAPPING, parts: [{ ...voice(0), sample: 'clap' }, voice(1)] },
-      { ...DEFAULT_MAPPING, parts: [voice(0), { ...voice(1), sample: 'clave' }, voice(0)] },
-      { ...DEFAULT_MAPPING, byHeight: false, perHeight: { ...DEFAULT_MAPPING.perHeight, 1: 'kick' } },
-      { ...DEFAULT_MAPPING, catches: { on: true, sample: 'rimshot' } },
-      { ...DEFAULT_MAPPING, crossAccent: { velocity: 21, downbeat: 'clap' } },
-      { ...DEFAULT_MAPPING, filter: { ...DEFAULT_MAPPING.filter, on: true } },
-      { ...DEFAULT_MAPPING, pad: { ...DEFAULT_MAPPING.pad, chord: 'Am7' } },
-      { ...DEFAULT_MAPPING, byBall: ['kick'] },
-      { ...applyPreset('ball-pitch'), byBall: ['kick', 'snare'] },
-      { ...applyPreset('ball-pitch'), byBall: null },
-    ];
-    for (const m of edits) expect(presetOf(m)).toBe('custom');
-    // One voice is the preset for one part (lanes ruling 5).
-    expect(presetOf({ ...DEFAULT_MAPPING, parts: [voice(0)] })).toBe('voice-per-part');
-    const back = { ...DEFAULT_MAPPING, perHeight: { ...DEFAULT_MAPPING.perHeight, 3: 'snare' } };
-    expect(presetOf(back)).toBe('voice-per-part');
-    // Arrays against objects are never equal.
-    expect(presetOf({ ...DEFAULT_MAPPING, parts: { 0: voice(0), 1: voice(1), length: 2 } as unknown as Mapping['parts'] })).toBe('custom');
-  });
-
-  test('the kit is not part of a preset: a preset on other kits keeps its name (v2 wave 1, ruling 2)', () => {
-    const lm2 = (m: Mapping): Mapping => ({ ...m, parts: m.parts.map((v) => ({ ...v, kit: 'LM-2' })) });
-    for (const name of PRESET_NAMES) {
-      expect(presetOf(lm2(applyPreset(name)))).toBe(name);
-      expect(isPresetMapping(lm2(applyPreset(name)), name)).toBe(false);
-      expect(isPresetMapping(applyPreset(name), name)).toBe(true);
-    }
-    const mixed = { ...DEFAULT_MAPPING, parts: [voice(0), { ...voice(1), kit: 'MFB-512' }] };
-    expect(presetOf(mixed)).toBe('voice-per-part');
-    // Grown to three parts, the third on the first part's kit, is still the preset.
-    expect(presetOf(withPartCount(lm2(DEFAULT_MAPPING), 3))).toBe('voice-per-part');
-    // A kit change alongside any other edit is still custom.
-    expect(presetOf({ ...lm2(DEFAULT_MAPPING), byBall: ['kick'] })).toBe('custom');
-  });
-
-  test('withKitsOf: part i takes part i\'s kit, a part past the end the first part\'s; the same object when nothing changes', () => {
-    const from: Mapping = { ...DEFAULT_MAPPING, parts: [{ ...voice(0), kit: 'LM-2' }] };
-    const three = withPartCount(DEFAULT_MAPPING, 3);
-    expect(withKitsOf(three, from).parts.map((v) => v.kit)).toEqual(['LM-2', 'LM-2', 'LM-2']);
-    expect(withKitsOf(three, three)).toBe(three);
-    expect(withKitsOf(three, { ...DEFAULT_MAPPING, parts: [] })).toBe(three);
-    const two: Mapping = { ...DEFAULT_MAPPING, parts: [voice(0), { ...voice(1), kit: 'MFB-512' }] };
-    expect(withKitsOf(three, two).parts.map((v) => v.kit)).toEqual(['TR-808', 'MFB-512', 'TR-808']);
-  });
-
+describe('the listen rules', () => {
   test('height to pitch gives nine distinct sounds, the highest throw the lowest', () => {
-    const m = applyPreset('height-pitch');
+    const m = HEIGHT_PITCH;
     const names = [1, 2, 3, 4, 5, 6, 7, 8, 9].map((h) => hitFor(throwEvent(h), m, vanilla)?.sample);
     expect(new Set(names).size).toBe(9);
     expect(names[8]).toBe('kick');
   });
 
   test('ball to pitch: the ball picks the sound, whatever the height, wrapping around', () => {
-    const m = applyPreset('ball-pitch');
+    const m = BALL_PITCH;
     const byBall = m.byBall ?? [];
     expect(hitFor(throwEvent(3, 0), m, vanilla)?.sample).toBe(byBall[0]);
     expect(hitFor(throwEvent(7, 0), m, vanilla)?.sample).toBe(byBall[0]);
@@ -120,9 +45,9 @@ describe('presets', () => {
     expect(hitFor(throwEvent(4, 1), { ...m, byBall: [] }, vanilla)?.sample).toBe(m.perHeight[4]);
   });
 
-  test('every preset sample exists in the kit', () => {
-    for (const name of PRESET_NAMES) {
-      const m = applyPreset(name);
+  test('every sample a rule or a switch plays exists in the kit', () => {
+    for (const listen of LISTENS) {
+      const m = mappingOf(listen, { catches: true, downbeat: true, pad: true }, 0, 2);
       for (const s of [...Object.values(m.perHeight), ...(m.byBall ?? []), ...m.parts.map((v) => v.sample), m.catches.sample, m.crossAccent.downbeat]) {
         if (s !== null) expect(KIT_SAMPLES).toContain(s);
       }
@@ -157,8 +82,7 @@ describe('padHitsAt', () => {
   });
 
   test('every chord has notes', () => {
-    for (const chord of PAD_CHORD_IDS) expect(padHitsAt(0, on(chord)).length).toBeGreaterThanOrEqual(3);
-    expect(PAD_INSTRUMENT_IDS).toEqual(['mellotron', 'soundfont']);
+    for (const chord of Object.keys(PAD_CHORDS) as PadChord[]) expect(padHitsAt(0, on(chord)).length).toBeGreaterThanOrEqual(3);
   });
 });
 

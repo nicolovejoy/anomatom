@@ -1,12 +1,20 @@
 // Everything derived from the stored state, in one memoised selector (docs/plans/model-rethink.md
 // §12a): computed once per state, keyed on the state's identity, and read by every mount. Pure.
-// The values depend on the parts alone, so a change to anything else (tempo, volume, a tab)
-// reuses them.
+// The values but the Mapping depend on the parts alone, so a change to anything else (tempo,
+// volume, a tab) reuses them. The Mapping depends on the sound and the number of parts, and is the
+// same object for the same sound and count, so a tempo change hands the player nothing new.
 import { ballCount, buildSchedule, isPassingSet, isSyncSet, isVanillaPair, passingText, searchFixes, syncText, textOf } from '../core';
 import type { CrossGroup, Part, Parts, Schedule } from '../core';
+import { mappingOf } from '../sound/drummers';
+import type { Mapping } from '../sound/mapping';
 import type { AppState } from './state';
 
-export interface Derived {
+export interface Derived extends PartsDerived {
+  /** What the player plays (docs/plans/v5-sound-model.md, ruling 2): `mappingOf` the sound, for this many parts. */
+  readonly mapping: Mapping;
+}
+
+interface PartsDerived {
   /** The one Schedule: events for every onset, ball ids for fault-free groups, and the verdict. */
   readonly schedule: Schedule;
   /** Each part as written (`textOf`); a vanilla pair is one text, its siteswap, and a passing set one, its passing siteswap, and a sync set one, its sync siteswap. */
@@ -25,18 +33,33 @@ export interface Derived {
 }
 
 const byState = new WeakMap<AppState, Derived>();
-const byParts = new WeakMap<Parts, Derived>();
+const byParts = new WeakMap<Parts, PartsDerived>();
+/** Mappings by sound and part count: a small set (3 × 8 × 5 × parts), each built once. */
+const mappings = new Map<string, Mapping>();
+
+function mappingFor(state: Pick<AppState, 'listen' | 'also' | 'kitShift' | 'parts'>): Mapping {
+  const { listen, also, kitShift } = state;
+  const key = `${listen}|${+also.catches}${+also.downbeat}${+also.pad}|${kitShift}|${state.parts.length}`;
+  let m = mappings.get(key);
+  if (m === undefined) {
+    m = mappingOf(listen, also, kitShift, state.parts.length);
+    mappings.set(key, m);
+  }
+  return m;
+}
 
 export function derived(state: AppState): Derived {
   const known = byState.get(state);
   if (known) return known;
-  const d = byParts.get(state.parts) ?? compute(state.parts);
-  byParts.set(state.parts, d);
+  const p = byParts.get(state.parts) ?? compute(state.parts);
+  byParts.set(state.parts, p);
+  // The parts' values through the prototype, so the lazy fixes stay lazy and are worked out once per parts.
+  const d = Object.create(p, { mapping: { value: mappingFor(state), enumerable: true } }) as Derived;
   byState.set(state, d);
   return d;
 }
 
-function compute(parts: Parts): Derived {
+function compute(parts: Parts): PartsDerived {
   const schedule = buildSchedule(parts);
   const groups = schedule.verdict.groups;
   const texts = isVanillaPair(parts) || isPassingSet(parts) || isSyncSet(parts) ? [textOf(parts[0] as Part, parts)] : parts.map((p) => textOf(p, parts));

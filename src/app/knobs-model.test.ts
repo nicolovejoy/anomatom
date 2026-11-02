@@ -261,7 +261,8 @@ describe('cycleSamples', () => {
 
   test('cycleSamples leaves out throws the mapping keeps silent', () => {
     const s = clapping();
-    const silent = { ...s.mapping, parts: s.mapping.parts.map((p, i) => (i === 0 ? { ...p, sample: null } : p)) };
+    const m = derived(s).mapping;
+    const silent = { ...m, byHeight: false, parts: m.parts.map((p, i) => (i === 0 ? { ...p, sample: null } : { ...p, sample: 'snare' })) };
     expect(cycleSamples(derived(s).schedule, silent).split(' ')).toHaveLength(8);
   });
 });
