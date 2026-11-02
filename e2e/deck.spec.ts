@@ -85,6 +85,11 @@ for (const size of SIZES) {
       expect(rounded).toEqual([]);
       await page.screenshot({ path: `${SHOTS}/deck-bare-${size.name}.png` });
 
+      // At rest the controls show: Play is not under the open wheel (v5 ruling 9).
+      expect(await page.locator('#play').evaluate((el) => {
+        const r = el.getBoundingClientRect();
+        return el.contains(document.elementFromPoint(r.x + r.width / 2, r.y + r.height / 2));
+      })).toBe(true);
       await page.locator('#play').click();
       await expect(page.locator('#play')).toHaveText('Pause');
       await expect.poll(() => scheduled(page)).toBeGreaterThan(0);

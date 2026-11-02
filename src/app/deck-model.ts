@@ -195,6 +195,45 @@ export function wheelPlace(stage: Box, rowPx: number, rows: number, minFigure: n
   return { left: stage.left + stage.width - width, top: stage.top + Math.max(0, (stage.height - wheelHeight) / 2), width, height: wheelHeight, padBottom: 0, padRight: width, rows };
 }
 
+/**
+ * Where the phone wheel sits when it takes the sheet (docs/plans/v5-sound-model.md, ruling 9):
+ * across the full width of the play view, anchored to its bottom, covering the deck and the sheet
+ * (`coverTop`, view-relative, is where the deck starts). It shows an odd number of rows, at least
+ * `minRows` and enough to cover `coverTop` downwards, but never so many that less than `minFigure`
+ * of the stage stays above it. The stage keeps the part the wheel overlaps clear (`padBottom`).
+ * Null where not even three rows fit under that rule: the caller falls back to wheelPlace.
+ */
+export function sheetWheelPlace(view: Box, stage: Box, coverTop: number, rowPx: number, minRows: number, minFigure: number): WheelPlace | null {
+  const wanted = Math.max(minRows, Math.ceil((view.height - coverTop) / rowPx));
+  const rows = rowsThatFit(view.height - (stage.top + minFigure), rowPx, wanted % 2 === 0 ? wanted + 1 : wanted);
+  if (rows === 0) return null;
+  const height = rows * rowPx;
+  const top = view.height - height;
+  return { left: 0, top, width: view.width, height, padBottom: Math.max(0, stage.top + stage.height - top), padRight: 0, rows };
+}
+
+/**
+ * The upright phone wheel's phase (ruling 9): at `rest` the controls show and an open wheel sits
+ * in its stage place; a reader's turn makes it `spinning` and it takes the sheet; when it stops
+ * it is `settling` (still on the sheet, the picked row in the band) until the return delay
+ * passes, then `rest` and the wheel closes. A turn during the settling spins it again.
+ */
+export type WheelPhase = 'rest' | 'spinning' | 'settling';
+export type WheelEvent = 'turn' | 'stop' | 'return' | 'close';
+
+export function nextPhase(phase: WheelPhase, event: WheelEvent): WheelPhase {
+  switch (event) {
+    case 'turn':
+      return 'spinning';
+    case 'stop':
+      return phase === 'spinning' ? 'settling' : phase;
+    case 'return':
+      return phase === 'settling' ? 'rest' : phase;
+    case 'close':
+      return 'rest';
+  }
+}
+
 /** What has focus when a key is pressed, as far as ← → care. */
 export type KeyTarget = 'text' | 'select' | 'range' | 'tab' | 'other';
 
