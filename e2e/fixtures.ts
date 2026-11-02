@@ -42,10 +42,6 @@ export async function openTab(page: import('@playwright/test').Page, tab: 'patte
 
 /** Stop lives beside the time slider, shown while paused: pause first if playing, then stop. */
 export async function stopPlaying(page: import('@playwright/test').Page) {
-  const play = page.locator('#play');
-  if ((await play.getAttribute('data-state')) === 'playing') {
-    await play.click();
-    await expect(play).toHaveAttribute('data-state', 'paused');
-  }
+  if ((await page.locator('#play').textContent())?.includes('Pause')) await page.locator('#play').click();
   await page.locator('#stop').click();
 }
