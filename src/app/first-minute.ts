@@ -16,9 +16,9 @@ export function cardGroups(): readonly { id: CardGroup; presets: readonly Preset
   return (['3', '4', '5', 'passing'] as const).map((id) => ({ id, presets: PRESETS.filter((p) => p.group === id) }));
 }
 
-/** What tapping a card does: loads its parts, ratio and mapping; the reader's tempo stays (design §7). */
+/** What tapping a card does: loads its parts and ratio; the reader's tempo and sound stay (design §7; v5 ruling 5). */
 export function presetPatch(preset: Preset): Action {
-  return { type: 'loadPreset', parts: preset.parts, ratio: { ...preset.ratio }, mapping: preset.mapping };
+  return { type: 'loadPreset', parts: preset.parts, ratio: { ...preset.ratio } };
 }
 
 /** The pattern a juggling card shows: hand 1's text, or both hands' at other ratios than 1:1. */
