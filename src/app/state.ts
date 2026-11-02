@@ -6,7 +6,7 @@
 import { partsFromVanilla } from '../core/parts';
 import type { Parts, Ratio } from '../core/types';
 import type { Also, Listen } from '../sound/drummers';
-import { DEFAULT_ALSO, DEFAULT_BPM, DEFAULT_KIT_SHIFT, DEFAULT_LISTEN, DEFAULT_PATTERN, DEFAULT_VOLUME } from '../tunables';
+import { DEFAULT_ALSO, DEFAULT_BPM, DEFAULT_KIT_SHIFT, DEFAULT_LISTEN, DEFAULT_PANEL, DEFAULT_PATTERN, DEFAULT_VOLUME } from '../tunables';
 import { reduce, type Action } from './actions';
 import { derived, type Derived } from './derived';
 
@@ -33,6 +33,11 @@ export interface AppState {
   readonly lastStateHash: string | null;
   /** UI state: which tab of the phone sheet is open, or null when it is closed (docs/plans/phone-sheet.md). Never in the share hash. */
   readonly sheetTab: SheetTab | null;
+  /**
+   * UI state: the one panel beside the stage on a wide screen (docs/plans/v5-sound-model.md,
+   * ruling 8), kept in step with `sheetTab` (layout-model.ts). Never in the share hash.
+   */
+  readonly panel: Panel;
   /** UI state: the deck's mute (docs/plans/v4-deck.md, ruling 4); the master gain is 0 while it holds. Never in the share hash. */
   readonly muted: boolean;
   /** One-line notice from the last action (design §5), cleared by the next action. Never in the hash. */
@@ -40,6 +45,9 @@ export interface AppState {
 }
 
 export type SheetTab = 'pattern' | 'rhythm' | 'sound';
+
+/** The wide screen's top-bar choice: the patterns (wheel, Pattern and Rhythm), the Sound panel, or the stage alone. */
+export type Panel = 'patterns' | 'sound' | 'stage';
 
 /** The default pattern's parts: vanilla `3`, which always parses. */
 export function defaultParts(): Parts {
@@ -62,6 +70,7 @@ export function defaultState(): AppState {
     kitShift: DEFAULT_KIT_SHIFT,
     lastStateHash: null,
     sheetTab: null,
+    panel: DEFAULT_PANEL,
     muted: false,
     notice: null,
   };

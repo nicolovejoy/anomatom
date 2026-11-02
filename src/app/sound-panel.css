@@ -160,3 +160,14 @@
     animation-duration: 0.01s;
   }
 }
+
+/* The key caps (docs/plans/v5-sound-model.md, ruling 8): shown only on the wide layout. */
+.sound-panel .sp-keys {
+  display: none;
+  gap: 4px;
+  margin-left: auto;
+  margin-right: 12px;
+}
+#app.is-web .sound-panel .sp-keys {
+  display: flex;
+}

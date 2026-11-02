@@ -304,3 +304,88 @@
 .deck-own .deck-row-name {
   color: var(--accent);
 }
+
+/* The wide layout (docs/plans/v5-sound-model.md, ruling 8; .is-web). The bar under the stage is
+   Play alone, with key caps; the pattern button sits in the top bar (mount-deck.ts moves it). No
+   ‹ ›, no volume (the Sound panel's Volume is the one slider), no sound row. */
+.deck-keys {
+  display: none;
+}
+#app.is-web .deck-arrow,
+#app.is-web .deck-volume,
+#app.is-web .deck-sound {
+  display: none;
+}
+#app.is-web .deck-bar {
+  justify-content: center;
+  gap: 28px;
+  min-height: 64px;
+  border-top: 0;
+  background: transparent;
+}
+#app.is-web .deck-play {
+  width: auto;
+  height: 44px;
+  padding: 0 24px 0 18px;
+  grid-auto-flow: column;
+  gap: 8px;
+  font-weight: 600;
+}
+/* The label shows beside the icon. */
+#app.is-web .deck-play .play-label {
+  position: static;
+  width: auto;
+  height: auto;
+  margin: 0;
+  overflow: visible;
+  clip: auto;
+}
+#app.is-web .deck-keys {
+  display: flex;
+  align-items: center;
+  gap: 24px;
+  margin: 0;
+  font-size: 13px;
+  color: var(--muted);
+}
+.deck-key {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+.deck-key > span {
+  margin-left: 2px;
+}
+/* In the top bar: the notation, then the name and ball count, on one line. */
+.topbar-pattern {
+  min-width: 0;
+  display: flex;
+}
+.topbar-pattern .deck-pattern {
+  flex-direction: row;
+  align-items: center;
+  min-height: 36px;
+  gap: 12px;
+  max-width: 100%;
+  padding: 2px 8px;
+  border: 0;
+  background: transparent;
+  color: var(--text);
+}
+.topbar-pattern .deck-pattern:hover {
+  background: var(--raised);
+}
+.topbar-pattern .deck-notation {
+  flex: 0 1 auto;
+  min-width: 0;
+}
+.topbar-pattern .deck-line {
+  font-size: 14px;
+}
+.topbar-pattern .deck-name {
+  color: var(--text);
+  font-weight: 600;
+}
+.topbar-pattern .deck-pattern.invalid .deck-notation {
+  color: var(--warn);
+}

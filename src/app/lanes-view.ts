@@ -20,9 +20,9 @@ export const ratioChipsShown = (lanes: number): boolean => lanes === 2;
 
 /**
  * The name of the sound a lane plays: what every throw's sound follows (docs/plans/v5-sound-model.md,
- * ruling 1), its height (as a drum or as a pitch) or its ball. Never a sound per hand.
+ * ruling 1), in Listen for's words: its height (as a drum or as a pitch) or its ball. Never a sound per hand.
  */
-export const voiceName = (listen: Listen): string => (listen === 'ball' ? copy.voiceByBall : copy.voiceByHeight);
+export const voiceName = (listen: Listen): string => copy.voiceNames[listen];
 
 /**
  * Step cells per row. A short period fills its row (never under `minColumns`, so one step is not

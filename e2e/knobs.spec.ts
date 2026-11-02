@@ -116,10 +116,10 @@ test('play, pause, scrub, resume, stop; Space toggles; volume and sound panel', 
   await stopPlaying(page);
   await expect(page.locator('#stop')).toBeDisabled();
 
-  // Volume is the deck's (v4).
-  await page.locator('#volume').fill('0.3');
-  await expect(page.locator('#volume')).toHaveValue('0.3');
+  // Volume is the Sound panel's on the wide layout (v5 ruling 8); the deck's follows it.
   await openTab(page, 'sound');
+  await page.locator('#sp-volume').fill('0.3');
+  await expect(page.locator('#volume')).toHaveValue('0.3');
   await expect(page.locator('#tab-sound')).toHaveAttribute('aria-selected', 'true');
   await page.locator('.about-link').click();
   await expect(page).toHaveURL(/#about$/);
@@ -162,7 +162,8 @@ test('Space types a space in a pattern input; Enter there plays; Space elsewhere
   // Enter never pauses.
   await page.locator('#hand-1').press('Enter');
   await expect(page.locator('#play')).toHaveText('Pause');
-  await page.locator('#volume').focus();
+  await openTab(page, 'sound');
+  await page.locator('#sp-volume').focus();
   await page.keyboard.press('Space');
   await expect(page.locator('#play')).toHaveText('Play');
   await expect(page.locator('#scrub')).toBeEnabled();

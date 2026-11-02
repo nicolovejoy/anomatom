@@ -21,11 +21,17 @@ export const isCdnError = (text: string, m?: ConsoleMessage): boolean =>
   text.includes(CDN_HOST) || (m?.location().url ?? '').includes(CDN_HOST);
 
 /**
- * Shows one tab of the sheet (docs/plans/phone-sheet.md); on a wide screen the column is always
- * open on one. A closed phone sheet shows no tabs (v4 ruling C): the deck's Details opens it on
+ * Shows one tab of the sheet (docs/plans/phone-sheet.md); on the wide layout the top bar's panel
+ * choice first (Patterns for Pattern and Rhythm, Sound for Sound). A closed phone sheet shows no tabs (v4 ruling C): the deck's Details opens it on
  * Sound, and the tabs show from then on.
  */
 export async function openTab(page: import('@playwright/test').Page, tab: 'pattern' | 'rhythm' | 'sound') {
+  // The wide layout (v5 ruling 8): the top bar picks the panel; Sound has no tabs.
+  const panel = page.locator(`.panel-option[data-panel="${tab === 'sound' ? 'sound' : 'patterns'}"]`);
+  if (await panel.isVisible()) {
+    if ((await panel.getAttribute('aria-pressed')) !== 'true') await panel.click();
+    if (tab === 'sound') return;
+  }
   const button = page.locator(`#tab-${tab}`);
   if (!(await button.isVisible())) {
     await page.locator('.deck-details').click();
@@ -36,6 +42,10 @@ export async function openTab(page: import('@playwright/test').Page, tab: 'patte
 
 /** Stop lives beside the time slider, shown while paused: pause first if playing, then stop. */
 export async function stopPlaying(page: import('@playwright/test').Page) {
-  if ((await page.locator('#play').textContent())?.includes('Pause')) await page.locator('#play').click();
+  const play = page.locator('#play');
+  if ((await play.getAttribute('data-state')) === 'playing') {
+    await play.click();
+    await expect(play).toHaveAttribute('data-state', 'paused');
+  }
   await page.locator('#stop').click();
 }

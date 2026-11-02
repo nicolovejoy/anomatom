@@ -130,6 +130,7 @@ export const copy = {
   aboutHow: [
     'Pick a pattern from the wheel, or type your own.',
     'Tap Play. Space plays and pauses too.',
+    'With a keyboard, ← and → change the pattern, and ↑ and ↓ change what you listen for.',
     'Share copies a link that opens the same pattern, at the same tempo, with the same sounds.',
   ],
   aboutGlossaryHeading: 'Words',
@@ -295,8 +296,8 @@ export const copy = {
   cellLabel: (hand: number, beat: number) => `Hand ${hand + 1}, step ${beat + 1}`,
   /** The lane's sound, from the Mapping; tapping it opens the Sound tab. */
   voiceLabel: (hand: number, voice: string) => `Hand ${hand + 1} sound: ${voice}. Open the Sound tab`,
-  voiceByHeight: 'By height',
-  voiceByBall: 'By ball',
+  /** A lane's sound: what every throw follows, in Listen for's words (`listenNames`), capitalised. */
+  voiceNames: { height: 'The height of each throw', ball: 'Each ball', pitch: 'The height, as a pitch' },
   removeLane: '×',
   removeLaneLabel: (hand: number) => `Remove hand ${hand + 1}`,
   addLane: 'Add a hand',
@@ -378,7 +379,23 @@ export const copy = {
     jugglers: (n: number) => `${n} juggler${n === 1 ? '' : 's'}`,
     /** The tag at the right of a wheel row. */
     groupTags: { '3': '3', '4': '4', '5': '5', passing: 'Pass' } as Record<'3' | '4' | '5' | 'passing', string>,
+    /**
+     * The wide layout's bar (docs/plans/v5-sound-model.md, ruling 8): Play, then a key cap for
+     * each key and what it does.
+     */
+    keysLabel: 'Keys',
+    keys: [
+      { caps: ['space'], does: 'play' },
+      { caps: ['←', '→'], does: 'pattern' },
+      { caps: ['↑', '↓'], does: 'listen for' },
+    ],
   },
+
+  /** The wide layout's top bar: one panel beside the stage at a time (ruling 8). */
+  panelLabel: 'Beside the stage',
+  panelNames: { patterns: 'Patterns', sound: 'Sound', stage: 'Stage' },
+  /** The key caps beside Listen for in the Sound panel, on the wide layout. */
+  listenKeys: ['↑', '↓'],
 
   // -------------------------------------------------------------------------------------------
   // Presets: the juggling classics, keyed by Preset.id. `name` is a name a source uses, or a plain
