@@ -8,7 +8,7 @@
 // panel picked in the top bar opens its tab.
 import { LISTENS, type Listen } from '../sound/drummers';
 import { stepKey, type KeyTarget, type Modifiers } from './deck-model';
-import type { Deriver, Panel, SheetTab } from './state';
+import type { AppState, Deriver, Panel, SheetTab } from './state';
 
 /** The top bar's choices, in order. */
 export const PANELS: readonly Panel[] = ['patterns', 'sound', 'stage'];
@@ -60,6 +60,13 @@ export function deckKey(key: string, target: KeyTarget, mods: Modifiers & { read
   if (key === 'ArrowDown') return { kind: 'listen', delta: 1 };
   return null;
 }
+
+/**
+ * What the store takes when the layout changes. The wide layout has no mute button (the Sound
+ * panel's Volume is its one sound control), so a mute set at phone width is cleared when the wide
+ * layout takes over: never silent with nothing on screen to say why.
+ */
+export const layoutPatch = (web: boolean): Partial<AppState> => (web ? { muted: false } : {});
 
 /** The media query for the wide layout: at least `minWidth` wide and `minHeight` tall. */
 export const webMedia = (minWidth: number, minHeight: number): string => `(min-width: ${minWidth}px) and (min-height: ${minHeight}px)`;

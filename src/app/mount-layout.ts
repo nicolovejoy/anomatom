@@ -4,7 +4,7 @@
 // The logic, and how the panel keeps in step with the sheet's tab, is in layout-model.ts.
 import { DECK, SHEET } from '../tunables';
 import { copy } from '../ui/copy';
-import { createPanelSync, PANELS, webMedia } from './layout-model';
+import { createPanelSync, layoutPatch, PANELS, webMedia } from './layout-model';
 import type { Mount } from './mount';
 
 export const mountLayout: Mount = (app, { store }) => {
@@ -25,7 +25,12 @@ export const mountLayout: Mount = (app, { store }) => {
     for (const p of PANELS) app.classList.toggle(`panel-${p}`, p === panel);
     for (const option of options) option.setAttribute('aria-pressed', String(option.dataset.panel === panel));
   }
-  web.addEventListener('change', render);
+  // The wide layout has no mute button: a mute from phone width is cleared as it takes over.
+  web.addEventListener('change', () => {
+    store.set(layoutPatch(web.matches));
+    render();
+  });
+  store.set(layoutPatch(web.matches));
   store.subscribe((state, previous) => {
     if (state.panel !== previous.panel) render();
   });

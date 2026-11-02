@@ -68,9 +68,9 @@ export const mountDeck: Mount = (root, { store, player, sound }) => {
         <svg class="icon-pause" aria-hidden="true" width="20" height="20" viewBox="0 0 24 24"><rect x="5" y="4" width="5" height="16" fill="currentColor"/><rect x="14" y="4" width="5" height="16" fill="currentColor"/></svg>
         <span class="sr-only play-label">${copy.play}</span>
       </button>
-      <p class="deck-keys" aria-label="${t.keysLabel}">${t.keys
+      <div class="deck-keys" role="group" aria-label="${t.keysLabel}">${t.keys
         .map((k) => `<span class="deck-key">${k.caps.map((c) => `<kbd>${c}</kbd>`).join('')}<span>${k.does}</span></span>`)
-        .join('')}</p>
+        .join('')}</div>
       <button type="button" class="deck-arrow deck-prev" aria-label="${t.previous}">${chevron(true)}</button>
       <button type="button" class="deck-pattern">
         <code class="deck-notation"></code>

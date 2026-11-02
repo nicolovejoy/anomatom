@@ -145,6 +145,18 @@ test('no key fires while a text field has focus', async ({ page }) => {
   await expect(listen(page)).toHaveAttribute('data-listen', 'ball');
 });
 
+test('a mute set at phone width is cleared when the wide layout takes over', async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.goto('/#3');
+  const master = () => page.locator('.region-deck').getAttribute('data-master');
+  await page.locator('#mute').click();
+  await expect.poll(master).toBe('0');
+  await page.setViewportSize({ width: 1280, height: 800 });
+  await expect(page.locator('#mute')).toBeHidden();
+  await expect.poll(master).toBe('0.5');
+  await expect(page.locator('#mute')).toHaveAttribute('aria-pressed', 'false');
+});
+
 test('a phone on its side keeps the phone’s deck: carets, volume, no panel choice', async ({ page }) => {
   await page.setViewportSize({ width: 844, height: 390 });
   await page.goto('/#3');

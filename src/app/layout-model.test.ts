@@ -1,6 +1,6 @@
 import { describe, expect, test } from 'vitest';
 import { DEFAULT_PANEL } from '../tunables';
-import { columnShown, createPanelSync, deckKey, nextListen, PANELS, panelOfTab, webMedia } from './layout-model';
+import { columnShown, createPanelSync, deckKey, layoutPatch, nextListen, PANELS, panelOfTab, webMedia } from './layout-model';
 import { createStore } from './state';
 
 const none = { ctrl: false, meta: false, alt: false, shift: false };
@@ -16,6 +16,10 @@ describe('panels', () => {
     expect(panelOfTab('rhythm')).toBe('patterns');
     expect(panelOfTab('sound')).toBe('sound');
     expect(PANELS.map(columnShown)).toEqual([true, true, false]);
+  });
+  test('the wide layout clears a mute, since it has no mute button; the phone keeps it', () => {
+    expect(layoutPatch(true)).toEqual({ muted: false });
+    expect(layoutPatch(false)).toEqual({});
   });
   test('the wide-layout query', () => {
     expect(webMedia(760, 560)).toBe('(min-width: 760px) and (min-height: 560px)');

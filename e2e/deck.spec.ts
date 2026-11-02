@@ -115,7 +115,7 @@ for (const size of SIZES) {
       // ← wraps from the first preset to the last.
       await page.goto('/#3');
       if (size.docked) {
-        await page.locator('body').click({ position: { x: 5, y: 60 } });
+        await page.evaluate(() => (document.activeElement as HTMLElement | null)?.blur());
         await page.keyboard.press('ArrowLeft');
       } else await page.locator('.deck-prev').click();
       await expect(page.locator('.deck-meta')).toHaveText(/jugglers$/);
@@ -501,6 +501,9 @@ test.describe('wide, the wheel by keyboard', () => {
     await expect(page.locator('.deck-row[data-id="pause"]')).toBeFocused();
     await expect(notation(page)).toHaveText('441');
     expect(await scheduled(page)).toBe(0);
+    // The wheel keeps its own ↑ ↓: Listen for (also on ↑ ↓, v5 ruling 8) stays on ball.
+    await expect.poll(() => page.evaluate(() => location.hash)).toBe('#441');
+    await expect(page.locator('#deck-listen')).toHaveValue('ball');
     // Enter picks and plays the focused row.
     await page.keyboard.press('ArrowDown');
     await page.keyboard.press('Enter');
