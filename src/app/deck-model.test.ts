@@ -30,6 +30,8 @@ import {
   nearEnd,
   wheelNotch,
   wheelPlace,
+  sheetWheelPlace,
+  nextPhase,
 } from './deck-model';
 import { derived } from './derived';
 import { cardGroups, presetPatch } from './first-minute';
@@ -317,5 +319,50 @@ describe('the transport', () => {
     start(p, s);
     expect(p.play).not.toHaveBeenCalled();
     expect(p.resume).not.toHaveBeenCalled();
+  });
+});
+
+describe('the phone wheel takes the sheet', () => {
+  const view = { left: 0, top: 0, width: 390, height: 800 };
+  test('a closed sheet: seven rows along the bottom, the stage keeps the overlap clear', () => {
+    expect(sheetWheelPlace(view, { left: 0, top: 0, width: 390, height: 690 }, 690, 32, 7, 200)).toEqual({
+      left: 0,
+      top: 576,
+      width: 390,
+      height: 224,
+      padBottom: 114,
+      padRight: 0,
+      rows: 7,
+    });
+  });
+  test('an open sheet: as many rows as cover it, rounded up to odd', () => {
+    expect(sheetWheelPlace(view, { left: 0, top: 0, width: 390, height: 280 }, 280, 32, 7, 200)).toMatchObject({ rows: 17, top: 256, padBottom: 24 });
+    expect(sheetWheelPlace(view, { left: 0, top: 0, width: 390, height: 544 }, 544, 32, 7, 200)).toMatchObject({ rows: 9, top: 512 });
+  });
+  test('never so tall that the figure loses its minimum', () => {
+    expect(sheetWheelPlace(view, { left: 0, top: 0, width: 390, height: 220 }, 220, 32, 7, 200)).toMatchObject({ rows: 17, top: 256, padBottom: 0 });
+  });
+  test('no room for even three rows: null', () => {
+    expect(sheetWheelPlace({ ...view, height: 300 }, { left: 0, top: 0, width: 390, height: 100 }, 100, 32, 7, 280)).toBeNull();
+  });
+});
+
+describe('the phone wheel phase', () => {
+  test('a turn spins; a stop settles; the return delay brings the controls back', () => {
+    let phase = nextPhase('rest', 'turn');
+    expect(phase).toBe('spinning');
+    phase = nextPhase(phase, 'stop');
+    expect(phase).toBe('settling');
+    expect(nextPhase(phase, 'return')).toBe('rest');
+  });
+  test('a turn while settling spins again, and the return delay of the old stop does nothing then', () => {
+    expect(nextPhase('settling', 'turn')).toBe('spinning');
+    expect(nextPhase('spinning', 'return')).toBe('spinning');
+  });
+  test('a stop or a return at rest changes nothing; close always rests', () => {
+    expect(nextPhase('rest', 'stop')).toBe('rest');
+    expect(nextPhase('rest', 'return')).toBe('rest');
+    expect(nextPhase('spinning', 'close')).toBe('rest');
+    expect(nextPhase('settling', 'close')).toBe('rest');
   });
 });

@@ -27,12 +27,15 @@ import {
   loopDelta,
   masterGain,
   nearEnd,
+  nextPhase,
+  type WheelPhase,
   offsetFor,
   placeOf,
   presetIndex,
   rowAfterKey,
   scrollForPlace,
   settledPick,
+  sheetWheelPlace,
   start,
   stepIndex,
   toggle,
@@ -203,7 +206,12 @@ export const mountDeck: Mount = (root, { store, player, sound }) => {
       const k = (root.querySelector('.deck-sound') as HTMLElement).getBoundingClientRect();
       column = { left: k.left - v.left, top: k.bottom - v.top, width: k.width, height: v.bottom - k.bottom };
     }
-    const place = wheelPlace(box, DECK.rowPx, DECK.wheelRows, DECK.minFigurePx, DECK.sidePx, column);
+    // A phone upright: the wheel takes the whole sheet, the deck and all (ruling 9).
+    const bar = (root.querySelector('.deck-bar') as HTMLElement).getBoundingClientRect();
+    const sheetPlace = column
+      ? null
+      : sheetWheelPlace({ left: 0, top: 0, width: v.width, height: v.height }, { ...box, left: 0 }, bar.top - v.top, DECK.rowPx, DECK.phoneMinRows, DECK.minFigurePx);
+    const place = sheetPlace ?? wheelPlace(box, DECK.rowPx, DECK.wheelRows, DECK.minFigurePx, DECK.sidePx, column);
     wheel.style.left = `${place.left}px`;
     wheel.style.top = `${place.top}px`;
     wheel.style.width = `${place.width}px`;
@@ -257,7 +265,13 @@ export const mountDeck: Mount = (root, { store, player, sound }) => {
   let scrollWanted = true;
   function scrollToCurrent(smooth: boolean) {
     const i = current();
-    if (i !== null) scrollToRow(i, smooth);
+    if (i === null) return;
+    // A smooth scroll to a row far round the loop crosses the margin where the list turns itself
+    // (nearEnd), which cuts the scroll short; the goal is asked for again until the band is there
+    // (issue 79: the band stopped rows short of a typed 97531).
+    seekRow = smooth ? i : null;
+    keyTries = 0;
+    scrollToRow(i, smooth);
   }
 
   function showWheel() {
@@ -266,6 +280,7 @@ export const mountDeck: Mount = (root, { store, player, sound }) => {
     wheel.hidden = !shown;
     app.classList.toggle('deck-docked', docked());
     app.classList.toggle('wheel-open', shown && !docked());
+    if (!shown || docked()) endPhase();
     // A docked wheel is always open: the pattern button then only takes focus to it.
     if (docked()) {
       patternButton.removeAttribute('aria-expanded');
@@ -282,6 +297,21 @@ export const mountDeck: Mount = (root, { store, player, sound }) => {
     if (!wheelOpen) return;
     wheelOpen = false;
     showWheel();
+  };
+
+  // The phone wheel's phase (nextPhase in deck-model.ts): spinning while the reader turns it,
+  // settling after it stops, and 1.5 s later (DECK.returnMs) the wheel closes and the controls
+  // return. The timer lives here; the rule is the model's.
+  let phase: WheelPhase = 'rest';
+  let returnTimer: ReturnType<typeof setTimeout> | undefined;
+  const setPhase = (event: Parameters<typeof nextPhase>[1]) => {
+    phase = nextPhase(phase, event);
+    wheel.dataset.phase = phase;
+  };
+  wheel.dataset.phase = phase;
+  const endPhase = () => {
+    clearTimeout(returnTimer);
+    setPhase('close');
   };
 
   patternButton.addEventListener('click', () => {
@@ -320,6 +350,9 @@ export const mountDeck: Mount = (root, { store, player, sound }) => {
   let turnTimer: ReturnType<typeof setTimeout> | undefined;
   const turn = () => {
     turning = true;
+    seekRow = null;
+    clearTimeout(returnTimer);
+    if (!docked()) setPhase('turn');
     clearTimeout(turnTimer);
     turnTimer = setTimeout(() => (turning = false), DECK.settleMs * 2);
   };
@@ -342,29 +375,41 @@ export const mountDeck: Mount = (root, { store, player, sound }) => {
   // row that is never loaded. So while a key's row is outstanding the settle re-arms (and asks
   // for the scroll again), a bounded number of times.
   let keyRow: number | null = null;
+  let seekRow: number | null = null;
   let keyTries = 0;
   let settleTimer: ReturnType<typeof setTimeout> | undefined;
   function settle() {
     if (wheel.hidden) {
       keyRow = null;
+      seekRow = null;
       turning = false;
       return;
     }
     const at = rowAt();
-    if (keyRow !== null && at !== keyRow && keyTries < DECK.keySettleTries) {
+    const goal = keyRow ?? seekRow;
+    if (goal !== null && at !== goal && keyTries < DECK.keySettleTries) {
       keyTries += 1;
-      turn();
-      scrollToRow(keyRow, true);
+      if (keyRow !== null) turn();
+      scrollToRow(goal, true);
       armSettle();
       return;
     }
     const user = turning || keyRow !== null;
     keyRow = null;
+    seekRow = null;
     turning = false;
     clearTimeout(turnTimer);
     // At rest, the band's row goes back to the middle place, so the wheel can turn on either way.
     recentre(at);
     if (!user) return;
+    if (!docked()) {
+      setPhase('stop');
+      clearTimeout(returnTimer);
+      returnTimer = setTimeout(() => {
+        setPhase('return');
+        if (phase === 'rest') closeWheel();
+      }, DECK.returnMs);
+    }
     const chosen = settledPick(at, current(), presets.length);
     if (chosen !== null) pick(chosen);
   }
@@ -378,7 +423,8 @@ export const mountDeck: Mount = (root, { store, player, sound }) => {
     // asked for again.
     if (nearEnd(list.scrollTop, DECK.rowPx, half(), rowCount, DECK.loopMarginRows)) {
       recentre(rowAt());
-      if (keyRow !== null) scrollToRow(keyRow, true);
+      const goal = keyRow ?? seekRow;
+      if (goal !== null) scrollToRow(goal, true);
     }
     band(rowAt());
     if (turning) turn();
@@ -390,6 +436,7 @@ export const mountDeck: Mount = (root, { store, player, sound }) => {
       clearTimeout(settleTimer);
       turning = false;
       keyRow = null;
+      seekRow = null;
       if (i >= presets.length) {
         closeWheel();
         store.set({ sheetTab: 'pattern' });

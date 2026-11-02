@@ -221,6 +221,14 @@
   background: var(--raised);
   font-size: 15px;
 }
+/* Phone (issue 82): Swap sits between the input and the digit pad, so it is in view while two
+   throws are chosen, not under the pad's fourth row of keys. The DOM keeps the pad first. */
+#app:not(.is-wide) .knobs-pattern > .digit-pad {
+  order: 2;
+}
+#app:not(.is-wide) .knobs-pattern > .swap {
+  order: 1;
+}
 /* Space plays and pauses: a keyboard's hint, so only on a wide screen. */
 /* Rhythm: ratio chips, the steppers behind More, the lanes. Tempo (styled at the end) sits in the Sound tab. */
 .ratio-chips {

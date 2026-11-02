@@ -33,6 +33,8 @@ export async function openTab(page: import('@playwright/test').Page, tab: 'patte
     if (tab === 'sound') return;
   }
   const button = page.locator(`#tab-${tab}`);
+  // An open phone wheel takes the sheet (v5 ruling 9), Details and the tabs with it: Escape closes it.
+  if ((await page.locator('#app.wheel-open').count()) > 0) await page.keyboard.press('Escape');
   if (!(await button.isVisible())) {
     await page.locator('.deck-details').click();
     if (tab === 'sound') return;

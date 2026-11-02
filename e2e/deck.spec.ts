@@ -85,6 +85,8 @@ for (const size of SIZES) {
       expect(rounded).toEqual([]);
       await page.screenshot({ path: `${SHOTS}/deck-bare-${size.name}.png` });
 
+      // A phone's open wheel takes the sheet, Play with it (v5 ruling 9): Escape gives it back.
+      if (!size.docked) await page.keyboard.press('Escape');
       await page.locator('#play').click();
       await expect(page.locator('#play')).toHaveText('Pause');
       await expect.poll(() => scheduled(page)).toBeGreaterThan(0);
@@ -244,9 +246,10 @@ for (const size of SIZES) {
           expect(w.y + w.height).toBeLessThanOrEqual(size.height + 1);
           await expect.poll(async () => (await wheelRowsShown(page)).every((r) => r !== null)).toBe(true);
         } else {
-          // Over the stage, not over the deck, and clear of the juggler, which stays in view (ruling B).
-          expect(w.y + w.height).toBeLessThanOrEqual(Math.max(bar.y, stage.y + stage.height) + 1);
-          expect(w.x).toBeGreaterThanOrEqual(stage.x - 1);
+          // Over the deck and the sheet, edge to edge along the bottom, the juggler clear above it (v5 ruling 9).
+          expect(w.y).toBeLessThanOrEqual(bar.y);
+          expect(w.y + w.height).toBeGreaterThanOrEqual(size.height - 1);
+          expect(w.x).toBeLessThanOrEqual(stage.x);
         }
         expect(await page.evaluate(() => document.documentElement.scrollHeight <= window.innerHeight)).toBe(true);
         await expect(page.locator('.deck-pattern')).toHaveAttribute('aria-expanded', 'true');
@@ -256,13 +259,18 @@ for (const size of SIZES) {
           return clear && j.height >= 80 && j.width >= 120;
         }).toBe(true);
         await page.screenshot({ path: `${SHOTS}/deck-wheel-open-${size.name}.png` });
-        await page.locator('.deck-pattern').click();
+        // The pattern name is under the wheel on a phone upright; on its side the column leaves it free.
+        if (size.column) {
+          await page.locator('.deck-pattern').click();
+        } else {
+          await page.keyboard.press('Escape');
+        }
         await expect(wheel).toBeHidden();
         await page.locator('.deck-pattern').click();
         await page.keyboard.press('Escape');
         await expect(wheel).toBeHidden();
         await page.locator('.deck-pattern').click();
-        await page.locator('.deck-volume').click();
+        await (size.column ? page.locator('.deck-volume') : page.locator('.region-juggler')).click();
         await expect(wheel).toBeHidden();
       });
     }

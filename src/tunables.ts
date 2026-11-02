@@ -545,6 +545,13 @@ export const DECK = {
   rowPx: 32,
   /** The wheel picks its row this long after the last scroll event, not on each row it passes. */
   settleMs: 160,
+  /**
+   * A phone's wheel takes the whole sheet while it turns; this long after it settles the wheel
+   * closes and the controls return (docs/plans/v5-sound-model.md, ruling 9).
+   */
+  returnMs: 1500,
+  /** The fewest rows the sheet-covering phone wheel shows (it shows more where the sheet is taller). */
+  phoneMinRows: 7,
   /** A mouse wheel over the pattern name steps once per this much scroll (a notch is about 100). */
   notchPx: 50,
   /**
