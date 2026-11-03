@@ -11,7 +11,7 @@ import type { CardGroup, Preset } from './presets';
 import { SHEET } from '../tunables';
 import { summary } from './sheet-model';
 import { jugglerCount } from '../sound/drummers';
-import type { AppState } from './state';
+import type { AppState, DeckFilter } from './state';
 
 /** Every preset in `cardGroups()` order: what ‹ › and the wheel walk. Read afresh, so new presets join. */
 export function deckPresets(): readonly Preset[] {
@@ -19,29 +19,57 @@ export function deckPresets(): readonly Preset[] {
 }
 
 /*
- * The filter chips (docs/plans/v6-wheel-filters-three.md, ruling 4): 3 balls, 4 balls, 5 balls,
- * Passing, one at a time. Under a filter the wheel, ‹ › and ← → walk that group's cards alone
- * (stepIndex over the filtered order), then Make your own. UI state, never in the link.
+ * The filter chips (docs/plans/v6-wheel-filters-three.md, ruling 4; in two groups after
+ * docs/plans/v6-1-wheel-feel.md, ruling 4): Balls 3 4 5, Jugglers 2 3, one lit at a time across
+ * both. Under a filter the wheel, ‹ › and ↑ ↓ walk its cards alone (stepIndex over the filtered
+ * order), then Make your own. UI state, never in the link.
  */
 
+/** The jugglers of a passing card (a pair of hands each), or null for a solo card. */
+export function cardJugglers(p: Preset): number | null {
+  return p.group === 'passing' ? jugglerCount(p.parts.length) : null;
+}
+
+/** Whether `p` is one of the cards `filter` holds. */
+export function inFilter(p: Preset, filter: DeckFilter): boolean {
+  return filter.by === 'balls' ? p.group !== 'passing' && p.balls === filter.n : cardJugglers(p) === filter.n;
+}
+
+/** Whether two filters (or none) are the same choice. */
+export function sameFilter(a: DeckFilter | null, b: DeckFilter | null): boolean {
+  return a === b || (a !== null && b !== null && a.by === b.by && a.n === b.n);
+}
+
 /** The cards a filter leaves, in deck order: all of `list` for none. */
-export function filteredPresets(list: readonly Preset[], filter: CardGroup | null): readonly Preset[] {
-  return filter === null ? list : list.filter((p) => p.group === filter);
+export function filteredPresets(list: readonly Preset[], filter: DeckFilter | null): readonly Preset[] {
+  return filter === null ? list : list.filter((p) => inFilter(p, filter));
 }
 
 /**
- * A tap on the `group` chip: it lights (the filter becomes `group`), or, lit already, clears
- * (null). `load` is the card to load: the group's first when the stage holds no card of it (a card
- * of another group, or a hand-made pattern), else null and the pattern stays.
+ * The chips, derived from the deck: the ball counts of the solo cards and the juggler counts of
+ * the passing cards, each ascending, so a new kind of card brings its chip with no UI change.
+ */
+export function filterChips(list: readonly Preset[] = deckPresets()): { readonly balls: readonly number[]; readonly jugglers: readonly number[] } {
+  const counts = (ns: readonly (number | null)[]) => [...new Set(ns.filter((n): n is number => n !== null))].sort((a, b) => a - b);
+  return {
+    balls: counts(list.map((p) => (p.group === 'passing' ? null : p.balls))),
+    jugglers: counts(list.map(cardJugglers)),
+  };
+}
+
+/**
+ * A tap on the `chip`: it lights (the filter becomes `chip`), or, lit already, clears (null).
+ * `load` is the card to load: the filter's first when the stage holds no card of it (a card
+ * outside it, or a hand-made pattern), else null and the pattern stays.
  */
 export function chooseFilter(
   state: Pick<AppState, 'parts' | 'ratio' | 'deckFilter'>,
-  group: CardGroup,
+  chip: DeckFilter,
   list: readonly Preset[] = deckPresets(),
-): { readonly deckFilter: CardGroup | null; readonly load: Preset | null } {
-  if (state.deckFilter === group) return { deckFilter: null, load: null };
+): { readonly deckFilter: DeckFilter | null; readonly load: Preset | null } {
+  if (sameFilter(state.deckFilter, chip)) return { deckFilter: null, load: null };
   const held = matchPreset(state, list);
-  return { deckFilter: group, load: held?.group === group ? null : (filteredPresets(list, group)[0] ?? null) };
+  return { deckFilter: chip, load: held && inFilter(held, chip) ? null : (filteredPresets(list, chip)[0] ?? null) };
 }
 
 /**
@@ -52,7 +80,7 @@ export function filterKeeper(list: () => readonly Preset[] = deckPresets) {
   return (next: AppState, previous: AppState): Partial<AppState> => {
     if (next.deckFilter === null || (next.parts === previous.parts && next.ratio === previous.ratio)) return {};
     const held = matchPreset(next, list());
-    return held && held.group !== next.deckFilter ? { deckFilter: null } : {};
+    return held && !inFilter(held, next.deckFilter) ? { deckFilter: null } : {};
   };
 }
 

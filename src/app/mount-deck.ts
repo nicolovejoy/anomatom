@@ -26,8 +26,10 @@ import {
   deckLabel,
   deckPresets,
   chooseFilter,
+  filterChips,
   filteredPresets,
   filterKeeper,
+  sameFilter,
   dockedRows,
   editorShows,
   type EditorEvent,
@@ -72,7 +74,7 @@ import {
   wheelRowAt,
 } from './deck-model';
 import { cardPattern, presetPatch } from './first-minute';
-import type { CardGroup, Preset } from './presets';
+import type { Preset } from './presets';
 import { deckKey, nextListen, webMedia } from './layout-model';
 import type { Mount } from './mount';
 import { route } from './route';
@@ -90,10 +92,12 @@ export const mountDeck: Mount = (root, { store, player, sound }) => {
   const t = copy.deck;
   // The cards the wheel holds, in order, then Make your own: `rowCount` rows. The list holds
   // `copies` of them (wheelCopies in deck-model.ts) where it shows more rows than that.
-  // ‹ › and ← → walk the same order. buildList() renders it. Under a filter chip (v6 ruling 4)
-  // the order is that group's cards alone (applyFilter).
+  // ‹ › and ↑ ↓ walk the same order. buildList() renders it. Under a filter chip (v6.1 ruling 4)
+  // the order is that filter's cards alone (applyFilter).
   let order: readonly Preset[] = filteredPresets(deckPresets(), store.get().deckFilter);
   let rowCount = order.length + 1;
+  /** The chips, from the deck (filterChips): Balls 3 4 5, Jugglers 2 3 today. */
+  const chips = filterChips();
   let own = order.length;
   let copies = 1;
   /** The most rows the wheel was last asked to show: what copies are counted for. */
@@ -122,8 +126,13 @@ export const mountDeck: Mount = (root, { store, player, sound }) => {
       </span>
     </div>
     <div class="deck-picker" id="deck-picker" hidden>
-      <div class="deck-filters" role="group" aria-label="${t.filtersLabel}">${t.filters
-        .map((f) => `<button type="button" class="deck-filter" data-group="${f.group}" aria-pressed="false">${f.name}</button>`)
+      <div class="deck-filters" role="group" aria-label="${t.filtersLabel}">${(['balls', 'jugglers'] as const)
+        .map(
+          (by) =>
+            `<div class="deck-filter-group" role="group" aria-labelledby="deck-filters-${by}"><span class="deck-filter-label" id="deck-filters-${by}">${t.filterGroups[by]}</span>${chips[by]
+              .map((n) => `<button type="button" class="deck-filter" data-by="${by}" data-n="${n}" aria-label="${t.filterName(by, n)}" aria-pressed="false">${n}</button>`)
+              .join('')}</div>`,
+        )
         .join('')}</div>
       <div class="deck-wheel" id="deck-wheel" hidden>
         <ol class="deck-wheel-list" aria-label="${t.wheelLabel}"></ol>
@@ -767,9 +776,11 @@ export const mountDeck: Mount = (root, { store, player, sound }) => {
     closeWheel();
   });
 
-  // The filter chips (v6 ruling 4, chooseFilter in deck-model.ts): one lit at a time, the lit one
-  // tapped again clears. A chip whose group does not hold the card on stage loads its first card,
+  // The filter chips (v6.1 ruling 4, chooseFilter in deck-model.ts): one lit at a time across both
+  // groups, the lit one tapped again clears. A chip that does not hold the card on stage loads its first card,
   // as a step does (no sound starts; the web editor hides). The phone wheel stays open.
+  /** The filter a chip stands for, from its data attributes. */
+  const chipOf = (b: HTMLButtonElement) => ({ by: b.dataset.by as 'balls' | 'jugglers', n: Number(b.dataset.n) });
   for (const button of filterButtons) {
     button.addEventListener('click', () => {
       // On a phone a chip tapped while the wheel settles ends the turn: the wheel goes back to its
@@ -778,15 +789,15 @@ export const mountDeck: Mount = (root, { store, player, sound }) => {
         endPhase();
         placeWheel();
       }
-      const choice = chooseFilter(store.get(), button.dataset.group as CardGroup);
+      const choice = chooseFilter(store.get(), chipOf(button));
       store.set({ deckFilter: choice.deckFilter });
       if (choice.load) pick(order.indexOf(choice.load));
     });
   }
-  /** The wheel, ‹ › and ← → take the filter's cards; the list is rebuilt and the band brought back. */
+  /** The wheel, ‹ › and ↑ ↓ take the filter's cards; the list is rebuilt and the band brought back. */
   function applyFilter() {
     const filter = store.get().deckFilter;
-    for (const b of filterButtons) b.setAttribute('aria-pressed', String(b.dataset.group === filter));
+    for (const b of filterButtons) b.setAttribute('aria-pressed', String(sameFilter(chipOf(b), filter)));
     const next = filteredPresets(deckPresets(), filter);
     if (next.length === order.length && next.every((p, i) => p === order[i])) return;
     order = next;
