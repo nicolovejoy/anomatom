@@ -19,11 +19,12 @@ const bandHit = (page: Page) =>
     const hit = document.elementFromPoint(box.left + box.width / 2, box.top + box.height / 2);
     return hit?.closest('.deck-row')?.getAttribute('data-row') ?? null;
   });
-/** The rows the column holds between the wheel's top and the sheet's head: odd, at least 7. */
+/** The rows the column holds between the wheel's top and the sheet's head (or Play's bar): odd, at least 7. */
 const fullRows = (page: Page) =>
   page.evaluate(() => {
     const top = document.querySelector('.deck-wheel')!.getBoundingClientRect().top;
-    const head = (document.querySelector('.region-sheet') as HTMLElement).offsetHeight;
+    // The sheet's head, or Play's bar under the stage where it is taller: both sit in the last row.
+    const head = Math.max((document.querySelector('.region-sheet') as HTMLElement).offsetHeight, (document.querySelector('.deck-bar') as HTMLElement).offsetHeight);
     const fit = Math.floor((document.documentElement.clientHeight - top - head) / 44);
     return Math.max(7, fit % 2 === 0 ? fit - 1 : fit);
   });

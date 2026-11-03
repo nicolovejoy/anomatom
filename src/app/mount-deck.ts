@@ -270,7 +270,12 @@ export const mountDeck: Mount = (root, { store, player, sound }) => {
       const room = document.documentElement.clientHeight - wheel.getBoundingClientRect().top;
       const most = dockedRows(room, DECK.dockedRowPx, DECK.wheelRows);
       if (editorShown) return setRows(DECK.dockedEditRows, DECK.dockedRowPx, most);
-      const head = sheet?.offsetHeight ?? 0;
+      // The sheet's head shares the column's foot with Play's bar under the stage (the grid's last
+      // row): the wheel stops above the taller of the two. Measured against the head alone, a short
+      // head (the sound's status gone) let the wheel push the bar's row down, the stage grew and the
+      // page overflowed, and the observers on the stage and the sheet looped (WebKit's
+      // "ResizeObserver loop completed with undelivered notifications").
+      const head = Math.max(sheet?.offsetHeight ?? 0, (root.querySelector('.deck-bar') as HTMLElement).offsetHeight);
       return setRows(dockedRows(room - head, DECK.dockedRowPx, DECK.wheelRows), DECK.dockedRowPx, most);
     }
     const stage = document.querySelector('.stage') as HTMLElement | null;
