@@ -224,35 +224,52 @@
 .deck-picker[hidden] {
   display: none;
 }
-/* One row of chips, DECK.filtersPx tall (the wheel's place counts it), single select. */
+/* One row of chips, DECK.filtersPx tall (the wheel's place counts it), in two labelled groups
+   (v6.1 ruling 4, mock B): BALLS 3 4 5, a gap, JUGGLERS 2 3. Single select across both. */
 .deck-filters {
-  display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
-  gap: 6px;
+  display: flex;
+  align-items: stretch;
+  gap: 20px;
   height: var(--deck-filters);
-  padding: 4px 8px;
+  padding: 4px 14px; /* the rows' inset */
   box-sizing: border-box;
   border-top: 1px solid var(--rule);
 }
 #app.deck-docked .deck-filters {
-  padding: 4px 0;
+  padding: 4px 18px;
   border-top: 0;
 }
-.deck-filter {
+.deck-filter-group {
+  display: flex;
+  align-items: stretch;
+  gap: 4px;
   min-width: 0;
+}
+.deck-filter-label {
+  align-self: center;
+  margin-right: 4px;
+  color: var(--muted);
+  font: 500 11px var(--font-ui);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+/* A square chip, the count in mono. Unlit, its edge (--chip-edge) holds 3:1 against the picker's
+   surface and the digit 4.5:1 against the chip; lit, the accent with ground-coloured digits. */
+.deck-filter {
+  aspect-ratio: 1;
   height: 100%;
-  padding: 0 4px;
+  padding: 0;
   border: 0;
   border-radius: 0;
-  background: var(--raised);
-  color: var(--text-2);
-  font: 13px var(--font-ui);
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
+  background: var(--rule);
+  box-shadow: inset 0 0 0 1px var(--chip-edge);
+  color: var(--text);
+  font: 500 15px var(--font-mono);
 }
 .deck-filter[aria-pressed='true'] {
   background: var(--accent);
+  box-shadow: none;
   color: var(--ground);
   font-weight: 600;
 }

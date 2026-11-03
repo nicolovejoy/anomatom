@@ -52,6 +52,9 @@ import {
   filteredPresets,
   chooseFilter,
   filterKeeper,
+  filterChips,
+  cardJugglers,
+  sameFilter,
 } from './deck-model';
 import { derived } from './derived';
 import { cardGroups, presetPatch } from './first-minute';
@@ -401,50 +404,88 @@ describe('the open phone wheel with the filter chips above it', () => {
   });
 });
 
-describe('the filter chips (v6 ruling 4)', () => {
+describe('the filter chips in two groups (v6.1 ruling 4)', () => {
   const ids = (ps: readonly { id: string }[]) => ps.map((p) => p.id);
-  test('a filter leaves its group, in deck order; none leaves every card', () => {
-    expect(filteredPresets(list, null)).toBe(list);
-    for (const g of ['3', '4', '5', 'passing'] as const) {
-      const f = filteredPresets(list, g);
-      expect(f.length).toBeGreaterThan(0);
-      expect(f.every((p) => p.group === g)).toBe(true);
-      expect(ids(f)).toEqual(ids(list.filter((p) => p.group === g)));
-    }
-    expect(filteredPresets(list, '5')).toHaveLength(3);
+  const balls = (n: number) => ({ by: 'balls' as const, n });
+  const jugglers = (n: number) => ({ by: 'jugglers' as const, n });
+  test('the chips come from the deck: Balls 3 4 5, Jugglers 2 3', () => {
+    expect(filterChips(list)).toEqual({ balls: [3, 4, 5], jugglers: [2, 3] });
+    expect(filterChips()).toEqual(filterChips(list));
+    // A deck of other cards brings its own chips, ascending, with no repeats.
+    const some = [list[12]!, list[0]!, list[1]!, list[20]!];
+    expect(filterChips(some)).toEqual({ balls: [3, 5], jugglers: [3] });
+    expect(filterChips([])).toEqual({ balls: [], jugglers: [] });
   });
-  test('← → step within the group, round its loop', () => {
-    const five = filteredPresets(list, '5');
+  test('a passing card counts its jugglers, a solo card none', () => {
+    expect(cardJugglers(list.find((p) => p.id === 'ultimates')!)).toBe(2);
+    expect(cardJugglers(list.find((p) => p.id === 'three-feed')!)).toBe(3);
+    expect(cardJugglers(list[0]!)).toBeNull();
+  });
+  test('Balls n holds the solo cards of n balls, Jugglers n the passing cards of n jugglers, in deck order', () => {
+    expect(filteredPresets(list, null)).toBe(list);
+    expect(ids(filteredPresets(list, balls(3)))).toEqual(ids(list.filter((p) => p.group === '3')));
+    expect(filteredPresets(list, balls(4))).toHaveLength(4);
+    expect(ids(filteredPresets(list, balls(5)))).toEqual(['five-cascade', 'five-744', 'ramp']);
+    expect(ids(filteredPresets(list, jugglers(2)))).toEqual(['passing', 'ultimates', 'three-count', 'seven-fours', 'rising-passes']);
+    expect(ids(filteredPresets(list, jugglers(3)))).toEqual(['three-feed', 'three-triangle', 'three-ultimates']);
+    // A passing card of six balls is not a six-ball solo card; no chip holds nothing.
+    expect(filteredPresets(list, balls(6))).toEqual([]);
+    expect(filteredPresets(list, jugglers(4))).toEqual([]);
+    // Every card is under exactly one chip.
+    const chips = filterChips(list);
+    const all = [...chips.balls.map(balls), ...chips.jugglers.map(jugglers)].flatMap((f) => ids(filteredPresets(list, f)));
+    expect(all.sort()).toEqual(ids(list).sort());
+  });
+  test('two filters are the same choice by group and count', () => {
+    expect(sameFilter(null, null)).toBe(true);
+    expect(sameFilter(balls(3), balls(3))).toBe(true);
+    expect(sameFilter(balls(3), jugglers(3))).toBe(false);
+    expect(sameFilter(balls(3), balls(4))).toBe(false);
+    expect(sameFilter(balls(3), null)).toBe(false);
+    expect(sameFilter(null, jugglers(2))).toBe(false);
+  });
+  test('↑ ↓ step within the filter, round its loop', () => {
+    const five = filteredPresets(list, balls(5));
     expect(stepIndex(five.length - 1, 1, five.length)).toBe(0);
     expect(stepIndex(0, -1, five.length)).toBe(five.length - 1);
     expect(presetIndex(loaded(five[1]!.id), five)).toBe(1);
   });
-  test('a chip whose group holds the card on stage lights and the pattern stays', () => {
+  test('a chip that holds the card on stage lights and the pattern stays', () => {
     const s = { ...defaultState(), deckFilter: null };
-    expect(chooseFilter(s, '3')).toEqual({ deckFilter: '3', load: null });
+    expect(chooseFilter(s, balls(3))).toEqual({ deckFilter: balls(3), load: null });
+    const feed = { ...loaded('three-feed'), deckFilter: null };
+    expect(chooseFilter(feed, jugglers(3))).toEqual({ deckFilter: jugglers(3), load: null });
   });
-  test('a chip whose group does not hold it loads the group\'s first card', () => {
+  test("a chip that does not hold it loads the filter's first card", () => {
     const s = { ...defaultState(), deckFilter: null };
-    expect(chooseFilter(s, 'passing')).toEqual({ deckFilter: 'passing', load: filteredPresets(list, 'passing')[0] });
-    expect(chooseFilter({ ...s, deckFilter: '4' }, '5').load?.id).toBe(filteredPresets(list, '5')[0]!.id);
+    expect(chooseFilter(s, jugglers(2))).toEqual({ deckFilter: jugglers(2), load: filteredPresets(list, jugglers(2))[0] });
+    expect(chooseFilter({ ...s, deckFilter: balls(4) }, balls(5)).load?.id).toBe('five-cascade');
+    // Across the groups: from Jugglers 2 to Jugglers 3, and from Balls 3 to Jugglers 3.
+    expect(chooseFilter({ ...loaded('ultimates'), deckFilter: jugglers(2) }, jugglers(3)).load?.id).toBe('three-feed');
+    expect(chooseFilter({ ...s, deckFilter: balls(3) }, jugglers(3))).toEqual({ deckFilter: jugglers(3), load: filteredPresets(list, jugglers(3))[0] });
     // A hand-made pattern holds no card: the first is loaded.
     const own = reduce(defaultState(), { type: 'editDraft', part: 0, text: '9' });
-    expect(chooseFilter(own, '4').load?.id).toBe(filteredPresets(list, '4')[0]!.id);
+    expect(chooseFilter(own, balls(4)).load?.id).toBe(filteredPresets(list, balls(4))[0]!.id);
   });
   test('the lit chip tapped again clears; the pattern stays', () => {
-    expect(chooseFilter({ ...defaultState(), deckFilter: 'passing' }, 'passing')).toEqual({ deckFilter: null, load: null });
+    expect(chooseFilter({ ...defaultState(), deckFilter: jugglers(2) }, jugglers(2))).toEqual({ deckFilter: null, load: null });
+    // The same count in the other group is another chip.
+    expect(chooseFilter({ ...defaultState(), deckFilter: balls(3) }, jugglers(3)).deckFilter).toEqual(jugglers(3));
   });
-  test('a group with no card loads nothing', () => {
-    expect(chooseFilter({ ...defaultState(), deckFilter: null }, '5', filteredPresets(list, '3'))).toEqual({ deckFilter: '5', load: null });
+  test('a filter with no card loads nothing', () => {
+    expect(chooseFilter({ ...defaultState(), deckFilter: null }, balls(5), filteredPresets(list, balls(3)))).toEqual({ deckFilter: balls(5), load: null });
   });
   test('a new pattern that is a card outside the filter clears it; in it, or hand-made, keeps it', () => {
     const keep = filterKeeper();
-    const three = { ...defaultState(), deckFilter: '3' as const };
-    const four = { ...loaded(filteredPresets(list, '4')[0]!.id), deckFilter: '3' as const };
+    const three = { ...defaultState(), deckFilter: balls(3) };
+    const four = { ...loaded(filteredPresets(list, balls(4))[0]!.id), deckFilter: balls(3) };
     expect(keep(four, three)).toEqual({ deckFilter: null });
-    const box = { ...loaded(filteredPresets(list, '3')[1]!.id), deckFilter: '3' as const };
+    const box = { ...loaded(filteredPresets(list, balls(3))[1]!.id), deckFilter: balls(3) };
     expect(keep(box, three)).toEqual({});
-    const own = { ...reduce(defaultState(), { type: 'editDraft', part: 0, text: '9' }), deckFilter: '3' as const };
+    const feed = { ...loaded('three-feed'), deckFilter: jugglers(3) };
+    expect(keep(feed, three)).toEqual({});
+    expect(keep({ ...loaded('ultimates'), deckFilter: jugglers(3) }, feed)).toEqual({ deckFilter: null });
+    const own = { ...reduce(defaultState(), { type: 'editDraft', part: 0, text: '9' }), deckFilter: balls(3) };
     expect(keep(own, three)).toEqual({});
     // No filter, or the pattern unchanged: nothing to do.
     expect(keep({ ...four, deckFilter: null }, three)).toEqual({});

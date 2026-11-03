@@ -10,6 +10,8 @@
   --rule: #2a2f38;
   /* The grab handle and the dimmest marks. */
   --handle: #3a404b;
+  /* An unlit control's edge: 3:1 against --surface and --ground (the filter chips). */
+  --chip-edge: #6b7381;
   --text: #e6e8ec;
   --text-2: #c9ced8;
   --muted: #8b93a1;

@@ -9,7 +9,15 @@ import type { Also, Listen } from '../sound/drummers';
 import { DEFAULT_ALSO, DEFAULT_BPM, DEFAULT_KIT_SHIFT, DEFAULT_LISTEN, DEFAULT_PANEL, DEFAULT_PATTERN, DEFAULT_VOLUME } from '../tunables';
 import { reduce, type Action } from './actions';
 import { derived, type Derived } from './derived';
-import type { CardGroup } from './presets';
+
+/**
+ * A filter chip (docs/plans/v6-1-wheel-feel.md, ruling 4): Balls n holds the solo cards of n balls,
+ * Jugglers n the passing cards of n jugglers.
+ */
+export interface DeckFilter {
+  readonly by: 'balls' | 'jugglers';
+  readonly n: number;
+}
 
 export interface AppState {
   readonly parts: Parts;
@@ -42,10 +50,11 @@ export interface AppState {
   /** UI state: the deck's mute (docs/plans/v4-deck.md, ruling 4); the master gain is 0 while it holds. Never in the share hash. */
   readonly muted: boolean;
   /**
-   * UI state: the lit filter chip above the wheel (docs/plans/v6-wheel-filters-three.md, ruling 4),
-   * or null for every card. Kept across panel changes; never in the share hash.
+   * UI state: the lit filter chip above the wheel (docs/plans/v6-wheel-filters-three.md, ruling 4;
+   * docs/plans/v6-1-wheel-feel.md, ruling 4), or null for every card. Kept across panel changes;
+   * never in the share hash.
    */
-  readonly deckFilter: CardGroup | null;
+  readonly deckFilter: DeckFilter | null;
   /** One-line notice from the last action (design §5), cleared by the next action. Never in the hash. */
   readonly notice: string | null;
 }
