@@ -61,8 +61,8 @@ for (const size of SIZES) {
       await expect(page.locator('.deck-wheel')).toBeVisible();
       // Every preset (the 18 of v5 §4 and the three-juggler cards of v6) and Make your own.
       expect(PRESETS.length).toBe(21);
-      await expect(page.locator('.deck-row')).toHaveCount(PRESETS.length + 1);
-      await expect(page.locator('.deck-row').last()).toHaveText('Make your own');
+      await expect(page.locator('.deck-row:not(.deck-copy)')).toHaveCount(PRESETS.length + 1);
+      await expect(page.locator('.deck-row:not(.deck-copy)').last()).toHaveText('Make your own');
       await expect(notation(page)).toHaveText('3');
       await expect(page.locator('.deck-meta')).toHaveText('3 balls');
       await expect(page.locator('.deck-details')).toBeVisible({ visible: !size.docked && size.width < 760 });
@@ -397,7 +397,7 @@ test.describe('phone', () => {
     await expect.poll(() => loaded('IBM Plex Mono')).toBe(true);
     await expect.poll(() => loaded('IBM Plex Sans')).toBe(true);
     await expect(page.locator('.deck-wheel')).toBeVisible();
-    await expect(page.locator('.deck-row-name')).toHaveCount(PRESETS.length + 1);
+    await expect(page.locator('.deck-row:not(.deck-copy) .deck-row-name')).toHaveCount(PRESETS.length + 1);
     expect(await page.locator('.deck-row-name').evaluateAll((els) => els.filter((el) => el.scrollWidth > el.clientWidth).map((el) => el.textContent))).toEqual([]);
     await page.locator('.deck-row[data-id="rising-passes"]').scrollIntoViewIfNeeded();
     await page.screenshot({ path: `${SHOTS}/deck-wheel-names-390x844.png` });
@@ -487,6 +487,29 @@ test.describe('phone, more', () => {
     await expect(page.getByRole('button', { name: /^Details/ })).toBeVisible();
   });
 });
+
+// v6 W1: the docked rows are taller with a larger notation; a long notation is drawn smaller so
+// every name stays whole, copies included.
+for (const size of [
+  { width: 1280, height: 800 },
+  { width: 1920, height: 1080 },
+]) {
+  test.describe(`docked, ${size.width}x${size.height}`, () => {
+    test.use({ viewport: size });
+
+    test('every wheel row shows its name whole', async ({ page }) => {
+      await page.goto('/');
+      await page.evaluate(() => Promise.all([document.fonts.load('400 16px "IBM Plex Mono"'), document.fonts.load('400 14px "IBM Plex Sans"')]));
+      await expect(page.locator('.deck-wheel')).toBeVisible();
+      await expect(page.locator('.deck-row:not(.deck-copy) .deck-row-name')).toHaveCount(PRESETS.length + 1);
+      await expect
+        .poll(() => page.locator('.deck-row-name').evaluateAll((els) => els.filter((el) => el.scrollWidth > el.clientWidth || el.clientWidth === 0).map((el) => el.textContent)))
+        .toEqual([]);
+      await page.locator('.deck-row[data-id="rising-passes"]').scrollIntoViewIfNeeded();
+      await page.screenshot({ path: `${SHOTS}/deck-wheel-names-${size.width}x${size.height}.png` });
+    });
+  });
+}
 
 test.describe('wide, the wheel by keyboard', () => {
   test.use({ viewport: { width: 1280, height: 800 } });

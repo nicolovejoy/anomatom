@@ -318,23 +318,31 @@ export function wheelDeltaPx(deltaY: number, deltaMode: number, linePx: number, 
   return deltaMode === 1 ? deltaY * linePx : deltaMode === 2 ? deltaY * pagePx : deltaY;
 }
 
-/** The docked wheel's accumulator: the delta not yet turned, and when (ms) the last row turned, or null. */
+/**
+ * The docked wheel's accumulator: the delta not yet turned, when (ms) the last row turned, and
+ * when the last event came; null before any.
+ */
 export interface WheelTurn {
   readonly acc: number;
   readonly last: number | null;
+  readonly seen: number | null;
 }
+
+export const WHEEL_AT_REST: WheelTurn = { acc: 0, last: null, seen: null };
 
 /**
  * One wheel event on the docked wheel (ruling 3): the deltas add up, and `stepPx` of them turns one
  * row (down is forward), at most one row each `stepMs`. What is left over when a row turns, and
  * every delta that arrives within `stepMs` after it, is dropped: a mouse notch is one row however
- * large, and a trackpad's momentum tail does not run on for a page.
+ * large, and a trackpad's momentum tail turns fewer rows than it would scroll. A delta that comes
+ * more than `idleMs` after the last event starts afresh: a brush long ago is not half a turn.
  */
-export function wheelTurn(state: WheelTurn, deltaPx: number, now: number, stepPx: number, stepMs: number): { step: -1 | 1 | null; state: WheelTurn } {
-  if (state.last !== null && now - state.last < stepMs) return { step: null, state: { acc: 0, last: state.last } };
-  const acc = state.acc + deltaPx;
-  if (Math.abs(acc) < stepPx) return { step: null, state: { acc, last: state.last } };
-  return { step: acc > 0 ? 1 : -1, state: { acc: 0, last: now } };
+export function wheelTurn(state: WheelTurn, deltaPx: number, now: number, stepPx: number, stepMs: number, idleMs: number): { step: -1 | 1 | null; state: WheelTurn } {
+  if (state.last !== null && now - state.last < stepMs) return { step: null, state: { acc: 0, last: state.last, seen: now } };
+  const kept = state.seen !== null && now - state.seen > idleMs ? 0 : state.acc;
+  const acc = kept + deltaPx;
+  if (Math.abs(acc) < stepPx) return { step: null, state: { acc, last: state.last, seen: now } };
+  return { step: acc > 0 ? 1 : -1, state: { acc: 0, last: now, seen: now } };
 }
 
 /**

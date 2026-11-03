@@ -573,12 +573,20 @@ export const DECK = {
   dockedRowPx: 44,
   dockedEditRows: 5,
   /**
+   * A docked row's notation: this size, drawn smaller (to dockedNotationMinPx, then an ellipsis)
+   * where a long one would leave its name too little room. The name is always whole.
+   */
+  dockedNotationPx: 16,
+  dockedNotationMinPx: 10,
+  /**
    * A mouse wheel or trackpad over the docked wheel turns it one row per wheelStepPx of scroll, at
    * most one row per wheelStepMs; a delta in lines counts wheelLinePx a line. Chromium's mouse
    * notch is 100 px, Firefox's 3 lines.
    */
   wheelStepPx: 50,
   wheelStepMs: 120,
+  /** A wheel delta this long after the last one starts the count afresh. */
+  wheelIdleMs: 300,
   wheelLinePx: 40,
   /** The looping wheel turns its list mid-spin when the band comes this many rows from an end. */
   loopMarginRows: 2,

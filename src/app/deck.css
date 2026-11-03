@@ -223,15 +223,31 @@
   align-self: start;
   border-top: 0;
 }
-/* Docked, the rows are DECK.dockedRowPx tall (v6 ruling 1): the type grows a step with them. */
+/* Docked, the rows are DECK.dockedRowPx tall (v6 ruling 1): the type grows a step with them. The
+   name and the tag are always whole (their columns are max-content); the notation takes what is left, at least the
+   112 px that lines the names up, and is drawn smaller to fit it (mount-deck.ts, fitRows), down to
+   DECK.dockedNotationMinPx before it ellipsizes. */
 #app.deck-docked .deck-row {
-  gap: 14px;
+  display: grid;
+  grid-template-columns: minmax(112px, max-content) max-content minmax(max-content, 1fr);
+  align-items: center;
+  column-gap: 14px;
   padding: 0 18px;
   font-size: 14px;
 }
 #app.deck-docked .deck-row code {
-  min-width: 112px;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: pre;
   font-size: 16px;
+}
+#app.deck-docked .deck-own .deck-row-name,
+#app.deck-docked .deck-own-copy .deck-row-name {
+  grid-column: 1 / -1;
+}
+#app.deck-docked .deck-row em {
+  justify-self: end;
 }
 #app.deck-docked .deck-row em {
   font-size: 11px;

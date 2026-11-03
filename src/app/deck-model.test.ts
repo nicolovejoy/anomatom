@@ -35,6 +35,7 @@ import {
   slotNear,
   wheelDeltaPx,
   wheelTurn,
+  WHEEL_AT_REST,
   editorShows,
   wheelPlace,
   sheetWheelPlace,
@@ -421,26 +422,34 @@ describe('the web wheel (v6 rulings 1 to 3)', () => {
     expect(wheelDeltaPx(-1, 2, 40, 600)).toBe(-600);
   });
   test('a mouse notch turns one row; a stream of small deltas turns one row per step, at a bounded rate', () => {
-    const fresh = { acc: 0, last: null };
-    expect(wheelTurn(fresh, 100, 1000, 50, 120)).toEqual({ step: 1, state: { acc: 0, last: 1000 } });
-    expect(wheelTurn(fresh, -400, 1000, 50, 120)).toEqual({ step: -1, state: { acc: 0, last: 1000 } });
+    const fresh = WHEEL_AT_REST;
+    const turn = (state: typeof fresh, delta: number, now: number) => wheelTurn(state, delta, now, 50, 120, 300);
+    expect(turn(fresh, 100, 1000)).toEqual({ step: 1, state: { acc: 0, last: 1000, seen: 1000 } });
+    expect(turn(fresh, -400, 1000)).toEqual({ step: -1, state: { acc: 0, last: 1000, seen: 1000 } });
     // Below a step: kept.
-    expect(wheelTurn(fresh, 20, 1000, 50, 120)).toEqual({ step: null, state: { acc: 20, last: null } });
-    expect(wheelTurn({ acc: 20, last: null }, 40, 1016, 50, 120)).toEqual({ step: 1, state: { acc: 0, last: 1016 } });
+    expect(turn(fresh, 20, 1000)).toEqual({ step: null, state: { acc: 20, last: null, seen: 1000 } });
+    expect(turn({ acc: 20, last: null, seen: 1000 }, 40, 1016)).toEqual({ step: 1, state: { acc: 0, last: 1016, seen: 1016 } });
     // Inside the rate limit: dropped, however large.
-    expect(wheelTurn({ acc: 0, last: 1000 }, 100, 1100, 50, 120)).toEqual({ step: null, state: { acc: 0, last: 1000 } });
+    expect(turn({ acc: 0, last: 1000, seen: 1000 }, 100, 1100)).toEqual({ step: null, state: { acc: 0, last: 1000, seen: 1100 } });
     // Past it: turns again.
-    expect(wheelTurn({ acc: 0, last: 1000 }, 100, 1120, 50, 120)).toEqual({ step: 1, state: { acc: 0, last: 1120 } });
+    expect(turn({ acc: 0, last: 1000, seen: 1100 }, 100, 1120)).toEqual({ step: 1, state: { acc: 0, last: 1120, seen: 1120 } });
     // A trackpad swipe: 16 ms events of 30 px for 400 ms turns a few rows, not a page.
-    let state: { acc: number; last: number | null } = fresh;
+    let state = fresh;
     let turned = 0;
     for (let t = 0; t <= 400; t += 16) {
-      const r = wheelTurn(state, 30, t, 50, 120);
+      const r = turn(state, 30, t);
       state = r.state;
       if (r.step) turned += 1;
     }
     expect(turned).toBeGreaterThanOrEqual(2);
     expect(turned).toBeLessThanOrEqual(4);
+  });
+  test('an idle gap starts the count afresh: a brush, then a touch minutes later, turns nothing', () => {
+    const brushed = wheelTurn(WHEEL_AT_REST, 40, 1000, 50, 120, 300);
+    expect(brushed).toEqual({ step: null, state: { acc: 40, last: null, seen: 1000 } });
+    expect(wheelTurn(brushed.state, 10, 1000 + 120_000, 50, 120, 300)).toEqual({ step: null, state: { acc: 10, last: null, seen: 121_000 } });
+    // Within the gap the brush still counts.
+    expect(wheelTurn(brushed.state, 10, 1300, 50, 120, 300).step).toBe(1);
   });
   test('the editor: a card hides it, Make your own and a non-card show it, typing into a card keeps it', () => {
     expect(editorShows(true, { kind: 'pickCard' })).toBe(false);

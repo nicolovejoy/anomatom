@@ -32,6 +32,7 @@ import {
   wheelDeltaPx,
   wheelTurn,
   type WheelTurn,
+  WHEEL_AT_REST,
   fitFontPx,
   nextFit,
   groupTag,
@@ -334,6 +335,7 @@ export const mountDeck: Mount = (root, { store, player, sound }) => {
       rows[roving]?.focus({ preventScroll: true });
     }
     markRows();
+    refitRows();
   }
 
   /**
@@ -410,6 +412,7 @@ export const mountDeck: Mount = (root, { store, player, sound }) => {
       patternButton.setAttribute('aria-expanded', String(shown));
     }
     placeWheel();
+    fitRows();
     if (shown && !was) scrollWanted = true;
   }
 
@@ -517,13 +520,13 @@ export const mountDeck: Mount = (root, { store, player, sound }) => {
   // Docked, the mouse wheel and the trackpad turn the wheel one row per DECK.wheelStepPx, at most
   // one row per DECK.wheelStepMs (v6 ruling 3, wheelTurn in deck-model.ts), not a native scroll:
   // a notch is one row and a swipe a few. Each row turns from the row the last one aimed at.
-  let wheelAcc: WheelTurn = { acc: 0, last: null };
+  let wheelAcc: WheelTurn = WHEEL_AT_REST;
   list.addEventListener(
     'wheel',
     (e) => {
       if (!docked()) return;
       e.preventDefault();
-      const r = wheelTurn(wheelAcc, wheelDeltaPx(e.deltaY, e.deltaMode, DECK.wheelLinePx, list.clientHeight), e.timeStamp, DECK.wheelStepPx, DECK.wheelStepMs);
+      const r = wheelTurn(wheelAcc, wheelDeltaPx(e.deltaY, e.deltaMode, DECK.wheelLinePx, list.clientHeight), e.timeStamp, DECK.wheelStepPx, DECK.wheelStepMs, DECK.wheelIdleMs);
       wheelAcc = r.state;
       if (r.step) turnTo(rowAfterKey(r.step > 0 ? 'ArrowDown' : 'ArrowUp', keyRow ?? rowAt(), rowCount, shownRows));
     },
@@ -563,6 +566,8 @@ export const mountDeck: Mount = (root, { store, player, sound }) => {
     // At rest, the band's row goes back to the middle place, so the wheel can turn on either way.
     // With copies, its first copy takes the band: the copies repeat the rows in order, so the
     // picture does not change, and the row's hooks (data-row, .on) are the band's.
+    // A slot against a row: equal exactly when the band is on the row's first copy, since first
+    // copies hold slots 0 to rowCount - 1, each its own row.
     if (copies > 1 && slotAt() !== at) {
       const focused = rows[roving] === document.activeElement;
       scrollToRow(at, false);
@@ -779,6 +784,43 @@ export const mountDeck: Mount = (root, { store, player, sound }) => {
   // asked for): each finished load fits again, with the real glyphs.
   void document.fonts?.ready.then(fitNotation);
   document.fonts?.addEventListener('loadingdone', fitNotation);
+
+  /**
+   * Docked, each wheel row's notation is drawn smaller to fit what its name leaves it (deck.css),
+   * from DECK.dockedNotationPx down to dockedNotationMinPx, measured as the bar's notation is
+   * (fitFontPx, nextFit); past the floor it ellipsizes. Elsewhere the rows keep their CSS size.
+   */
+  let fittedWidth = -1;
+  function fitRows() {
+    const on = docked() && !wheel.hidden;
+    const width = on ? wheel.clientWidth : 0;
+    if (width === fittedWidth) return;
+    fittedWidth = width;
+    for (const row of rows) {
+      const code = row.querySelector('code');
+      if (!code) continue;
+      if (!on) {
+        code.style.removeProperty('font-size');
+        continue;
+      }
+      code.style.fontSize = `${DECK.dockedNotationPx}px`;
+      const room = code.clientWidth;
+      let size = fitFontPx(code.scrollWidth, room, DECK.dockedNotationPx, DECK.dockedNotationMinPx);
+      for (let i = 0; i < DECK.notationFitTries && size !== DECK.dockedNotationPx; i++) {
+        code.style.fontSize = `${size}px`;
+        const next = nextFit(size, code.scrollWidth, room, DECK.dockedNotationMinPx);
+        if (next === null) break;
+        size = next;
+      }
+      code.style.fontSize = `${size}px`;
+    }
+  }
+  const refitRows = () => {
+    fittedWidth = -1;
+    fitRows();
+  };
+  document.fonts?.addEventListener('loadingdone', refitRows);
+  if (typeof ResizeObserver === 'function') new ResizeObserver(() => fitRows()).observe(wheel);
 
   /** The loaded card's rows (each copy of it) are on; the tab stop follows it unless a row has focus. */
   function markRows() {

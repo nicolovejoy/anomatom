@@ -259,7 +259,7 @@ test('phone: the closed sheet shows no tabs; Details opens it, tabs switch and c
   await expect(page.locator('.sound-panel')).toBeHidden();
 });
 
-test('wide: the sheet is a column, always open on a tab; the open tab again keeps it', async ({ page }) => {
+test('wide: the sheet is a column, open on a tab once the editor shows; the open tab again keeps it', async ({ page }) => {
   await page.setViewportSize({ width: 1440, height: 900 });
   await page.goto('/#v1.e30');
   await showEditor(page);
