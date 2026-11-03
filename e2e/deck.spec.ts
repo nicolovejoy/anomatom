@@ -571,6 +571,53 @@ test.describe('wide, the wheel by keyboard', () => {
     await expect(page.locator('#play')).toHaveText('Pause');
   });
 
+  test('while playing, keys past Make your own queue nothing: "next cycle" never shows', async ({ page }) => {
+    await page.goto('/#97531@40');
+    await page.locator('#play').click();
+    await expect(page.locator('#play')).toHaveText('Pause');
+    // Every moment "next cycle" shows, from here on, is counted.
+    await page.evaluate(() => {
+      const w = window as unknown as { pending: number };
+      w.pending = 0;
+      const el = document.querySelector('#pending')!;
+      new MutationObserver(() => {
+        if (!(el as HTMLElement).hidden) w.pending += 1;
+      }).observe(el, { attributes: true, attributeFilter: ['hidden'] });
+    });
+    // 97531 is the last 5-ball card; under Balls 5 it is the filter's last, and Make your own is next.
+    await page.locator('.deck-filter[data-by="balls"][data-n="5"]').click();
+    await expect(page.locator('.deck-row.on')).toHaveAttribute('data-row', '2');
+    // End: Make your own takes the band and loads nothing; then ↓, End and PageDown there are no picks.
+    await page.locator('.deck-row.on').focus();
+    await page.keyboard.press('End');
+    await expect(page.locator('.deck-own')).toBeFocused();
+    for (const key of ['ArrowDown', 'End', 'PageDown']) await page.keyboard.press(key);
+    await page.waitForTimeout(500);
+    expect(await page.evaluate(() => (window as unknown as { pending: number }).pending)).toBe(0);
+    await expect(page.locator('#pending')).toBeHidden();
+    await expect(notation(page)).toHaveText('97531');
+  });
+
+  test('while playing, ↑ on the card on stage at the top queues nothing', async ({ page }) => {
+    await page.goto('/#3@40');
+    await page.locator('#play').click();
+    await expect(page.locator('#play')).toHaveText('Pause');
+    await page.evaluate(() => {
+      const w = window as unknown as { pending: number };
+      w.pending = 0;
+      const el = document.querySelector('#pending')!;
+      new MutationObserver(() => {
+        if (!(el as HTMLElement).hidden) w.pending += 1;
+      }).observe(el, { attributes: true, attributeFilter: ['hidden'] });
+    });
+    await page.locator('.deck-row[data-id="cascade"]').focus();
+    for (const key of ['ArrowUp', 'Home', 'PageUp']) await page.keyboard.press(key);
+    await page.waitForTimeout(500);
+    expect(await page.evaluate(() => (window as unknown as { pending: number }).pending)).toBe(0);
+    await expect(page.locator('#pending')).toBeHidden();
+    await expect(page.locator('.deck-row[data-id="cascade"]')).toBeFocused();
+  });
+
   test('the wheel’s keys stop at its ends: ↑ on Cascade nothing; End takes the band to Make your own, which opens on Enter', async ({ page }) => {
     await page.goto('/#3');
     await page.locator('.deck-row[data-id="cascade"]').focus();

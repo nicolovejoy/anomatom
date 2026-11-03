@@ -180,13 +180,22 @@ export const mountDeck: Mount = (root, { store, player, sound }) => {
     store.dispatch(presetPatch(p));
   };
   /**
+   * Chooses card `i` as a step or a key does: the card already on stage is never loaded again (that
+   * would queue the same pattern for the next cycle while playing); Make your own just gives way.
+   */
+  const choose = (i: number) => {
+    if (i !== current()) return pick(i);
+    restOwn = false;
+    setEditor({ kind: 'pickCard' });
+  };
+  /**
    * One card on, or back: nothing at an end (v6.2 ruling 2). Docked, Make your own chosen is the
    * last row, past the cards (stepIndex).
    */
   const step = (delta: -1 | 1) => {
     const i = stepIndex(current(), delta, order.length, restOwn && docked());
     if (i === null) return;
-    pick(i);
+    choose(i);
     // The card may be on stage already (↑ from Make your own): the band still goes to it.
     markRows();
     scrollToCurrent(true);
@@ -452,6 +461,11 @@ export const mountDeck: Mount = (root, { store, player, sound }) => {
     roving = Math.min(rowCount - 1, Math.max(0, row));
     rows[roving]?.setAttribute('tabindex', '0');
   };
+  // A row focused by a click or by script is the tab stop, so ↑ ↓ move on from the row with focus.
+  list.addEventListener('focusin', (e) => {
+    const row = e.target instanceof Element ? e.target.closest<HTMLButtonElement>('.deck-row') : null;
+    if (row) rove(Number(row.dataset.row));
+  });
 
   /** The row in the band: on a phone the one the drum holds under it, docked the chosen one. */
   let banded = -1;
@@ -498,6 +512,8 @@ export const mountDeck: Mount = (root, { store, player, sound }) => {
 
   /** Turns the phone's wheel to `to` as the reader's turn: the band goes there, and the row loads when it settles. */
   function turnTo(to: number) {
+    // A key at an end turns nothing: no turn, no sheet taken.
+    if (rowAt() === to) return rove(to);
     scrolled = true;
     sheetOn();
     turn();
@@ -512,8 +528,10 @@ export const mountDeck: Mount = (root, { store, player, sound }) => {
    * own takes the band and opens nothing (only a click, Enter or Space opens it: v6.1 ruling 2).
    */
   function chooseRow(to: number) {
+    // A key at an end (↑ on the first row, ↓ on Make your own) chooses what is chosen already: nothing.
+    if (to === menuBand(current(), own, restOwn)) return;
     if (to === own) restOwn = true;
-    else pick(to);
+    else choose(to);
     // The card may be on stage already (a key from Make your own): the band still goes to it.
     markRows();
     scrollToCurrent(false);

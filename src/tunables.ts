@@ -539,7 +539,10 @@ export const DEFAULT_PANEL = 'patterns' as const;
 
 /** The deck (docs/plans/v4-deck.md): the transport bar, the sound row and the pattern wheel. */
 export const DECK = {
-  /** Rows the wheel shows; the middle one sits in the band. Odd. */
+  /**
+   * Rows the wheel shows. On a phone the drum's, odd, the middle one in the band; docked, the
+   * fewest the menu shows where the column holds more rows than that.
+   */
   wheelRows: 7,
   /** One wheel row's height. */
   rowPx: 32,
