@@ -23,6 +23,9 @@ import {
   centrePlace,
   deckLabel,
   deckPresets,
+  chooseFilter,
+  filteredPresets,
+  filterKeeper,
   dockedRows,
   editorShows,
   type EditorEvent,
@@ -59,7 +62,7 @@ import {
   wheelRowAt,
 } from './deck-model';
 import { cardPattern, presetPatch } from './first-minute';
-import type { Preset } from './presets';
+import type { CardGroup, Preset } from './presets';
 import { deckKey, nextListen, webMedia } from './layout-model';
 import type { Mount } from './mount';
 import { route } from './route';
@@ -77,11 +80,14 @@ export const mountDeck: Mount = (root, { store, player, sound }) => {
   const t = copy.deck;
   // The cards the wheel holds, in order, then Make your own: `rowCount` rows. The list holds
   // `copies` of them (wheelCopies in deck-model.ts) where it shows more rows than that.
-  // ‹ › and ← → walk the same order. buildList() renders it.
-  const order: readonly Preset[] = deckPresets();
-  const rowCount = order.length + 1;
-  const own = order.length;
+  // ‹ › and ← → walk the same order. buildList() renders it. Under a filter chip (v6 ruling 4)
+  // the order is that group's cards alone (applyFilter).
+  let order: readonly Preset[] = filteredPresets(deckPresets(), store.get().deckFilter);
+  let rowCount = order.length + 1;
+  let own = order.length;
   let copies = 1;
+  /** The most rows the wheel was last asked to show: what copies are counted for. */
+  let mostRows: number = DECK.wheelRows;
   let slotCount = rowCount;
 
   root.innerHTML = `
@@ -105,8 +111,13 @@ export const mountDeck: Mount = (root, { store, player, sound }) => {
         <input id="volume" class="slider" type="range" min="0" max="1" step="${KNOBS.volumeStep}" aria-label="${copy.volumeLabel}" />
       </span>
     </div>
-    <div class="deck-wheel" id="deck-wheel" hidden>
-      <ol class="deck-wheel-list" aria-label="${t.wheelLabel}"></ol>
+    <div class="deck-picker" id="deck-picker" hidden>
+      <div class="deck-filters" role="group" aria-label="${t.filtersLabel}">${t.filters
+        .map((f) => `<button type="button" class="deck-filter" data-group="${f.group}" aria-pressed="false">${f.name}</button>`)
+        .join('')}</div>
+      <div class="deck-wheel" id="deck-wheel" hidden>
+        <ol class="deck-wheel-list" aria-label="${t.wheelLabel}"></ol>
+      </div>
     </div>
     <div class="deck-sound">
       <label class="deck-field"><span class="deck-k">${t.listen}</span>
@@ -127,6 +138,8 @@ export const mountDeck: Mount = (root, { store, player, sound }) => {
   const pending = $<HTMLSpanElement>('#pending');
   const mute = $<HTMLButtonElement>('#mute');
   const volume = $<HTMLInputElement>('#volume');
+  const picker = $<HTMLDivElement>('.deck-picker');
+  const filterButtons = [...root.querySelectorAll<HTMLButtonElement>('.deck-filter')];
   const wheel = $<HTMLDivElement>('.deck-wheel');
   const list = $<HTMLOListElement>('.deck-wheel-list');
   const listenSelect = $<HTMLSelectElement>('#deck-listen');
@@ -158,6 +171,7 @@ export const mountDeck: Mount = (root, { store, player, sound }) => {
   root.style.setProperty('--deck-rows', String(DECK.wheelRows));
   root.style.setProperty('--deck-slider', `${DECK.sliderPx}px`);
   root.style.setProperty('--deck-slider-phone', `${DECK.phoneSliderPx}px`);
+  root.style.setProperty('--deck-filters', `${DECK.filtersPx}px`);
 
   // -------------------------------------------------------------------------------------------
   // Play, and the pattern: step, pick
@@ -244,7 +258,7 @@ export const mountDeck: Mount = (root, { store, player, sound }) => {
    */
   function placeWheel() {
     if (docked() || wheel.hidden) {
-      for (const p of ['left', 'top', 'width']) wheel.style.removeProperty(p);
+      for (const p of ['left', 'top', 'width']) picker.style.removeProperty(p);
       app.style.setProperty('--wheel-pad-bottom', '0px');
       app.style.setProperty('--wheel-pad-right', '0px');
       if (wheel.hidden) return setRows(DECK.wheelRows, DECK.rowPx, DECK.wheelRows);
@@ -256,7 +270,12 @@ export const mountDeck: Mount = (root, { store, player, sound }) => {
       const room = document.documentElement.clientHeight - wheel.getBoundingClientRect().top;
       const most = dockedRows(room, DECK.dockedRowPx, DECK.wheelRows);
       if (editorShown) return setRows(DECK.dockedEditRows, DECK.dockedRowPx, most);
-      const head = sheet?.offsetHeight ?? 0;
+      // The sheet's head shares the column's foot with Play's bar under the stage (the grid's last
+      // row): the wheel stops above the taller of the two. Measured against the head alone, a short
+      // head (the sound's status gone) let the wheel push the bar's row down, the stage grew and the
+      // page overflowed, and the observers on the stage and the sheet looped (WebKit's
+      // "ResizeObserver loop completed with undelivered notifications").
+      const head = Math.max(sheet?.offsetHeight ?? 0, (root.querySelector('.deck-bar') as HTMLElement).offsetHeight);
       return setRows(dockedRows(room - head, DECK.dockedRowPx, DECK.wheelRows), DECK.dockedRowPx, most);
     }
     const stage = document.querySelector('.stage') as HTMLElement | null;
@@ -276,11 +295,12 @@ export const mountDeck: Mount = (root, { store, player, sound }) => {
     const bar = (root.querySelector('.deck-bar') as HTMLElement).getBoundingClientRect();
     const sheetPlace = column || phase === 'rest'
       ? null
-      : sheetWheelPlace({ left: 0, top: 0, width: v.width, height: v.height }, { ...box, left: 0 }, bar.top - v.top, DECK.rowPx, DECK.phoneMinRows, DECK.minFigurePx);
-    const place = sheetPlace ?? wheelPlace(box, DECK.rowPx, DECK.wheelRows, DECK.minFigurePx, DECK.sidePx, column);
-    wheel.style.left = `${place.left}px`;
-    wheel.style.top = `${place.top}px`;
-    wheel.style.width = `${place.width}px`;
+      : sheetWheelPlace({ left: 0, top: 0, width: v.width, height: v.height }, { ...box, left: 0 }, bar.top - v.top, DECK.rowPx, DECK.phoneMinRows, DECK.minFigurePx, DECK.filtersPx);
+    // The filter chips sit above the rows, in the place (v6 ruling 4).
+    const place = sheetPlace ?? wheelPlace(box, DECK.rowPx, DECK.wheelRows, DECK.minFigurePx, DECK.sidePx, column, DECK.filtersPx);
+    picker.style.left = `${place.left}px`;
+    picker.style.top = `${place.top}px`;
+    picker.style.width = `${place.width}px`;
     setRows(place.rows, DECK.rowPx, place.rows);
     app.style.setProperty('--wheel-pad-bottom', `${place.padBottom}px`);
     app.style.setProperty('--wheel-pad-right', `${place.padRight}px`);
@@ -291,6 +311,7 @@ export const mountDeck: Mount = (root, { store, player, sound }) => {
    * A change brings the band back to its row when the wheel next draws.
    */
   function setRows(shown: number, px: number, most: number) {
+    mostRows = most;
     const k = wheelCopies(rowCount, most, DECK.loopMarginRows);
     if (k !== copies) {
       copies = k;
@@ -399,6 +420,7 @@ export const mountDeck: Mount = (root, { store, player, sound }) => {
     const shown = wheelShown();
     const was = !wheel.hidden;
     wheel.hidden = !shown;
+    picker.hidden = !shown;
     app.classList.toggle('deck-docked', docked());
     app.classList.toggle('wheel-open', shown && !docked());
     app.classList.toggle('deck-editor-hidden', docked() && !editorShown);
@@ -408,7 +430,7 @@ export const mountDeck: Mount = (root, { store, player, sound }) => {
       patternButton.removeAttribute('aria-expanded');
       patternButton.removeAttribute('aria-controls');
     } else {
-      patternButton.setAttribute('aria-controls', 'deck-wheel');
+      patternButton.setAttribute('aria-controls', 'deck-picker');
       patternButton.setAttribute('aria-expanded', String(shown));
     }
     placeWheel();
@@ -582,7 +604,7 @@ export const mountDeck: Mount = (root, { store, player, sound }) => {
       returnTimer = setTimeout(() => {
         setPhase('return');
         if (phase !== 'rest') return;
-        const had = wheel.contains(document.activeElement);
+        const had = picker.contains(document.activeElement);
         closeWheel();
         if (had) patternButton.focus();
       }, DECK.returnMs);
@@ -647,10 +669,46 @@ export const mountDeck: Mount = (root, { store, player, sound }) => {
     closeWheel();
   });
 
+  // The filter chips (v6 ruling 4, chooseFilter in deck-model.ts): one lit at a time, the lit one
+  // tapped again clears. A chip whose group does not hold the card on stage loads its first card,
+  // as a step does (no sound starts; the web editor hides). The phone wheel stays open.
+  for (const button of filterButtons) {
+    button.addEventListener('click', () => {
+      // On a phone a chip tapped while the wheel settles ends the turn: the wheel goes back to its
+      // place at rest and stays open while the reader filters (no return timer closes it).
+      if (phase !== 'rest') {
+        endPhase();
+        placeWheel();
+      }
+      const choice = chooseFilter(store.get(), button.dataset.group as CardGroup);
+      store.set({ deckFilter: choice.deckFilter });
+      if (choice.load) pick(order.indexOf(choice.load));
+    });
+  }
+  /** The wheel, ‹ › and ← → take the filter's cards; the list is rebuilt and the band brought back. */
+  function applyFilter() {
+    const filter = store.get().deckFilter;
+    for (const b of filterButtons) b.setAttribute('aria-pressed', String(b.dataset.group === filter));
+    const next = filteredPresets(deckPresets(), filter);
+    if (next.length === order.length && next.every((p, i) => p === order[i])) return;
+    order = next;
+    rowCount = order.length + 1;
+    own = order.length;
+    copies = wheelCopies(rowCount, mostRows, DECK.loopMarginRows);
+    // A hand-made pattern's band goes to the first card, or stays on Make your own.
+    bandRow = restOwn ? own : -1;
+    buildList();
+    fittedWidth = -1;
+    fitRows();
+    scrollWanted = true;
+  }
+  // A card outside the lit filter, typed or from a link, clears it (filterKeeper).
+  store.derive(filterKeeper());
+
   // Tapping outside closes the phone wheel; the tap still does what it does.
   document.addEventListener('pointerdown', (e) => {
     const target = e.target as Node;
-    if (wheelOpen && !docked() && !wheel.contains(target) && !patternButton.contains(target)) closeWheel();
+    if (wheelOpen && !docked() && !picker.contains(target) && !patternButton.contains(target)) closeWheel();
   });
   // Escape closes the wheel first, and only the wheel.
   document.addEventListener(
@@ -840,7 +898,7 @@ export const mountDeck: Mount = (root, { store, player, sound }) => {
 
   function render() {
     const state = store.get();
-    const label = deckLabel(state, order);
+    const label = deckLabel(state);
     notation.textContent = label.pattern;
     nameEl.textContent = label.name;
     dot.hidden = label.name === '';
@@ -865,6 +923,8 @@ export const mountDeck: Mount = (root, { store, player, sound }) => {
   }
 
   store.subscribe((state, previous) => {
+    // First: a pattern that cleared the filter (filterKeeper) is found in the whole deck below.
+    if (state.deckFilter !== previous.deckFilter) applyFilter();
     const keys = ['parts', 'ratio', 'drafts', 'listen', 'volume', 'muted'] as const;
     if (keys.some((k) => state[k] !== previous[k])) render();
     // Only a new pattern moves the band: a volume or sound change mid-turn leaves the wheel be.
@@ -878,6 +938,7 @@ export const mountDeck: Mount = (root, { store, player, sound }) => {
     if (state.panel !== previous.panel) showWheel();
   });
   buildList();
+  applyFilter();
   placePattern();
   showWheel();
   render();

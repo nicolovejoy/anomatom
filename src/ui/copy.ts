@@ -380,6 +380,17 @@ export const copy = {
     /** The tag at the right of a wheel row. */
     groupTags: { '3': '3', '4': '4', '5': '5', passing: 'Pass' } as Record<'3' | '4' | '5' | 'passing', string>,
     /**
+     * The filter chips above the wheel (docs/plans/v6-wheel-filters-three.md, ruling 4), in this
+     * order; one at a time, the lit one tapped again shows every card.
+     */
+    filtersLabel: 'Show only',
+    filters: [
+      { group: '3', name: '3 balls' },
+      { group: '4', name: '4 balls' },
+      { group: '5', name: '5 balls' },
+      { group: 'passing', name: 'Passing' },
+    ] as readonly { readonly group: '3' | '4' | '5' | 'passing'; readonly name: string }[],
+    /**
      * The wide layout's bar (docs/plans/v5-sound-model.md, ruling 8): Play, then a key cap for
      * each key and what it does.
      */

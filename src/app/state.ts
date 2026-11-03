@@ -9,6 +9,7 @@ import type { Also, Listen } from '../sound/drummers';
 import { DEFAULT_ALSO, DEFAULT_BPM, DEFAULT_KIT_SHIFT, DEFAULT_LISTEN, DEFAULT_PANEL, DEFAULT_PATTERN, DEFAULT_VOLUME } from '../tunables';
 import { reduce, type Action } from './actions';
 import { derived, type Derived } from './derived';
+import type { CardGroup } from './presets';
 
 export interface AppState {
   readonly parts: Parts;
@@ -40,6 +41,11 @@ export interface AppState {
   readonly panel: Panel;
   /** UI state: the deck's mute (docs/plans/v4-deck.md, ruling 4); the master gain is 0 while it holds. Never in the share hash. */
   readonly muted: boolean;
+  /**
+   * UI state: the lit filter chip above the wheel (docs/plans/v6-wheel-filters-three.md, ruling 4),
+   * or null for every card. Kept across panel changes; never in the share hash.
+   */
+  readonly deckFilter: CardGroup | null;
   /** One-line notice from the last action (design §5), cleared by the next action. Never in the hash. */
   readonly notice: string | null;
 }
@@ -72,6 +78,7 @@ export function defaultState(): AppState {
     sheetTab: null,
     panel: DEFAULT_PANEL,
     muted: false,
+    deckFilter: null,
     notice: null,
   };
 }
