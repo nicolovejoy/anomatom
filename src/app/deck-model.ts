@@ -406,9 +406,40 @@ export function notchGlide(glide: Glide | null, top: number, dir: -1 | 1, rowPx:
 /** A glide moved by `px` at both ends: the list turned under it (recentre), or a drag came during it. */
 export const shiftGlide = (g: Glide, px: number): Glide => ({ ...g, from: g.from + px, to: g.to + px });
 
-/** The settle (ruling 1): a glide from `top` onto the nearest row, or null when the list is on one already. */
-export function settleGlide(top: number, rowPx: number, now: number, ms: number): Glide | null {
-  const to = restTop(top, rowPx);
+/**
+ * A burst of wheel events on the docked wheel: how many came, each within `gapMs` of the one
+ * before, and how far their drags (scaled) moved the list in all. A mouse notch counts as an event
+ * and moves nothing here (its glide is aligned already).
+ */
+export interface Burst {
+  readonly events: number;
+  readonly px: number;
+  readonly last: number | null;
+}
+
+export const BURST_AT_REST: Burst = { events: 0, px: 0, last: null };
+
+/** One more event at `now` that moved the list `px`: the same burst, or a new one after a gap of more than `gapMs`. */
+export function burstAdd(b: Burst, px: number, now: number, gapMs: number): Burst {
+  const fresh = b.last === null || now - b.last > gapMs;
+  return { events: (fresh ? 0 : b.events) + 1, px: (fresh ? 0 : b.px) + px, last: now };
+}
+
+/**
+ * Where the settle takes the list from `top` after `burst` (fix round 1 of PR 96): to the nearest
+ * row, except that a burst of at most two events that moved it some way, but less than half a row,
+ * goes one row on in its direction. That is a plain mouse's slow notch on a Mac: Chromium sends it
+ * as a few px (an accelerated tick, about 4), which rounding would take straight back.
+ */
+export function settleTarget(top: number, rowPx: number, burst: Burst): number {
+  if (burst.events > 0 && burst.events <= 2 && burst.px !== 0 && Math.abs(burst.px) < rowPx / 2) {
+    return restTop(top - burst.px, rowPx) + Math.sign(burst.px) * rowPx;
+  }
+  return restTop(top, rowPx);
+}
+
+/** The settle (ruling 1): a glide from `top` onto the row at `to`, or null when the list is there already. */
+export function settleGlide(top: number, to: number, now: number, ms: number): Glide | null {
   return Math.abs(top - to) < 0.5 ? null : { from: top, to, start: now, ms };
 }
 

@@ -585,7 +585,10 @@ export const DECK = {
    * The docked wheel's feel (docs/plans/v6-1-wheel-feel.md, ruling 1): a trackpad moves it by
    * wheelScale of its scroll, continuously; a mouse notch (a delta of notchPx or more, or any delta
    * in lines) glides it one row over glideMs, and the settle glides it onto the nearest row as long.
-   * A delta in lines counts wheelLinePx a line. Chromium's mouse notch is 100 px, Firefox's 3 lines.
+   * A delta in lines counts wheelLinePx a line. A mouse notch is 100 px in Chromium on Windows and
+   * Linux, and in Firefox (pixel deltas since Firefox 100 for a page that reads deltaY first); a
+   * plain mouse on a Mac sends accelerated ticks of a few px, which the settle reads as a notch
+   * (settleTarget in deck-model.ts).
    */
   wheelScale: 0.5,
   glideMs: 180,

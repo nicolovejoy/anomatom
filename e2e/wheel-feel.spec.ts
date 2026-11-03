@@ -100,6 +100,64 @@ test('a mouse notch of 100 glides to the next row, through the rows between, and
   await page.screenshot({ path: `${SHOTS}/w4-notch-settled-1280x800.png` });
 });
 
+test('a Mac mouse’s slow notch, one tick of 4 px, turns one row and settles there; so does one up', async ({ page }) => {
+  await page.goto('/#3');
+  await expect.poll(() => bandHit(page)).toBe('0');
+  await overWheel(page);
+  await page.mouse.wheel(0, 4);
+  await expect(notation(page)).toHaveText('51');
+  await expect.poll(() => cascadeAbove(page)).toBe(ROW_PX);
+  await page.waitForTimeout(700);
+  await page.mouse.wheel(0, -4);
+  await expect(notation(page)).toHaveText('3');
+  await expect.poll(() => cascadeAbove(page)).toBe(0);
+});
+
+test('one glide of many quick notches crosses the loop’s margin and lands aligned on the right card', async ({ page }) => {
+  await page.goto('/#3');
+  await expect.poll(() => bandHit(page)).toBe('0');
+  // Count every pattern the bar shows, and every turn of the list (an item's order changing).
+  await page.evaluate(() => {
+    const w = window as unknown as { loads: string[]; turns: number };
+    w.loads = [];
+    w.turns = 0;
+    const el = document.querySelector('.deck-notation')!;
+    new MutationObserver(() => {
+      const t = el.textContent ?? '';
+      if (w.loads[w.loads.length - 1] !== t) w.loads.push(t);
+    }).observe(el, { childList: true, characterData: true, subtree: true });
+    new MutationObserver(() => (w.turns += 1)).observe(document.querySelector('.deck-wheel-list')!, { attributes: true, subtree: true, attributeFilter: ['style'] });
+  });
+  // 25 notches 10 ms apart, inside the page: one glide whose target runs on past the margin.
+  const spin = 25;
+  await page.locator('.deck-wheel-list').evaluate(
+    (list, n) =>
+      new Promise<void>((done) => {
+        let i = 0;
+        const tick = () => {
+          list.dispatchEvent(new WheelEvent('wheel', { deltaY: 100, bubbles: true, cancelable: true }));
+          i += 1;
+          if (i < n) setTimeout(tick, 10);
+          else done();
+        };
+        tick();
+      }),
+    spin,
+  );
+  const landed = PRESETS[spin % ROWS]!;
+  await expect(notation(page)).toHaveText(landed.texts[0]!);
+  await page.waitForTimeout(800);
+  const w = await page.evaluate(() => {
+    const { loads, turns } = window as unknown as { loads: string[]; turns: number };
+    return { loads, turns };
+  });
+  expect(w.loads).toEqual([landed.texts[0]]);
+  expect(w.turns).toBeGreaterThan(0);
+  await expect.poll(async () => Math.abs((await cascadeAbove(page)) % ROW_PX)).toBe(0);
+  await expect(page.locator('.deck-row.in-band code')).toHaveText(landed.texts[0]!);
+  await expect.poll(() => bandHit(page)).toBe(String(spin % ROWS));
+});
+
 test('scrolling the whole loop twice never shows the editor, resting on Make your own included', async ({ page }) => {
   await page.goto('/#3');
   await expect.poll(() => bandHit(page)).toBe('0');

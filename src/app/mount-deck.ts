@@ -41,6 +41,10 @@ import {
   notchGlide,
   shiftGlide,
   settleGlide,
+  settleTarget,
+  burstAdd,
+  BURST_AT_REST,
+  type Burst,
   type Glide,
   fitFontPx,
   nextFit,
@@ -392,6 +396,8 @@ export const mountDeck: Mount = (root, { store, player, sound }) => {
   let glideSettles = false;
   let glideFrame = 0;
   let exactTop: number | null = null;
+  /** The wheel events since the last settle (burstAdd): what settleTarget reads. */
+  let burst: Burst = BURST_AT_REST;
   const liveTop = () => (exactTop !== null && Math.abs(list.scrollTop - exactTop) < 1 ? exactTop : list.scrollTop);
   function setTop(top: number) {
     list.scrollTop = top;
@@ -400,9 +406,29 @@ export const mountDeck: Mount = (root, { store, player, sound }) => {
   function glideFrameAt(now: number) {
     glideFrame = 0;
     if (!glide) return;
-    setTop(glideAt(glide, now));
-    if (glideDone(glide, now)) glide = null;
-    else glideFrame = requestAnimationFrame(glideFrameAt);
+    // Quick notches can run the target further on than the list reaches: where the list would stop
+    // at its end, or come within the loop's margin, it turns under the glide at once (recentre
+    // shifts the glide with it), as often as it takes, so the glide never meets an end.
+    for (let i = 0; i < slotCount; i++) {
+      const pos = glideAt(glide, now);
+      setTop(pos);
+      if (Math.abs(list.scrollTop - pos) < 1 && !nearEnd(pos, rowPx, half(), slotCount, DECK.loopMarginRows)) break;
+      const was = offset;
+      recentre(slotAt());
+      if (offset === was) break;
+    }
+    if (!glideDone(glide, now)) {
+      glideFrame = requestAnimationFrame(glideFrameAt);
+      return;
+    }
+    const settled = glideSettles;
+    glide = null;
+    glideSettles = false;
+    // The settle's glide has put the list on its row: pick now, not a settle delay later.
+    if (settled) {
+      clearTimeout(settleTimer);
+      settle();
+    }
   }
   function runGlide(next: Glide, settles: boolean) {
     glide = next;
@@ -411,6 +437,7 @@ export const mountDeck: Mount = (root, { store, player, sound }) => {
   }
   function stopGlide() {
     glide = null;
+    glideSettles = false;
     cancelAnimationFrame(glideFrame);
     glideFrame = 0;
   }
@@ -598,6 +625,7 @@ export const mountDeck: Mount = (root, { store, player, sound }) => {
       // The wheel takes over from a key's outstanding row.
       keyRow = null;
       const now = performance.now();
+      burst = burstAdd(burst, input.kind === 'drag' ? input.px : 0, now, DECK.settleMs);
       if (input.kind === 'notch') runGlide(notchGlide(glide, liveTop(), input.dir, rowPx, now, DECK.glideMs), false);
       else if (glide && !glideSettles) glide = shiftGlide(glide, input.px);
       else {
@@ -638,7 +666,9 @@ export const mountDeck: Mount = (root, { store, player, sound }) => {
       return;
     }
     // Docked there are no snap points: a list left between rows glides onto the nearest first.
-    const onto = docked() ? settleGlide(liveTop(), rowPx, performance.now(), DECK.glideMs) : null;
+    const from = liveTop();
+    const onto = docked() ? settleGlide(from, settleTarget(from, rowPx, burst), performance.now(), DECK.glideMs) : null;
+    burst = BURST_AT_REST;
     if (onto) {
       runGlide(onto, true);
       return armSettle();

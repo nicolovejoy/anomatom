@@ -42,6 +42,9 @@ import {
   notchGlide,
   shiftGlide,
   settleGlide,
+  settleTarget,
+  burstAdd,
+  BURST_AT_REST,
   editorShows,
   wheelPlace,
   sheetWheelPlace,
@@ -580,10 +583,43 @@ describe('the web wheel (v6 rulings 1 to 3)', () => {
   test('a glide moves with the list when the loop turns under it', () => {
     expect(shiftGlide({ from: 10, to: 54, start: 5, ms: 180 }, -440)).toEqual({ from: -430, to: -386, start: 5, ms: 180 });
   });
-  test('the settle glides onto the nearest row, or does nothing on one', () => {
-    expect(settleGlide(920, 44, 7, 180)).toEqual({ from: 920, to: 924, start: 7, ms: 180 });
-    expect(settleGlide(900, 44, 7, 180)).toEqual({ from: 900, to: 880, start: 7, ms: 180 });
-    expect(settleGlide(924.3, 44, 7, 180)).toBeNull();
+  test('the settle glides onto its row, or does nothing there', () => {
+    expect(settleGlide(920, 924, 7, 180)).toEqual({ from: 920, to: 924, start: 7, ms: 180 });
+    expect(settleGlide(900, 880, 7, 180)).toEqual({ from: 900, to: 880, start: 7, ms: 180 });
+    expect(settleGlide(924.3, 924, 7, 180)).toBeNull();
+  });
+  test('a burst counts the events within the gap and adds up their moves', () => {
+    const one = burstAdd(BURST_AT_REST, 2, 1000, 160);
+    expect(one).toEqual({ events: 1, px: 2, last: 1000 });
+    expect(burstAdd(one, 4, 1160, 160)).toEqual({ events: 2, px: 6, last: 1160 });
+    // Past the gap: a new burst.
+    expect(burstAdd(one, 4, 1161, 160)).toEqual({ events: 1, px: 4, last: 1161 });
+  });
+  test('the settle target: a Mac mouse notch of a few px goes a row on; a trackpad drag goes to the nearest', () => {
+    const scaled = (deltas: number[], gap: number) => {
+      let b = BURST_AT_REST;
+      let top = 880;
+      deltas.forEach((d, i) => {
+        b = burstAdd(b, d * 0.5, 1000 + i * gap, 160);
+        top += d * 0.5;
+      });
+      return settleTarget(top, 44, b);
+    };
+    // One accelerated tick of 4 px (2 px scaled): the next row, not back.
+    expect(scaled([4], 16)).toBe(924);
+    expect(scaled([-4], 16)).toBe(836);
+    // Two ticks of 8: one row.
+    expect(scaled([8, 8], 30)).toBe(924);
+    // Twenty trackpad deltas of 2 (20 px scaled in all): the nearest row, back where it was.
+    expect(scaled(Array(20).fill(2), 16)).toBe(880);
+    // Twenty of 4 (40 px): the nearest row, a row on.
+    expect(scaled(Array(20).fill(4), 16)).toBe(924);
+    // Half a row or more in two events: the nearest.
+    expect(settleTarget(880 + 30, 44, { events: 2, px: 30, last: 0 })).toBe(924);
+    expect(settleTarget(880 + 22, 44, { events: 1, px: 22, last: 0 })).toBe(924);
+    // Nothing moved (a notch's aligned glide, or no burst): the nearest.
+    expect(settleTarget(924, 44, { events: 1, px: 0, last: 0 })).toBe(924);
+    expect(settleTarget(900, 44, BURST_AT_REST)).toBe(880);
   });
   test('the editor: a card hides it, Make your own and a non-card show it, typing into a card keeps it', () => {
     expect(editorShows(true, { kind: 'pickCard' })).toBe(false);
