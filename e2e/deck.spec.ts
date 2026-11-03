@@ -59,8 +59,8 @@ for (const size of SIZES) {
       // v5 ruling 8: the wide layout has no sound row (Listen for is in the Sound panel and on ↑ ↓).
       await expect(page.locator('.deck-sound')).toBeVisible({ visible: !size.docked });
       await expect(page.locator('.deck-wheel')).toBeVisible();
-      // Every preset (the 18 of v5 §4) and Make your own.
-      expect(PRESETS.length).toBe(18);
+      // Every preset (the 18 of v5 §4 and the three-juggler cards of v6) and Make your own.
+      expect(PRESETS.length).toBe(21);
       await expect(page.locator('.deck-row')).toHaveCount(PRESETS.length + 1);
       await expect(page.locator('.deck-row').last()).toHaveText('Make your own');
       await expect(notation(page)).toHaveText('3');
@@ -303,7 +303,7 @@ test.describe('phone', () => {
     await expect(notation(page)).toHaveText('3');
     await page.goto('/#753');
     await page.locator('.deck-prev').click();
-    await expect(page.locator('.deck-meta')).toHaveText('2 jugglers');
+    await expect(page.locator('.deck-meta')).toHaveText('3 jugglers');
   });
 
   test('scrolling up from Cascade reaches the last passing pattern', async ({ page }) => {
@@ -315,7 +315,7 @@ test.describe('phone', () => {
     // Two rows up (Make your own, then the last passing pattern); a browser's wheel may carry a
     // row or two further, which is still round the seam and among the passing patterns.
     await expect(notation(page)).not.toHaveText('3');
-    await expect(page.locator('.deck-meta')).toHaveText('2 jugglers');
+    await expect(page.locator('.deck-meta')).toHaveText(/^[23] jugglers$/);
     const banded = page.locator('.deck-row.in-band');
     await expect.poll(async () => (await banded.locator('code').textContent()) === (await notation(page).textContent())).toBe(true);
     const passing = PRESETS.filter((p) => p.group === 'passing').map((p) => p.id);
@@ -523,7 +523,7 @@ test.describe('wide, the wheel by keyboard', () => {
       await page.keyboard.press('ArrowUp');
       await page.waitForTimeout(30);
     }
-    // 25 up from Cascade, round the loop of the presets and Make your own (19 rows since v5): row 13.
+    // 25 up from Cascade, round the loop of the presets and Make your own (22 rows since v6).
     const rows = PRESETS.length + 1;
     const target = String((((-25) % rows) + rows) % rows);
     await expect(page.locator('.deck-row:focus')).toHaveAttribute('data-row', target);
