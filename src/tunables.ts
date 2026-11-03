@@ -552,7 +552,10 @@ export const DECK = {
   returnMs: 1500,
   /** The fewest rows the sheet-covering phone wheel shows (it shows more where the sheet is taller). */
   phoneMinRows: 7,
-  /** A mouse wheel over the pattern name steps once per this much scroll (a notch is about 100). */
+  /**
+   * A mouse wheel over the pattern name steps once per this much scroll (a notch is about 100); over
+   * the docked wheel a delta this large is a mouse notch, not a trackpad.
+   */
   notchPx: 50,
   /**
    * The wheel stays open in the column only on a wide screen at least this tall; shorter (a phone
@@ -579,14 +582,13 @@ export const DECK = {
   dockedNotationPx: 16,
   dockedNotationMinPx: 10,
   /**
-   * A mouse wheel or trackpad over the docked wheel turns it one row per wheelStepPx of scroll, at
-   * most one row per wheelStepMs; a delta in lines counts wheelLinePx a line. Chromium's mouse
-   * notch is 100 px, Firefox's 3 lines.
+   * The docked wheel's feel (docs/plans/v6-1-wheel-feel.md, ruling 1): a trackpad moves it by
+   * wheelScale of its scroll, continuously; a mouse notch (a delta of notchPx or more, or any delta
+   * in lines) glides it one row over glideMs, and the settle glides it onto the nearest row as long.
+   * A delta in lines counts wheelLinePx a line. Chromium's mouse notch is 100 px, Firefox's 3 lines.
    */
-  wheelStepPx: 50,
-  wheelStepMs: 120,
-  /** A wheel delta this long after the last one starts the count afresh. */
-  wheelIdleMs: 300,
+  wheelScale: 0.5,
+  glideMs: 180,
   wheelLinePx: 40,
   /**
    * The filter chips' row above the wheel (docs/plans/v6-wheel-filters-three.md, ruling 4): this

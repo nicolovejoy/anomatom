@@ -1,7 +1,7 @@
 // v6 stream W1 (docs/plans/v6-wheel-filters-three.md, rulings 1 to 3): the web wheel, headless at
 // 1280×800 and 1920×1080. With a card on stage the editor is hidden and the wheel's 44 px rows fill
 // the right-hand column; Make your own, or a pattern that is no card, shows the editor under five
-// rows; one mouse-wheel notch turns one row. Screenshots go to e2e/shots/, or to WEB_WHEEL_SHOTS.
+// rows; one mouse-wheel notch turns one row (a glide since v6.1, e2e/wheel-feel.spec.ts). Screenshots go to e2e/shots/, or to WEB_WHEEL_SHOTS.
 import { mkdirSync } from 'node:fs';
 import { expect, isCdnError, test, type Page } from './fixtures';
 
@@ -86,8 +86,10 @@ for (const size of [
       expect(tabs.y).toBeGreaterThanOrEqual(wheel.y + wheel.height - 1);
       expect(await page.evaluate(() => document.documentElement.scrollHeight <= window.innerHeight)).toBe(true);
       await page.screenshot({ path: `${SHOTS}/web-wheel-editor-${size.name}.png` });
-      // A card: the editor hides and the wheel fills the column again.
-      await page.keyboard.press('ArrowRight');
+      // A card: the editor hides and the wheel fills the column again. ↓ steps (v6.1 ruling 3),
+      // away from the wheel, which keeps its own ↓.
+      await page.evaluate(() => (document.activeElement as HTMLElement | null)?.blur());
+      await page.keyboard.press('ArrowDown');
       await expect(notation(page)).toHaveText('51');
       await expect(page.locator('#tab-pattern')).toBeHidden();
       await expect.poll(() => shownRows(page)).toBe(await fullRows(page));
@@ -108,11 +110,14 @@ for (const size of [
       await settled(page);
       await expect(notation(page)).toHaveText('3');
       expect(await bandHit(page)).toBe('0');
-      // Up from Cascade, round the loop: Make your own, which shows the editor and keeps the pattern.
+      // Up from Cascade, round the loop: Make your own, which keeps the pattern and, resting there,
+      // opens nothing (v6.1 ruling 2).
       await page.mouse.wheel(0, -100);
-      await expect(page.locator('#tab-pattern')).toBeVisible();
+      await expect.poll(() => bandHit(page)).toBe(String(await page.locator('.deck-own').getAttribute('data-row')));
+      await settled(page);
+      await expect(page.locator('#tab-pattern')).toBeHidden();
       await expect(notation(page)).toHaveText('3');
-      await expect.poll(() => shownRows(page)).toBe(5);
+      await expect.poll(() => shownRows(page)).toBe(await fullRows(page));
     });
 
     test('three notches a while apart turn three rows; the page itself never scrolls', async ({ page }) => {

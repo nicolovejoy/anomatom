@@ -38,7 +38,7 @@ export function createPanelSync(): Deriver {
   };
 }
 
-/** The Listen for choice one step on (↓) or back (↑) from `listen`, wrapping. */
+/** The Listen for choice one step on (→) or back (←) from `listen`, wrapping. */
 export function nextListen(listen: Listen, delta: -1 | 1): Listen {
   const i = LISTENS.indexOf(listen);
   return LISTENS[(i + delta + LISTENS.length) % LISTENS.length] as Listen;
@@ -48,17 +48,26 @@ export function nextListen(listen: Listen, delta: -1 | 1): Listen {
 export type DeckKey = { readonly kind: 'step'; readonly delta: -1 | 1 } | { readonly kind: 'listen'; readonly delta: -1 | 1 };
 
 /**
- * The deck's arrow keys: ← → step the pattern everywhere; ↑ ↓ step Listen for, only on the wide
- * layout where their key caps show. Never with a modifier (Shift picks throws on the digit pad)
- * and never in a control that keeps its arrows: a text field, a select, a slider, a tab.
+ * The deck's arrow keys. On the wide layout, where their key caps show
+ * (docs/plans/v6-1-wheel-feel.md, ruling 3): ↑ ↓ step the pattern, as the wheel turns, and ← →
+ * step Listen for. Elsewhere ← → step the pattern and ↑ ↓ do nothing. Never with Ctrl, Meta or
+ * Alt, Listen for never with Shift (Shift picks throws on the digit pad), and never in a control
+ * that keeps its arrows: a text field, a select, a slider, a tab.
  */
+const WEB_KEYS: Readonly<Record<string, DeckKey>> = {
+  ArrowUp: { kind: 'step', delta: -1 },
+  ArrowDown: { kind: 'step', delta: 1 },
+  ArrowLeft: { kind: 'listen', delta: -1 },
+  ArrowRight: { kind: 'listen', delta: 1 },
+};
 export function deckKey(key: string, target: KeyTarget, mods: Modifiers & { readonly shift: boolean }, web: boolean): DeckKey | null {
-  const step = stepKey(key, target, mods);
-  if (step !== null) return { kind: 'step', delta: step };
-  if (!web || mods.ctrl || mods.meta || mods.alt || mods.shift || target !== 'other') return null;
-  if (key === 'ArrowUp') return { kind: 'listen', delta: -1 };
-  if (key === 'ArrowDown') return { kind: 'listen', delta: 1 };
-  return null;
+  if (!web) {
+    const step = stepKey(key, target, mods);
+    return step === null ? null : { kind: 'step', delta: step };
+  }
+  if (mods.ctrl || mods.meta || mods.alt || target !== 'other') return null;
+  const found = WEB_KEYS[key] ?? null;
+  return found !== null && found.kind === 'listen' && mods.shift ? null : found;
 }
 
 /**

@@ -79,23 +79,27 @@ describe('nextListen', () => {
 });
 
 describe('deckKey', () => {
-  test('← → step the pattern, wide or not', () => {
-    for (const web of [true, false]) {
-      expect(deckKey('ArrowLeft', 'other', none, web)).toEqual({ kind: 'step', delta: -1 });
-      expect(deckKey('ArrowRight', 'other', none, web)).toEqual({ kind: 'step', delta: 1 });
-    }
+  test('wide: ↑ ↓ step the pattern, ← → step Listen for (v6.1 ruling 3)', () => {
+    expect(deckKey('ArrowUp', 'other', none, true)).toEqual({ kind: 'step', delta: -1 });
+    expect(deckKey('ArrowDown', 'other', none, true)).toEqual({ kind: 'step', delta: 1 });
+    expect(deckKey('ArrowLeft', 'other', none, true)).toEqual({ kind: 'listen', delta: -1 });
+    expect(deckKey('ArrowRight', 'other', none, true)).toEqual({ kind: 'listen', delta: 1 });
+    // Shift: the pattern still steps, Listen for does not.
+    expect(deckKey('ArrowDown', 'other', { ...none, shift: true }, true)).toEqual({ kind: 'step', delta: 1 });
+    expect(deckKey('ArrowRight', 'other', { ...none, shift: true }, true)).toBeNull();
   });
-  test('↑ ↓ step Listen for on the wide layout only, and never with Shift', () => {
-    expect(deckKey('ArrowUp', 'other', none, true)).toEqual({ kind: 'listen', delta: -1 });
-    expect(deckKey('ArrowDown', 'other', none, true)).toEqual({ kind: 'listen', delta: 1 });
+  test('elsewhere: ← → step the pattern, ↑ ↓ nothing', () => {
+    expect(deckKey('ArrowLeft', 'other', none, false)).toEqual({ kind: 'step', delta: -1 });
+    expect(deckKey('ArrowRight', 'other', none, false)).toEqual({ kind: 'step', delta: 1 });
     expect(deckKey('ArrowUp', 'other', none, false)).toBeNull();
-    expect(deckKey('ArrowDown', 'other', { ...none, shift: true }, true)).toBeNull();
+    expect(deckKey('ArrowDown', 'other', none, false)).toBeNull();
+    expect(deckKey('ArrowRight', 'text', none, false)).toBeNull();
   });
   test('nothing in a control that keeps its arrows, or with a modifier, or for another key', () => {
     for (const target of ['text', 'select', 'range', 'tab'] as const) {
       for (const key of ['ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown']) expect(deckKey(key, target, none, true)).toBeNull();
     }
-    for (const mod of ['ctrl', 'meta', 'alt'] as const) expect(deckKey('ArrowRight', 'other', { ...none, [mod]: true }, true)).toBeNull();
+    for (const mod of ['ctrl', 'meta', 'alt'] as const) for (const key of ['ArrowRight', 'ArrowDown']) expect(deckKey(key, 'other', { ...none, [mod]: true }, true)).toBeNull();
     expect(deckKey('Enter', 'other', none, true)).toBeNull();
   });
 });

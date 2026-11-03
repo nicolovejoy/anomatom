@@ -52,7 +52,7 @@ test('a bare address: the mark, the pattern’s name and the panel choice in the
   await expect(page.locator('#panel-sound')).toBeHidden();
   // The bar: Play and the key caps; no volume, no sound row, no carets.
   await expect(page.locator('#play')).toHaveText('Play');
-  await expect(page.locator('.deck-keys kbd')).toHaveText(['space', '←', '→', '↑', '↓']);
+  await expect(page.locator('.deck-keys kbd')).toHaveText(['space', '↑', '↓', '←', '→']);
   await expect(page.locator('.deck-volume')).toBeHidden();
   await expect(page.locator('.deck-sound')).toBeHidden();
   await noCarets(page);
@@ -74,7 +74,7 @@ test('Sound: the Sound panel alone, with the one volume slider; Stage: the stage
   // One volume slider on screen: the Sound panel's.
   await expect(page.locator('#sp-volume')).toBeVisible();
   await expect(page.locator('#volume')).toBeHidden();
-  await expect(page.locator('.sp-keys kbd')).toHaveText(['↑', '↓']);
+  await expect(page.locator('.sp-keys kbd')).toHaveText(['←', '→']);
   await noCarets(page);
   await page.screenshot({ path: `${SHOTS}/web-sound-1280x800.png` });
 
@@ -103,35 +103,36 @@ test('the pattern’s name in the top bar shows the patterns from another panel'
   await expect(page.locator('.deck-row:focus')).toHaveCount(1);
 });
 
-test('each key: ← → the pattern, ↑ ↓ Listen for, Space plays; from every panel', async ({ page }) => {
+test('each key: ↑ ↓ the pattern, ← → Listen for, Space plays; from every panel', async ({ page }) => {
   await page.goto('/#3');
   for (const panel of ['patterns', 'sound', 'stage']) {
     await option(page, panel).click();
     await page.locator('body').click({ position: { x: 600, y: 200 } });
-    await page.keyboard.press('ArrowRight');
+    await page.keyboard.press('ArrowDown');
     await expect(notation(page)).toHaveText('51');
-    await page.keyboard.press('ArrowLeft');
+    await page.keyboard.press('ArrowUp');
     await expect(notation(page)).toHaveText('3');
-    // ↓ goes down the Listen for list (ball → pitch), ↑ back up, wrapping (height → pitch).
-    await page.keyboard.press('ArrowDown');
+    // → goes on along the Listen for list (ball → pitch), ← back, wrapping (height → pitch).
+    await page.keyboard.press('ArrowRight');
     await expect.poll(() => page.evaluate(() => location.hash)).toBe('#3~pitch');
-    await page.keyboard.press('ArrowUp');
-    await page.keyboard.press('ArrowUp');
+    await page.keyboard.press('ArrowLeft');
+    await page.keyboard.press('ArrowLeft');
     await expect.poll(() => page.evaluate(() => location.hash)).toBe('#3~height');
-    await page.keyboard.press('ArrowUp');
+    await page.keyboard.press('ArrowLeft');
     await expect.poll(() => page.evaluate(() => location.hash)).toBe('#3~pitch');
-    await page.keyboard.press('ArrowDown');
-    await page.keyboard.press('ArrowDown');
+    await page.keyboard.press('ArrowRight');
+    await page.keyboard.press('ArrowRight');
     await expect.poll(() => page.evaluate(() => location.hash)).toBe('#3');
     await page.keyboard.press('Space');
     await expect(page.locator('#play')).toHaveText('Pause');
     await page.keyboard.press('Space');
     await expect(page.locator('#play')).toHaveText('Play');
   }
-  // The Sound panel follows ↑ ↓.
+  // The Sound panel follows ← →, and its key caps say so.
   await option(page, 'sound').click();
+  await expect(page.locator('.sp-keys kbd')).toHaveText(['←', '→']);
   await page.locator('body').click({ position: { x: 600, y: 200 } });
-  await page.keyboard.press('ArrowDown');
+  await page.keyboard.press('ArrowRight');
   await expect(listen(page)).toHaveAttribute('data-listen', 'pitch');
 });
 

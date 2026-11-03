@@ -50,6 +50,8 @@ const SIZES = [
 for (const size of SIZES) {
   test.describe(size.name, () => {
     test.use({ viewport: { width: size.width, height: size.height } });
+    /** The key that steps the pattern on: ↓ on the wide layout (v6.1 ruling 3), → elsewhere. */
+    const nextKey = size.docked ? 'ArrowDown' : 'ArrowRight';
 
     test('a bare address shows the deck and the wheel; nothing plays until Play', async ({ page }) => {
       const errors = watchErrors(page);
@@ -96,32 +98,32 @@ for (const size of SIZES) {
       expect(errors).toEqual([]);
     });
 
-    test('→ twice goes 3 → 51 → 441 and the hash follows; ‹ goes back', async ({ page }) => {
+    test('→ (↓ on the wide layout) twice goes 3 → 51 → 441 and the hash follows; ‹ goes back', async ({ page }) => {
       const errors = watchErrors(page);
       await page.goto('/#3');
       await page.locator('body').click({ position: { x: 5, y: 60 } });
-      await page.keyboard.press('ArrowRight');
+      await page.keyboard.press(nextKey);
       await expect(notation(page)).toHaveText('51');
-      await page.keyboard.press('ArrowRight');
+      await page.keyboard.press(nextKey);
       await expect(notation(page)).toHaveText('441');
       await expect(page.locator('.deck-name')).toHaveText('Half box');
       // The hash follows (debounced): a reload opens on 441.
       await expect.poll(() => page.evaluate(() => location.hash)).not.toBe('#3');
       await page.waitForTimeout(800);
       const hash = await page.evaluate(() => location.hash);
-      // No ‹ on the wide layout (v5 ruling 8): ← does it.
-      if (size.docked) await page.keyboard.press('ArrowLeft');
+      // No ‹ on the wide layout (v5 ruling 8): ↑ does it (v6.1 ruling 3).
+      if (size.docked) await page.keyboard.press('ArrowUp');
       else await page.locator('.deck-prev').click();
       await expect(notation(page)).toHaveText('51');
       const fresh = await page.context().newPage();
       await fresh.goto('/' + hash);
       await expect(notation(fresh)).toHaveText('441');
       await fresh.close();
-      // ← wraps from the first preset to the last.
+      // ← (↑) wraps from the first preset to the last.
       await page.goto('/#3');
       if (size.docked) {
         await page.evaluate(() => (document.activeElement as HTMLElement | null)?.blur());
-        await page.keyboard.press('ArrowLeft');
+        await page.keyboard.press('ArrowUp');
       } else await page.locator('.deck-prev').click();
       await expect(page.locator('.deck-meta')).toHaveText(/jugglers$/);
       // Not in a text field: there the arrows move the caret.
@@ -138,15 +140,15 @@ for (const size of SIZES) {
       await page.goto('/#3');
       await page.locator('#play').click();
       await expect(page.locator('#play')).toHaveText('Pause');
-      if (size.docked) await page.keyboard.press('ArrowRight');
+      if (size.docked) await page.keyboard.press('ArrowDown');
       else await page.locator('.deck-next').click();
       await expect(notation(page)).toHaveText('51');
       await expect(page.locator('#play')).toHaveText('Pause');
       await page.keyboard.press('Space');
       await expect(page.locator('#play')).toHaveText('Play');
-      // Listen for pitch writes the hash; focus goes to Play, so Space plays. Wide, ↓ is the
+      // Listen for pitch writes the hash; focus goes to Play, so Space plays. Wide, → is the
       // deck's Listen for (ball → pitch), and focus stays where it was.
-      if (size.docked) await page.keyboard.press('ArrowDown');
+      if (size.docked) await page.keyboard.press('ArrowRight');
       else {
         await page.locator('#deck-listen').selectOption('pitch');
         await expect(page.locator('#play')).toBeFocused();
@@ -157,7 +159,7 @@ for (const size of SIZES) {
       // A step while paused stays paused.
       await page.keyboard.press('Space');
       await expect(page.locator('#play')).toHaveText('Play');
-      await page.keyboard.press('ArrowRight');
+      await page.keyboard.press(nextKey);
       await expect(notation(page)).toHaveText('441');
       await expect(page.locator('#play')).toHaveText('Play');
     });
@@ -529,7 +531,7 @@ test.describe('wide, the wheel by keyboard', () => {
     await expect(page.locator('.deck-row[data-id="pause"]')).toBeFocused();
     await expect(notation(page)).toHaveText('441');
     expect(await scheduled(page)).toBe(0);
-    // The wheel keeps its own ↑ ↓: Listen for (also on ↑ ↓, v5 ruling 8) stays on ball.
+    // The wheel keeps its own ↑ ↓ (the deck's step them too, v6.1 ruling 3): Listen for stays on ball.
     await expect.poll(() => page.evaluate(() => location.hash)).toBe('#441');
     await expect(page.locator('#deck-listen')).toHaveValue('ball');
     // Enter picks and plays the focused row.
@@ -555,13 +557,12 @@ test.describe('wide, the wheel by keyboard', () => {
     expect(await scheduled(page)).toBe(0);
   });
 
-  test('← → do nothing while About shows', async ({ page }) => {
+  test('the arrows do nothing while About shows', async ({ page }) => {
     await page.goto('/#51');
     await page.locator('.about-link').click();
     await expect(page).toHaveURL(/#about$/);
     await expect(page.locator('.region-about')).toBeVisible();
-    await page.keyboard.press('ArrowRight');
-    await page.keyboard.press('ArrowRight');
+    for (const key of ['ArrowRight', 'ArrowDown', 'ArrowDown']) await page.keyboard.press(key);
     await page.locator('.region-about a', { hasText: 'Back to the pattern' }).click();
     await expect(notation(page)).toHaveText('51');
   });

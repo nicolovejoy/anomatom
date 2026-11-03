@@ -47,12 +47,12 @@ for (const size of [
     test.use({ viewport: { width: size.width, height: size.height }, hasTouch: size.phone });
 
     const tap = (page: Page, group: string) => (size.phone ? chip(page, group).tap() : chip(page, group).click());
-    /** One step forward, as the reader would: → on the web, › on a phone. */
+    /** One step forward, as the reader would: ↓ on the web (v6.1 ruling 3), › on a phone. */
     const next = async (page: Page) => {
       if (size.phone) await page.locator('.deck-next').click();
       else {
         await page.evaluate(() => (document.activeElement as HTMLElement | null)?.blur());
-        await page.keyboard.press('ArrowRight');
+        await page.keyboard.press('ArrowDown');
       }
     };
 
@@ -132,7 +132,7 @@ for (const size of [
         await expect(notation(page)).toHaveText(last ?? '');
       } else {
         // One notch a row: three notches pass the three cards and Make your own, the fourth is back.
-        // The wheel drops to five rows over the editor on Make your own: the pointer follows it.
+        // Resting on Make your own opens no editor (v6.1 ruling 2): the wheel keeps its rows.
         for (const want of ['1', '2', '3', '0']) {
           const box = (await page.locator('.deck-wheel').boundingBox())!;
           await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2);
