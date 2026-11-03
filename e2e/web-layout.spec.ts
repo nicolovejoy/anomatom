@@ -4,7 +4,7 @@
 // anywhere; one volume slider. Each key: ← → pattern, ↑ ↓ Listen for, Space play, none of them
 // in a text field. Screenshots go to e2e/shots/, or to WEB_LAYOUT_SHOTS when it names a directory.
 import { mkdirSync } from 'node:fs';
-import { expect, isCdnError, test, type Page } from './fixtures';
+import { expect, isCdnError, showEditor, test, type Page } from './fixtures';
 
 const SHOTS = process.env.WEB_LAYOUT_SHOTS ?? 'e2e/shots';
 mkdirSync(SHOTS, { recursive: true });
@@ -38,8 +38,14 @@ test('a bare address: the mark, the pattern’s name and the panel choice in the
   const choice = (await page.locator('.panel-choice').boundingBox())!;
   expect(name.x).toBeGreaterThan(mark.x + mark.width);
   expect(name.x + name.width).toBeLessThanOrEqual(choice.x);
-  // Patterns: the wheel, then Pattern and Rhythm; no Sound tab, no Sound panel.
+  // Patterns: the wheel; with a card on stage, no Pattern and Rhythm until Make your own (v6
+  // ruling 2), then both; never a Sound tab or the Sound panel.
   await expect(page.locator('.deck-wheel')).toBeVisible();
+  await expect(page.locator('#tab-pattern')).toBeHidden();
+  await expect(page.locator('#tab-sound')).toBeHidden();
+  await expect(page.locator('#panel-sound')).toBeHidden();
+  await page.screenshot({ path: `${SHOTS}/web-patterns-wheel-1280x800.png` });
+  await showEditor(page);
   await expect(page.locator('#tab-pattern')).toBeVisible();
   await expect(page.locator('#tab-rhythm')).toBeVisible();
   await expect(page.locator('#tab-sound')).toBeHidden();
@@ -131,6 +137,7 @@ test('each key: ← → the pattern, ↑ ↓ Listen for, Space plays; from every
 
 test('no key fires while a text field has focus', async ({ page }) => {
   await page.goto('/#3');
+  await showEditor(page);
   await page.locator('#hand-0').focus();
   for (const key of ['ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown']) await page.keyboard.press(key);
   await page.keyboard.press('Space');

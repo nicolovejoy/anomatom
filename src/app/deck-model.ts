@@ -270,6 +270,94 @@ export function wheelNotch(acc: number, deltaY: number, notchPx: number): { step
   return { step: total > 0 ? 1 : -1, acc: 0 };
 }
 
+/*
+ * The web wheel (docs/plans/v6-wheel-filters-three.md, rulings 1 to 3). Docked in the right-hand
+ * column its rows are taller and it shows as many as the column holds while the editor is hidden;
+ * a mouse wheel turns it one row a notch, at a bounded rate.
+ */
+
+/** The most rows, odd, whose `rowPx` rows fit in `height`; never fewer than `minRows` (odd). */
+export function dockedRows(height: number, rowPx: number, minRows: number): number {
+  const fit = Math.floor(height / rowPx);
+  return Math.max(minRows, fit % 2 === 0 ? fit - 1 : fit);
+}
+
+/**
+ * How many copies of the wheel's `length` rows the list holds so it can show `shown` rows and still
+ * turn: the band's row rests at the middle place, and a turn of a row either way must not come
+ * within `margin` rows of an end (nearEnd), so the list is at least `shown + 2 * margin + 2` places
+ * long. One copy (the deck as it is) wherever that fits; more where a tall column shows more rows
+ * than there are patterns, or a short (filtered) deck has few. A card then shows more than once.
+ */
+export function wheelCopies(length: number, shown: number, margin: number): number {
+  return Math.max(1, Math.ceil((shown + 2 * margin + 2) / length));
+}
+
+/** The wheel row (a pattern, or Make your own) that list item `slot` holds, `length` rows a copy. */
+export const rowOfSlot = (slot: number, length: number): number => slot % length;
+
+/**
+ * Of the `copies` items holding `row`, the one nearest the band under `offset` (a ring of
+ * `length * copies` places): the one to focus and to bring into the band. A tie goes to the later.
+ */
+export function slotNear(row: number, offset: number, length: number, copies: number): number {
+  const slots = length * copies;
+  const centre = centrePlace(slots);
+  let best = row;
+  for (let c = 1; c < copies; c++) {
+    const slot = row + c * length;
+    const d = Math.abs(placeOf(slot, offset, slots) - centre);
+    const bestD = Math.abs(placeOf(best, offset, slots) - centre);
+    if (d < bestD || (d === bestD && placeOf(slot, offset, slots) > placeOf(best, offset, slots))) best = slot;
+  }
+  return best;
+}
+
+/** A wheel event's vertical delta in px: lines and pages (Firefox, some mice) converted. */
+export function wheelDeltaPx(deltaY: number, deltaMode: number, linePx: number, pagePx: number): number {
+  return deltaMode === 1 ? deltaY * linePx : deltaMode === 2 ? deltaY * pagePx : deltaY;
+}
+
+/**
+ * The docked wheel's accumulator: the delta not yet turned, when (ms) the last row turned, and
+ * when the last event came; null before any.
+ */
+export interface WheelTurn {
+  readonly acc: number;
+  readonly last: number | null;
+  readonly seen: number | null;
+}
+
+export const WHEEL_AT_REST: WheelTurn = { acc: 0, last: null, seen: null };
+
+/**
+ * One wheel event on the docked wheel (ruling 3): the deltas add up, and `stepPx` of them turns one
+ * row (down is forward), at most one row each `stepMs`. What is left over when a row turns, and
+ * every delta that arrives within `stepMs` after it, is dropped: a mouse notch is one row however
+ * large, and a trackpad's momentum tail turns fewer rows than it would scroll. A delta that comes
+ * more than `idleMs` after the last event starts afresh: a brush long ago is not half a turn.
+ */
+export function wheelTurn(state: WheelTurn, deltaPx: number, now: number, stepPx: number, stepMs: number, idleMs: number): { step: -1 | 1 | null; state: WheelTurn } {
+  if (state.last !== null && now - state.last < stepMs) return { step: null, state: { acc: 0, last: state.last, seen: now } };
+  const kept = state.seen !== null && now - state.seen > idleMs ? 0 : state.acc;
+  const acc = kept + deltaPx;
+  if (Math.abs(acc) < stepPx) return { step: null, state: { acc, last: state.last, seen: now } };
+  return { step: acc > 0 ? 1 : -1, state: { acc: 0, last: now, seen: now } };
+}
+
+/**
+ * Whether the web editor (the Pattern and Rhythm tabs under the docked wheel) shows (ruling 2):
+ * picking a card hides it and Make your own shows it; a new pattern that is no card shows it, and a
+ * new pattern that is a card (typed into one, or opened from a link) leaves it as it was.
+ */
+export type EditorEvent = { readonly kind: 'pickCard' } | { readonly kind: 'makeOwn' } | { readonly kind: 'pattern'; readonly card: boolean };
+
+export function editorShows(shown: boolean, event: EditorEvent): boolean {
+  if (event.kind === 'pickCard') return false;
+  if (event.kind === 'makeOwn') return true;
+  return shown || !event.card;
+}
+
 /** The sound's master gain: silent while muted, else the volume (ruling 4). */
 export const masterGain = (volume: number, muted: boolean): number => (muted ? 0 : volume);
 

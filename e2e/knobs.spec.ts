@@ -1,6 +1,6 @@
 // The knob panel and the fix state (SPEC §4.1, §4.2), headless. Canvas content (the warning
 // flights, the greyed strip, the accent marks) is checked by screenshot, saved to test-results.
-import { expect, openTab, stopPlaying, test, type Page } from './fixtures';
+import { expect, openTab, showEditor, stopPlaying, test, type Page } from './fixtures';
 
 const shot = (page: Page, name: string) => page.screenshot({ path: `test-results/knobs-${name}.png`, fullPage: true });
 const hand1 = (page: Page) => page.locator('#hand-0');
@@ -8,6 +8,7 @@ const status = (page: Page) => page.locator('#status');
 
 test('432: the collision named, digits in the warning colour, three fixes that validate', async ({ page }) => {
   await page.goto('/#v1.e30');
+  await showEditor(page);
   await hand1(page).fill('432');
   await expect(status(page)).toContainText('throws 1, 2 and 3 all land in hand 1 on beat 5');
   await expect(page.locator('.pattern-row[data-hand="0"] .mirror .warn')).toHaveCount(3);
@@ -26,6 +27,7 @@ test('432: the collision named, digits in the warning colour, three fixes that v
 
 test('12 offers 22 first; the digit pad types at the caret', async ({ page }) => {
   await page.goto('/#v1.e30');
+  await showEditor(page);
   await hand1(page).fill('');
   for (const k of ['1', '2']) await page.locator(`.digit-pad [data-key="${k}"]`).click();
   await expect(hand1(page)).toHaveValue('12');
@@ -38,6 +40,7 @@ test('12 offers 22 first; the digit pad types at the caret', async ({ page }) =>
 
 test('ratio chips, steppers, tempo for both hands, and the accent at 3:2', async ({ page }) => {
   await page.goto('/#v1.e30');
+  await showEditor(page);
   await openTab(page, 'rhythm');
   await page.locator('.chip', { hasText: '3:2' }).click();
   await expect(page.locator('.tempo-both')).toHaveText('Hand 1 beats at 104 bpm, hand 2 at 69.3.');
@@ -79,6 +82,7 @@ test('ratio chips, steppers, tempo for both hands, and the accent at 3:2', async
 
 test('swap two sites: 531 → 441 by choosing throws 1 and 2', async ({ page }) => {
   await page.goto('/#v1.e30');
+  await showEditor(page);
   await hand1(page).fill('531');
   await expect(page.locator('#swap')).toBeDisabled();
   const site = (i: number) => page.locator(`.pattern-row[data-hand="0"] .mirror [data-site="${i}"]`);
@@ -94,6 +98,7 @@ test('swap two sites: 531 → 441 by choosing throws 1 and 2', async ({ page }) 
 
 test('play, pause, scrub, resume, stop; Space toggles; volume and sound panel', async ({ page }) => {
   await page.goto('/#v1.e30');
+  await showEditor(page);
   await page.locator('#play').click();
   await expect(page.locator('#play')).toHaveText('Pause');
   await expect(page.locator('#scrub')).toBeDisabled();
@@ -127,6 +132,7 @@ test('play, pause, scrub, resume, stop; Space toggles; volume and sound panel', 
 
 test('an edit I can’t juggle while playing: it is queued and plays, its bars grey', async ({ page }) => {
   await page.goto('/#v1.e30');
+  await showEditor(page);
   await openTab(page, 'rhythm');
   await page.locator('.chip', { hasText: '3:2' }).click();
   await page.locator('#play').click();
@@ -144,6 +150,7 @@ test('an edit I can’t juggle while playing: it is queued and plays, its bars g
 
 test('Space types a space in a pattern input; Enter there plays; Space elsewhere pauses', async ({ page }) => {
   await page.goto('/#v1.e30');
+  await showEditor(page);
   await openTab(page, 'rhythm');
   await page.locator('.chip', { hasText: '3:2' }).click();
   await openTab(page, 'pattern');
@@ -171,6 +178,7 @@ test('Space types a space in a pattern input; Enter there plays; Space elsewhere
 
 test('swap by keyboard: Shift+Arrow over one throw chooses it', async ({ page }) => {
   await page.goto('/#v1.e30');
+  await showEditor(page);
   await hand1(page).fill('531');
   // Home is not "start of line" on macOS WebKit and Firefox, so put the caret there directly.
   await hand1(page).evaluate((el: HTMLInputElement) => el.setSelectionRange(0, 0));
@@ -185,6 +193,7 @@ test('swap by keyboard: Shift+Arrow over one throw chooses it', async ({ page })
 
 test('a fix click returns focus to the input; a chip always applies its exact ratio', async ({ page }) => {
   await page.goto('/#v1.e30');
+  await showEditor(page);
   await hand1(page).fill('432');
   await page.locator('.fix').first().click();
   await expect(hand1(page)).toBeFocused();
@@ -204,6 +213,7 @@ test('phone: the closed sheet shows no tabs; Details opens it, tabs switch and c
 }) => {
   await page.setViewportSize({ width: 390, height: 844 });
   await page.goto('/#v1.e30');
+  await showEditor(page);
   // Closed: the deck, no handle, no tabs, no panel (v4 ruling C). The juggler and the ladder stay.
   await expect(page.locator('.deck-bar')).toBeVisible();
   await expect(page.locator('.deck-meta')).toHaveText('3 balls');
@@ -249,9 +259,10 @@ test('phone: the closed sheet shows no tabs; Details opens it, tabs switch and c
   await expect(page.locator('.sound-panel')).toBeHidden();
 });
 
-test('wide: the sheet is a column, always open on a tab; the open tab again keeps it', async ({ page }) => {
+test('wide: the sheet is a column, open on a tab once the editor shows; the open tab again keeps it', async ({ page }) => {
   await page.setViewportSize({ width: 1440, height: 900 });
   await page.goto('/#v1.e30');
+  await showEditor(page);
   await expect(page.locator('#tab-pattern')).toHaveAttribute('aria-selected', 'true');
   await expect(hand1(page)).toBeVisible();
   await expect(page.locator('.sheet-grab')).toBeHidden();

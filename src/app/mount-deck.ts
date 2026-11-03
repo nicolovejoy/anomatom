@@ -6,6 +6,9 @@
 // different: the pattern name moves to the top bar beside the mark, the bar under the stage is
 // Play alone with key caps (no ‹ ›, no volume: Volume is the Sound panel's), the sound row goes,
 // and the wheel stays open at the top of the right-hand column while the Patterns panel shows.
+// There (docs/plans/v6-wheel-filters-three.md, rulings 1 to 3) its rows are taller, it fills the
+// column while the editor (Pattern and Rhythm) is hidden, which it is until Make your own or a
+// pattern that is no card, and a mouse wheel turns it a row a notch.
 // The logic is in deck-model.ts and layout-model.ts; this file is elements and events.
 //
 // This mount owns Play and the keys that drive it: Space plays and pauses from anywhere (one
@@ -20,6 +23,16 @@ import {
   centrePlace,
   deckLabel,
   deckPresets,
+  dockedRows,
+  editorShows,
+  type EditorEvent,
+  rowOfSlot,
+  slotNear,
+  wheelCopies,
+  wheelDeltaPx,
+  wheelTurn,
+  type WheelTurn,
+  WHEEL_AT_REST,
   fitFontPx,
   nextFit,
   groupTag,
@@ -46,6 +59,7 @@ import {
   wheelRowAt,
 } from './deck-model';
 import { cardPattern, presetPatch } from './first-minute';
+import type { Preset } from './presets';
 import { deckKey, nextListen, webMedia } from './layout-model';
 import type { Mount } from './mount';
 import { route } from './route';
@@ -61,8 +75,14 @@ const SPEAKER =
 export const mountDeck: Mount = (root, { store, player, sound }) => {
   const app = (root.closest('#app') as HTMLElement | null) ?? document.body;
   const t = copy.deck;
-  const presets = deckPresets();
-  const rowCount = presets.length + 1;
+  // The cards the wheel holds, in order, then Make your own: `rowCount` rows. The list holds
+  // `copies` of them (wheelCopies in deck-model.ts) where it shows more rows than that.
+  // ‹ › and ← → walk the same order. buildList() renders it.
+  const order: readonly Preset[] = deckPresets();
+  const rowCount = order.length + 1;
+  const own = order.length;
+  let copies = 1;
+  let slotCount = rowCount;
 
   root.innerHTML = `
     <div class="deck-bar" role="group" aria-label="${t.label}">
@@ -86,15 +106,7 @@ export const mountDeck: Mount = (root, { store, player, sound }) => {
       </span>
     </div>
     <div class="deck-wheel" id="deck-wheel" hidden>
-      <ol class="deck-wheel-list" aria-label="${t.wheelLabel}">
-        ${presets
-          .map(
-            (p, i) =>
-              `<li><button type="button" class="deck-row" tabindex="-1" data-row="${i}" data-id="${p.id}"><code>${cardPattern(p)}</code><span class="deck-row-name">${copy.presets[p.id]?.name ?? ''}</span><em>${groupTag(p.group)}</em></button></li>`,
-          )
-          .join('')}
-        <li><button type="button" class="deck-row deck-own" tabindex="-1" data-row="${presets.length}"><span class="deck-row-name">${t.makeYourOwn}</span></button></li>
-      </ol>
+      <ol class="deck-wheel-list" aria-label="${t.wheelLabel}"></ol>
     </div>
     <div class="deck-sound">
       <label class="deck-field"><span class="deck-k">${t.listen}</span>
@@ -117,11 +129,30 @@ export const mountDeck: Mount = (root, { store, player, sound }) => {
   const volume = $<HTMLInputElement>('#volume');
   const wheel = $<HTMLDivElement>('.deck-wheel');
   const list = $<HTMLOListElement>('.deck-wheel-list');
-  const rows = [...root.querySelectorAll<HTMLButtonElement>('.deck-row')];
   const listenSelect = $<HTMLSelectElement>('#deck-listen');
   const details = $<HTMLButtonElement>('.deck-details');
 
-  const rowItems = rows.map((r) => r.parentElement as HTMLLIElement);
+  /**
+   * One list item a slot: the row it holds is `rowOfSlot(slot, rowCount)`. The first copy of a row
+   * is the row itself (data-row, data-id, .deck-own, .on and aria-current mark it alone); a further
+   * copy (.deck-copy, data-echo) looks the same and does the same, so each row keeps one name in
+   * the page. At rest the band is always on a first copy (settle).
+   */
+  const rowHtml = (slot: number) => {
+    const row = rowOfSlot(slot, rowCount);
+    const echo = slot >= rowCount;
+    const pos = copies > 1 ? ` aria-posinset="${row + 1}" aria-setsize="${rowCount}"` : '';
+    const p = order[row];
+    const cls = echo ? `deck-row deck-copy${p ? '' : ' deck-own-copy'}` : `deck-row${p ? '' : ' deck-own'}`;
+    const attrs = `class="${cls}" tabindex="-1" ${echo ? 'data-echo' : 'data-row'}="${row}"${p && !echo ? ` data-id="${p.id}"` : ''}`;
+    return p
+      ? `<li${pos}><button type="button" ${attrs}><code>${cardPattern(p)}</code><span class="deck-row-name">${copy.presets[p.id]?.name ?? ''}</span><em>${groupTag(p.group)}</em></button></li>`
+      : `<li${pos}><button type="button" ${attrs}><span class="deck-row-name">${t.makeYourOwn}</span></button></li>`;
+  };
+  /** The wheel's buttons and their list items, one a slot. */
+  let rows: HTMLButtonElement[] = [];
+  let rowItems: HTMLLIElement[] = [];
+  const slotOf = (row: number) => slotNear(row, offset, rowCount, copies);
 
   root.style.setProperty('--deck-row', `${DECK.rowPx}px`);
   root.style.setProperty('--deck-rows', String(DECK.wheelRows));
@@ -135,13 +166,19 @@ export const mountDeck: Mount = (root, { store, player, sound }) => {
   const togglePlay = () => toggle(player, store.get());
   playButton.addEventListener('click', togglePlay);
 
-  const current = () => presetIndex(store.get(), presets);
-  /** Loads a preset; a playing player plays it from the next cycle, a paused or stopped one stays so. */
+  const current = () => presetIndex(store.get(), order);
+  /**
+   * Loads a preset; a playing player plays it from the next cycle, a paused or stopped one stays so.
+   * A card picked hides the web editor (v6 ruling 2).
+   */
   const pick = (i: number) => {
-    const p = presets[i];
-    if (p) store.dispatch(presetPatch(p));
+    const p = order[i];
+    if (!p) return;
+    restOwn = false;
+    setEditor({ kind: 'pickCard' });
+    store.dispatch(presetPatch(p));
   };
-  const step = (delta: -1 | 1) => pick(stepIndex(current(), delta, presets.length));
+  const step = (delta: -1 | 1) => pick(stepIndex(current(), delta, order.length));
   $<HTMLButtonElement>('.deck-prev').addEventListener('click', () => step(-1));
   $<HTMLButtonElement>('.deck-next').addEventListener('click', () => step(1));
 
@@ -179,7 +216,24 @@ export const mountDeck: Mount = (root, { store, player, sound }) => {
       if (patternButton.parentElement !== topSlot) topSlot.append(patternButton);
     } else if (patternButton.nextElementSibling !== nextButton) nextButton.before(patternButton);
   }
+  // The web editor (v6 ruling 2): under the docked wheel the Pattern and Rhythm tabs show only for
+  // Make your own or a pattern that is no card (editorShows in deck-model.ts). UI state, never in
+  // the link. `restOwn`: the band rests on Make your own, so a re-placed wheel keeps it there.
+  let editorShown = current() === null;
+  let restOwn = false;
+  function setEditor(event: EditorEvent) {
+    const next = editorShows(editorShown, event);
+    if (next === editorShown) return;
+    editorShown = next;
+    showEditor();
+  }
+  function showEditor() {
+    app.classList.toggle('deck-editor-hidden', docked() && !editorShown);
+    if (docked() && !wheel.hidden) placeWheel();
+  }
+
   /** A phone held upright: the one layout where the wheel takes the sheet (ruling 9). */
+  const sheet = document.querySelector<HTMLElement>('.region-sheet');
   const upright = () =>
     !docked() && !app.classList.contains('is-web') && !app.classList.contains('is-wide') && !app.classList.contains('is-landscape');
 
@@ -190,11 +244,20 @@ export const mountDeck: Mount = (root, { store, player, sound }) => {
    */
   function placeWheel() {
     if (docked() || wheel.hidden) {
-      for (const p of ['left', 'top', 'width', '--deck-rows']) wheel.style.removeProperty(p);
-      shownRows = DECK.wheelRows;
+      for (const p of ['left', 'top', 'width']) wheel.style.removeProperty(p);
       app.style.setProperty('--wheel-pad-bottom', '0px');
       app.style.setProperty('--wheel-pad-right', '0px');
-      return;
+      if (wheel.hidden) return setRows(DECK.wheelRows, DECK.rowPx, DECK.wheelRows);
+      // Docked (v6 ruling 1): taller rows; while the editor is hidden, as many as the column holds
+      // between the wheel's top and the sheet's head at its foot (Stop, the time slider, the
+      // sound's status: as tall as they need), DECK.dockedEditRows above the editor when it shows.
+      // The list holds copies enough for the whole column, so showing the editor and hiding it,
+      // or the head growing, never rebuilds it.
+      const room = document.documentElement.clientHeight - wheel.getBoundingClientRect().top;
+      const most = dockedRows(room, DECK.dockedRowPx, DECK.wheelRows);
+      if (editorShown) return setRows(DECK.dockedEditRows, DECK.dockedRowPx, most);
+      const head = sheet?.offsetHeight ?? 0;
+      return setRows(dockedRows(room - head, DECK.dockedRowPx, DECK.wheelRows), DECK.dockedRowPx, most);
     }
     const stage = document.querySelector('.stage') as HTMLElement | null;
     const view = root.closest('.play-view') as HTMLElement | null;
@@ -218,36 +281,75 @@ export const mountDeck: Mount = (root, { store, player, sound }) => {
     wheel.style.left = `${place.left}px`;
     wheel.style.top = `${place.top}px`;
     wheel.style.width = `${place.width}px`;
-    if (place.rows !== shownRows) {
-      shownRows = place.rows;
-      wheel.style.setProperty('--deck-rows', String(place.rows));
-      scrollWanted = true;
-    }
+    setRows(place.rows, DECK.rowPx, place.rows);
     app.style.setProperty('--wheel-pad-bottom', `${place.padBottom}px`);
     app.style.setProperty('--wheel-pad-right', `${place.padRight}px`);
   }
 
-  // The loop (deck-model.ts): each row's place in the list is its CSS order; `offset` is the row
-  // at place 0. While the wheel rests, the band's row sits at the middle place.
+  /**
+   * The wheel shows `shown` rows `px` tall; its list holds copies enough to show `most` and turn.
+   * A change brings the band back to its row when the wheel next draws.
+   */
+  function setRows(shown: number, px: number, most: number) {
+    const k = wheelCopies(rowCount, most, DECK.loopMarginRows);
+    if (k !== copies) {
+      copies = k;
+      buildList();
+      scrollWanted = true;
+    }
+    if (shown !== shownRows || px !== rowPx) {
+      shownRows = shown;
+      rowPx = px;
+      wheel.style.setProperty('--deck-rows', String(shown));
+      wheel.style.setProperty('--deck-row', `${px}px`);
+      scrollWanted = true;
+    }
+  }
+
+  // The loop (deck-model.ts): each list item's place is its CSS order; `offset` is the slot at
+  // place 0. While the wheel rests, the band's slot sits at the middle place. With one copy (a
+  // phone) a slot is its row.
   let shownRows: number = DECK.wheelRows;
+  let rowPx: number = DECK.rowPx;
   const half = () => (shownRows - 1) / 2;
   let offset = 0;
   /** Where the page last set the list's scrollTop itself; the scroll event it causes is not a turn. */
   let ownTop: number | null = null;
-  const rowAt = () => wheelRowAt(list.scrollTop, DECK.rowPx, half(), offset, rowCount);
+  /** The slot in the band at the list's scrollTop, and the row it holds. */
+  const slotAt = () => wheelRowAt(list.scrollTop, rowPx, half(), offset, slotCount);
+  const rowAt = () => rowOfSlot(slotAt(), rowCount);
+
+  /** Renders the list: `copies` of the rows, each a slot, at their places from offset 0. */
+  function buildList() {
+    const focusRow = rows.length > 0 && list.contains(document.activeElement) ? rowOfSlot(roving, rowCount) : null;
+    slotCount = rowCount * copies;
+    list.innerHTML = Array.from({ length: slotCount }, (_, s) => rowHtml(s)).join('');
+    rows = [...list.querySelectorAll<HTMLButtonElement>('.deck-row')];
+    rowItems = rows.map((r) => r.parentElement as HTMLLIElement);
+    offset = 0;
+    banded = -1;
+    roving = 0;
+    rove(current() ?? Math.max(0, bandRow));
+    if (focusRow !== null) {
+      rove(focusRow);
+      rows[roving]?.focus({ preventScroll: true });
+    }
+    markRows();
+    refitRows();
+  }
 
   /**
-   * Turns the list so `row` sits at the middle place, moving scrollTop by as many rows as `row`
+   * Turns the list so `slot` sits at the middle place, moving scrollTop by as many rows as `slot`
    * moved, so nothing on screen shifts. Programmatic: never a turn by the reader.
    */
-  function recentre(row: number) {
-    const next = offsetFor(row, rowCount);
+  function recentre(slot: number) {
+    const next = offsetFor(slot, slotCount);
     if (next === offset) return;
     // Read before the order changes: a browser may re-snap to the moved row on the next layout
     // (WebKit does), so the new scrollTop is set outright, never added to the live one.
-    const top = list.scrollTop + (centrePlace(rowCount) - placeOf(row, offset, rowCount)) * DECK.rowPx;
+    const top = list.scrollTop + (centrePlace(slotCount) - placeOf(slot, offset, slotCount)) * rowPx;
     offset = next;
-    rowItems.forEach((li, r) => (li.style.order = String(placeOf(r, offset, rowCount))));
+    rowItems.forEach((li, s) => (li.style.order = String(placeOf(s, offset, slotCount))));
     list.scrollTop = top;
     ownTop = list.scrollTop;
   }
@@ -256,16 +358,18 @@ export const mountDeck: Mount = (root, { store, player, sound }) => {
   function scrollToRow(row: number, smooth: boolean): boolean {
     if (wheel.hidden) return false;
     if (!smooth) {
+      // A jump brings the row's first copy (the row itself) to the band.
       recentre(row);
-      list.scrollTop = scrollForPlace(centrePlace(rowCount), DECK.rowPx, half());
+      list.scrollTop = scrollForPlace(centrePlace(slotCount), rowPx, half());
       ownTop = list.scrollTop;
       return false;
     }
-    const from = rowAt();
-    recentre(from);
+    const fromSlot = slotAt();
+    recentre(fromSlot);
+    const from = rowOfSlot(fromSlot, rowCount);
     // The band is already on the row: nothing to scroll, whatever a pixel or two of snap says.
     if (from === row) return false;
-    const top = scrollForPlace(centrePlace(rowCount) + loopDelta(from, row, rowCount), DECK.rowPx, half());
+    const top = scrollForPlace(centrePlace(slotCount) + loopDelta(from, row, rowCount), rowPx, half());
     if (Math.abs(list.scrollTop - top) < 1) return false;
     list.scrollTo({ top, behavior: 'smooth' });
     return true;
@@ -297,6 +401,7 @@ export const mountDeck: Mount = (root, { store, player, sound }) => {
     wheel.hidden = !shown;
     app.classList.toggle('deck-docked', docked());
     app.classList.toggle('wheel-open', shown && !docked());
+    app.classList.toggle('deck-editor-hidden', docked() && !editorShown);
     if (!shown || docked()) endPhase();
     // A docked wheel is always open: the pattern button then only takes focus to it.
     if (docked()) {
@@ -307,6 +412,7 @@ export const mountDeck: Mount = (root, { store, player, sound }) => {
       patternButton.setAttribute('aria-expanded', String(shown));
     }
     placeWheel();
+    fitRows();
     if (shown && !was) scrollWanted = true;
   }
 
@@ -342,21 +448,23 @@ export const mountDeck: Mount = (root, { store, player, sound }) => {
     showWheel();
   });
 
-  /** One tab stop in the wheel (roving tabindex): the loaded row, else the row last in the band. */
+  /** One tab stop in the wheel (roving tabindex): the loaded row, else the row last in the band. A slot. */
   let roving = 0;
   const rove = (row: number) => {
     rows[roving]?.setAttribute('tabindex', '-1');
-    roving = Math.min(rows.length - 1, Math.max(0, row));
+    roving = slotOf(Math.min(rowCount - 1, Math.max(0, row)));
     rows[roving]?.setAttribute('tabindex', '0');
   };
 
-  /** The row in the band, marked while the wheel turns. */
+  /** The slot in the band, marked while the wheel turns, and the row it holds. */
   let banded = -1;
-  const band = (row: number) => {
-    if (row === banded) return;
+  let bandRow = -1;
+  const band = (slot: number) => {
+    bandRow = rowOfSlot(slot, rowCount);
+    if (slot === banded) return;
     rows[banded]?.classList.remove('in-band');
-    rows[row]?.classList.add('in-band');
-    banded = row;
+    rows[slot]?.classList.add('in-band');
+    banded = slot;
   };
 
   // Only a turn the reader makes picks: a mouse wheel, a touch, or ↑ ↓ PageUp PageDown Home End
@@ -382,26 +490,48 @@ export const mountDeck: Mount = (root, { store, player, sound }) => {
     setPhase('turn');
     if (was === 'rest') placeWheel();
   };
-  const startTurn = () => {
+  const startTurn = (e: Event) => {
+    // Docked, a mouse wheel turns the wheel row by row instead (below).
+    if (e.type === 'wheel' && docked()) return;
     scrolled = false;
     turn();
   };
   for (const type of ['wheel', 'touchstart']) list.addEventListener(type, startTurn, { passive: true });
   for (const type of ['touchend', 'touchcancel']) list.addEventListener(type, armSettle, { passive: true });
-  list.addEventListener('keydown', (e) => {
-    if (!turnsWheel(e.key) || e.ctrlKey || e.metaKey || e.altKey) return;
-    e.preventDefault();
+
+  /** Turns the wheel to `to` as the reader's turn: the band goes there, and the row loads when it settles. */
+  function turnTo(to: number) {
     scrolled = true;
     sheetOn();
     turn();
-    const to = rowAfterKey(e.key, roving, rowCount, shownRows);
-    rove(to);
-    rows[to]?.focus({ preventScroll: true });
     keyRow = to;
     keyTries = 0;
     scrollToRow(to, true);
+    rove(to);
     armSettle();
+  }
+  list.addEventListener('keydown', (e) => {
+    if (!turnsWheel(e.key) || e.ctrlKey || e.metaKey || e.altKey) return;
+    e.preventDefault();
+    turnTo(rowAfterKey(e.key, rowOfSlot(roving, rowCount), rowCount, shownRows));
+    rows[roving]?.focus({ preventScroll: true });
   });
+
+  // Docked, the mouse wheel and the trackpad turn the wheel one row per DECK.wheelStepPx, at most
+  // one row per DECK.wheelStepMs (v6 ruling 3, wheelTurn in deck-model.ts), not a native scroll:
+  // a notch is one row and a swipe a few. Each row turns from the row the last one aimed at.
+  let wheelAcc: WheelTurn = WHEEL_AT_REST;
+  list.addEventListener(
+    'wheel',
+    (e) => {
+      if (!docked()) return;
+      e.preventDefault();
+      const r = wheelTurn(wheelAcc, wheelDeltaPx(e.deltaY, e.deltaMode, DECK.wheelLinePx, list.clientHeight), e.timeStamp, DECK.wheelStepPx, DECK.wheelStepMs, DECK.wheelIdleMs);
+      wheelAcc = r.state;
+      if (r.step) turnTo(rowAfterKey(r.step > 0 ? 'ArrowDown' : 'ArrowUp', keyRow ?? rowAt(), rowCount, shownRows));
+    },
+    { passive: false },
+  );
 
   // A key's target row, until the band reaches it. A browser may wait a few hundred ms before it
   // starts a smooth scroll; a settle in that gap must not end the turn, or the band lands on a
@@ -434,7 +564,17 @@ export const mountDeck: Mount = (root, { store, player, sound }) => {
     turning = false;
     clearTimeout(turnTimer);
     // At rest, the band's row goes back to the middle place, so the wheel can turn on either way.
-    recentre(at);
+    // With copies, its first copy takes the band: the copies repeat the rows in order, so the
+    // picture does not change, and the row's hooks (data-row, .on) are the band's.
+    // A slot against a row: equal exactly when the band is on the row's first copy, since first
+    // copies hold slots 0 to rowCount - 1, each its own row.
+    if (copies > 1 && slotAt() !== at) {
+      const focused = rows[roving] === document.activeElement;
+      scrollToRow(at, false);
+      band(slotAt());
+      rove(at);
+      if (focused) rows[roving]?.focus({ preventScroll: true });
+    } else recentre(slotAt());
     if (!user || !scrolled) return;
     if (upright()) {
       setPhase('stop');
@@ -447,7 +587,12 @@ export const mountDeck: Mount = (root, { store, player, sound }) => {
         if (had) patternButton.focus();
       }, DECK.returnMs);
     }
-    const chosen = settledPick(at, current(), presets.length);
+    // The band on Make your own shows the web editor (v6 ruling 2).
+    if (at === own) {
+      restOwn = true;
+      setEditor({ kind: 'makeOwn' });
+    }
+    const chosen = settledPick(at, current(), order.length);
     if (chosen !== null) pick(chosen);
   }
   function armSettle() {
@@ -455,19 +600,19 @@ export const mountDeck: Mount = (root, { store, player, sound }) => {
     settleTimer = setTimeout(settle, DECK.settleMs);
   }
   list.addEventListener('scroll', () => {
-    const own = ownTop !== null && Math.abs(list.scrollTop - ownTop) < 1;
+    const mine = ownTop !== null && Math.abs(list.scrollTop - ownTop) < 1;
     ownTop = null;
     // Near an end mid-spin, the list turns at once (the turn goes on), so a long spin loops
     // forever and picks once, when it settles. A key's smooth scroll, cut short by the turn, is
     // asked for again.
-    if (nearEnd(list.scrollTop, DECK.rowPx, half(), rowCount, DECK.loopMarginRows)) {
-      recentre(rowAt());
+    if (nearEnd(list.scrollTop, rowPx, half(), slotCount, DECK.loopMarginRows)) {
+      recentre(slotAt());
       const goal = keyRow ?? seekRow;
       if (goal !== null) scrollToRow(goal, true);
     }
-    band(rowAt());
+    band(slotAt());
     // A scroll the page made itself (re-placing the wheel, a snap) is no turn and takes no sheet.
-    if (turning && !own) {
+    if (turning && !mine) {
       sheetOn();
       turn();
       scrolled = true;
@@ -475,25 +620,32 @@ export const mountDeck: Mount = (root, { store, player, sound }) => {
     armSettle();
   });
 
-  rows.forEach((row, i) =>
-    row.addEventListener('click', () => {
-      clearTimeout(settleTimer);
-      turning = false;
-      keyRow = null;
-      seekRow = null;
-      if (i >= presets.length) {
-        closeWheel();
-        store.set({ sheetTab: 'pattern' });
-        return;
-      }
-      // A tap on a row is a gesture: it plays the row (ruling A), unlike a step or a settle.
-      pick(i);
-      start(player, store.get());
-      rove(i);
-      scrollToCurrent(true);
+  // One listener for every row, so a rebuilt list (buildList) needs none of its own.
+  list.addEventListener('click', (e) => {
+    const button = e.target instanceof Element ? e.target.closest<HTMLButtonElement>('.deck-row') : null;
+    if (!button) return;
+    const i = Number(button.dataset.row ?? button.dataset.echo);
+    clearTimeout(settleTimer);
+    turning = false;
+    keyRow = null;
+    seekRow = null;
+    if (i === own) {
+      // Docked, the band goes to Make your own and the editor shows under it (v6 ruling 2).
+      restOwn = true;
+      setEditor({ kind: 'makeOwn' });
+      // The next draw brings it there, once the wheel has its new height.
+      if (docked()) scrollWanted = true;
       closeWheel();
-    }),
-  );
+      store.set({ sheetTab: 'pattern' });
+      return;
+    }
+    // A tap on a row is a gesture: it plays the row (ruling A), unlike a step or a settle.
+    pick(i);
+    start(player, store.get());
+    rove(i);
+    scrollToCurrent(true);
+    closeWheel();
+  });
 
   // Tapping outside closes the phone wheel; the tap still does what it does.
   document.addEventListener('pointerdown', (e) => {
@@ -522,6 +674,9 @@ export const mountDeck: Mount = (root, { store, player, sound }) => {
   };
   const stageEl = document.querySelector('.stage');
   if (stageEl && typeof ResizeObserver === 'function') new ResizeObserver(follow).observe(stageEl);
+  // Docked with the editor hidden, the sheet's head under the wheel grows and shrinks (paused,
+  // a sound status): the wheel follows it.
+  if (sheet && typeof ResizeObserver === 'function') new ResizeObserver(() => docked() && !editorShown && follow()).observe(sheet);
   window.addEventListener('resize', follow);
 
   // -------------------------------------------------------------------------------------------
@@ -630,9 +785,62 @@ export const mountDeck: Mount = (root, { store, player, sound }) => {
   void document.fonts?.ready.then(fitNotation);
   document.fonts?.addEventListener('loadingdone', fitNotation);
 
+  /**
+   * Docked, each wheel row's notation is drawn smaller to fit what its name leaves it (deck.css),
+   * from DECK.dockedNotationPx down to dockedNotationMinPx, measured as the bar's notation is
+   * (fitFontPx, nextFit); past the floor it ellipsizes. Elsewhere the rows keep their CSS size.
+   */
+  let fittedWidth = -1;
+  function fitRows() {
+    const on = docked() && !wheel.hidden;
+    const width = on ? wheel.clientWidth : 0;
+    if (width === fittedWidth) return;
+    fittedWidth = width;
+    for (const row of rows) {
+      const code = row.querySelector('code');
+      if (!code) continue;
+      if (!on) {
+        code.style.removeProperty('font-size');
+        continue;
+      }
+      code.style.fontSize = `${DECK.dockedNotationPx}px`;
+      const room = code.clientWidth;
+      let size = fitFontPx(code.scrollWidth, room, DECK.dockedNotationPx, DECK.dockedNotationMinPx);
+      for (let i = 0; i < DECK.notationFitTries && size !== DECK.dockedNotationPx; i++) {
+        code.style.fontSize = `${size}px`;
+        const next = nextFit(size, code.scrollWidth, room, DECK.dockedNotationMinPx);
+        if (next === null) break;
+        size = next;
+      }
+      code.style.fontSize = `${size}px`;
+    }
+  }
+  const refitRows = () => {
+    fittedWidth = -1;
+    fitRows();
+  };
+  document.fonts?.addEventListener('loadingdone', refitRows);
+  if (typeof ResizeObserver === 'function') new ResizeObserver(() => fitRows()).observe(wheel);
+
+  /** The loaded card's rows (each copy of it) are on; the tab stop follows it unless a row has focus. */
+  function markRows() {
+    const i = current();
+    rows.forEach((row, s) => {
+      const on = rowOfSlot(s, rowCount) === i;
+      if (s >= rowCount) {
+        row.classList.toggle('on-copy', on);
+        return;
+      }
+      row.classList.toggle('on', on);
+      if (on) row.setAttribute('aria-current', 'true');
+      else row.removeAttribute('aria-current');
+    });
+    if (i !== null && !rows[roving]?.matches(':focus')) rove(i);
+  }
+
   function render() {
     const state = store.get();
-    const label = deckLabel(state, presets);
+    const label = deckLabel(state, order);
     notation.textContent = label.pattern;
     nameEl.textContent = label.name;
     dot.hidden = label.name === '';
@@ -644,13 +852,7 @@ export const mountDeck: Mount = (root, { store, player, sound }) => {
       fitNotation();
     }
     patternButton.setAttribute('aria-label', t.choose(label.pattern, label.name));
-    const i = current();
-    rows.forEach((row, r) => {
-      row.classList.toggle('on', r === i);
-      if (r === i) row.setAttribute('aria-current', 'true');
-      else row.removeAttribute('aria-current');
-    });
-    if (i !== null && !rows[roving]?.matches(':focus')) rove(i);
+    markRows();
     listenSelect.value = state.listen;
     volume.value = String(state.volume);
     volume.style.setProperty('--fill', `${fillPercent(state.volume, 0, 1)}%`);
@@ -666,9 +868,16 @@ export const mountDeck: Mount = (root, { store, player, sound }) => {
     const keys = ['parts', 'ratio', 'drafts', 'listen', 'volume', 'muted'] as const;
     if (keys.some((k) => state[k] !== previous[k])) render();
     // Only a new pattern moves the band: a volume or sound change mid-turn leaves the wheel be.
-    if (state.parts !== previous.parts || state.ratio !== previous.ratio) scrollToCurrent(true);
+    // A new pattern that is no card shows the web editor; one that is a card leaves it be.
+    if (state.parts !== previous.parts || state.ratio !== previous.ratio) {
+      const card = current() !== null;
+      if (card) restOwn = false;
+      setEditor({ kind: 'pattern', card });
+      scrollToCurrent(true);
+    }
     if (state.panel !== previous.panel) showWheel();
   });
+  buildList();
   placePattern();
   showWheel();
   render();
@@ -679,10 +888,11 @@ export const mountDeck: Mount = (root, { store, player, sound }) => {
       if (scrollWanted && !wheel.hidden) {
         scrollWanted = false;
         placeWheel();
-        // A hand-made pattern keeps the row last in the band, or Cascade the first time.
-        const row = current() ?? Math.max(0, banded);
+        // A hand-made pattern keeps the row last in the band, or Cascade the first time; docked,
+        // a band resting on Make your own stays there.
+        const row = restOwn && docked() ? own : (current() ?? Math.max(0, bandRow));
         scrollToRow(row, false);
-        band(row);
+        band(slotOf(row));
       }
       if (view.state !== shownState) {
         shownState = view.state;

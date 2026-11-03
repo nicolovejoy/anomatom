@@ -2,7 +2,7 @@
 // sound.spec.ts, item 6 in src/app/player-timing.test.ts, item 8 in smoke.spec.ts). Audio output is not
 // observable headless, so everything is read from the page: the status line, the fix buttons,
 // `data-events-scheduled` on #app, and `data-balls` on the two canvases.
-import { expect, isCdnError, openTab, stopPlaying, test, type Page } from './fixtures';
+import { expect, isCdnError, openTab, showEditor, stopPlaying, test, type Page } from './fixtures';
 
 const hand = (page: Page, i: 0 | 1 = 0) => page.locator(`#hand-${i}`);
 const status = (page: Page) => page.locator('#status');
@@ -43,6 +43,7 @@ test.describe('SPEC 7.1: the classic patterns validate and play at 1:1', () => {
     test(`${pattern}: ${balls} balls, ladder and juggler agree, events schedule`, async ({ page }) => {
       const errors = watchErrors(page);
       await page.goto('/#v1.e30');
+      await showEditor(page);
       await hand(page).fill(pattern);
       await expect(status(page)).toHaveText(`I have ${balls} balls.`);
       await expect(page.locator('.chip[aria-pressed="true"]')).toHaveText('1:1');
@@ -71,6 +72,7 @@ test.describe('SPEC 7.2: fractional counts and collisions come with valid fixes'
   ]) {
     test(`${pattern}: ${balls} balls, and every fix is valid`, async ({ page }) => {
       await page.goto('/#v1.e30');
+      await showEditor(page);
       await hand(page).fill(pattern);
       await expect(status(page)).toContainText(`${balls} balls`);
       // The sound is never gated (design §6): Play stays on for a pattern I can't juggle.
@@ -95,6 +97,7 @@ test.describe('SPEC 7.2: fractional counts and collisions come with valid fixes'
   ] as const) {
     test(`${pattern}: the message names the throws (432 collides; 510's two flights land where the 0 is), and every fix is valid`, async ({ page }) => {
       await page.goto('/#v1.e30');
+      await showEditor(page);
       await hand(page).fill(pattern);
       await expect(status(page)).toContainText(named);
       // The sound is never gated (design §6): Play stays on for a pattern I can't juggle.
@@ -114,6 +117,7 @@ test.describe('SPEC 7.2: fractional counts and collisions come with valid fixes'
 test.describe('SPEC 7.3: the 3:2 demo', () => {
   test('2 against 2 at 3:2 validates and plays; the strip draws 4 balls', async ({ page }) => {
     await page.goto('/#v1.e30');
+    await showEditor(page);
     await openTab(page, 'rhythm');
     await page.locator('.chip', { hasText: '3:2' }).click();
     await openTab(page, 'pattern');
@@ -130,6 +134,7 @@ test.describe('SPEC 7.3: the 3:2 demo', () => {
 
   test('2 2x 2 / 2x 2 validates and plays with the accent', async ({ page }) => {
     await page.goto('/#v1.e30');
+    await showEditor(page);
     await openTab(page, 'rhythm');
     await page.locator('.chip', { hasText: '3:2' }).click();
     await openTab(page, 'pattern');
@@ -146,6 +151,7 @@ test.describe('SPEC 7.3: the 3:2 demo', () => {
 
   test('2x 2 2 / 2 2x is rejected, naming the landing pulse', async ({ page }) => {
     await page.goto('/#v1.e30');
+    await showEditor(page);
     await openTab(page, 'rhythm');
     await page.locator('.chip', { hasText: '3:2' }).click();
     await openTab(page, 'pattern');
@@ -166,6 +172,7 @@ test.describe('SPEC 7.4: changes while playing land at the next cycle', () => {
   test('a pattern change: pending, then the switch, nothing restarts, nothing throws', async ({ page }) => {
     const errors = watchErrors(page);
     await page.goto('/#v1.e30');
+    await showEditor(page);
     // Slow, so the wait for the next cycle outlasts the poll interval.
     await openTab(page, 'sound');
     await page.locator('#bpm').fill('40');
@@ -193,6 +200,7 @@ test.describe('SPEC 7.4: changes while playing land at the next cycle', () => {
   test('a tempo change: pending, then the switch, still playing', async ({ page }) => {
     const errors = watchErrors(page);
     await page.goto('/#v1.e30');
+    await showEditor(page);
     await openTab(page, 'sound');
     await page.locator('#bpm').fill('40');
     await page.locator('#bpm').press('Enter');
@@ -217,6 +225,7 @@ test.describe('SPEC 7.4: changes while playing land at the next cycle', () => {
 test.describe('SPEC 7.7: the About page', () => {
   test('the bibliography and credits render with well-formed links', async ({ page }) => {
     await page.goto('/#about');
+    await showEditor(page);
     await expect(page.locator('.about')).toBeVisible();
     await expect(page.locator('ol.bibliography li').first()).toBeVisible();
     expect(await page.locator('ol.bibliography li').count()).toBeGreaterThanOrEqual(15);
