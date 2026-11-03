@@ -19,32 +19,14 @@ import {
   turnsWheel,
   volumePatch,
   wheelRowAt,
-  centrePlace,
-  offsetFor,
-  placeOf,
-  scrollForPlace,
-  loopDelta,
+  scrollForRow,
   rowsThatFit,
   fitFontPx,
   nextFit,
-  nearEnd,
   wheelNotch,
-  dockedRows,
-  wheelCopies,
-  rowOfSlot,
-  slotNear,
-  wheelDeltaPx,
-  wheelInput,
-  easeOut,
-  glideAt,
-  glideDone,
-  restTop,
-  notchGlide,
-  shiftGlide,
-  settleGlide,
-  settleTarget,
-  burstAdd,
-  BURST_AT_REST,
+  menuRows,
+  menuBand,
+  nearestTop,
   editorShows,
   wheelPlace,
   sheetWheelPlace,
@@ -74,7 +56,7 @@ describe('the deck order', () => {
   test('the default state is the cascade, so → twice goes 3 → 51 → 441', () => {
     const i = presetIndex(defaultState());
     expect(i).toBe(0);
-    const ids = [stepIndex(i, 1, list.length), stepIndex(stepIndex(i, 1, list.length), 1, list.length)].map((j) => list[j]!.id);
+    const ids = [stepIndex(i, 1, list.length)!, stepIndex(stepIndex(i, 1, list.length), 1, list.length)!].map((j) => list[j]!.id);
     expect(ids).toEqual(['shower', 'pause']);
   });
   test('a loaded preset is found; a hand-made pattern is none', () => {
@@ -84,15 +66,23 @@ describe('the deck order', () => {
 });
 
 describe('stepIndex', () => {
-  test('wraps at both ends', () => {
-    expect(stepIndex(0, -1, 5)).toBe(4);
-    expect(stepIndex(4, 1, 5)).toBe(0);
+  test('stops at both ends (v6.2 ruling 2): ‹ on the first and › on the last go nowhere', () => {
+    expect(stepIndex(0, -1, 5)).toBeNull();
+    expect(stepIndex(4, 1, 5)).toBeNull();
     expect(stepIndex(2, 1, 5)).toBe(3);
     expect(stepIndex(2, -1, 5)).toBe(1);
+    expect(stepIndex(0, 1, 1)).toBeNull();
   });
   test('from no preset, › goes to the first and ‹ to the last', () => {
     expect(stepIndex(null, 1, 5)).toBe(0);
     expect(stepIndex(null, -1, 5)).toBe(4);
+    // A hand-made pattern with Make your own chosen: still the first, or the last.
+    expect(stepIndex(null, 1, 5, true)).toBe(0);
+  });
+  test('Make your own chosen, a card on stage: ↓ goes nowhere, ↑ to the last card', () => {
+    expect(stepIndex(0, 1, 5, true)).toBeNull();
+    expect(stepIndex(0, -1, 5, true)).toBe(4);
+    expect(stepIndex(4, -1, 5, true)).toBe(4);
   });
 });
 
@@ -121,67 +111,22 @@ describe('the label', () => {
 });
 
 describe('the wheel', () => {
-  test('the row in the band is the nearest whole place, half the rows down, clamped, through the offset', () => {
-    // 10 rows, 7 shown (3 above the band), offset 0: scrollTop 0 bands place 3.
-    expect(wheelRowAt(0, 32, 3, 0, 10)).toBe(3);
-    expect(wheelRowAt(47, 32, 3, 0, 10)).toBe(4);
-    expect(wheelRowAt(49, 32, 3, 0, 10)).toBe(5);
-    expect(wheelRowAt(-200, 32, 3, 0, 10)).toBe(0);
-    expect(wheelRowAt(10_000, 32, 3, 0, 10)).toBe(9);
-    // Offset 8: place 0 holds row 8, so place 3 holds row 1 (8, 9, 0, 1).
-    expect(wheelRowAt(0, 32, 3, 8, 10)).toBe(1);
+  test('the row in the band is the nearest whole row, clamped to the list', () => {
+    // 10 rows: row r is in the band at r rows down, the blank rows above the first included.
+    expect(wheelRowAt(0, 32, 10)).toBe(0);
+    expect(wheelRowAt(47, 32, 10)).toBe(1);
+    expect(wheelRowAt(49, 32, 10)).toBe(2);
+    expect(wheelRowAt(-200, 32, 10)).toBe(0);
+    expect(wheelRowAt(10_000, 32, 10)).toBe(9);
+    for (const row of [0, 4, 9]) expect(wheelRowAt(scrollForRow(row, 32), 32, 10)).toBe(row);
+    expect(scrollForRow(3, 32)).toBe(96);
   });
-  test('the loop: the band row sits at the middle place, every place filled', () => {
-    expect(centrePlace(10)).toBe(5);
-    expect(centrePlace(28)).toBe(14);
-    expect(offsetFor(0, 10)).toBe(5);
-    expect(offsetFor(7, 10)).toBe(2);
-    expect(placeOf(0, offsetFor(0, 10), 10)).toBe(5);
-    // Every row a place, each place once.
-    const off = offsetFor(2, 10);
-    expect(new Set(Array.from({ length: 10 }, (_, r) => placeOf(r, off, 10))).size).toBe(10);
-    expect(scrollForPlace(5, 32, 3)).toBe(64);
-    // The band's row at rest is the row the offset was made for.
-    for (const row of [0, 4, 9]) expect(wheelRowAt(scrollForPlace(centrePlace(10), 32, 3), 32, 3, offsetFor(row, 10), 10)).toBe(row);
-  });
-  test('the looped wheel: Cascade has Make your own and the last passing patterns above it, Make your own has Cascade below', () => {
-    const length = list.length + 1; // the presets, then Make your own
+  test('the wheel has ends: up from Cascade nothing, down from Make your own nothing', () => {
+    const length = list.length + 1; // the cards, then Make your own
     const own = list.length;
-    const lastPassing = list.length - 1;
-    expect(list[lastPassing]!.group).toBe('passing');
-    const off = offsetFor(0, length); // Cascade in the band
-    const rowAtPlace = (place: number) => Array.from({ length }, (_, r) => r).find((r) => placeOf(r, off, length) === place);
-    const band = centrePlace(length);
-    expect(list[rowAtPlace(band)!]!.id).toBe('cascade');
-    expect(rowAtPlace(band - 1)).toBe(own);
-    expect(rowAtPlace(band - 2)).toBe(lastPassing);
-    expect(list[rowAtPlace(band - 3)!]!.group).toBe('passing');
-    expect(list[rowAtPlace(band + 1)!]!.id).toBe('shower');
-    // Scrolling two rows up from Cascade settles on the last passing pattern; one on Make your own, which picks nothing.
-    const top = scrollForPlace(band, 32, 3);
-    expect(wheelRowAt(top - 64, 32, 3, off, length)).toBe(lastPassing);
-    expect(wheelRowAt(top - 32, 32, 3, off, length)).toBe(own);
+    expect(wheelRowAt(scrollForRow(0, 32) - 64, 32, length)).toBe(0);
+    expect(wheelRowAt(scrollForRow(own, 32) + 64, 32, length)).toBe(own);
     expect(settledPick(own, 0, list.length)).toBeNull();
-    // Across the other seam: from Make your own, one down is Cascade again.
-    const offOwn = offsetFor(own, length);
-    expect(wheelRowAt(scrollForPlace(band, 32, 3) + 32, 32, 3, offOwn, length)).toBe(0);
-  });
-  test('near an end: within two rows of either end of the list, the band turns the list at once', () => {
-    // 28 rows, 7 shown (half 3): the band's place is round(scrollTop / 32) + 3.
-    const at = (place: number) => (place - 3) * 32;
-    expect(nearEnd(at(14), 32, 3, 28, 2)).toBe(false);
-    expect(nearEnd(at(5), 32, 3, 28, 2)).toBe(false);
-    expect(nearEnd(at(4), 32, 3, 28, 2)).toBe(true);
-    expect(nearEnd(at(3), 32, 3, 28, 2)).toBe(true);
-    expect(nearEnd(at(22), 32, 3, 28, 2)).toBe(false);
-    expect(nearEnd(at(23), 32, 3, 28, 2)).toBe(true);
-  });
-  test('the shortest way round', () => {
-    expect(loopDelta(0, 2, 10)).toBe(2);
-    expect(loopDelta(0, 9, 10)).toBe(-1);
-    expect(loopDelta(9, 0, 10)).toBe(1);
-    expect(loopDelta(3, 3, 10)).toBe(0);
-    expect(loopDelta(0, 5, 10)).toBe(5);
   });
   test('a settle picks a new preset, never Make your own or the one loaded', () => {
     expect(settledPick(3, 1, 10)).toBe(3);
@@ -201,12 +146,15 @@ describe('the wheel by keyboard', () => {
     for (const k of ['ArrowUp', 'ArrowDown', 'PageUp', 'PageDown', 'Home', 'End']) expect(turnsWheel(k), k).toBe(true);
     for (const k of ['Tab', 'Enter', ' ', 'ArrowLeft', 'a']) expect(turnsWheel(k), k).toBe(false);
   });
-  test('where a turning key lands, round the loop', () => {
+  test('where a turning key lands, stopping at the ends', () => {
     expect(rowAfterKey('ArrowDown', 3, 10, 7)).toBe(4);
-    expect(rowAfterKey('ArrowUp', 0, 10, 7)).toBe(9);
-    expect(rowAfterKey('ArrowDown', 9, 10, 7)).toBe(0);
-    expect(rowAfterKey('PageDown', 5, 10, 7)).toBe(2);
+    expect(rowAfterKey('ArrowUp', 3, 10, 7)).toBe(2);
+    expect(rowAfterKey('ArrowUp', 0, 10, 7)).toBe(0);
+    expect(rowAfterKey('ArrowDown', 9, 10, 7)).toBe(9);
+    expect(rowAfterKey('PageDown', 5, 10, 7)).toBe(9);
+    expect(rowAfterKey('PageDown', 1, 10, 7)).toBe(8);
     expect(rowAfterKey('PageUp', 8, 10, 7)).toBe(1);
+    expect(rowAfterKey('PageUp', 5, 10, 7)).toBe(0);
     expect(rowAfterKey('Home', 5, 10, 7)).toBe(0);
     expect(rowAfterKey('End', 5, 10, 7)).toBe(9);
     expect(rowAfterKey('Tab', 5, 10, 7)).toBe(5);
@@ -444,10 +392,11 @@ describe('the filter chips in two groups (v6.1 ruling 4)', () => {
     expect(sameFilter(balls(3), null)).toBe(false);
     expect(sameFilter(null, jugglers(2))).toBe(false);
   });
-  test('↑ ↓ step within the filter, round its loop', () => {
+  test('↑ ↓ step within the filter and stop at its ends', () => {
     const five = filteredPresets(list, balls(5));
-    expect(stepIndex(five.length - 1, 1, five.length)).toBe(0);
-    expect(stepIndex(0, -1, five.length)).toBe(five.length - 1);
+    expect(stepIndex(five.length - 1, 1, five.length)).toBeNull();
+    expect(stepIndex(0, -1, five.length)).toBeNull();
+    expect(stepIndex(0, 1, five.length)).toBe(1);
     expect(presetIndex(loaded(five[1]!.id), five)).toBe(1);
   });
   test('a chip that holds the card on stage lights and the pattern stays', () => {
@@ -513,161 +462,28 @@ describe('the phone wheel phase', () => {
   });
 });
 
-describe('the web wheel (v6 rulings 1 to 3)', () => {
-  test('rows from a height: the most odd rows that fit, never fewer than the floor', () => {
-    expect(dockedRows(1024, 44, 7)).toBe(23);
-    expect(dockedRows(744, 44, 7)).toBe(15);
-    expect(dockedRows(44 * 12, 44, 7)).toBe(11);
-    expect(dockedRows(44 * 13, 44, 7)).toBe(13);
-    expect(dockedRows(100, 44, 7)).toBe(7);
+describe('the web wheel, a menu (v6 rulings 1 to 3, v6.2 ruling 3)', () => {
+  test('rows from a height: as many as fit, never fewer than the floor, never more than the list', () => {
+    expect(menuRows(22, 1024, 44, 7)).toBe(22);
+    expect(menuRows(22, 744, 44, 7)).toBe(16);
+    expect(menuRows(22, 44 * 12, 44, 7)).toBe(12);
+    expect(menuRows(22, 44 * 13 - 1, 44, 7)).toBe(12);
+    expect(menuRows(22, 100, 44, 7)).toBe(7);
+    // Jugglers 3: three cards and Make your own, as tall as its rows.
+    expect(menuRows(4, 744, 44, 7)).toBe(4);
   });
-  test('copies: one while the deck has room to turn; more where the column shows more rows than it holds', () => {
-    expect(wheelCopies(19, 7, 2)).toBe(1);
-    expect(wheelCopies(19, 13, 2)).toBe(1);
-    expect(wheelCopies(19, 15, 2)).toBe(2);
-    expect(wheelCopies(19, 23, 2)).toBe(2);
-    expect(wheelCopies(5, 7, 2)).toBe(3);
+  test('the band is on the card on stage, or on Make your own when it was chosen or the pattern is hand-made', () => {
+    expect(menuBand(2, 21, false)).toBe(2);
+    expect(menuBand(2, 21, true)).toBe(21);
+    expect(menuBand(null, 21, false)).toBe(21);
   });
-  test('with its copies the band rests clear of both ends, and a row either way does too', () => {
-    for (let length = 3; length <= 25; length++) {
-      for (let shown = 3; shown <= 31; shown += 2) {
-        const slots = length * wheelCopies(length, shown, 2);
-        const half = (shown - 1) / 2;
-        const rest = scrollForPlace(centrePlace(slots), 44, half);
-        for (const d of [-1, 0, 1]) expect(nearEnd(rest + d * 44, 44, half, slots, 2), `${length} ${shown} ${d}`).toBe(false);
-        expect(rest - 44).toBeGreaterThanOrEqual(0);
-        expect(rest + 44).toBeLessThanOrEqual((slots - shown) * 44);
-      }
-    }
-  });
-  test('a slot holds its row; the copy nearest the band is the one to use, a tie to the later', () => {
-    expect(rowOfSlot(0, 19)).toBe(0);
-    expect(rowOfSlot(20, 19)).toBe(1);
-    // One copy: the row itself.
-    expect(slotNear(4, 7, 19, 1)).toBe(4);
-    // Two copies of 19 (38 places, centre 19): offset 0 puts slot 19 (row 0's copy) at the centre.
-    expect(slotNear(0, 0, 19, 2)).toBe(19);
-    expect(slotNear(1, 0, 19, 2)).toBe(20);
-    // Offset 19 puts slot 0 at place 19, the centre.
-    expect(slotNear(0, 19, 19, 2)).toBe(0);
-    // A tie: 2 rows, 2 copies (4 places, centre 2); offset 1: slot 0 at place 3, slot 2 at place 1.
-    expect(slotNear(0, 1, 2, 2)).toBe(0);
-    expect(slotNear(0, 3, 2, 2)).toBe(2);
-  });
-  test('a wheel delta in px, from px, lines or pages', () => {
-    expect(wheelDeltaPx(100, 0, 40, 600)).toBe(100);
-    expect(wheelDeltaPx(3, 1, 40, 600)).toBe(120);
-    expect(wheelDeltaPx(-1, 2, 40, 600)).toBe(-600);
-  });
-  test('a wheel event: a notch from a big delta or any in lines or pages, else a drag at the scale', () => {
-    expect(wheelInput(0, 0, 50, 0.5)).toBeNull();
-    expect(wheelInput(100, 0, 50, 0.5)).toEqual({ kind: 'notch', dir: 1 });
-    expect(wheelInput(-50, 0, 50, 0.5)).toEqual({ kind: 'notch', dir: -1 });
-    // Firefox counts a mouse notch in lines: a notch however small in px.
-    expect(wheelInput(40, 1, 50, 0.5)).toEqual({ kind: 'notch', dir: 1 });
-    expect(wheelInput(-600, 2, 50, 0.5)).toEqual({ kind: 'notch', dir: -1 });
-    // A trackpad: half its size.
-    expect(wheelInput(8, 0, 50, 0.5)).toEqual({ kind: 'drag', px: 4 });
-    expect(wheelInput(-49, 0, 50, 0.5)).toEqual({ kind: 'drag', px: -24.5 });
-  });
-  test('ten small deltas of 8 move the list 40 px, continuously', () => {
-    let top = 0;
-    const seen: number[] = [];
-    for (let i = 0; i < 10; i++) {
-      const input = wheelInput(8, 0, 50, 0.5);
-      if (input?.kind === 'drag') top += input.px;
-      seen.push(top);
-    }
-    expect(top).toBe(40);
-    expect(seen[4]).toBe(20);
-  });
-  test('the glide eases from its start to its target and stays there', () => {
-    expect(easeOut(-1)).toBe(0);
-    expect(easeOut(0)).toBe(0);
-    expect(easeOut(0.5)).toBe(0.875);
-    expect(easeOut(2)).toBe(1);
-    const g = { from: 0, to: 44, start: 1000, ms: 180 };
-    expect(glideAt(g, 990)).toBe(0);
-    expect(glideAt(g, 1090)).toBeCloseTo(38.5);
-    expect(glideAt(g, 1180)).toBe(44);
-    expect(glideAt(g, 2000)).toBe(44);
-    expect(glideAt({ ...g, ms: 0 }, 1000)).toBe(44);
-    // Every frame moves on, never back: no row jumps.
-    let last = 0;
-    for (let t = 1000; t <= 1180; t += 16) {
-      const at = glideAt(g, t);
-      expect(at).toBeGreaterThanOrEqual(last);
-      last = at;
-    }
-    expect(glideDone(g, 1179)).toBe(false);
-    expect(glideDone(g, 1180)).toBe(true);
-  });
-  test('rows rest at whole multiples of the row height', () => {
-    expect(restTop(40, 44)).toBe(44);
-    expect(restTop(21, 44)).toBe(0);
-    expect(restTop(-30, 44)).toBe(-44);
-    expect(restTop(880, 44)).toBe(880);
-  });
-  test('a notch glides one row past the row nearest; notches in quick succession add up', () => {
-    const one = notchGlide(null, 880, 1, 44, 1000, 180);
-    expect(one).toEqual({ from: 880, to: 924, start: 1000, ms: 180 });
-    // A second notch mid-glide: from where the list is to a row past the first target.
-    const two = notchGlide(one, 900, 1, 44, 1060, 180);
-    expect(two).toEqual({ from: 900, to: 968, start: 1060, ms: 180 });
-    // Back the other way mid-glide: a row short of the target.
-    expect(notchGlide(two, 920, -1, 44, 1100, 180).to).toBe(924);
-    // A glide that has arrived counts for nothing: from the row nearest.
-    expect(notchGlide(one, 924, -1, 44, 2000, 180).to).toBe(880);
-    // After a drag left the list between rows: one row on from the nearest.
-    expect(notchGlide(null, 900, 1, 44, 0, 180).to).toBe(924);
-  });
-  test('a glide moves with the list when the loop turns under it', () => {
-    expect(shiftGlide({ from: 10, to: 54, start: 5, ms: 180 }, -440)).toEqual({ from: -430, to: -386, start: 5, ms: 180 });
-  });
-  test('the settle glides onto its row, or does nothing there', () => {
-    expect(settleGlide(920, 924, 7, 180)).toEqual({ from: 920, to: 924, start: 7, ms: 180 });
-    expect(settleGlide(900, 880, 7, 180)).toEqual({ from: 900, to: 880, start: 7, ms: 180 });
-    expect(settleGlide(924.3, 924, 7, 180)).toBeNull();
-  });
-  test('a burst counts the events within the gap and adds up their moves', () => {
-    const one = burstAdd(BURST_AT_REST, 2, 1000, 160);
-    expect(one).toEqual({ events: 1, px: 2, last: 1000 });
-    expect(burstAdd(one, 4, 1160, 160)).toEqual({ events: 2, px: 6, last: 1160 });
-    // Past the gap: a new burst.
-    expect(burstAdd(one, 4, 1161, 160)).toEqual({ events: 1, px: 4, last: 1161 });
-  });
-  test('the settle target: a Mac mouse notch of a few px goes a row on; a trackpad drag goes to the nearest', () => {
-    const scaled = (deltas: number[], gap: number) => {
-      let b = BURST_AT_REST;
-      let top = 880;
-      deltas.forEach((d, i) => {
-        b = burstAdd(b, d * 0.5, 1000 + i * gap, 160);
-        top += d * 0.5;
-      });
-      return settleTarget(top, 44, b, 1000 + deltas.length * gap + 170, 320);
-    };
-    // One accelerated tick of 4 px (2 px scaled): the next row, not back.
-    expect(scaled([4], 16)).toBe(924);
-    expect(scaled([-4], 16)).toBe(836);
-    // Two ticks of 8: one row.
-    expect(scaled([8, 8], 30)).toBe(924);
-    // Twenty trackpad deltas of 2 (20 px scaled in all): the nearest row, back where it was.
-    expect(scaled(Array(20).fill(2), 16)).toBe(880);
-    // Twenty of 4 (40 px): the nearest row, a row on.
-    expect(scaled(Array(20).fill(4), 16)).toBe(924);
-    // Half a row or more in two events: the nearest.
-    expect(settleTarget(880 + 30, 44, { events: 2, px: 30, last: 0 }, 170, 320)).toBe(924);
-    expect(settleTarget(880 + 22, 44, { events: 1, px: 22, last: 0 }, 170, 320)).toBe(924);
-    // Nothing moved (a notch's aligned glide, or no burst): the nearest.
-    expect(settleTarget(924, 44, { events: 1, px: 0, last: 0 }, 170, 320)).toBe(924);
-    expect(settleTarget(900, 44, BURST_AT_REST, 170, 320)).toBe(880);
-  });
-  test('a stale burst counts for nothing: a tick long ago, then a key, settles where the key put it', () => {
-    const tick = burstAdd(BURST_AT_REST, 2, 1000, 160);
-    // Fresh, it goes a row on; at the edge of the age, still; past it, the nearest.
-    expect(settleTarget(924, 44, tick, 1170, 320)).toBe(968);
-    expect(settleTarget(924, 44, tick, 1320, 320)).toBe(968);
-    expect(settleTarget(924, 44, tick, 1321, 320)).toBe(924);
+  test('a picked row comes into view the nearest way, or stays where it is', () => {
+    // A view of 5 rows of 44 at scrollTop 88 shows rows 2 to 6.
+    expect(nearestTop(88, 44, 88, 220)).toBe(88);
+    expect(nearestTop(264, 44, 88, 220)).toBe(88);
+    expect(nearestTop(44, 44, 88, 220)).toBe(44);
+    expect(nearestTop(308, 44, 88, 220)).toBe(132);
+    expect(nearestTop(0, 44, 0, 220)).toBe(0);
   });
   test('the editor: a card hides it, Make your own and a non-card show it, typing into a card keeps it', () => {
     expect(editorShows(true, { kind: 'pickCard' })).toBe(false);

@@ -8,8 +8,9 @@
 // and the wheel stays open at the top of the right-hand column while the Patterns panel shows.
 // There (docs/plans/v6-wheel-filters-three.md, rulings 1 to 3) its rows are taller, it fills the
 // column while the editor (Pattern and Rhythm) is hidden, which it is until a click on Make your
-// own or a pattern that is no card (docs/plans/v6-1-wheel-feel.md, ruling 2); a trackpad scrolls it
-// at half speed and a mouse notch glides it a row (ruling 1).
+// own or a pattern that is no card (docs/plans/v6-1-wheel-feel.md, ruling 2). It is a menu
+// (docs/plans/v6-2-wheel-ends.md, ruling 3): each row once, the band on the chosen row, a native
+// scroll that only browses. On a phone it is a drum with ends (ruling 4).
 // The logic is in deck-model.ts and layout-model.ts; this file is elements and events.
 //
 // This mount owns Play and the keys that drive it: Space plays and pauses from anywhere (one
@@ -17,12 +18,12 @@
 // (keepsSpace in sheet-model.ts) and on Make your own, which Space opens; on the wide layout ↑ and ↓
 // step the pattern and ← and → Listen for, elsewhere ← and → step the pattern, except in a field, a
 // select, a slider or a tab (deckKey in layout-model.ts, v6.1 ruling 3). A
-// select hands focus to Play after a choice, so the keys work again at once.
+// select hands focus to Play after a choice, so the keys work again at once. Every step stops at
+// the ends (v6.2 ruling 2).
 import { LISTENS, type Listen } from '../sound/drummers';
 import { DECK, KNOBS, SHEET } from '../tunables';
 import { copy } from '../ui/copy';
 import {
-  centrePlace,
   deckLabel,
   deckPresets,
   chooseFilter,
@@ -30,38 +31,21 @@ import {
   filteredPresets,
   filterKeeper,
   sameFilter,
-  dockedRows,
   editorShows,
   type EditorEvent,
-  rowOfSlot,
-  slotNear,
-  wheelCopies,
-  wheelDeltaPx,
-  wheelInput,
-  glideAt,
-  glideDone,
-  notchGlide,
-  shiftGlide,
-  settleGlide,
-  settleTarget,
-  burstAdd,
-  BURST_AT_REST,
-  type Burst,
-  type Glide,
+  menuBand,
+  menuRows,
+  nearestTop,
   fitFontPx,
   nextFit,
   groupTag,
   keyTarget,
-  loopDelta,
   masterGain,
-  nearEnd,
   nextPhase,
   type WheelPhase,
-  offsetFor,
-  placeOf,
   presetIndex,
   rowAfterKey,
-  scrollForPlace,
+  scrollForRow,
   settledPick,
   sheetWheelPlace,
   start,
@@ -90,19 +74,14 @@ const SPEAKER =
 export const mountDeck: Mount = (root, { store, player, sound }) => {
   const app = (root.closest('#app') as HTMLElement | null) ?? document.body;
   const t = copy.deck;
-  // The cards the wheel holds, in order, then Make your own: `rowCount` rows. The list holds
-  // `copies` of them (wheelCopies in deck-model.ts) where it shows more rows than that.
-  // ‹ › and ↑ ↓ walk the same order. buildList() renders it. Under a filter chip (v6.1 ruling 4)
-  // the order is that filter's cards alone (applyFilter).
+  // The cards the wheel holds, in order, then Make your own: `rowCount` rows, each once, a list
+  // item a row (v6.2 ruling 1). ‹ › and ↑ ↓ walk the same order. buildList() renders it. Under a
+  // filter chip (v6.1 ruling 4) the order is that filter's cards alone (applyFilter).
   let order: readonly Preset[] = filteredPresets(deckPresets(), store.get().deckFilter);
   let rowCount = order.length + 1;
   /** The chips, from the deck (filterChips): Balls 3 4 5, Jugglers 2 3 today. */
   const chips = filterChips();
   let own = order.length;
-  let copies = 1;
-  /** The most rows the wheel was last asked to show: what copies are counted for. */
-  let mostRows: number = DECK.wheelRows;
-  let slotCount = rowCount;
 
   root.innerHTML = `
     <div class="deck-bar" role="group" aria-label="${t.label}">
@@ -164,27 +143,16 @@ export const mountDeck: Mount = (root, { store, player, sound }) => {
   const listenSelect = $<HTMLSelectElement>('#deck-listen');
   const details = $<HTMLButtonElement>('.deck-details');
 
-  /**
-   * One list item a slot: the row it holds is `rowOfSlot(slot, rowCount)`. The first copy of a row
-   * is the row itself (data-row, data-id, .deck-own, .on and aria-current mark it alone); a further
-   * copy (.deck-copy, data-echo) looks the same and does the same, so each row keeps one name in
-   * the page. At rest the band is always on a first copy (settle).
-   */
-  const rowHtml = (slot: number) => {
-    const row = rowOfSlot(slot, rowCount);
-    const echo = slot >= rowCount;
-    const pos = copies > 1 ? ` aria-posinset="${row + 1}" aria-setsize="${rowCount}"` : '';
+  /** One list item a row: a card (data-id), or Make your own (.deck-own), last. */
+  const rowHtml = (row: number) => {
     const p = order[row];
-    const cls = echo ? `deck-row deck-copy${p ? '' : ' deck-own-copy'}` : `deck-row${p ? '' : ' deck-own'}`;
-    const attrs = `class="${cls}" tabindex="-1" ${echo ? 'data-echo' : 'data-row'}="${row}"${p && !echo ? ` data-id="${p.id}"` : ''}`;
+    const attrs = `class="deck-row${p ? '' : ' deck-own'}" tabindex="-1" data-row="${row}"${p ? ` data-id="${p.id}"` : ''}`;
     return p
-      ? `<li${pos}><button type="button" ${attrs}><code>${cardPattern(p)}</code><span class="deck-row-name">${copy.presets[p.id]?.name ?? ''}</span><em>${groupTag(p.group)}</em></button></li>`
-      : `<li${pos}><button type="button" ${attrs}><span class="deck-row-name">${t.makeYourOwn}</span></button></li>`;
+      ? `<li><button type="button" ${attrs}><code>${cardPattern(p)}</code><span class="deck-row-name">${copy.presets[p.id]?.name ?? ''}</span><em>${groupTag(p.group)}</em></button></li>`
+      : `<li><button type="button" ${attrs}><span class="deck-row-name">${t.makeYourOwn}</span></button></li>`;
   };
-  /** The wheel's buttons and their list items, one a slot. */
+  /** The wheel's buttons, one a row. */
   let rows: HTMLButtonElement[] = [];
-  let rowItems: HTMLLIElement[] = [];
-  const slotOf = (row: number) => slotNear(row, offset, rowCount, copies);
 
   root.style.setProperty('--deck-row', `${DECK.rowPx}px`);
   root.style.setProperty('--deck-rows', String(DECK.wheelRows));
@@ -211,8 +179,29 @@ export const mountDeck: Mount = (root, { store, player, sound }) => {
     setEditor({ kind: 'pickCard' });
     store.dispatch(presetPatch(p));
   };
-  const step = (delta: -1 | 1) => pick(stepIndex(current(), delta, order.length));
-  $<HTMLButtonElement>('.deck-prev').addEventListener('click', () => step(-1));
+  /**
+   * Chooses card `i` as a step or a key does: the card already on stage is never loaded again (that
+   * would queue the same pattern for the next cycle while playing); Make your own just gives way.
+   */
+  const choose = (i: number) => {
+    if (i !== current()) return pick(i);
+    restOwn = false;
+    setEditor({ kind: 'pickCard' });
+  };
+  /**
+   * One card on, or back: nothing at an end (v6.2 ruling 2). Docked, Make your own chosen is the
+   * last row, past the cards (stepIndex).
+   */
+  const step = (delta: -1 | 1) => {
+    const i = stepIndex(current(), delta, order.length, restOwn && docked());
+    if (i === null) return;
+    choose(i);
+    // The card may be on stage already (↑ from Make your own): the band still goes to it.
+    markRows();
+    scrollToCurrent(true);
+  };
+  const prevButton = $<HTMLButtonElement>('.deck-prev');
+  prevButton.addEventListener('click', () => step(-1));
   $<HTMLButtonElement>('.deck-next').addEventListener('click', () => step(1));
 
   let notchAcc = 0;
@@ -280,22 +269,22 @@ export const mountDeck: Mount = (root, { store, player, sound }) => {
       for (const p of ['left', 'top', 'width']) picker.style.removeProperty(p);
       app.style.setProperty('--wheel-pad-bottom', '0px');
       app.style.setProperty('--wheel-pad-right', '0px');
-      if (wheel.hidden) return setRows(DECK.wheelRows, DECK.rowPx, DECK.wheelRows);
-      // Docked (v6 ruling 1): taller rows; while the editor is hidden, as many as the column holds
-      // between the wheel's top and the sheet's head at its foot (Stop, the time slider, the
-      // sound's status: as tall as they need), DECK.dockedEditRows above the editor when it shows.
-      // The list holds copies enough for the whole column, so showing the editor and hiding it,
-      // or the head growing, never rebuilds it.
+      if (wheel.hidden) return setRows(DECK.wheelRows, DECK.rowPx);
+      // Docked (v6 ruling 1, v6.2 ruling 3): taller rows, top aligned; while the editor is hidden,
+      // as many as the column holds between the wheel's top and the sheet's head at its foot (Stop,
+      // the time slider, the sound's status: as tall as they need), or all of them where they are
+      // fewer; DECK.dockedEditRows above the editor when it shows.
+      if (editorShown) return setRows(Math.min(rowCount, DECK.dockedEditRows), DECK.dockedRowPx);
       const room = document.documentElement.clientHeight - wheel.getBoundingClientRect().top;
-      const most = dockedRows(room, DECK.dockedRowPx, DECK.wheelRows);
-      if (editorShown) return setRows(DECK.dockedEditRows, DECK.dockedRowPx, most);
       // The sheet's head shares the column's foot with Play's bar under the stage (the grid's last
       // row): the wheel stops above the taller of the two. Measured against the head alone, a short
       // head (the sound's status gone) let the wheel push the bar's row down, the stage grew and the
       // page overflowed, and the observers on the stage and the sheet looped (WebKit's
       // "ResizeObserver loop completed with undelivered notifications").
+      // The wheel's rule at its foot is outside its rows (deck.css), so a short menu has nothing to scroll.
       const head = Math.max(sheet?.offsetHeight ?? 0, (root.querySelector('.deck-bar') as HTMLElement).offsetHeight);
-      return setRows(dockedRows(room - head, DECK.dockedRowPx, DECK.wheelRows), DECK.dockedRowPx, most);
+      const rule = wheel.offsetHeight - wheel.clientHeight;
+      return setRows(menuRows(rowCount, room - head - rule, DECK.dockedRowPx, DECK.wheelRows), DECK.dockedRowPx);
     }
     const stage = document.querySelector('.stage') as HTMLElement | null;
     const view = root.closest('.play-view') as HTMLElement | null;
@@ -320,23 +309,13 @@ export const mountDeck: Mount = (root, { store, player, sound }) => {
     picker.style.left = `${place.left}px`;
     picker.style.top = `${place.top}px`;
     picker.style.width = `${place.width}px`;
-    setRows(place.rows, DECK.rowPx, place.rows);
+    setRows(place.rows, DECK.rowPx);
     app.style.setProperty('--wheel-pad-bottom', `${place.padBottom}px`);
     app.style.setProperty('--wheel-pad-right', `${place.padRight}px`);
   }
 
-  /**
-   * The wheel shows `shown` rows `px` tall; its list holds copies enough to show `most` and turn.
-   * A change brings the band back to its row when the wheel next draws.
-   */
-  function setRows(shown: number, px: number, most: number) {
-    mostRows = most;
-    const k = wheelCopies(rowCount, most, DECK.loopMarginRows);
-    if (k !== copies) {
-      copies = k;
-      buildList();
-      scrollWanted = true;
-    }
+  /** The wheel shows `shown` rows `px` tall. A change brings the band back to its row when the wheel next draws. */
+  function setRows(shown: number, px: number) {
     if (shown !== shownRows || px !== rowPx) {
       shownRows = shown;
       rowPx = px;
@@ -346,27 +325,21 @@ export const mountDeck: Mount = (root, { store, player, sound }) => {
     }
   }
 
-  // The loop (deck-model.ts): each list item's place is its CSS order; `offset` is the slot at
-  // place 0. While the wheel rests, the band's slot sits at the middle place. With one copy (a
-  // phone) a slot is its row.
+  // On a phone, a drum with ends (v6.2 ruling 4): the list has `half` blank rows above the first
+  // row and below the last (deck.css), so row r sits in the band at a scrollTop of r rows
+  // (scrollForRow). Docked there are none: the rows are a menu, top aligned, row r r rows down.
   let shownRows: number = DECK.wheelRows;
   let rowPx: number = DECK.rowPx;
-  const half = () => (shownRows - 1) / 2;
-  let offset = 0;
   /** Where the page last set the list's scrollTop itself; the scroll event it causes is not a turn. */
   let ownTop: number | null = null;
-  /** The slot in the band at the list's scrollTop, and the row it holds. */
-  const slotAt = () => wheelRowAt(list.scrollTop, rowPx, half(), offset, slotCount);
-  const rowAt = () => rowOfSlot(slotAt(), rowCount);
+  /** The row in the phone's band at the list's scrollTop. */
+  const rowAt = () => wheelRowAt(list.scrollTop, rowPx, rowCount);
 
-  /** Renders the list: `copies` of the rows, each a slot, at their places from offset 0. */
+  /** Renders the list: each row once. */
   function buildList() {
-    const focusRow = rows.length > 0 && list.contains(document.activeElement) ? rowOfSlot(roving, rowCount) : null;
-    slotCount = rowCount * copies;
-    list.innerHTML = Array.from({ length: slotCount }, (_, s) => rowHtml(s)).join('');
+    const focusRow = rows.length > 0 && list.contains(document.activeElement) ? roving : null;
+    list.innerHTML = Array.from({ length: rowCount }, (_, r) => rowHtml(r)).join('');
     rows = [...list.querySelectorAll<HTMLButtonElement>('.deck-row')];
-    rowItems = rows.map((r) => r.parentElement as HTMLLIElement);
-    offset = 0;
     banded = -1;
     roving = 0;
     rove(current() ?? Math.max(0, bandRow));
@@ -379,116 +352,46 @@ export const mountDeck: Mount = (root, { store, player, sound }) => {
   }
 
   /**
-   * Turns the list so `slot` sits at the middle place, moving scrollTop by as many rows as `slot`
-   * moved, so nothing on screen shifts. Programmatic: never a turn by the reader.
+   * Brings `row` to the band. Docked, the menu brings it into view the nearest way, at once (the
+   * band is already on it: markRows). On a phone the drum turns to it; a smooth scroll issued
+   * returns true, so the settle can ask for it again.
    */
-  function recentre(slot: number) {
-    const next = offsetFor(slot, slotCount);
-    if (next === offset) return;
-    // Read before the order changes: a browser may re-snap to the moved row on the next layout
-    // (WebKit does), so the new scrollTop is set outright, never added to the live one.
-    const shift = (centrePlace(slotCount) - placeOf(slot, offset, slotCount)) * rowPx;
-    const top = liveTop() + shift;
-    offset = next;
-    rowItems.forEach((li, s) => (li.style.order = String(placeOf(s, offset, slotCount))));
-    setTop(top);
-    ownTop = list.scrollTop;
-    // A glide under way turns with the list, so it goes on to the same row (v6.1 ruling 1).
-    if (glide) glide = shiftGlide(glide, shift);
-  }
-
-  // The docked wheel's glide (v6.1 ruling 1; notchGlide, settleGlide in deck-model.ts): an eased
-  // scroll, one frame at a time. `exactTop` is the scrollTop last set, kept to a fraction of a pixel
-  // where the browser rounds, so a trackpad's half-speed deltas never lose their fractions.
-  let glide: Glide | null = null;
-  /** The glide is the settle's, onto the nearest row: a drag ends it rather than moving it. */
-  let glideSettles = false;
-  let glideFrame = 0;
-  let exactTop: number | null = null;
-  /** The wheel events since the last settle (burstAdd): what settleTarget reads. */
-  let burst: Burst = BURST_AT_REST;
-  const liveTop = () => (exactTop !== null && Math.abs(list.scrollTop - exactTop) < 1 ? exactTop : list.scrollTop);
-  function setTop(top: number) {
-    list.scrollTop = top;
-    exactTop = top;
-  }
-  function glideFrameAt(now: number) {
-    glideFrame = 0;
-    if (!glide) return;
-    // Quick notches can run the target further on than the list reaches: where the list would stop
-    // at its end, or come within the loop's margin, it turns under the glide at once (recentre
-    // shifts the glide with it), as often as it takes, so the glide never meets an end.
-    for (let i = 0; i < slotCount; i++) {
-      const pos = glideAt(glide, now);
-      setTop(pos);
-      if (Math.abs(list.scrollTop - pos) < 1 && !nearEnd(pos, rowPx, half(), slotCount, DECK.loopMarginRows)) break;
-      const was = offset;
-      recentre(slotAt());
-      if (offset === was) break;
-    }
-    if (!glideDone(glide, now)) {
-      glideFrame = requestAnimationFrame(glideFrameAt);
-      return;
-    }
-    const settled = glideSettles;
-    glide = null;
-    glideSettles = false;
-    // The settle's glide has put the list on its row: pick now, not a settle delay later.
-    if (settled) {
-      clearTimeout(settleTimer);
-      settle();
-    }
-  }
-  function runGlide(next: Glide, settles: boolean) {
-    glide = next;
-    glideSettles = settles;
-    if (glideFrame === 0) glideFrame = requestAnimationFrame(glideFrameAt);
-  }
-  function stopGlide() {
-    glide = null;
-    glideSettles = false;
-    // A key, a pick or the page has taken the band: the wheel's burst is over.
-    burst = BURST_AT_REST;
-    cancelAnimationFrame(glideFrame);
-    glideFrame = 0;
-  }
-
-  /** Brings `row` into the band, the shortest way round the loop. */
   function scrollToRow(row: number, smooth: boolean): boolean {
     if (wheel.hidden) return false;
-    // A key, a pick or the page takes the band from a glide.
-    stopGlide();
+    if (docked()) {
+      const top = nearestTop(scrollForRow(row, rowPx), rowPx, list.scrollTop, list.clientHeight);
+      if (Math.abs(list.scrollTop - top) >= 1) list.scrollTop = top;
+      return false;
+    }
+    const top = scrollForRow(row, rowPx);
     if (!smooth) {
-      // A jump brings the row's first copy (the row itself) to the band.
-      recentre(row);
-      setTop(scrollForPlace(centrePlace(slotCount), rowPx, half()));
+      list.scrollTop = top;
       ownTop = list.scrollTop;
       return false;
     }
-    const fromSlot = slotAt();
-    recentre(fromSlot);
-    const from = rowOfSlot(fromSlot, rowCount);
     // The band is already on the row: nothing to scroll, whatever a pixel or two of snap says.
-    if (from === row) return false;
-    const top = scrollForPlace(centrePlace(slotCount) + loopDelta(from, row, rowCount), rowPx, half());
-    if (Math.abs(liveTop() - top) < 1) return false;
-    exactTop = null;
+    if (rowAt() === row || Math.abs(list.scrollTop - top) < 1) return false;
     list.scrollTo({ top, behavior: 'smooth' });
     return true;
   }
 
-  /** Brings the wheel's band to the loaded preset; a hand-made pattern leaves it where it is. */
+  /** Brings the wheel's band to the loaded preset; on a phone a hand-made pattern leaves it where it is. */
   let scrollWanted = true;
   function scrollToCurrent(smooth: boolean) {
+    if (docked()) {
+      const row = menuBand(current(), own, restOwn);
+      band(row);
+      scrollToRow(row, false);
+      return;
+    }
     const i = current();
     if (i === null) {
       seekRow = null;
       return;
     }
-    // A smooth scroll to a row far round the loop crosses the margin where the list turns itself
-    // (nearEnd), which cuts the scroll short; the goal is asked for again until the band is there
-    // (issue 79: the band stopped rows short of a typed 97531).
-    // Only a scroll actually issued is a goal: a stale one at rest would drag the band back.
+    // A browser may wait a while before it starts a smooth scroll: the goal is asked for again
+    // until the band is there (settle). Only a scroll actually issued is a goal: a stale one at
+    // rest would drag the band back.
     keyTries = 0;
     seekRow = scrollToRow(i, smooth) ? i : null;
     // A smooth scroll that moves nothing (the band a pixel or two off) fires no event to end it, so
@@ -551,29 +454,35 @@ export const mountDeck: Mount = (root, { store, player, sound }) => {
     showWheel();
   });
 
-  /** One tab stop in the wheel (roving tabindex): the loaded row, else the row last in the band. A slot. */
+  /** One tab stop in the wheel (roving tabindex): the loaded row, else the row last in the band. */
   let roving = 0;
   const rove = (row: number) => {
     rows[roving]?.setAttribute('tabindex', '-1');
-    roving = slotOf(Math.min(rowCount - 1, Math.max(0, row)));
+    roving = Math.min(rowCount - 1, Math.max(0, row));
     rows[roving]?.setAttribute('tabindex', '0');
   };
+  // A row focused by a click or by script is the tab stop, so ↑ ↓ move on from the row with focus.
+  list.addEventListener('focusin', (e) => {
+    const row = e.target instanceof Element ? e.target.closest<HTMLButtonElement>('.deck-row') : null;
+    if (row) rove(Number(row.dataset.row));
+  });
 
-  /** The slot in the band, marked while the wheel turns, and the row it holds. */
+  /** The row in the band: on a phone the one the drum holds under it, docked the chosen one. */
   let banded = -1;
   let bandRow = -1;
-  const band = (slot: number) => {
-    bandRow = rowOfSlot(slot, rowCount);
-    if (slot === banded) return;
+  const band = (row: number) => {
+    bandRow = row;
+    if (row === banded) return;
     rows[banded]?.classList.remove('in-band');
-    rows[slot]?.classList.add('in-band');
-    banded = slot;
+    rows[row]?.classList.add('in-band');
+    banded = row;
   };
 
-  // Only a turn the reader makes picks: a mouse wheel, a touch, or ↑ ↓ PageUp PageDown Home End
-  // on a row. A scroll from the page (snapping after a layout change, the wheel shown again, Tab
-  // bringing a row into view, the band following an arrow) never does. A turn that does not scroll
-  // (at an end) lapses after two settles, so a later scroll from the page is not taken for one.
+  // Only a turn the reader makes picks, and only on a phone: a mouse wheel, a touch, or ↑ ↓ PageUp
+  // PageDown Home End on a row. A scroll from the page (snapping after a layout change, the wheel
+  // shown again, Tab bringing a row into view, the band following an arrow) never does. A turn
+  // that does not scroll (at an end) lapses after two settles, so a later scroll from the page is
+  // not taken for one. Docked the list is a menu, and its scroll only browses (v6.2 ruling 3).
   let turning = false;
   let turnTimer: ReturnType<typeof setTimeout> | undefined;
   const turn = () => {
@@ -593,18 +502,18 @@ export const mountDeck: Mount = (root, { store, player, sound }) => {
     setPhase('turn');
     if (was === 'rest') placeWheel();
   };
-  const startTurn = (e: Event) => {
-    // Docked, a mouse wheel or a trackpad moves the wheel through the glide instead (below).
-    if (e.type === 'wheel' && docked()) return;
+  const startTurn = () => {
+    if (docked()) return;
     scrolled = false;
     turn();
   };
   for (const type of ['wheel', 'touchstart']) list.addEventListener(type, startTurn, { passive: true });
   for (const type of ['touchend', 'touchcancel']) list.addEventListener(type, armSettle, { passive: true });
 
-  /** Turns the wheel to `to` as the reader's turn: the band goes there, and the row loads when it settles. */
+  /** Turns the phone's wheel to `to` as the reader's turn: the band goes there, and the row loads when it settles. */
   function turnTo(to: number) {
-    burst = BURST_AT_REST;
+    // A key at an end turns nothing: no turn, no sheet taken.
+    if (rowAt() === to) return rove(to);
     scrolled = true;
     sheetOn();
     turn();
@@ -614,41 +523,33 @@ export const mountDeck: Mount = (root, { store, player, sound }) => {
     rove(to);
     armSettle();
   }
+  /**
+   * Docked, a key on a row picks at once (v6.2 ruling 3): a card loads, without sound; Make your
+   * own takes the band and opens nothing (only a click, Enter or Space opens it: v6.1 ruling 2).
+   */
+  function chooseRow(to: number) {
+    // A key at an end (↑ on the first row, ↓ on Make your own) chooses what is chosen already: nothing.
+    if (to === menuBand(current(), own, restOwn)) return;
+    if (to === own) restOwn = true;
+    else choose(to);
+    // The card may be on stage already (a key from Make your own): the band still goes to it.
+    markRows();
+    scrollToCurrent(false);
+  }
   list.addEventListener('keydown', (e) => {
     if (!turnsWheel(e.key) || e.ctrlKey || e.metaKey || e.altKey) return;
     e.preventDefault();
-    turnTo(rowAfterKey(e.key, rowOfSlot(roving, rowCount), rowCount, shownRows));
+    const to = rowAfterKey(e.key, roving, rowCount, shownRows);
+    if (docked()) {
+      // Focus first: the tab stop stays on a focused row (markRows), Make your own included.
+      rove(to);
+      rows[roving]?.focus({ preventScroll: true });
+      chooseRow(to);
+      return;
+    }
+    turnTo(to);
     rows[roving]?.focus({ preventScroll: true });
   });
-
-  // Docked, the wheel takes the mouse wheel and the trackpad itself (v6.1 ruling 1, wheelInput in
-  // deck-model.ts): a trackpad's deltas move it at DECK.wheelScale, its momentum tail too; a mouse
-  // notch glides it a row, and notches in quick succession add up. No snap points (deck.css): when
-  // the input stops, the settle glides it onto the nearest row and picks.
-  list.addEventListener(
-    'wheel',
-    (e) => {
-      if (!docked()) return;
-      e.preventDefault();
-      const input = wheelInput(wheelDeltaPx(e.deltaY, e.deltaMode, DECK.wheelLinePx, list.clientHeight), e.deltaMode, DECK.notchPx, DECK.wheelScale);
-      if (input === null) return;
-      scrolled = true;
-      turn();
-      // The wheel takes over from a key's outstanding row.
-      keyRow = null;
-      const now = performance.now();
-      if (input.kind === 'notch') runGlide(notchGlide(glide, liveTop(), input.dir, rowPx, now, DECK.glideMs), false);
-      else if (glide && !glideSettles) glide = shiftGlide(glide, input.px);
-      else {
-        // The settle's glide gives way to a new drag (and its burst, read already, is over).
-        if (glide) stopGlide();
-        setTop(liveTop() + input.px);
-      }
-      burst = burstAdd(burst, input.kind === 'drag' ? input.px : 0, now, DECK.settleMs);
-      armSettle();
-    },
-    { passive: false },
-  );
 
   // A key's target row, until the band reaches it. A browser may wait a few hundred ms before it
   // starts a smooth scroll; a settle in that gap must not end the turn, or the band lands on a
@@ -660,16 +561,12 @@ export const mountDeck: Mount = (root, { store, player, sound }) => {
   let keyTries = 0;
   let settleTimer: ReturnType<typeof setTimeout> | undefined;
   function settle() {
-    if (wheel.hidden) {
-      burst = BURST_AT_REST;
+    if (wheel.hidden || docked()) {
       keyRow = null;
       seekRow = null;
       turning = false;
-      stopGlide();
       return;
     }
-    // A glide under way settles when it has arrived (its frames' scrolls arm the settle again).
-    if (glide) return armSettle();
     const at = rowAt();
     const goal = keyRow ?? seekRow;
     if (goal !== null && at !== goal && keyTries < DECK.keySettleTries) {
@@ -679,32 +576,11 @@ export const mountDeck: Mount = (root, { store, player, sound }) => {
       armSettle();
       return;
     }
-    // Docked there are no snap points: a list left between rows glides onto the nearest first.
-    const from = liveTop();
-    const now = performance.now();
-    const onto = docked() ? settleGlide(from, settleTarget(from, rowPx, burst, now, DECK.settleMs * 2), now, DECK.glideMs) : null;
-    burst = BURST_AT_REST;
-    if (onto) {
-      runGlide(onto, true);
-      return armSettle();
-    }
     const user = turning || keyRow !== null;
     keyRow = null;
     seekRow = null;
     turning = false;
     clearTimeout(turnTimer);
-    // At rest, the band's row goes back to the middle place, so the wheel can turn on either way.
-    // With copies, its first copy takes the band: the copies repeat the rows in order, so the
-    // picture does not change, and the row's hooks (data-row, .on) are the band's.
-    // A slot against a row: equal exactly when the band is on the row's first copy, since first
-    // copies hold slots 0 to rowCount - 1, each its own row.
-    if (copies > 1 && slotAt() !== at) {
-      const focused = rows[roving] === document.activeElement;
-      scrollToRow(at, false);
-      band(slotAt());
-      rove(at);
-      if (focused) rows[roving]?.focus({ preventScroll: true });
-    } else recentre(slotAt());
     if (!user || !scrolled) return;
     if (upright()) {
       setPhase('stop');
@@ -717,8 +593,8 @@ export const mountDeck: Mount = (root, { store, player, sound }) => {
         if (had) patternButton.focus();
       }, DECK.returnMs);
     }
-    // The band resting on Make your own opens nothing and loads nothing: only a click on it shows
-    // the web editor (v6.1 ruling 2).
+    // The band resting on Make your own opens nothing and loads nothing: only a tap on it does
+    // (v6.1 ruling 2).
     const chosen = settledPick(at, current(), order.length);
     if (chosen !== null) pick(chosen);
   }
@@ -727,17 +603,11 @@ export const mountDeck: Mount = (root, { store, player, sound }) => {
     settleTimer = setTimeout(settle, DECK.settleMs);
   }
   list.addEventListener('scroll', () => {
+    // Docked, a scroll browses the menu: it never picks and never moves the band (v6.2 ruling 3).
+    if (docked()) return;
     const mine = ownTop !== null && Math.abs(list.scrollTop - ownTop) < 1;
     ownTop = null;
-    // Near an end mid-spin, the list turns at once (the turn goes on), so a long spin loops
-    // forever and picks once, when it settles. A key's smooth scroll, cut short by the turn, is
-    // asked for again.
-    if (nearEnd(list.scrollTop, rowPx, half(), slotCount, DECK.loopMarginRows)) {
-      recentre(slotAt());
-      const goal = keyRow ?? seekRow;
-      if (goal !== null) scrollToRow(goal, true);
-    }
-    band(slotAt());
+    band(rowAt());
     // A scroll the page made itself (re-placing the wheel, a snap) is no turn and takes no sheet.
     if (turning && !mine) {
       sheetOn();
@@ -751,9 +621,8 @@ export const mountDeck: Mount = (root, { store, player, sound }) => {
   list.addEventListener('click', (e) => {
     const button = e.target instanceof Element ? e.target.closest<HTMLButtonElement>('.deck-row') : null;
     if (!button) return;
-    const i = Number(button.dataset.row ?? button.dataset.echo);
+    const i = Number(button.dataset.row);
     clearTimeout(settleTimer);
-    burst = BURST_AT_REST;
     turning = false;
     keyRow = null;
     seekRow = null;
@@ -762,7 +631,8 @@ export const mountDeck: Mount = (root, { store, player, sound }) => {
       // click, Enter or Space on it, never the band passing (v6.1 ruling 2).
       restOwn = true;
       setEditor({ kind: 'makeOwn' });
-      // The next draw brings it there, once the wheel has its new height.
+      markRows();
+      // The next draw brings it into view, once the wheel has its new height.
       if (docked()) scrollWanted = true;
       closeWheel();
       store.set({ sheetTab: 'pattern' });
@@ -772,6 +642,7 @@ export const mountDeck: Mount = (root, { store, player, sound }) => {
     pick(i);
     start(player, store.get());
     rove(i);
+    markRows();
     scrollToCurrent(true);
     closeWheel();
   });
@@ -803,12 +674,13 @@ export const mountDeck: Mount = (root, { store, player, sound }) => {
     order = next;
     rowCount = order.length + 1;
     own = order.length;
-    copies = wheelCopies(rowCount, mostRows, DECK.loopMarginRows);
     // A hand-made pattern's band goes to the first card, or stays on Make your own.
     bandRow = restOwn ? own : -1;
     buildList();
     fittedWidth = -1;
     fitRows();
+    // Docked, the menu is as tall as its rows where they are fewer than the column holds.
+    if (docked() && !wheel.hidden) placeWheel();
     scrollWanted = true;
   }
   // A card outside the lit filter, typed or from a link, clears it (filterKeeper).
@@ -880,7 +752,7 @@ export const mountDeck: Mount = (root, { store, player, sound }) => {
     !e.isComposing &&
     !(
       e.target instanceof Element &&
-      (e.target.closest('.pattern-field, .deck-own, .deck-own-copy') !== null ||
+      (e.target.closest('.pattern-field, .deck-own') !== null ||
         keepsSpace(e.target.tagName, e.target instanceof HTMLInputElement ? e.target.type : null))
     );
   document.addEventListener(
@@ -990,20 +862,23 @@ export const mountDeck: Mount = (root, { store, player, sound }) => {
   document.fonts?.addEventListener('loadingdone', refitRows);
   if (typeof ResizeObserver === 'function') new ResizeObserver(() => fitRows()).observe(wheel);
 
-  /** The loaded card's rows (each copy of it) are on; the tab stop follows it unless a row has focus. */
+  /**
+   * The loaded card's row is on; the tab stop follows it unless a row has focus. Docked, the band is
+   * the chosen row's own highlight (v6.2 ruling 3). ‹ and › are disabled at the ends (ruling 2),
+   * by aria-disabled, so a focused one keeps its focus.
+   */
   function markRows() {
     const i = current();
-    rows.forEach((row, s) => {
-      const on = rowOfSlot(s, rowCount) === i;
-      if (s >= rowCount) {
-        row.classList.toggle('on-copy', on);
-        return;
-      }
+    rows.forEach((row, r) => {
+      const on = r === i;
       row.classList.toggle('on', on);
       if (on) row.setAttribute('aria-current', 'true');
       else row.removeAttribute('aria-current');
     });
     if (i !== null && !rows[roving]?.matches(':focus')) rove(i);
+    if (docked()) band(menuBand(i, own, restOwn));
+    prevButton.setAttribute('aria-disabled', String(stepIndex(i, -1, order.length) === null));
+    nextButton.setAttribute('aria-disabled', String(stepIndex(i, 1, order.length) === null));
   }
 
   function render() {
@@ -1059,11 +934,11 @@ export const mountDeck: Mount = (root, { store, player, sound }) => {
       if (scrollWanted && !wheel.hidden) {
         scrollWanted = false;
         placeWheel();
-        // A hand-made pattern keeps the row last in the band, or Cascade the first time; docked,
-        // a band resting on Make your own stays there.
-        const row = restOwn && docked() ? own : (current() ?? Math.max(0, bandRow));
+        // Docked, the chosen row (menuBand). On a phone a hand-made pattern keeps the row last in
+        // the band, or Cascade the first time.
+        const row = docked() ? menuBand(current(), own, restOwn) : (current() ?? Math.max(0, bandRow));
+        band(row);
         scrollToRow(row, false);
-        band(slotOf(row));
       }
       if (view.state !== shownState) {
         shownState = view.state;

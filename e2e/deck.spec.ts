@@ -1,6 +1,7 @@
 // The deck (docs/plans/v4-deck.md, stream D1; v4.1 polish, docs/plans/v4-1-polish.md), headless
-// at 390×844, 844×390, 667×375 and 1280×800: the transport bar, the arrows and keys, the looping
-// wheel, mute, Kit, Details, Make your own, square corners, no page scroll, no console errors.
+// at 390×844, 844×390, 667×375 and 1280×800: the transport bar, the arrows and keys, the wheel
+// with its ends (docs/plans/v6-2-wheel-ends.md), mute, Kit, Details, Make your own, square
+// corners, no page scroll, no console errors.
 // Screenshots go to e2e/shots/.
 import { mkdirSync } from 'node:fs';
 import { PRESETS } from '../src/app/presets';
@@ -63,20 +64,27 @@ for (const size of SIZES) {
       await expect(page.locator('.deck-wheel')).toBeVisible();
       // Every preset (the 18 of v5 §4 and the three-juggler cards of v6) and Make your own.
       expect(PRESETS.length).toBe(21);
-      await expect(page.locator('.deck-row:not(.deck-copy)')).toHaveCount(PRESETS.length + 1);
-      await expect(page.locator('.deck-row:not(.deck-copy)').last()).toHaveText('Make your own');
+      await expect(page.locator('.deck-row')).toHaveCount(PRESETS.length + 1);
+      await expect(page.locator('.deck-row').last()).toHaveText('Make your own');
       await expect(notation(page)).toHaveText('3');
       await expect(page.locator('.deck-meta')).toHaveText('3 balls');
       await expect(page.locator('.deck-details')).toBeVisible({ visible: !size.docked && size.width < 760 });
       expect(await scheduled(page)).toBe(0);
       expect(await page.evaluate(() => document.documentElement.scrollHeight <= window.innerHeight)).toBe(true);
-      // The wheel loops: no blank row above or below the band; Cascade in the band, Make your own just above it.
+      // The wheel has ends (v6.2 rulings 3 and 4), Cascade in the band. Docked, a menu: Cascade at
+      // the top, every row shown a row. Elsewhere a drum: blank rows above Cascade in the middle.
       await expect(page.locator('.deck-row.in-band')).toHaveAttribute('data-id', 'cascade');
-      await expect.poll(async () => (await wheelRowsShown(page)).every((r) => r !== null)).toBe(true);
-      const shown = await wheelRowsShown(page);
-      expect(shown.length % 2).toBe(1);
-      expect(shown[(shown.length - 1) / 2]).toBe('0');
-      expect(shown[(shown.length - 1) / 2 - 1]).toBe(String(PRESETS.length));
+      if (size.docked) {
+        await expect.poll(async () => (await wheelRowsShown(page)).every((r) => r !== null)).toBe(true);
+        expect((await wheelRowsShown(page))[0]).toBe('0');
+      } else {
+        await expect.poll(async () => (await wheelRowsShown(page)).indexOf('0')).toBe(((await wheelRowsShown(page)).length - 1) / 2);
+        const shown = await wheelRowsShown(page);
+        const mid = (shown.length - 1) / 2;
+        expect(shown.length % 2).toBe(1);
+        expect(shown.slice(0, mid).every((r) => r === null)).toBe(true);
+        expect(shown.slice(mid).every((r) => r !== null)).toBe(true);
+      }
       // Square: nothing in the deck is rounded.
       const rounded = await page.locator('.region-deck').evaluate((root) =>
         [root, ...root.querySelectorAll('*')].filter((el) => {
@@ -119,13 +127,20 @@ for (const size of SIZES) {
       await fresh.goto('/' + hash);
       await expect(notation(fresh)).toHaveText('441');
       await fresh.close();
-      // ← (↑) wraps from the first preset to the last.
+      // ← (↑) on the first preset goes nowhere (v6.2 ruling 2); ‹ is disabled there.
       await page.goto('/#3');
       if (size.docked) {
         await page.evaluate(() => (document.activeElement as HTMLElement | null)?.blur());
         await page.keyboard.press('ArrowUp');
-      } else await page.locator('.deck-prev').click();
-      await expect(page.locator('.deck-meta')).toHaveText(/jugglers$/);
+      } else {
+        await expect(page.locator('.deck-prev')).toHaveAttribute('aria-disabled', 'true');
+        await expect(page.locator('.deck-next')).toHaveAttribute('aria-disabled', 'false');
+        // aria-disabled, so a reader can still press it (force: Playwright waits on it otherwise).
+        await page.locator('.deck-prev').click({ force: true });
+        await page.keyboard.press('ArrowLeft');
+      }
+      await page.waitForTimeout(300);
+      await expect(notation(page)).toHaveText('3');
       // Not in a text field: there the arrows move the caret.
       await openTab(page, 'pattern');
       await page.locator('#hand-0').focus();
@@ -178,6 +193,8 @@ for (const size of SIZES) {
       await expect(page.locator('.deck-row[data-id="classic"]')).toHaveClass(/\bon\b/);
       await expect(page.locator('.deck-row[data-id="classic"]')).toHaveAttribute('aria-current', 'true');
       await expect(page.locator('.deck-row[aria-current]')).toHaveCount(1);
+      // Docked, the band moves to the clicked row (v6.2 ruling 3).
+      if (size.docked) await expect(page.locator('.deck-row.in-band')).toHaveAttribute('data-id', 'classic');
       // On a phone the pick closes the wheel; docked, it stays.
       await expect(page.locator('.deck-wheel')).toBeVisible({ visible: size.docked });
       await page.screenshot({ path: `${SHOTS}/deck-wheel-pick-${size.name}.png` });
@@ -249,7 +266,12 @@ for (const size of SIZES) {
           expect(overlap(w, bar)).toBe(0);
           expect(w.x).toBeGreaterThanOrEqual(stage.x + stage.width - 1);
           expect(w.y + w.height).toBeLessThanOrEqual(size.height + 1);
-          await expect.poll(async () => (await wheelRowsShown(page)).every((r) => r !== null)).toBe(true);
+          // Cascade in the band, the rows below it filled; above it blank (v6.2 ruling 4).
+          await expect.poll(async () => {
+            const shown = await wheelRowsShown(page);
+            const mid = (shown.length - 1) / 2;
+            return shown[mid] === '0' && shown.slice(mid).every((r) => r !== null) && shown.slice(0, mid).every((r) => r === null);
+          }).toBe(true);
         } else {
           // Over the stage, not over the deck, and clear of the juggler, which stays in view (ruling B).
           expect(w.y + w.height).toBeLessThanOrEqual(Math.max(bar.y, stage.y + stage.height) + 1);
@@ -303,34 +325,35 @@ test.describe('phone', () => {
     await expect(page.locator('.deck-name')).toHaveText('Your pattern');
     await page.locator('.deck-next').click();
     await expect(notation(page)).toHaveText('3');
+    // The link follows (debounced) first: before then the address still reads #753, and going
+    // there again is no navigation at all (Firefox), so Cascade would stay, ‹ disabled on it.
+    await expect(page).toHaveURL(/#3(~|$)/);
     await page.goto('/#753');
+    await expect(notation(page)).toHaveText('753');
     await page.locator('.deck-prev').click();
     await expect(page.locator('.deck-meta')).toHaveText('3 jugglers');
   });
 
-  test('scrolling up from Cascade reaches the last passing pattern', async ({ page }) => {
+  test('scrolling up from Cascade goes nowhere: Cascade stays in the band, blank rows above it', async ({ page }) => {
     await page.goto('/');
     const list = page.locator('.deck-wheel-list');
     await expect(page.locator('.deck-row.in-band')).toHaveAttribute('data-id', 'cascade');
     await list.hover();
     await page.mouse.wheel(0, -64);
-    // Two rows up (Make your own, then the last passing pattern); a browser's wheel may carry a
-    // row or two further, which is still round the seam and among the passing patterns.
-    await expect(notation(page)).not.toHaveText('3');
-    await expect(page.locator('.deck-meta')).toHaveText(/^[23] jugglers$/);
-    const banded = page.locator('.deck-row.in-band');
-    await expect.poll(async () => (await banded.locator('code').textContent()) === (await notation(page).textContent())).toBe(true);
-    const passing = PRESETS.filter((p) => p.group === 'passing').map((p) => p.id);
-    expect(passing).toContain(await banded.getAttribute('data-id'));
-    // The last passing pattern is on screen in the wheel, next to Make your own.
+    await page.waitForTimeout(800);
+    await expect(notation(page)).toHaveText('3');
+    await expect(page.locator('.deck-row.in-band')).toHaveAttribute('data-id', 'cascade');
+    // The snap rests Cascade at scrollTop 0, or 1 (the wheel's rules count in its height).
+    expect(await list.evaluate((l) => l.scrollTop)).toBeLessThanOrEqual(1);
+    // Nothing above Cascade: no Make your own, no passing patterns.
     const shown = await wheelRowsShown(page);
-    expect(shown).toContain(String(PRESETS.length - 1));
+    const mid = (shown.length - 1) / 2;
+    expect(shown[mid]).toBe('0');
+    expect(shown.slice(0, mid).every((r) => r === null)).toBe(true);
     expect(await scheduled(page)).toBe(0);
-    // And on round: still no blank rows.
-    await expect.poll(async () => (await wheelRowsShown(page)).every((r) => r !== null)).toBe(true);
   });
 
-  test('a long continuous spin loops on and loads exactly one pattern, when it settles', async ({ page }) => {
+  test('a long continuous spin loads exactly one pattern when it settles, and stops at Make your own', async ({ page }) => {
     await page.goto('/');
     await expect(page.locator('.deck-row.in-band')).toHaveAttribute('data-id', 'cascade');
     // Count every pattern the bar shows from here on.
@@ -343,33 +366,40 @@ test.describe('phone', () => {
         if (w.loads[w.loads.length - 1] !== t) w.loads.push(t);
       }).observe(el, { childList: true, characterData: true, subtree: true });
     });
-    // 40 rows up, more than the list holds, one row every 30 ms: a reader's turn (a wheel event,
-    // then the scroll) driven inside the page, so no pause from the test runner (a CI hiccup
-    // between two driven notches once outlasted the settle) can split the spin in two.
-    const spin = 40;
-    await page.locator('.deck-wheel-list').evaluate(
-      (list, n) =>
-        new Promise<void>((done) => {
-          let i = 0;
-          const tick = () => {
-            list.dispatchEvent(new WheelEvent('wheel', { deltaY: -32, bubbles: true }));
-            list.scrollBy({ top: -32, behavior: 'instant' });
-            i += 1;
-            if (i < n) setTimeout(tick, 30);
-            else done();
-          };
-          tick();
-        }),
-      spin,
-    );
-    // Round the loop: the row `spin` places above Cascade, of the presets and Make your own.
-    const length = PRESETS.length + 1;
-    const landed = PRESETS[(((-spin) % length) + length) % length]!;
-    await expect(notation(page)).toHaveText(landed.texts[0]!);
+    // `n` rows down, one row every 30 ms: a reader's turn (a wheel event, then the scroll) driven
+    // inside the page, so no pause from the test runner (a CI hiccup between two driven notches
+    // once outlasted the settle) can split the spin in two.
+    const spin = (n: number) =>
+      page.locator('.deck-wheel-list').evaluate(
+        (list, n) =>
+          new Promise<void>((done) => {
+            let i = 0;
+            const tick = () => {
+              list.dispatchEvent(new WheelEvent('wheel', { deltaY: 32, bubbles: true }));
+              list.scrollBy({ top: 32, behavior: 'instant' });
+              i += 1;
+              if (i < n) setTimeout(tick, 30);
+              else done();
+            };
+            tick();
+          }),
+        n,
+      );
+    await spin(15);
+    const landed = (await page.locator('.deck-row[data-row="15"] code').textContent())!;
+    await expect(notation(page)).toHaveText(landed);
     await page.waitForTimeout(1000);
-    expect(await page.evaluate(() => (window as unknown as { loads: string[] }).loads)).toEqual([landed.texts[0]]);
+    expect(await page.evaluate(() => (window as unknown as { loads: string[] }).loads)).toEqual([landed]);
     await expect.poll(async () => (await page.locator('.deck-row.in-band code').textContent()) === (await notation(page).textContent())).toBe(true);
-    await expect.poll(async () => (await wheelRowsShown(page)).every((r) => r !== null)).toBe(true);
+    // Forty more, past the end: the drum stops on Make your own, which loads nothing.
+    // (The settled wheel has closed, as on a phone; the pattern opens it again.)
+    await expect(page.locator('.deck-wheel')).toBeHidden({ timeout: 3000 });
+    await page.locator('.deck-pattern').click();
+    await expect(page.locator('.deck-row.in-band')).toHaveAttribute('data-row', '15');
+    await spin(40);
+    await expect(page.locator('.deck-row.in-band')).toHaveClass(/deck-own/);
+    await page.waitForTimeout(1000);
+    expect(await page.evaluate(() => (window as unknown as { loads: string[] }).loads)).toEqual([landed]);
     expect(await scheduled(page)).toBe(0);
   });
 
@@ -399,7 +429,7 @@ test.describe('phone', () => {
     await expect.poll(() => loaded('IBM Plex Mono')).toBe(true);
     await expect.poll(() => loaded('IBM Plex Sans')).toBe(true);
     await expect(page.locator('.deck-wheel')).toBeVisible();
-    await expect(page.locator('.deck-row:not(.deck-copy) .deck-row-name')).toHaveCount(PRESETS.length + 1);
+    await expect(page.locator('.deck-row .deck-row-name')).toHaveCount(PRESETS.length + 1);
     expect(await page.locator('.deck-row-name').evaluateAll((els) => els.filter((el) => el.scrollWidth > el.clientWidth).map((el) => el.textContent))).toEqual([]);
     await page.locator('.deck-row[data-id="rising-passes"]').scrollIntoViewIfNeeded();
     await page.screenshot({ path: `${SHOTS}/deck-wheel-names-390x844.png` });
@@ -491,7 +521,7 @@ test.describe('phone, more', () => {
 });
 
 // v6 W1: the docked rows are taller with a larger notation; a long notation is drawn smaller so
-// every name stays whole, copies included.
+// every name stays whole.
 for (const size of [
   { width: 1280, height: 800 },
   { width: 1920, height: 1080 },
@@ -503,7 +533,7 @@ for (const size of [
       await page.goto('/');
       await page.evaluate(() => Promise.all([document.fonts.load('400 16px "IBM Plex Mono"'), document.fonts.load('400 14px "IBM Plex Sans"')]));
       await expect(page.locator('.deck-wheel')).toBeVisible();
-      await expect(page.locator('.deck-row:not(.deck-copy) .deck-row-name')).toHaveCount(PRESETS.length + 1);
+      await expect(page.locator('.deck-row .deck-row-name')).toHaveCount(PRESETS.length + 1);
       await expect
         .poll(() => page.locator('.deck-row-name').evaluateAll((els) => els.filter((el) => el.scrollWidth > el.clientWidth || el.clientWidth === 0).map((el) => el.textContent)))
         .toEqual([]);
@@ -541,20 +571,83 @@ test.describe('wide, the wheel by keyboard', () => {
     await expect(page.locator('#play')).toHaveText('Pause');
   });
 
-  test('holding ↑ from Cascade round the loop ends with the row in the band loaded', async ({ page }) => {
+  test('while playing, keys past Make your own queue nothing: "next cycle" never shows', async ({ page }) => {
+    await page.goto('/#97531@40');
+    await page.locator('#play').click();
+    await expect(page.locator('#play')).toHaveText('Pause');
+    // Every moment "next cycle" shows, from here on, is counted.
+    await page.evaluate(() => {
+      const w = window as unknown as { pending: number };
+      w.pending = 0;
+      const el = document.querySelector('#pending')!;
+      new MutationObserver(() => {
+        if (!(el as HTMLElement).hidden) w.pending += 1;
+      }).observe(el, { attributes: true, attributeFilter: ['hidden'] });
+    });
+    // 97531 is the last 5-ball card; under Balls 5 it is the filter's last, and Make your own is next.
+    await page.locator('.deck-filter[data-by="balls"][data-n="5"]').click();
+    await expect(page.locator('.deck-row.on')).toHaveAttribute('data-row', '2');
+    // End: Make your own takes the band and loads nothing; then ↓, End and PageDown there are no picks.
+    await page.locator('.deck-row.on').focus();
+    await page.keyboard.press('End');
+    await expect(page.locator('.deck-own')).toBeFocused();
+    for (const key of ['ArrowDown', 'End', 'PageDown']) await page.keyboard.press(key);
+    await page.waitForTimeout(500);
+    expect(await page.evaluate(() => (window as unknown as { pending: number }).pending)).toBe(0);
+    await expect(page.locator('#pending')).toBeHidden();
+    await expect(notation(page)).toHaveText('97531');
+  });
+
+  test('while playing, ↑ on the card on stage at the top queues nothing', async ({ page }) => {
+    await page.goto('/#3@40');
+    await page.locator('#play').click();
+    await expect(page.locator('#play')).toHaveText('Pause');
+    await page.evaluate(() => {
+      const w = window as unknown as { pending: number };
+      w.pending = 0;
+      const el = document.querySelector('#pending')!;
+      new MutationObserver(() => {
+        if (!(el as HTMLElement).hidden) w.pending += 1;
+      }).observe(el, { attributes: true, attributeFilter: ['hidden'] });
+    });
+    await page.locator('.deck-row[data-id="cascade"]').focus();
+    for (const key of ['ArrowUp', 'Home', 'PageUp']) await page.keyboard.press(key);
+    await page.waitForTimeout(500);
+    expect(await page.evaluate(() => (window as unknown as { pending: number }).pending)).toBe(0);
+    await expect(page.locator('#pending')).toBeHidden();
+    await expect(page.locator('.deck-row[data-id="cascade"]')).toBeFocused();
+  });
+
+  test('the wheel’s keys stop at its ends: ↑ on Cascade nothing; End takes the band to Make your own, which opens on Enter', async ({ page }) => {
     await page.goto('/#3');
     await page.locator('.deck-row[data-id="cascade"]').focus();
-    for (let i = 0; i < 25; i++) {
-      await page.keyboard.press('ArrowUp');
-      await page.waitForTimeout(30);
-    }
-    // 25 up from Cascade, round the loop of the presets and Make your own (22 rows since v6).
-    const rows = PRESETS.length + 1;
-    const target = String((((-25) % rows) + rows) % rows);
-    await expect(page.locator('.deck-row:focus')).toHaveAttribute('data-row', target);
-    await expect(page.locator('.deck-row.in-band')).toHaveAttribute('data-row', target, { timeout: 8000 });
-    await expect(page.locator('.deck-row[aria-current]')).toHaveAttribute('data-row', target, { timeout: 8000 });
+    for (let i = 0; i < 3; i++) await page.keyboard.press('ArrowUp');
+    await page.waitForTimeout(300);
+    await expect(page.locator('.deck-row[data-id="cascade"]')).toBeFocused();
+    await expect(notation(page)).toHaveText('3');
+    await expect(page.locator('.deck-row.in-band')).toHaveAttribute('data-id', 'cascade');
+    // End: Make your own takes the band and the focus; it opens nothing and loads nothing.
+    await page.keyboard.press('End');
+    await expect(page.locator('.deck-own')).toBeFocused();
+    await expect(page.locator('.deck-row.in-band')).toHaveClass(/deck-own/);
+    await expect(page.locator('.deck-own')).toBeInViewport({ ratio: 1 });
+    await expect(page.locator('#tab-pattern')).toBeHidden();
+    await expect(notation(page)).toHaveText('3');
+    // ↓ and PageDown there: nothing.
+    await page.keyboard.press('ArrowDown');
+    await page.keyboard.press('PageDown');
+    await page.waitForTimeout(300);
+    await expect(page.locator('.deck-own')).toBeFocused();
+    await expect(notation(page)).toHaveText('3');
+    // ↑: the last card loads, the band on it.
+    await page.keyboard.press('ArrowUp');
+    await expect(page.locator('.deck-row.in-band')).toHaveAttribute('data-row', String(PRESETS.length - 1));
+    await expect(page.locator('.deck-row[aria-current]')).toHaveAttribute('data-row', String(PRESETS.length - 1));
     expect(await scheduled(page)).toBe(0);
+    // Enter on Make your own opens the editor.
+    await page.keyboard.press('ArrowDown');
+    await page.keyboard.press('Enter');
+    await expect(page.locator('#tab-pattern')).toBeVisible();
   });
 
   test('the arrows do nothing while About shows', async ({ page }) => {

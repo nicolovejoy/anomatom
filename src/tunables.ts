@@ -539,7 +539,10 @@ export const DEFAULT_PANEL = 'patterns' as const;
 
 /** The deck (docs/plans/v4-deck.md): the transport bar, the sound row and the pattern wheel. */
 export const DECK = {
-  /** Rows the wheel shows; the middle one sits in the band. Odd. */
+  /**
+   * Rows the wheel shows. On a phone the drum's, odd, the middle one in the band; docked, the
+   * fewest the menu shows where the column holds more rows than that.
+   */
   wheelRows: 7,
   /** One wheel row's height. */
   rowPx: 32,
@@ -552,10 +555,7 @@ export const DECK = {
   returnMs: 1500,
   /** The fewest rows the sheet-covering phone wheel shows (it shows more where the sheet is taller). */
   phoneMinRows: 7,
-  /**
-   * A mouse wheel over the pattern name steps once per this much scroll (a notch is about 100); over
-   * the docked wheel a delta this large is a mouse notch, not a trackpad.
-   */
+  /** A mouse wheel over the pattern name steps once per this much scroll (a notch is about 100). */
   notchPx: 50,
   /**
    * The wheel stays open in the column only on a wide screen at least this tall; shorter (a phone
@@ -569,9 +569,10 @@ export const DECK = {
   minFigurePx: 200,
   sidePx: 300,
   /**
-   * The web wheel (docs/plans/v6-wheel-filters-three.md, rulings 1 and 3). Docked, its rows are
-   * dockedRowPx tall, and it shows as many as the column holds (odd, at least wheelRows) while the
-   * editor is hidden; dockedEditRows above the editor when it shows.
+   * The web wheel (docs/plans/v6-wheel-filters-three.md, rulings 1 and 3; a menu since
+   * docs/plans/v6-2-wheel-ends.md, ruling 3). Docked, its rows are dockedRowPx tall, and it shows
+   * as many as the column holds (at least wheelRows, at most all of them) while the editor is
+   * hidden; dockedEditRows above the editor when it shows.
    */
   dockedRowPx: 44,
   dockedEditRows: 5,
@@ -582,24 +583,10 @@ export const DECK = {
   dockedNotationPx: 16,
   dockedNotationMinPx: 10,
   /**
-   * The docked wheel's feel (docs/plans/v6-1-wheel-feel.md, ruling 1): a trackpad moves it by
-   * wheelScale of its scroll, continuously; a mouse notch (a delta of notchPx or more, or any delta
-   * in lines) glides it one row over glideMs, and the settle glides it onto the nearest row as long.
-   * A delta in lines counts wheelLinePx a line. A mouse notch is 100 px in Chromium on Windows and
-   * Linux, and in Firefox (pixel deltas since Firefox 100 for a page that reads deltaY first); a
-   * plain mouse on a Mac sends accelerated ticks of a few px, which the settle reads as a notch
-   * (settleTarget in deck-model.ts).
-   */
-  wheelScale: 0.5,
-  glideMs: 180,
-  wheelLinePx: 40,
-  /**
    * The filter chips' row above the wheel (docs/plans/v6-wheel-filters-three.md, ruling 4): this
    * tall, on a phone and docked, so the wheel's place is measured with it.
    */
   filtersPx: 40,
-  /** The looping wheel turns its list mid-spin when the band comes this many rows from an end. */
-  loopMarginRows: 2,
   /** A key's turn re-arms its settle at most this many times while its smooth scroll catches up. */
   keySettleTries: 12,
   /**

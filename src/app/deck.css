@@ -58,6 +58,14 @@
 .deck-mute:hover {
   background: var(--raised) !important;
 }
+/* At an end (docs/plans/v6-2-wheel-ends.md, ruling 2): ‹ on the first card, › on the last. */
+.deck-arrow[aria-disabled='true'] {
+  opacity: 0.3;
+  cursor: default;
+}
+.deck-arrow[aria-disabled='true']:hover {
+  background: transparent !important;
+}
 .deck-pattern {
   /* As wide as its text and no wider, so ‹ and › bracket the name; the volume takes the rest. */
   flex: 0 1 auto;
@@ -204,10 +212,11 @@
 }
 
 /* The wheel: a vertical scroll-snap list, seven rows tall (fewer in a short column), the middle
-   row in a band. It loops (deck-model.ts): each row's place is its CSS order, and the list keeps
-   the band's row in the middle, so there are rows above and below it and never a blank one. Over
-   the stage on a phone, in the right-hand column on a phone on its side or a short wide screen
-   (mount-deck.ts places it); docked in the column on a tall wide screen. */
+   row in a band. It has ends (docs/plans/v6-2-wheel-ends.md, ruling 4): each row once, with blank
+   rows above the first and below the last, so both reach the band. Over the stage on a phone, in
+   the right-hand column on a phone on its side or a short wide screen (mount-deck.ts places it).
+   Docked in the column on a tall wide screen it is a menu instead (ruling 3): the rows top
+   aligned, the band on the chosen row itself. */
 /* The picker: the filter chips (v6 ruling 4), then the wheel. It is what mount-deck.ts places
    over the stage on a phone, and the grid's wheel area when docked. */
 .deck-picker {
@@ -281,7 +290,10 @@
   border-top: 1px solid var(--rule);
   border-bottom: 1px solid var(--rule);
 }
+/* Docked the rows are the wheel's whole height and the rule at its foot is outside them, so a
+   menu as tall as its rows has nothing to scroll (mount-deck.ts counts the rule in the column). */
 #app.deck-docked .deck-wheel {
+  box-sizing: content-box;
   border-top: 0;
 }
 /* Docked, the rows are DECK.dockedRowPx tall (v6 ruling 1): the type grows a step with them. The
@@ -303,8 +315,7 @@
   white-space: pre;
   font-size: 16px;
 }
-#app.deck-docked .deck-own .deck-row-name,
-#app.deck-docked .deck-own-copy .deck-row-name {
+#app.deck-docked .deck-own .deck-row-name {
   grid-column: 1 / -1;
 }
 #app.deck-docked .deck-row em {
@@ -331,6 +342,11 @@
   pointer-events: none;
   background: linear-gradient(var(--surface), transparent 30%, transparent 70%, var(--surface));
 }
+/* Docked, a menu: no fixed band and no fade; the chosen row carries the band (below). */
+#app.deck-docked .deck-wheel::before,
+#app.deck-docked .deck-wheel::after {
+  display: none;
+}
 .deck-wheel-list {
   display: flex;
   flex-direction: column;
@@ -343,10 +359,22 @@
   scroll-snap-type: y mandatory;
   scrollbar-width: none;
 }
-/* Docked, the wheel moves through its own glide (v6.1 ruling 1, mount-deck.ts): no snap points, so
-   a trackpad's half-speed scroll stays where it is put, and the settle glides it onto a row. */
+/* The blank rows past both ends of the phone's drum (ruling 4): half the rows shown, less the band,
+   above the first and below the last, so either end can turn into the band and stops there. */
+.deck-wheel-list::before,
+.deck-wheel-list::after {
+  content: '';
+  flex: none;
+  height: calc(var(--deck-row) * (var(--deck-rows) - 1) / 2);
+}
+/* Docked, a menu (ruling 3): no blank rows, no snap points; a longer list scrolls natively and the
+   scroll only browses. */
 #app.deck-docked .deck-wheel-list {
   scroll-snap-type: none;
+}
+#app.deck-docked .deck-wheel-list::before,
+#app.deck-docked .deck-wheel-list::after {
+  display: none;
 }
 .deck-wheel-list::-webkit-scrollbar {
   display: none;
@@ -390,19 +418,23 @@
 .deck-row:focus-visible {
   outline-offset: -2px;
 }
-/* A further copy of a row (.deck-copy, a list that shows more rows than it holds) looks the same. */
 .deck-row.in-band,
-.deck-row.on,
-.deck-row.on-copy {
+.deck-row.on {
   color: var(--text) !important;
 }
-.deck-row.on code,
-.deck-row.on-copy code {
+.deck-row.on code {
   color: var(--accent);
 }
-.deck-own .deck-row-name,
-.deck-own-copy .deck-row-name {
+.deck-own .deck-row-name {
   color: var(--accent);
+}
+/* Docked, the band is the chosen row's own highlight, in gold, and moves with the choice. */
+#app.deck-docked .deck-row:hover {
+  background: var(--raised) !important;
+}
+#app.deck-docked .deck-row.in-band {
+  background: var(--raised) !important;
+  box-shadow: inset 0 1px 0 var(--accent), inset 0 -1px 0 var(--accent);
 }
 
 /* The wide layout (docs/plans/v5-sound-model.md, ruling 8; .is-web). The bar under the stage is

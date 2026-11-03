@@ -1,7 +1,8 @@
 // v5 stream B2 (docs/plans/v5-sound-model.md, ruling 9; issues 79 and 82). At 390×844 the pattern
 // wheel takes the whole sheet while it turns, and 1.5 s after it settles the controls return;
 // Swap is in view under the input, above the digit pad. Issue 79 (the docked wheel's band one
-// row off a typed 97531) is checked where it was found, 1280×800. Headless; screenshots go to
+// row off a typed 97531) is checked where it was found, 1280×800, on the docked menu of v6.2
+// (docs/plans/v6-2-wheel-ends.md, ruling 3). Headless; screenshots go to
 // the scratchpad when E2E_SHOTS names a directory, else nowhere.
 import { expect, openTab, test, type Page } from './fixtures';
 
@@ -118,8 +119,9 @@ test.describe('wide, 1280×800', () => {
 
   // A stale goal at rest dragged the docked wheel back when the browser scrolled a focused row into
   // view. Typing the pattern the band is already on issues no scroll, and left the goal set. Focus a
-  // row off screen: the browser brings it in, the band follows, and nothing pulls it back or picks.
-  test('typing the banded pattern, then a row focused off screen: it stays in view, the pattern stays', async ({ page }) => {
+  // row off screen: the browser brings it in, and nothing pulls it back or picks. The menu's band
+  // stays on the card on stage: a scroll only browses (v6.2 ruling 3).
+  test('typing the banded pattern, then a row focused off screen: it stays in view, the pattern and the band stay', async ({ page }) => {
     await page.goto('/#3');
     await page.locator('.deck-own').click();
     await page.locator('#hand-0').fill('');
@@ -127,7 +129,7 @@ test.describe('wide, 1280×800', () => {
     await expect(page.locator('.deck-row.on')).toHaveAttribute('data-row', '0');
     await page.waitForTimeout(800);
     const row = page.locator('.deck-row[data-row="7"]');
-    // Seven places off the band: outside the seven rows the wheel shows.
+    // Seven rows down: outside the five rows the wheel shows above the editor.
     const within = () =>
       row.evaluate((r) => {
         const w = document.querySelector('.deck-wheel')!.getBoundingClientRect();
@@ -138,13 +140,14 @@ test.describe('wide, 1280×800', () => {
     await row.focus();
     await page.waitForTimeout(1200);
     expect(await within()).toBe(true);
-    // The band (the middle row) went with the scroll, not back to the earlier pick.
-    await expect(page.locator('.deck-row.in-band')).not.toHaveAttribute('data-row', '0');
+    // The band stays on the card on stage, scrolled past.
+    await expect(page.locator('.deck-row.in-band')).toHaveAttribute('data-row', '0');
     await expect(page.locator('.deck-notation')).toHaveText('3');
   });
 
   // The band sat two rows short of a typed 97531: the smooth scroll to a row far round the loop
-  // crossed the margin where the list turns itself, which cut the scroll off.
+  // crossed the margin where the list turned itself, which cut the scroll off. The loop is gone
+  // (v6.2): the band is the lit row's own, and the row is brought whole into view.
   for (const text of ['97531', '744', '(4,2x)(2x,4)']) {
     test(`issue 79: typing ${text} in Make your own puts the docked wheel's band on its row`, async ({ page }) => {
       await page.goto('/#3');
@@ -156,16 +159,16 @@ test.describe('wide, 1280×800', () => {
       await expect(lit).toHaveCount(1);
       const row = await lit.getAttribute('data-row');
       await expect(page.locator('.deck-row.in-band')).toHaveAttribute('data-row', row!, { timeout: 4000 });
-      // And the drawn band, not just the class: the lit row sits at the middle of the wheel.
+      // And in view, not just the class: the lit row is whole in the wheel.
       await expect
         .poll(async () =>
           page.evaluate(() => {
             const wheelBox = document.querySelector('.deck-wheel')!.getBoundingClientRect();
             const on = document.querySelector('.deck-row.on')!.getBoundingClientRect();
-            return Math.abs(on.top + on.height / 2 - (wheelBox.top + wheelBox.height / 2));
+            return on.top >= wheelBox.top - 1 && on.bottom <= wheelBox.bottom + 1;
           }),
         )
-        .toBeLessThan(2);
+        .toBe(true);
     });
   }
 });

@@ -91,12 +91,16 @@ export function presetIndex(state: Pick<AppState, 'parts' | 'ratio'>, list: read
 }
 
 /**
- * Where a step lands: one place on, wrapping at both ends. From no preset (a hand-made pattern),
- * › goes to the first and ‹ to the last (ruling 2).
+ * Where a step lands: one card on, stopping at both ends (docs/plans/v6-2-wheel-ends.md, ruling
+ * 2), null where it goes nowhere. From no preset (a hand-made pattern), › goes to the first and ‹
+ * to the last (v4 ruling 2). `ownChosen`, Make your own chosen with a card still on stage (the web
+ * menu after a click on it): it is the last row, so ↓ goes nowhere and ↑ to the last card.
  */
-export function stepIndex(current: number | null, delta: -1 | 1, length: number): number {
+export function stepIndex(current: number | null, delta: -1 | 1, length: number, ownChosen = false): number | null {
   if (current === null) return delta > 0 ? 0 : length - 1;
-  return (((current + delta) % length) + length) % length;
+  if (ownChosen) return delta > 0 ? null : length - 1;
+  const next = current + delta;
+  return next < 0 || next >= length ? null : next;
 }
 
 /** "3 balls" for a juggling preset, "2 jugglers" for a passing one. */
@@ -150,48 +154,18 @@ export function nextFit(size: number, natural: number, available: number, min: n
 export const groupTag = (group: CardGroup): string => copy.deck.groupTags[group];
 
 /*
- * The wheel loops (ruling 1 of docs/plans/v4-1-polish.md): it turns forever both ways, so above
- * Cascade come Make your own and the last passing patterns. Its rows are the presets then Make
- * your own, `length` in all; each sits at a place in the scroll list (its CSS `order`). The list
- * keeps the row in the band at the middle place, `centrePlace`, by turning which row sits at place
- * 0 (the `offset`) whenever the wheel rests, so there are always rows above and below the band
- * and never a blank one. Assumes `length` is more than the rows shown.
+ * The wheel has ends (docs/plans/v6-2-wheel-ends.md, rulings 1 and 4): its rows are the cards then
+ * Make your own, `length` in all, each once, a list item a row. On a phone the list has `half`
+ * blank rows above the first and below the last, so both ends reach the band, which sits `half`
+ * rows below the top of the view: row r is in the band at a scrollTop of r rows.
  */
 
-/** The middle place of `length`: the band's row sits there whenever the wheel rests. */
-export const centrePlace = (length: number): number => Math.floor(length / 2);
+/** The scrollTop that brings `row` into the band, rows `rowPx` tall. */
+export const scrollForRow = (row: number, rowPx: number): number => row * rowPx;
 
-/** `n` mod `length`, never negative. */
-const wrap = (n: number, length: number): number => ((n % length) + length) % length;
-
-/** The offset (the row at place 0) that puts `row` at the middle place. */
-export const offsetFor = (row: number, length: number): number => wrap(row - centrePlace(length), length);
-
-/** The place `row` takes under `offset`: its CSS order. */
-export const placeOf = (row: number, offset: number, length: number): number => wrap(row - offset, length);
-
-/** The scrollTop that brings place `place` into the band, rows `rowPx` tall, `half` rows above the band. */
-export const scrollForPlace = (place: number, rowPx: number, half: number): number => (place - half) * rowPx;
-
-/** The row in the band at `scrollTop`: the place `half` rows below the top of the view, clamped to the list, through `offset`. */
-export function wheelRowAt(scrollTop: number, rowPx: number, half: number, offset: number, length: number): number {
-  const place = Math.min(length - 1, Math.max(0, Math.round(scrollTop / rowPx) + half));
-  return wrap(place + offset, length);
-}
-
-/**
- * Whether the band, at `scrollTop`, is within `margin` rows of either end of the list: then the
- * list turns at once, mid-spin, so a long turn never meets an end (and never stops there to pick).
- */
-export function nearEnd(scrollTop: number, rowPx: number, half: number, length: number, margin: number): boolean {
-  const place = Math.round(scrollTop / rowPx) + half;
-  return place <= half + margin - 1 || place >= length - margin - half;
-}
-
-/** The shortest way round the wheel from row `from` to row `to`: a signed number of rows. */
-export function loopDelta(from: number, to: number, length: number): number {
-  const d = wrap(to - from, length);
-  return d > length / 2 ? d - length : d;
+/** The row in the band at `scrollTop`: the nearest whole row, clamped to the list. */
+export function wheelRowAt(scrollTop: number, rowPx: number, length: number): number {
+  return Math.min(length - 1, Math.max(0, Math.round(scrollTop / rowPx)));
 }
 
 /**
@@ -210,13 +184,14 @@ export const turnsWheel = (key: string): boolean => TURN_KEYS.includes(key);
 
 /**
  * The row a turning key moves the wheel's focus to, from `row`, of `length` rows: one up or
- * down, a wheel's height (`page` rows) for PageUp and PageDown, round the loop; the first row
- * (Cascade) for Home and the last (Make your own) for End.
+ * down, a wheel's height (`page` rows) for PageUp and PageDown, stopping at the ends (v6.2 ruling
+ * 2); the first row for Home and the last (Make your own) for End.
  */
 export function rowAfterKey(key: string, row: number, length: number, page: number): number {
   if (key === 'Home') return 0;
   if (key === 'End') return length - 1;
-  return wrap(row + ({ ArrowUp: -1, ArrowDown: 1, PageUp: -page, PageDown: page }[key] ?? 0), length);
+  const next = row + ({ ArrowUp: -1, ArrowDown: 1, PageUp: -page, PageDown: page }[key] ?? 0);
+  return Math.min(length - 1, Math.max(0, next));
 }
 
 export interface Box {
@@ -339,139 +314,33 @@ export function wheelNotch(acc: number, deltaY: number, notchPx: number): { step
 }
 
 /*
- * The web wheel (docs/plans/v6-wheel-filters-three.md, rulings 1 to 3). Docked in the right-hand
- * column its rows are taller and it shows as many as the column holds while the editor is hidden.
+ * The web wheel (docs/plans/v6-wheel-filters-three.md, rulings 1 to 3), a menu since
+ * docs/plans/v6-2-wheel-ends.md, ruling 3. Docked in the right-hand column its rows are taller, top
+ * aligned, each once; it is as tall as the column holds while the editor is hidden, or as its rows
+ * where they are fewer. A longer list scrolls natively, and scrolling only browses. The band is
+ * the chosen row's own highlight.
  */
 
-/** The most rows, odd, whose `rowPx` rows fit in `height`; never fewer than `minRows` (odd). */
-export function dockedRows(height: number, rowPx: number, minRows: number): number {
-  const fit = Math.floor(height / rowPx);
-  return Math.max(minRows, fit % 2 === 0 ? fit - 1 : fit);
+/** The rows the menu shows: as many `rowPx` rows as fit in `height`, never fewer than `minRows`, never more than its `length`. */
+export function menuRows(length: number, height: number, rowPx: number, minRows: number): number {
+  return Math.min(length, Math.max(minRows, Math.floor(height / rowPx)));
 }
 
 /**
- * How many copies of the wheel's `length` rows the list holds so it can show `shown` rows and still
- * turn: the band's row rests at the middle place, and a turn of a row either way must not come
- * within `margin` rows of an end (nearEnd), so the list is at least `shown + 2 * margin + 2` places
- * long. One copy (the deck as it is) wherever that fits; more where a tall column shows more rows
- * than there are patterns, or a short (filtered) deck has few. A card then shows more than once.
+ * The menu's chosen row, the one the band is on: the card on stage (`current`), or Make your own
+ * (`own`) when it was chosen (`ownChosen`) or the pattern is hand-made.
  */
-export function wheelCopies(length: number, shown: number, margin: number): number {
-  return Math.max(1, Math.ceil((shown + 2 * margin + 2) / length));
-}
-
-/** The wheel row (a pattern, or Make your own) that list item `slot` holds, `length` rows a copy. */
-export const rowOfSlot = (slot: number, length: number): number => slot % length;
+export const menuBand = (current: number | null, own: number, ownChosen: boolean): number => (ownChosen || current === null ? own : current);
 
 /**
- * Of the `copies` items holding `row`, the one nearest the band under `offset` (a ring of
- * `length * copies` places): the one to focus and to bring into the band. A tie goes to the later.
+ * The scrollTop that brings a row (from `top`, `rowPx` tall) into a view `viewPx` tall now at
+ * `scrollTop`, the nearest way (scrollIntoView's `block: 'nearest'`): where it is, if the row is
+ * whole in view already.
  */
-export function slotNear(row: number, offset: number, length: number, copies: number): number {
-  const slots = length * copies;
-  const centre = centrePlace(slots);
-  let best = row;
-  for (let c = 1; c < copies; c++) {
-    const slot = row + c * length;
-    const d = Math.abs(placeOf(slot, offset, slots) - centre);
-    const bestD = Math.abs(placeOf(best, offset, slots) - centre);
-    if (d < bestD || (d === bestD && placeOf(slot, offset, slots) > placeOf(best, offset, slots))) best = slot;
-  }
-  return best;
-}
-
-/** A wheel event's vertical delta in px: lines and pages (Firefox, some mice) converted. */
-export function wheelDeltaPx(deltaY: number, deltaMode: number, linePx: number, pagePx: number): number {
-  return deltaMode === 1 ? deltaY * linePx : deltaMode === 2 ? deltaY * pagePx : deltaY;
-}
-
-/*
- * The docked wheel's feel (docs/plans/v6-1-wheel-feel.md, ruling 1): scaled native scroll. A
- * trackpad's small deltas move the list continuously at `scale` of their size, momentum and all; a
- * mouse notch (a delta of `notchPx` or more, or any delta counted in lines or pages, which only a
- * mouse sends) adds one row to an eased glide's target instead of jumping. When the input stops the
- * list glides onto the nearest row. Positions are scrollTops, in px; times are ms.
- */
-
-/** One wheel event on the docked wheel: a notch one row up or down, or a drag of `px`; null for none. */
-export type WheelInput = { readonly kind: 'notch'; readonly dir: -1 | 1 } | { readonly kind: 'drag'; readonly px: number };
-
-export function wheelInput(deltaPx: number, deltaMode: number, notchPx: number, scale: number): WheelInput | null {
-  if (deltaPx === 0) return null;
-  if (deltaMode !== 0 || Math.abs(deltaPx) >= notchPx) return { kind: 'notch', dir: deltaPx > 0 ? 1 : -1 };
-  return { kind: 'drag', px: deltaPx * scale };
-}
-
-/** An eased move of the list from `from` to `to`, starting at `start` and lasting `ms`. */
-export interface Glide {
-  readonly from: number;
-  readonly to: number;
-  readonly start: number;
-  readonly ms: number;
-}
-
-/** Ease-out cubic over 0 to 1 (clamped): fast at first, gentle onto the row. */
-export const easeOut = (x: number): number => 1 - (1 - Math.min(1, Math.max(0, x))) ** 3;
-
-/** Where a glide has the list at `now`. */
-export const glideAt = (g: Glide, now: number): number => (g.ms <= 0 ? g.to : g.from + (g.to - g.from) * easeOut((now - g.start) / g.ms));
-
-/** Whether a glide has arrived by `now`. */
-export const glideDone = (g: Glide, now: number): boolean => now - g.start >= g.ms;
-
-/** The scrollTop of the row nearest `top`: rows rest at whole multiples of `rowPx` (scrollForPlace). */
-export const restTop = (top: number, rowPx: number): number => Math.round(top / rowPx) * rowPx;
-
-/**
- * A notch at `now`, the list at `top`: a glide from there to one row past the target of the glide
- * still under way (so notches in quick succession add up), or past the row nearest `top`.
- */
-export function notchGlide(glide: Glide | null, top: number, dir: -1 | 1, rowPx: number, now: number, ms: number): Glide {
-  const base = glide !== null && !glideDone(glide, now) ? glide.to : restTop(top, rowPx);
-  return { from: top, to: base + dir * rowPx, start: now, ms };
-}
-
-/** A glide moved by `px` at both ends: the list turned under it (recentre), or a drag came during it. */
-export const shiftGlide = (g: Glide, px: number): Glide => ({ ...g, from: g.from + px, to: g.to + px });
-
-/**
- * A burst of wheel events on the docked wheel: how many came, each within `gapMs` of the one
- * before, and how far their drags (scaled) moved the list in all. A mouse notch counts as an event
- * and moves nothing here (its glide is aligned already).
- */
-export interface Burst {
-  readonly events: number;
-  readonly px: number;
-  readonly last: number | null;
-}
-
-export const BURST_AT_REST: Burst = { events: 0, px: 0, last: null };
-
-/** One more event at `now` that moved the list `px`: the same burst, or a new one after a gap of more than `gapMs`. */
-export function burstAdd(b: Burst, px: number, now: number, gapMs: number): Burst {
-  const fresh = b.last === null || now - b.last > gapMs;
-  return { events: (fresh ? 0 : b.events) + 1, px: (fresh ? 0 : b.px) + px, last: now };
-}
-
-/**
- * Where the settle takes the list from `top` at `now` after `burst` (fix round 1 of PR 96): to the
- * nearest row, except that a burst of at most two events that moved it some way, but less than half
- * a row, goes one row on in its direction. That is a plain mouse's slow notch on a Mac: Chromium
- * sends it as a few px (an accelerated tick, about 4), which rounding would take straight back. A
- * burst whose last event is more than `maxAgeMs` old is stale (a key or a pick came since) and
- * counts for nothing.
- */
-export function settleTarget(top: number, rowPx: number, burst: Burst, now: number, maxAgeMs: number): number {
-  const fresh = burst.last !== null && now - burst.last <= maxAgeMs;
-  if (fresh && burst.events <= 2 && burst.px !== 0 && Math.abs(burst.px) < rowPx / 2) {
-    return restTop(top - burst.px, rowPx) + Math.sign(burst.px) * rowPx;
-  }
-  return restTop(top, rowPx);
-}
-
-/** The settle (ruling 1): a glide from `top` onto the row at `to`, or null when the list is there already. */
-export function settleGlide(top: number, to: number, now: number, ms: number): Glide | null {
-  return Math.abs(top - to) < 0.5 ? null : { from: top, to, start: now, ms };
+export function nearestTop(top: number, rowPx: number, scrollTop: number, viewPx: number): number {
+  if (top < scrollTop) return top;
+  if (top + rowPx > scrollTop + viewPx) return top + rowPx - viewPx;
+  return scrollTop;
 }
 
 /**
