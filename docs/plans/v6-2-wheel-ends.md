@@ -1,6 +1,6 @@
 # v6.2 · the wheel has ends
 
-Status: planned 2026-11-03 (build governor Opus, session 1219).
+Status: merged 2026-11-03 (build governor Opus, session 1219; PRs 99 plan, 100 W6 (Opus, one fix round); one Fable fresh-eyes review). W6 rulings kept: the deck's steps (↑ ↓ docked, ‹ › narrow) walk the cards only and stop at the last card, never onto Make your own; the focused wheel's own keys walk every row; ‹ › at an end carry aria-disabled; a hand-made pattern puts the band on Make your own; docked rows are whole (`menuRows`), no odd rule. Review fix: a key at an end never loads the card on stage again (it queued the same pattern for the next cycle while playing); a dead key on a phone takes no sheet; the tab stop follows focus. Phone drum rests 1 px off the drawn band (pre-existing).
 
 ## 0. Decided with Nico, 2026-11-03 (smoke of v6.1)
 
