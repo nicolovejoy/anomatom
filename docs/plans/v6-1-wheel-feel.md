@@ -1,6 +1,6 @@
 # v6.1 · the wheel's feel, the editor, the arrows
 
-Status: planned 2026-11-03 (build governor Opus, session 1219).
+Status: merged 2026-11-03 (build governor Opus, session 1219; PRs 94 and 95 plan, 96 W4 wheel feel (Opus, two fix rounds), 97 W5 chips in two groups (Opus); one Fable fresh-eyes review per PR). W4 rulings kept: deltaMode 1 or 2, or a delta of `notchPx` or more, is a notch, one row per notch event; a drag during a notch glide shifts it, a drag during the settle's glide cancels it; the docked list has no snap points, the settle's eased glide aligns it; Space on Make your own opens the editor; narrow layouts keep ← → for the pattern (no key caps there); a band resting on Make your own (not clicked) returns to the stage's card on a re-place. Review fix: a Mac mouse's slow notch (a few px, deltaMode 0) is read by `settleTarget` per burst (at most 2 events, under half a row) and goes one row on; a burst older than 2 × `settleMs` counts for nothing; quick notches past the scroll range recentre within the frame. W5 rulings kept: unlit chips get a 1 px edge in `--chip-edge` (3.65:1); the chip shows its digit, its name is the phrase; chips are computed once at mount. Needs a real-mouse check on a Mac.
 
 ## 0. Decided with Nico, 2026-11-03 (smoke of v6)
 
