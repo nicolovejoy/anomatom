@@ -113,6 +113,24 @@ test('a Mac mouse’s slow notch, one tick of 4 px, turns one row and settles th
   await expect.poll(() => cascadeAbove(page)).toBe(0);
 });
 
+for (const where of ['the page', 'the wheel'] as const) {
+  test(`a 4 px tick then ↓ at once (on ${where}) lands one card on, never two`, async ({ page }) => {
+    await page.goto('/#3');
+    await expect.poll(() => bandHit(page)).toBe('0');
+    await overWheel(page);
+    if (where === 'the wheel') await page.locator('.deck-row[data-id="cascade"]').focus();
+    else await page.evaluate(() => (document.activeElement as HTMLElement | null)?.blur());
+    await page.mouse.wheel(0, 4);
+    await page.keyboard.press('ArrowDown');
+    // ↓ takes the band from the tick: 51, a row on, and it stays there.
+    await expect(notation(page)).toHaveText('51');
+    await page.waitForTimeout(1000);
+    await expect(notation(page)).toHaveText('51');
+    expect(await bandHit(page)).toBe('1');
+    await expect.poll(() => cascadeAbove(page)).toBe(ROW_PX);
+  });
+}
+
 test('one glide of many quick notches crosses the loop’s margin and lands aligned on the right card', async ({ page }) => {
   await page.goto('/#3');
   await expect.poll(() => bandHit(page)).toBe('0');

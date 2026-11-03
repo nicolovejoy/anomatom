@@ -426,13 +426,16 @@ export function burstAdd(b: Burst, px: number, now: number, gapMs: number): Burs
 }
 
 /**
- * Where the settle takes the list from `top` after `burst` (fix round 1 of PR 96): to the nearest
- * row, except that a burst of at most two events that moved it some way, but less than half a row,
- * goes one row on in its direction. That is a plain mouse's slow notch on a Mac: Chromium sends it
- * as a few px (an accelerated tick, about 4), which rounding would take straight back.
+ * Where the settle takes the list from `top` at `now` after `burst` (fix round 1 of PR 96): to the
+ * nearest row, except that a burst of at most two events that moved it some way, but less than half
+ * a row, goes one row on in its direction. That is a plain mouse's slow notch on a Mac: Chromium
+ * sends it as a few px (an accelerated tick, about 4), which rounding would take straight back. A
+ * burst whose last event is more than `maxAgeMs` old is stale (a key or a pick came since) and
+ * counts for nothing.
  */
-export function settleTarget(top: number, rowPx: number, burst: Burst): number {
-  if (burst.events > 0 && burst.events <= 2 && burst.px !== 0 && Math.abs(burst.px) < rowPx / 2) {
+export function settleTarget(top: number, rowPx: number, burst: Burst, now: number, maxAgeMs: number): number {
+  const fresh = burst.last !== null && now - burst.last <= maxAgeMs;
+  if (fresh && burst.events <= 2 && burst.px !== 0 && Math.abs(burst.px) < rowPx / 2) {
     return restTop(top - burst.px, rowPx) + Math.sign(burst.px) * rowPx;
   }
   return restTop(top, rowPx);

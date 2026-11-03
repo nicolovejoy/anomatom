@@ -438,6 +438,8 @@ export const mountDeck: Mount = (root, { store, player, sound }) => {
   function stopGlide() {
     glide = null;
     glideSettles = false;
+    // A key, a pick or the page has taken the band: the wheel's burst is over.
+    burst = BURST_AT_REST;
     cancelAnimationFrame(glideFrame);
     glideFrame = 0;
   }
@@ -593,6 +595,7 @@ export const mountDeck: Mount = (root, { store, player, sound }) => {
 
   /** Turns the wheel to `to` as the reader's turn: the band goes there, and the row loads when it settles. */
   function turnTo(to: number) {
+    burst = BURST_AT_REST;
     scrolled = true;
     sheetOn();
     turn();
@@ -625,13 +628,14 @@ export const mountDeck: Mount = (root, { store, player, sound }) => {
       // The wheel takes over from a key's outstanding row.
       keyRow = null;
       const now = performance.now();
-      burst = burstAdd(burst, input.kind === 'drag' ? input.px : 0, now, DECK.settleMs);
       if (input.kind === 'notch') runGlide(notchGlide(glide, liveTop(), input.dir, rowPx, now, DECK.glideMs), false);
       else if (glide && !glideSettles) glide = shiftGlide(glide, input.px);
       else {
-        stopGlide();
+        // The settle's glide gives way to a new drag (and its burst, read already, is over).
+        if (glide) stopGlide();
         setTop(liveTop() + input.px);
       }
+      burst = burstAdd(burst, input.kind === 'drag' ? input.px : 0, now, DECK.settleMs);
       armSettle();
     },
     { passive: false },
@@ -648,6 +652,7 @@ export const mountDeck: Mount = (root, { store, player, sound }) => {
   let settleTimer: ReturnType<typeof setTimeout> | undefined;
   function settle() {
     if (wheel.hidden) {
+      burst = BURST_AT_REST;
       keyRow = null;
       seekRow = null;
       turning = false;
@@ -667,7 +672,8 @@ export const mountDeck: Mount = (root, { store, player, sound }) => {
     }
     // Docked there are no snap points: a list left between rows glides onto the nearest first.
     const from = liveTop();
-    const onto = docked() ? settleGlide(from, settleTarget(from, rowPx, burst), performance.now(), DECK.glideMs) : null;
+    const now = performance.now();
+    const onto = docked() ? settleGlide(from, settleTarget(from, rowPx, burst, now, DECK.settleMs * 2), now, DECK.glideMs) : null;
     burst = BURST_AT_REST;
     if (onto) {
       runGlide(onto, true);
@@ -738,6 +744,7 @@ export const mountDeck: Mount = (root, { store, player, sound }) => {
     if (!button) return;
     const i = Number(button.dataset.row ?? button.dataset.echo);
     clearTimeout(settleTimer);
+    burst = BURST_AT_REST;
     turning = false;
     keyRow = null;
     seekRow = null;

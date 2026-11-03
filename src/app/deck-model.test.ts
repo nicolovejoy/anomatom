@@ -603,7 +603,7 @@ describe('the web wheel (v6 rulings 1 to 3)', () => {
         b = burstAdd(b, d * 0.5, 1000 + i * gap, 160);
         top += d * 0.5;
       });
-      return settleTarget(top, 44, b);
+      return settleTarget(top, 44, b, 1000 + deltas.length * gap + 170, 320);
     };
     // One accelerated tick of 4 px (2 px scaled): the next row, not back.
     expect(scaled([4], 16)).toBe(924);
@@ -615,11 +615,18 @@ describe('the web wheel (v6 rulings 1 to 3)', () => {
     // Twenty of 4 (40 px): the nearest row, a row on.
     expect(scaled(Array(20).fill(4), 16)).toBe(924);
     // Half a row or more in two events: the nearest.
-    expect(settleTarget(880 + 30, 44, { events: 2, px: 30, last: 0 })).toBe(924);
-    expect(settleTarget(880 + 22, 44, { events: 1, px: 22, last: 0 })).toBe(924);
+    expect(settleTarget(880 + 30, 44, { events: 2, px: 30, last: 0 }, 170, 320)).toBe(924);
+    expect(settleTarget(880 + 22, 44, { events: 1, px: 22, last: 0 }, 170, 320)).toBe(924);
     // Nothing moved (a notch's aligned glide, or no burst): the nearest.
-    expect(settleTarget(924, 44, { events: 1, px: 0, last: 0 })).toBe(924);
-    expect(settleTarget(900, 44, BURST_AT_REST)).toBe(880);
+    expect(settleTarget(924, 44, { events: 1, px: 0, last: 0 }, 170, 320)).toBe(924);
+    expect(settleTarget(900, 44, BURST_AT_REST, 170, 320)).toBe(880);
+  });
+  test('a stale burst counts for nothing: a tick long ago, then a key, settles where the key put it', () => {
+    const tick = burstAdd(BURST_AT_REST, 2, 1000, 160);
+    // Fresh, it goes a row on; at the edge of the age, still; past it, the nearest.
+    expect(settleTarget(924, 44, tick, 1170, 320)).toBe(968);
+    expect(settleTarget(924, 44, tick, 1320, 320)).toBe(968);
+    expect(settleTarget(924, 44, tick, 1321, 320)).toBe(924);
   });
   test('the editor: a card hides it, Make your own and a non-card show it, typing into a card keeps it', () => {
     expect(editorShows(true, { kind: 'pickCard' })).toBe(false);
