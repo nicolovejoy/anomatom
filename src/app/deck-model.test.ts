@@ -40,6 +40,9 @@ import {
   wheelPlace,
   sheetWheelPlace,
   nextPhase,
+  filteredPresets,
+  chooseFilter,
+  filterKeeper,
 } from './deck-model';
 import { derived } from './derived';
 import { cardGroups, presetPatch } from './first-minute';
@@ -352,6 +355,91 @@ describe('the phone wheel takes the sheet', () => {
   });
   test('no room for even three rows: null', () => {
     expect(sheetWheelPlace({ ...view, height: 300 }, { left: 0, top: 0, width: 390, height: 100 }, 100, 32, 7, 280)).toBeNull();
+  });
+  test('the filter chips above the rows count in the place (v6 ruling 4)', () => {
+    // Closed sheet, 40 px of chips: still seven rows, the place 40 px taller and higher.
+    expect(sheetWheelPlace(view, { left: 0, top: 0, width: 390, height: 690 }, 690, 32, 7, 200, 40)).toEqual({
+      left: 0,
+      top: 536,
+      width: 390,
+      height: 264,
+      padBottom: 154,
+      padRight: 0,
+      rows: 7,
+    });
+    // Open sheet: the chips sit above the seventeen rows, still clear of the figure's 200 px.
+    expect(sheetWheelPlace(view, { left: 0, top: 0, width: 390, height: 220 }, 220, 32, 7, 200, 40)).toMatchObject({ rows: 17, top: 216 });
+    // Where the figure's minimum is what limits: a row pair fewer than without the chips.
+    expect(sheetWheelPlace(view, { left: 0, top: 0, width: 390, height: 220 }, 220, 32, 7, 280, 40)).toMatchObject({ rows: 15, top: 280 });
+  });
+});
+
+describe('the open phone wheel with the filter chips above it', () => {
+  test('along the stage bottom, the chips over the rows', () => {
+    expect(wheelPlace({ left: 0, top: 0, width: 390, height: 600 }, 32, 7, 200, 300, null, 40)).toEqual({
+      left: 0,
+      top: 336,
+      width: 390,
+      height: 264,
+      padBottom: 264,
+      padRight: 0,
+      rows: 7,
+    });
+  });
+  test('in the column: the chips take their height before the rows', () => {
+    const stage = { left: 0, top: 0, width: 307, height: 331 };
+    expect(wheelPlace(stage, 32, 7, 200, 300, { left: 444, top: 68, width: 400, height: 250 }, 40)).toMatchObject({ top: 68, height: 200, rows: 5 });
+  });
+});
+
+describe('the filter chips (v6 ruling 4)', () => {
+  const ids = (ps: readonly { id: string }[]) => ps.map((p) => p.id);
+  test('a filter leaves its group, in deck order; none leaves every card', () => {
+    expect(filteredPresets(list, null)).toBe(list);
+    for (const g of ['3', '4', '5', 'passing'] as const) {
+      const f = filteredPresets(list, g);
+      expect(f.length).toBeGreaterThan(0);
+      expect(f.every((p) => p.group === g)).toBe(true);
+      expect(ids(f)).toEqual(ids(list.filter((p) => p.group === g)));
+    }
+    expect(filteredPresets(list, '5')).toHaveLength(3);
+  });
+  test('← → step within the group, round its loop', () => {
+    const five = filteredPresets(list, '5');
+    expect(stepIndex(five.length - 1, 1, five.length)).toBe(0);
+    expect(stepIndex(0, -1, five.length)).toBe(five.length - 1);
+    expect(presetIndex(loaded(five[1]!.id), five)).toBe(1);
+  });
+  test('a chip whose group holds the card on stage lights and the pattern stays', () => {
+    const s = { ...defaultState(), deckFilter: null };
+    expect(chooseFilter(s, '3')).toEqual({ deckFilter: '3', load: null });
+  });
+  test('a chip whose group does not hold it loads the group\'s first card', () => {
+    const s = { ...defaultState(), deckFilter: null };
+    expect(chooseFilter(s, 'passing')).toEqual({ deckFilter: 'passing', load: filteredPresets(list, 'passing')[0] });
+    expect(chooseFilter({ ...s, deckFilter: '4' }, '5').load?.id).toBe(filteredPresets(list, '5')[0]!.id);
+    // A hand-made pattern holds no card: the first is loaded.
+    const own = reduce(defaultState(), { type: 'editDraft', part: 0, text: '9' });
+    expect(chooseFilter(own, '4').load?.id).toBe(filteredPresets(list, '4')[0]!.id);
+  });
+  test('the lit chip tapped again clears; the pattern stays', () => {
+    expect(chooseFilter({ ...defaultState(), deckFilter: 'passing' }, 'passing')).toEqual({ deckFilter: null, load: null });
+  });
+  test('a group with no card loads nothing', () => {
+    expect(chooseFilter({ ...defaultState(), deckFilter: null }, '5', filteredPresets(list, '3'))).toEqual({ deckFilter: '5', load: null });
+  });
+  test('a new pattern that is a card outside the filter clears it; in it, or hand-made, keeps it', () => {
+    const keep = filterKeeper();
+    const three = { ...defaultState(), deckFilter: '3' as const };
+    const four = { ...loaded(filteredPresets(list, '4')[0]!.id), deckFilter: '3' as const };
+    expect(keep(four, three)).toEqual({ deckFilter: null });
+    const box = { ...loaded(filteredPresets(list, '3')[1]!.id), deckFilter: '3' as const };
+    expect(keep(box, three)).toEqual({});
+    const own = { ...reduce(defaultState(), { type: 'editDraft', part: 0, text: '9' }), deckFilter: '3' as const };
+    expect(keep(own, three)).toEqual({});
+    // No filter, or the pattern unchanged: nothing to do.
+    expect(keep({ ...four, deckFilter: null }, three)).toEqual({});
+    expect(keep({ ...three, bpm: 90 }, three)).toEqual({});
   });
 });
 

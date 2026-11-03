@@ -18,6 +18,44 @@ export function deckPresets(): readonly Preset[] {
   return cardGroups().flatMap((g) => g.presets);
 }
 
+/*
+ * The filter chips (docs/plans/v6-wheel-filters-three.md, ruling 4): 3 balls, 4 balls, 5 balls,
+ * Passing, one at a time. Under a filter the wheel, ‹ › and ← → walk that group's cards alone
+ * (stepIndex over the filtered order), then Make your own. UI state, never in the link.
+ */
+
+/** The cards a filter leaves, in deck order: all of `list` for none. */
+export function filteredPresets(list: readonly Preset[], filter: CardGroup | null): readonly Preset[] {
+  return filter === null ? list : list.filter((p) => p.group === filter);
+}
+
+/**
+ * A tap on the `group` chip: it lights (the filter becomes `group`), or, lit already, clears
+ * (null). `load` is the card to load: the group's first when the stage holds no card of it (a card
+ * of another group, or a hand-made pattern), else null and the pattern stays.
+ */
+export function chooseFilter(
+  state: Pick<AppState, 'parts' | 'ratio' | 'deckFilter'>,
+  group: CardGroup,
+  list: readonly Preset[] = deckPresets(),
+): { readonly deckFilter: CardGroup | null; readonly load: Preset | null } {
+  if (state.deckFilter === group) return { deckFilter: null, load: null };
+  const held = matchPreset(state, list);
+  return { deckFilter: group, load: held?.group === group ? null : (filteredPresets(list, group)[0] ?? null) };
+}
+
+/**
+ * A store deriver: a new pattern that is a card outside the lit filter (typed, or opened from a
+ * link) clears the filter, so the wheel always holds the card on stage. A hand-made pattern keeps it.
+ */
+export function filterKeeper(list: () => readonly Preset[] = deckPresets) {
+  return (next: AppState, previous: AppState): Partial<AppState> => {
+    if (next.deckFilter === null || (next.parts === previous.parts && next.ratio === previous.ratio)) return {};
+    const held = matchPreset(next, list());
+    return held && held.group !== next.deckFilter ? { deckFilter: null } : {};
+  };
+}
+
 /** The index in `list` of the preset the state holds (parts and ratio), or null for a hand-made pattern. */
 export function presetIndex(state: Pick<AppState, 'parts' | 'ratio'>, list: readonly Preset[] = deckPresets()): number | null {
   const found = matchPreset(state, list);
@@ -181,13 +219,14 @@ export function rowsThatFit(height: number, rowPx: number, rows: number): number
  * docs/plans/v4-1-polish.md). Else along the stage's bottom when at least `minFigure` of height
  * stays above it for the figure (a phone); else down the stage's right side, at most `sideMax`
  * and at most half the stage wide, centred on the stage's height (or at its top when shorter).
+ * `head` px above the rows (the filter chips, v6 ruling 4) count in the place: its top is theirs.
  */
-export function wheelPlace(stage: Box, rowPx: number, rows: number, minFigure: number, sideMax: number, column: Box | null = null): WheelPlace {
-  const fit = column ? rowsThatFit(column.height, rowPx, rows) : 0;
+export function wheelPlace(stage: Box, rowPx: number, rows: number, minFigure: number, sideMax: number, column: Box | null = null, head = 0): WheelPlace {
+  const fit = column ? rowsThatFit(column.height - head, rowPx, rows) : 0;
   if (column && fit > 0) {
-    return { left: column.left, top: column.top, width: column.width, height: fit * rowPx, padBottom: 0, padRight: 0, rows: fit };
+    return { left: column.left, top: column.top, width: column.width, height: fit * rowPx + head, padBottom: 0, padRight: 0, rows: fit };
   }
-  const wheelHeight = rowPx * rows;
+  const wheelHeight = rowPx * rows + head;
   if (stage.height - wheelHeight >= minFigure) {
     return { left: stage.left, top: stage.top + stage.height - wheelHeight, width: stage.width, height: wheelHeight, padBottom: wheelHeight, padRight: 0, rows };
   }
@@ -202,12 +241,13 @@ export function wheelPlace(stage: Box, rowPx: number, rows: number, minFigure: n
  * `minRows` and enough to cover `coverTop` downwards, but never so many that less than `minFigure`
  * of the stage stays above it. The stage keeps the part the wheel overlaps clear (`padBottom`).
  * Null where not even three rows fit under that rule: the caller falls back to wheelPlace.
+ * `head` px above the rows (the filter chips) count in the place, as in wheelPlace.
  */
-export function sheetWheelPlace(view: Box, stage: Box, coverTop: number, rowPx: number, minRows: number, minFigure: number): WheelPlace | null {
-  const wanted = Math.max(minRows, Math.ceil((view.height - coverTop) / rowPx));
-  const rows = rowsThatFit(view.height - (stage.top + minFigure), rowPx, wanted % 2 === 0 ? wanted + 1 : wanted);
+export function sheetWheelPlace(view: Box, stage: Box, coverTop: number, rowPx: number, minRows: number, minFigure: number, head = 0): WheelPlace | null {
+  const wanted = Math.max(minRows, Math.ceil((view.height - coverTop - head) / rowPx));
+  const rows = rowsThatFit(view.height - (stage.top + minFigure) - head, rowPx, wanted % 2 === 0 ? wanted + 1 : wanted);
   if (rows === 0) return null;
-  const height = rows * rowPx;
+  const height = rows * rowPx + head;
   const top = view.height - height;
   return { left: 0, top, width: view.width, height, padBottom: Math.max(0, stage.top + stage.height - top), padRight: 0, rows };
 }

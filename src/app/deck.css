@@ -208,9 +208,56 @@
    the band's row in the middle, so there are rows above and below it and never a blank one. Over
    the stage on a phone, in the right-hand column on a phone on its side or a short wide screen
    (mount-deck.ts places it); docked in the column on a tall wide screen. */
-.deck-wheel {
+/* The picker: the filter chips (v6 ruling 4), then the wheel. It is what mount-deck.ts places
+   over the stage on a phone, and the grid's wheel area when docked. */
+.deck-picker {
   position: absolute;
   z-index: 5;
+  background: var(--surface);
+}
+#app.deck-docked .deck-picker {
+  position: relative;
+  z-index: auto;
+  grid-area: wheel;
+  align-self: start;
+}
+.deck-picker[hidden] {
+  display: none;
+}
+/* One row of chips, DECK.filtersPx tall (the wheel's place counts it), single select. */
+.deck-filters {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 6px;
+  height: var(--deck-filters);
+  padding: 4px 8px;
+  box-sizing: border-box;
+  border-top: 1px solid var(--rule);
+}
+#app.deck-docked .deck-filters {
+  padding: 4px 0;
+  border-top: 0;
+}
+.deck-filter {
+  min-width: 0;
+  height: 100%;
+  padding: 0 4px;
+  border: 0;
+  border-radius: 0;
+  background: var(--raised);
+  color: var(--text-2);
+  font: 13px var(--font-ui);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.deck-filter[aria-pressed='true'] {
+  background: var(--accent);
+  color: var(--ground);
+  font-weight: 600;
+}
+.deck-wheel {
+  position: relative;
   height: calc(var(--deck-row) * var(--deck-rows));
   overflow: hidden;
   background: var(--surface);
@@ -218,9 +265,6 @@
   border-bottom: 1px solid var(--rule);
 }
 #app.deck-docked .deck-wheel {
-  position: relative;
-  grid-area: wheel;
-  align-self: start;
   border-top: 0;
 }
 /* Docked, the rows are DECK.dockedRowPx tall (v6 ruling 1): the type grows a step with them. The

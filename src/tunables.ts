@@ -588,6 +588,11 @@ export const DECK = {
   /** A wheel delta this long after the last one starts the count afresh. */
   wheelIdleMs: 300,
   wheelLinePx: 40,
+  /**
+   * The filter chips' row above the wheel (docs/plans/v6-wheel-filters-three.md, ruling 4): this
+   * tall, on a phone and docked, so the wheel's place is measured with it.
+   */
+  filtersPx: 40,
   /** The looping wheel turns its list mid-spin when the band comes this many rows from an end. */
   loopMarginRows: 2,
   /** A key's turn re-arms its settle at most this many times while its smooth scroll catches up. */
