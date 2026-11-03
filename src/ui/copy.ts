@@ -130,7 +130,7 @@ export const copy = {
   aboutHow: [
     'Pick a pattern from the wheel, or type your own.',
     'Tap Play. Space plays and pauses too.',
-    'With a keyboard, ← and → change the pattern, and ↑ and ↓ change what you listen for.',
+    'With a keyboard, ↑ and ↓ change the pattern, and ← and → change what you listen for.',
     'Share copies a link that opens the same pattern, at the same tempo, with the same sounds.',
   ],
   aboutGlossaryHeading: 'Words',
@@ -397,8 +397,8 @@ export const copy = {
     keysLabel: 'Keys',
     keys: [
       { caps: ['space'], does: 'play' },
-      { caps: ['←', '→'], does: 'pattern' },
-      { caps: ['↑', '↓'], does: 'listen for' },
+      { caps: ['↑', '↓'], does: 'pattern' },
+      { caps: ['←', '→'], does: 'listen for' },
     ],
   },
 
@@ -406,7 +406,7 @@ export const copy = {
   panelLabel: 'Beside the stage',
   panelNames: { patterns: 'Patterns', sound: 'Sound', stage: 'Stage' },
   /** The key caps beside Listen for in the Sound panel, on the wide layout. */
-  listenKeys: ['↑', '↓'],
+  listenKeys: ['←', '→'],
 
   // -------------------------------------------------------------------------------------------
   // Presets: the juggling classics, keyed by Preset.id. `name` is a name a source uses, or a plain

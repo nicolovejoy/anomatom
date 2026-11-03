@@ -7,14 +7,16 @@
 // Play alone with key caps (no ‹ ›, no volume: Volume is the Sound panel's), the sound row goes,
 // and the wheel stays open at the top of the right-hand column while the Patterns panel shows.
 // There (docs/plans/v6-wheel-filters-three.md, rulings 1 to 3) its rows are taller, it fills the
-// column while the editor (Pattern and Rhythm) is hidden, which it is until Make your own or a
-// pattern that is no card, and a mouse wheel turns it a row a notch.
+// column while the editor (Pattern and Rhythm) is hidden, which it is until a click on Make your
+// own or a pattern that is no card (docs/plans/v6-1-wheel-feel.md, ruling 2); a trackpad scrolls it
+// at half speed and a mouse notch glides it a row (ruling 1).
 // The logic is in deck-model.ts and layout-model.ts; this file is elements and events.
 //
 // This mount owns Play and the keys that drive it: Space plays and pauses from anywhere (one
 // capturing handler), except in a pattern text input and in a control that uses Space itself
-// (keepsSpace in sheet-model.ts); ← and → step the pattern, and on the wide layout ↑ and ↓ step
-// Listen for, except in a field, a select, a slider or a tab (deckKey in layout-model.ts). A
+// (keepsSpace in sheet-model.ts) and on Make your own, which Space opens; on the wide layout ↑ and ↓
+// step the pattern and ← and → Listen for, elsewhere ← and → step the pattern, except in a field, a
+// select, a slider or a tab (deckKey in layout-model.ts, v6.1 ruling 3). A
 // select hands focus to Play after a choice, so the keys work again at once.
 import { LISTENS, type Listen } from '../sound/drummers';
 import { DECK, KNOBS, SHEET } from '../tunables';
@@ -33,9 +35,17 @@ import {
   slotNear,
   wheelCopies,
   wheelDeltaPx,
-  wheelTurn,
-  type WheelTurn,
-  WHEEL_AT_REST,
+  wheelInput,
+  glideAt,
+  glideDone,
+  notchGlide,
+  shiftGlide,
+  settleGlide,
+  settleTarget,
+  burstAdd,
+  BURST_AT_REST,
+  type Burst,
+  type Glide,
   fitFontPx,
   nextFit,
   groupTag,
@@ -368,20 +378,81 @@ export const mountDeck: Mount = (root, { store, player, sound }) => {
     if (next === offset) return;
     // Read before the order changes: a browser may re-snap to the moved row on the next layout
     // (WebKit does), so the new scrollTop is set outright, never added to the live one.
-    const top = list.scrollTop + (centrePlace(slotCount) - placeOf(slot, offset, slotCount)) * rowPx;
+    const shift = (centrePlace(slotCount) - placeOf(slot, offset, slotCount)) * rowPx;
+    const top = liveTop() + shift;
     offset = next;
     rowItems.forEach((li, s) => (li.style.order = String(placeOf(s, offset, slotCount))));
-    list.scrollTop = top;
+    setTop(top);
     ownTop = list.scrollTop;
+    // A glide under way turns with the list, so it goes on to the same row (v6.1 ruling 1).
+    if (glide) glide = shiftGlide(glide, shift);
+  }
+
+  // The docked wheel's glide (v6.1 ruling 1; notchGlide, settleGlide in deck-model.ts): an eased
+  // scroll, one frame at a time. `exactTop` is the scrollTop last set, kept to a fraction of a pixel
+  // where the browser rounds, so a trackpad's half-speed deltas never lose their fractions.
+  let glide: Glide | null = null;
+  /** The glide is the settle's, onto the nearest row: a drag ends it rather than moving it. */
+  let glideSettles = false;
+  let glideFrame = 0;
+  let exactTop: number | null = null;
+  /** The wheel events since the last settle (burstAdd): what settleTarget reads. */
+  let burst: Burst = BURST_AT_REST;
+  const liveTop = () => (exactTop !== null && Math.abs(list.scrollTop - exactTop) < 1 ? exactTop : list.scrollTop);
+  function setTop(top: number) {
+    list.scrollTop = top;
+    exactTop = top;
+  }
+  function glideFrameAt(now: number) {
+    glideFrame = 0;
+    if (!glide) return;
+    // Quick notches can run the target further on than the list reaches: where the list would stop
+    // at its end, or come within the loop's margin, it turns under the glide at once (recentre
+    // shifts the glide with it), as often as it takes, so the glide never meets an end.
+    for (let i = 0; i < slotCount; i++) {
+      const pos = glideAt(glide, now);
+      setTop(pos);
+      if (Math.abs(list.scrollTop - pos) < 1 && !nearEnd(pos, rowPx, half(), slotCount, DECK.loopMarginRows)) break;
+      const was = offset;
+      recentre(slotAt());
+      if (offset === was) break;
+    }
+    if (!glideDone(glide, now)) {
+      glideFrame = requestAnimationFrame(glideFrameAt);
+      return;
+    }
+    const settled = glideSettles;
+    glide = null;
+    glideSettles = false;
+    // The settle's glide has put the list on its row: pick now, not a settle delay later.
+    if (settled) {
+      clearTimeout(settleTimer);
+      settle();
+    }
+  }
+  function runGlide(next: Glide, settles: boolean) {
+    glide = next;
+    glideSettles = settles;
+    if (glideFrame === 0) glideFrame = requestAnimationFrame(glideFrameAt);
+  }
+  function stopGlide() {
+    glide = null;
+    glideSettles = false;
+    // A key, a pick or the page has taken the band: the wheel's burst is over.
+    burst = BURST_AT_REST;
+    cancelAnimationFrame(glideFrame);
+    glideFrame = 0;
   }
 
   /** Brings `row` into the band, the shortest way round the loop. */
   function scrollToRow(row: number, smooth: boolean): boolean {
     if (wheel.hidden) return false;
+    // A key, a pick or the page takes the band from a glide.
+    stopGlide();
     if (!smooth) {
       // A jump brings the row's first copy (the row itself) to the band.
       recentre(row);
-      list.scrollTop = scrollForPlace(centrePlace(slotCount), rowPx, half());
+      setTop(scrollForPlace(centrePlace(slotCount), rowPx, half()));
       ownTop = list.scrollTop;
       return false;
     }
@@ -391,7 +462,8 @@ export const mountDeck: Mount = (root, { store, player, sound }) => {
     // The band is already on the row: nothing to scroll, whatever a pixel or two of snap says.
     if (from === row) return false;
     const top = scrollForPlace(centrePlace(slotCount) + loopDelta(from, row, rowCount), rowPx, half());
-    if (Math.abs(list.scrollTop - top) < 1) return false;
+    if (Math.abs(liveTop() - top) < 1) return false;
+    exactTop = null;
     list.scrollTo({ top, behavior: 'smooth' });
     return true;
   }
@@ -513,7 +585,7 @@ export const mountDeck: Mount = (root, { store, player, sound }) => {
     if (was === 'rest') placeWheel();
   };
   const startTurn = (e: Event) => {
-    // Docked, a mouse wheel turns the wheel row by row instead (below).
+    // Docked, a mouse wheel or a trackpad moves the wheel through the glide instead (below).
     if (e.type === 'wheel' && docked()) return;
     scrolled = false;
     turn();
@@ -523,6 +595,7 @@ export const mountDeck: Mount = (root, { store, player, sound }) => {
 
   /** Turns the wheel to `to` as the reader's turn: the band goes there, and the row loads when it settles. */
   function turnTo(to: number) {
+    burst = BURST_AT_REST;
     scrolled = true;
     sheetOn();
     turn();
@@ -539,18 +612,31 @@ export const mountDeck: Mount = (root, { store, player, sound }) => {
     rows[roving]?.focus({ preventScroll: true });
   });
 
-  // Docked, the mouse wheel and the trackpad turn the wheel one row per DECK.wheelStepPx, at most
-  // one row per DECK.wheelStepMs (v6 ruling 3, wheelTurn in deck-model.ts), not a native scroll:
-  // a notch is one row and a swipe a few. Each row turns from the row the last one aimed at.
-  let wheelAcc: WheelTurn = WHEEL_AT_REST;
+  // Docked, the wheel takes the mouse wheel and the trackpad itself (v6.1 ruling 1, wheelInput in
+  // deck-model.ts): a trackpad's deltas move it at DECK.wheelScale, its momentum tail too; a mouse
+  // notch glides it a row, and notches in quick succession add up. No snap points (deck.css): when
+  // the input stops, the settle glides it onto the nearest row and picks.
   list.addEventListener(
     'wheel',
     (e) => {
       if (!docked()) return;
       e.preventDefault();
-      const r = wheelTurn(wheelAcc, wheelDeltaPx(e.deltaY, e.deltaMode, DECK.wheelLinePx, list.clientHeight), e.timeStamp, DECK.wheelStepPx, DECK.wheelStepMs, DECK.wheelIdleMs);
-      wheelAcc = r.state;
-      if (r.step) turnTo(rowAfterKey(r.step > 0 ? 'ArrowDown' : 'ArrowUp', keyRow ?? rowAt(), rowCount, shownRows));
+      const input = wheelInput(wheelDeltaPx(e.deltaY, e.deltaMode, DECK.wheelLinePx, list.clientHeight), e.deltaMode, DECK.notchPx, DECK.wheelScale);
+      if (input === null) return;
+      scrolled = true;
+      turn();
+      // The wheel takes over from a key's outstanding row.
+      keyRow = null;
+      const now = performance.now();
+      if (input.kind === 'notch') runGlide(notchGlide(glide, liveTop(), input.dir, rowPx, now, DECK.glideMs), false);
+      else if (glide && !glideSettles) glide = shiftGlide(glide, input.px);
+      else {
+        // The settle's glide gives way to a new drag (and its burst, read already, is over).
+        if (glide) stopGlide();
+        setTop(liveTop() + input.px);
+      }
+      burst = burstAdd(burst, input.kind === 'drag' ? input.px : 0, now, DECK.settleMs);
+      armSettle();
     },
     { passive: false },
   );
@@ -566,11 +652,15 @@ export const mountDeck: Mount = (root, { store, player, sound }) => {
   let settleTimer: ReturnType<typeof setTimeout> | undefined;
   function settle() {
     if (wheel.hidden) {
+      burst = BURST_AT_REST;
       keyRow = null;
       seekRow = null;
       turning = false;
+      stopGlide();
       return;
     }
+    // A glide under way settles when it has arrived (its frames' scrolls arm the settle again).
+    if (glide) return armSettle();
     const at = rowAt();
     const goal = keyRow ?? seekRow;
     if (goal !== null && at !== goal && keyTries < DECK.keySettleTries) {
@@ -579,6 +669,15 @@ export const mountDeck: Mount = (root, { store, player, sound }) => {
       scrollToRow(goal, true);
       armSettle();
       return;
+    }
+    // Docked there are no snap points: a list left between rows glides onto the nearest first.
+    const from = liveTop();
+    const now = performance.now();
+    const onto = docked() ? settleGlide(from, settleTarget(from, rowPx, burst, now, DECK.settleMs * 2), now, DECK.glideMs) : null;
+    burst = BURST_AT_REST;
+    if (onto) {
+      runGlide(onto, true);
+      return armSettle();
     }
     const user = turning || keyRow !== null;
     keyRow = null;
@@ -609,11 +708,8 @@ export const mountDeck: Mount = (root, { store, player, sound }) => {
         if (had) patternButton.focus();
       }, DECK.returnMs);
     }
-    // The band on Make your own shows the web editor (v6 ruling 2).
-    if (at === own) {
-      restOwn = true;
-      setEditor({ kind: 'makeOwn' });
-    }
+    // The band resting on Make your own opens nothing and loads nothing: only a click on it shows
+    // the web editor (v6.1 ruling 2).
     const chosen = settledPick(at, current(), order.length);
     if (chosen !== null) pick(chosen);
   }
@@ -648,11 +744,13 @@ export const mountDeck: Mount = (root, { store, player, sound }) => {
     if (!button) return;
     const i = Number(button.dataset.row ?? button.dataset.echo);
     clearTimeout(settleTimer);
+    burst = BURST_AT_REST;
     turning = false;
     keyRow = null;
     seekRow = null;
     if (i === own) {
-      // Docked, the band goes to Make your own and the editor shows under it (v6 ruling 2).
+      // Docked, the band goes to Make your own and the editor shows under it (v6 ruling 2): a
+      // click, Enter or Space on it, never the band passing (v6.1 ruling 2).
       restOwn = true;
       setEditor({ kind: 'makeOwn' });
       // The next draw brings it there, once the wheel has its new height.
@@ -756,12 +854,13 @@ export const mountDeck: Mount = (root, { store, player, sound }) => {
   });
 
   // -------------------------------------------------------------------------------------------
-  // Keys: Space plays and pauses, ← → step
+  // Keys: Space plays and pauses, the arrows step the pattern and Listen for
   // -------------------------------------------------------------------------------------------
 
   // Captured before a focused control sees it, so a button does not activate; buttons activate on
   // keyup in some browsers, so that is suppressed too. Exempt: a pattern text input, where Space
-  // types a space (the separator at other ratios than 1:1), and any control inside keepsSpace.
+  // types a space (the separator at other ratios than 1:1), any control inside keepsSpace, and Make
+  // your own in the wheel, where Space opens the editor as a click does (v6.1 ruling 2).
   const isSpace = (e: KeyboardEvent) =>
     e.code === 'Space' &&
     !e.ctrlKey &&
@@ -770,7 +869,7 @@ export const mountDeck: Mount = (root, { store, player, sound }) => {
     !e.isComposing &&
     !(
       e.target instanceof Element &&
-      (e.target.closest('.pattern-field') !== null ||
+      (e.target.closest('.pattern-field, .deck-own, .deck-own-copy') !== null ||
         keepsSpace(e.target.tagName, e.target instanceof HTMLInputElement ? e.target.type : null))
     );
   document.addEventListener(

@@ -34,8 +34,17 @@ import {
   rowOfSlot,
   slotNear,
   wheelDeltaPx,
-  wheelTurn,
-  WHEEL_AT_REST,
+  wheelInput,
+  easeOut,
+  glideAt,
+  glideDone,
+  restTop,
+  notchGlide,
+  shiftGlide,
+  settleGlide,
+  settleTarget,
+  burstAdd,
+  BURST_AT_REST,
   editorShows,
   wheelPlace,
   sheetWheelPlace,
@@ -509,35 +518,115 @@ describe('the web wheel (v6 rulings 1 to 3)', () => {
     expect(wheelDeltaPx(3, 1, 40, 600)).toBe(120);
     expect(wheelDeltaPx(-1, 2, 40, 600)).toBe(-600);
   });
-  test('a mouse notch turns one row; a stream of small deltas turns one row per step, at a bounded rate', () => {
-    const fresh = WHEEL_AT_REST;
-    const turn = (state: typeof fresh, delta: number, now: number) => wheelTurn(state, delta, now, 50, 120, 300);
-    expect(turn(fresh, 100, 1000)).toEqual({ step: 1, state: { acc: 0, last: 1000, seen: 1000 } });
-    expect(turn(fresh, -400, 1000)).toEqual({ step: -1, state: { acc: 0, last: 1000, seen: 1000 } });
-    // Below a step: kept.
-    expect(turn(fresh, 20, 1000)).toEqual({ step: null, state: { acc: 20, last: null, seen: 1000 } });
-    expect(turn({ acc: 20, last: null, seen: 1000 }, 40, 1016)).toEqual({ step: 1, state: { acc: 0, last: 1016, seen: 1016 } });
-    // Inside the rate limit: dropped, however large.
-    expect(turn({ acc: 0, last: 1000, seen: 1000 }, 100, 1100)).toEqual({ step: null, state: { acc: 0, last: 1000, seen: 1100 } });
-    // Past it: turns again.
-    expect(turn({ acc: 0, last: 1000, seen: 1100 }, 100, 1120)).toEqual({ step: 1, state: { acc: 0, last: 1120, seen: 1120 } });
-    // A trackpad swipe: 16 ms events of 30 px for 400 ms turns a few rows, not a page.
-    let state = fresh;
-    let turned = 0;
-    for (let t = 0; t <= 400; t += 16) {
-      const r = turn(state, 30, t);
-      state = r.state;
-      if (r.step) turned += 1;
-    }
-    expect(turned).toBeGreaterThanOrEqual(2);
-    expect(turned).toBeLessThanOrEqual(4);
+  test('a wheel event: a notch from a big delta or any in lines or pages, else a drag at the scale', () => {
+    expect(wheelInput(0, 0, 50, 0.5)).toBeNull();
+    expect(wheelInput(100, 0, 50, 0.5)).toEqual({ kind: 'notch', dir: 1 });
+    expect(wheelInput(-50, 0, 50, 0.5)).toEqual({ kind: 'notch', dir: -1 });
+    // Firefox counts a mouse notch in lines: a notch however small in px.
+    expect(wheelInput(40, 1, 50, 0.5)).toEqual({ kind: 'notch', dir: 1 });
+    expect(wheelInput(-600, 2, 50, 0.5)).toEqual({ kind: 'notch', dir: -1 });
+    // A trackpad: half its size.
+    expect(wheelInput(8, 0, 50, 0.5)).toEqual({ kind: 'drag', px: 4 });
+    expect(wheelInput(-49, 0, 50, 0.5)).toEqual({ kind: 'drag', px: -24.5 });
   });
-  test('an idle gap starts the count afresh: a brush, then a touch minutes later, turns nothing', () => {
-    const brushed = wheelTurn(WHEEL_AT_REST, 40, 1000, 50, 120, 300);
-    expect(brushed).toEqual({ step: null, state: { acc: 40, last: null, seen: 1000 } });
-    expect(wheelTurn(brushed.state, 10, 1000 + 120_000, 50, 120, 300)).toEqual({ step: null, state: { acc: 10, last: null, seen: 121_000 } });
-    // Within the gap the brush still counts.
-    expect(wheelTurn(brushed.state, 10, 1300, 50, 120, 300).step).toBe(1);
+  test('ten small deltas of 8 move the list 40 px, continuously', () => {
+    let top = 0;
+    const seen: number[] = [];
+    for (let i = 0; i < 10; i++) {
+      const input = wheelInput(8, 0, 50, 0.5);
+      if (input?.kind === 'drag') top += input.px;
+      seen.push(top);
+    }
+    expect(top).toBe(40);
+    expect(seen[4]).toBe(20);
+  });
+  test('the glide eases from its start to its target and stays there', () => {
+    expect(easeOut(-1)).toBe(0);
+    expect(easeOut(0)).toBe(0);
+    expect(easeOut(0.5)).toBe(0.875);
+    expect(easeOut(2)).toBe(1);
+    const g = { from: 0, to: 44, start: 1000, ms: 180 };
+    expect(glideAt(g, 990)).toBe(0);
+    expect(glideAt(g, 1090)).toBeCloseTo(38.5);
+    expect(glideAt(g, 1180)).toBe(44);
+    expect(glideAt(g, 2000)).toBe(44);
+    expect(glideAt({ ...g, ms: 0 }, 1000)).toBe(44);
+    // Every frame moves on, never back: no row jumps.
+    let last = 0;
+    for (let t = 1000; t <= 1180; t += 16) {
+      const at = glideAt(g, t);
+      expect(at).toBeGreaterThanOrEqual(last);
+      last = at;
+    }
+    expect(glideDone(g, 1179)).toBe(false);
+    expect(glideDone(g, 1180)).toBe(true);
+  });
+  test('rows rest at whole multiples of the row height', () => {
+    expect(restTop(40, 44)).toBe(44);
+    expect(restTop(21, 44)).toBe(0);
+    expect(restTop(-30, 44)).toBe(-44);
+    expect(restTop(880, 44)).toBe(880);
+  });
+  test('a notch glides one row past the row nearest; notches in quick succession add up', () => {
+    const one = notchGlide(null, 880, 1, 44, 1000, 180);
+    expect(one).toEqual({ from: 880, to: 924, start: 1000, ms: 180 });
+    // A second notch mid-glide: from where the list is to a row past the first target.
+    const two = notchGlide(one, 900, 1, 44, 1060, 180);
+    expect(two).toEqual({ from: 900, to: 968, start: 1060, ms: 180 });
+    // Back the other way mid-glide: a row short of the target.
+    expect(notchGlide(two, 920, -1, 44, 1100, 180).to).toBe(924);
+    // A glide that has arrived counts for nothing: from the row nearest.
+    expect(notchGlide(one, 924, -1, 44, 2000, 180).to).toBe(880);
+    // After a drag left the list between rows: one row on from the nearest.
+    expect(notchGlide(null, 900, 1, 44, 0, 180).to).toBe(924);
+  });
+  test('a glide moves with the list when the loop turns under it', () => {
+    expect(shiftGlide({ from: 10, to: 54, start: 5, ms: 180 }, -440)).toEqual({ from: -430, to: -386, start: 5, ms: 180 });
+  });
+  test('the settle glides onto its row, or does nothing there', () => {
+    expect(settleGlide(920, 924, 7, 180)).toEqual({ from: 920, to: 924, start: 7, ms: 180 });
+    expect(settleGlide(900, 880, 7, 180)).toEqual({ from: 900, to: 880, start: 7, ms: 180 });
+    expect(settleGlide(924.3, 924, 7, 180)).toBeNull();
+  });
+  test('a burst counts the events within the gap and adds up their moves', () => {
+    const one = burstAdd(BURST_AT_REST, 2, 1000, 160);
+    expect(one).toEqual({ events: 1, px: 2, last: 1000 });
+    expect(burstAdd(one, 4, 1160, 160)).toEqual({ events: 2, px: 6, last: 1160 });
+    // Past the gap: a new burst.
+    expect(burstAdd(one, 4, 1161, 160)).toEqual({ events: 1, px: 4, last: 1161 });
+  });
+  test('the settle target: a Mac mouse notch of a few px goes a row on; a trackpad drag goes to the nearest', () => {
+    const scaled = (deltas: number[], gap: number) => {
+      let b = BURST_AT_REST;
+      let top = 880;
+      deltas.forEach((d, i) => {
+        b = burstAdd(b, d * 0.5, 1000 + i * gap, 160);
+        top += d * 0.5;
+      });
+      return settleTarget(top, 44, b, 1000 + deltas.length * gap + 170, 320);
+    };
+    // One accelerated tick of 4 px (2 px scaled): the next row, not back.
+    expect(scaled([4], 16)).toBe(924);
+    expect(scaled([-4], 16)).toBe(836);
+    // Two ticks of 8: one row.
+    expect(scaled([8, 8], 30)).toBe(924);
+    // Twenty trackpad deltas of 2 (20 px scaled in all): the nearest row, back where it was.
+    expect(scaled(Array(20).fill(2), 16)).toBe(880);
+    // Twenty of 4 (40 px): the nearest row, a row on.
+    expect(scaled(Array(20).fill(4), 16)).toBe(924);
+    // Half a row or more in two events: the nearest.
+    expect(settleTarget(880 + 30, 44, { events: 2, px: 30, last: 0 }, 170, 320)).toBe(924);
+    expect(settleTarget(880 + 22, 44, { events: 1, px: 22, last: 0 }, 170, 320)).toBe(924);
+    // Nothing moved (a notch's aligned glide, or no burst): the nearest.
+    expect(settleTarget(924, 44, { events: 1, px: 0, last: 0 }, 170, 320)).toBe(924);
+    expect(settleTarget(900, 44, BURST_AT_REST, 170, 320)).toBe(880);
+  });
+  test('a stale burst counts for nothing: a tick long ago, then a key, settles where the key put it', () => {
+    const tick = burstAdd(BURST_AT_REST, 2, 1000, 160);
+    // Fresh, it goes a row on; at the edge of the age, still; past it, the nearest.
+    expect(settleTarget(924, 44, tick, 1170, 320)).toBe(968);
+    expect(settleTarget(924, 44, tick, 1320, 320)).toBe(968);
+    expect(settleTarget(924, 44, tick, 1321, 320)).toBe(924);
   });
   test('the editor: a card hides it, Make your own and a non-card show it, typing into a card keeps it', () => {
     expect(editorShows(true, { kind: 'pickCard' })).toBe(false);

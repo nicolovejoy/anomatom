@@ -312,8 +312,7 @@ export function wheelNotch(acc: number, deltaY: number, notchPx: number): { step
 
 /*
  * The web wheel (docs/plans/v6-wheel-filters-three.md, rulings 1 to 3). Docked in the right-hand
- * column its rows are taller and it shows as many as the column holds while the editor is hidden;
- * a mouse wheel turns it one row a notch, at a bounded rate.
+ * column its rows are taller and it shows as many as the column holds while the editor is hidden.
  */
 
 /** The most rows, odd, whose `rowPx` rows fit in `height`; never fewer than `minRows` (odd). */
@@ -358,36 +357,99 @@ export function wheelDeltaPx(deltaY: number, deltaMode: number, linePx: number, 
   return deltaMode === 1 ? deltaY * linePx : deltaMode === 2 ? deltaY * pagePx : deltaY;
 }
 
-/**
- * The docked wheel's accumulator: the delta not yet turned, when (ms) the last row turned, and
- * when the last event came; null before any.
+/*
+ * The docked wheel's feel (docs/plans/v6-1-wheel-feel.md, ruling 1): scaled native scroll. A
+ * trackpad's small deltas move the list continuously at `scale` of their size, momentum and all; a
+ * mouse notch (a delta of `notchPx` or more, or any delta counted in lines or pages, which only a
+ * mouse sends) adds one row to an eased glide's target instead of jumping. When the input stops the
+ * list glides onto the nearest row. Positions are scrollTops, in px; times are ms.
  */
-export interface WheelTurn {
-  readonly acc: number;
-  readonly last: number | null;
-  readonly seen: number | null;
+
+/** One wheel event on the docked wheel: a notch one row up or down, or a drag of `px`; null for none. */
+export type WheelInput = { readonly kind: 'notch'; readonly dir: -1 | 1 } | { readonly kind: 'drag'; readonly px: number };
+
+export function wheelInput(deltaPx: number, deltaMode: number, notchPx: number, scale: number): WheelInput | null {
+  if (deltaPx === 0) return null;
+  if (deltaMode !== 0 || Math.abs(deltaPx) >= notchPx) return { kind: 'notch', dir: deltaPx > 0 ? 1 : -1 };
+  return { kind: 'drag', px: deltaPx * scale };
 }
 
-export const WHEEL_AT_REST: WheelTurn = { acc: 0, last: null, seen: null };
+/** An eased move of the list from `from` to `to`, starting at `start` and lasting `ms`. */
+export interface Glide {
+  readonly from: number;
+  readonly to: number;
+  readonly start: number;
+  readonly ms: number;
+}
+
+/** Ease-out cubic over 0 to 1 (clamped): fast at first, gentle onto the row. */
+export const easeOut = (x: number): number => 1 - (1 - Math.min(1, Math.max(0, x))) ** 3;
+
+/** Where a glide has the list at `now`. */
+export const glideAt = (g: Glide, now: number): number => (g.ms <= 0 ? g.to : g.from + (g.to - g.from) * easeOut((now - g.start) / g.ms));
+
+/** Whether a glide has arrived by `now`. */
+export const glideDone = (g: Glide, now: number): boolean => now - g.start >= g.ms;
+
+/** The scrollTop of the row nearest `top`: rows rest at whole multiples of `rowPx` (scrollForPlace). */
+export const restTop = (top: number, rowPx: number): number => Math.round(top / rowPx) * rowPx;
 
 /**
- * One wheel event on the docked wheel (ruling 3): the deltas add up, and `stepPx` of them turns one
- * row (down is forward), at most one row each `stepMs`. What is left over when a row turns, and
- * every delta that arrives within `stepMs` after it, is dropped: a mouse notch is one row however
- * large, and a trackpad's momentum tail turns fewer rows than it would scroll. A delta that comes
- * more than `idleMs` after the last event starts afresh: a brush long ago is not half a turn.
+ * A notch at `now`, the list at `top`: a glide from there to one row past the target of the glide
+ * still under way (so notches in quick succession add up), or past the row nearest `top`.
  */
-export function wheelTurn(state: WheelTurn, deltaPx: number, now: number, stepPx: number, stepMs: number, idleMs: number): { step: -1 | 1 | null; state: WheelTurn } {
-  if (state.last !== null && now - state.last < stepMs) return { step: null, state: { acc: 0, last: state.last, seen: now } };
-  const kept = state.seen !== null && now - state.seen > idleMs ? 0 : state.acc;
-  const acc = kept + deltaPx;
-  if (Math.abs(acc) < stepPx) return { step: null, state: { acc, last: state.last, seen: now } };
-  return { step: acc > 0 ? 1 : -1, state: { acc: 0, last: now, seen: now } };
+export function notchGlide(glide: Glide | null, top: number, dir: -1 | 1, rowPx: number, now: number, ms: number): Glide {
+  const base = glide !== null && !glideDone(glide, now) ? glide.to : restTop(top, rowPx);
+  return { from: top, to: base + dir * rowPx, start: now, ms };
+}
+
+/** A glide moved by `px` at both ends: the list turned under it (recentre), or a drag came during it. */
+export const shiftGlide = (g: Glide, px: number): Glide => ({ ...g, from: g.from + px, to: g.to + px });
+
+/**
+ * A burst of wheel events on the docked wheel: how many came, each within `gapMs` of the one
+ * before, and how far their drags (scaled) moved the list in all. A mouse notch counts as an event
+ * and moves nothing here (its glide is aligned already).
+ */
+export interface Burst {
+  readonly events: number;
+  readonly px: number;
+  readonly last: number | null;
+}
+
+export const BURST_AT_REST: Burst = { events: 0, px: 0, last: null };
+
+/** One more event at `now` that moved the list `px`: the same burst, or a new one after a gap of more than `gapMs`. */
+export function burstAdd(b: Burst, px: number, now: number, gapMs: number): Burst {
+  const fresh = b.last === null || now - b.last > gapMs;
+  return { events: (fresh ? 0 : b.events) + 1, px: (fresh ? 0 : b.px) + px, last: now };
+}
+
+/**
+ * Where the settle takes the list from `top` at `now` after `burst` (fix round 1 of PR 96): to the
+ * nearest row, except that a burst of at most two events that moved it some way, but less than half
+ * a row, goes one row on in its direction. That is a plain mouse's slow notch on a Mac: Chromium
+ * sends it as a few px (an accelerated tick, about 4), which rounding would take straight back. A
+ * burst whose last event is more than `maxAgeMs` old is stale (a key or a pick came since) and
+ * counts for nothing.
+ */
+export function settleTarget(top: number, rowPx: number, burst: Burst, now: number, maxAgeMs: number): number {
+  const fresh = burst.last !== null && now - burst.last <= maxAgeMs;
+  if (fresh && burst.events <= 2 && burst.px !== 0 && Math.abs(burst.px) < rowPx / 2) {
+    return restTop(top - burst.px, rowPx) + Math.sign(burst.px) * rowPx;
+  }
+  return restTop(top, rowPx);
+}
+
+/** The settle (ruling 1): a glide from `top` onto the row at `to`, or null when the list is there already. */
+export function settleGlide(top: number, to: number, now: number, ms: number): Glide | null {
+  return Math.abs(top - to) < 0.5 ? null : { from: top, to, start: now, ms };
 }
 
 /**
  * Whether the web editor (the Pattern and Rhythm tabs under the docked wheel) shows (ruling 2):
- * picking a card hides it and Make your own shows it; a new pattern that is no card shows it, and a
+ * picking a card hides it and a click on Make your own shows it (never the band passing or resting
+ * on it: docs/plans/v6-1-wheel-feel.md, ruling 2); a new pattern that is no card shows it, and a
  * new pattern that is a card (typed into one, or opened from a link) leaves it as it was.
  */
 export type EditorEvent = { readonly kind: 'pickCard' } | { readonly kind: 'makeOwn' } | { readonly kind: 'pattern'; readonly card: boolean };

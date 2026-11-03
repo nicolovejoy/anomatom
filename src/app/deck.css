@@ -326,6 +326,11 @@
   scroll-snap-type: y mandatory;
   scrollbar-width: none;
 }
+/* Docked, the wheel moves through its own glide (v6.1 ruling 1, mount-deck.ts): no snap points, so
+   a trackpad's half-speed scroll stays where it is put, and the settle glides it onto a row. */
+#app.deck-docked .deck-wheel-list {
+  scroll-snap-type: none;
+}
 .deck-wheel-list::-webkit-scrollbar {
   display: none;
 }
