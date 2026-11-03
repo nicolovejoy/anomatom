@@ -220,7 +220,21 @@
 #app.deck-docked .deck-wheel {
   position: relative;
   grid-area: wheel;
+  align-self: start;
   border-top: 0;
+}
+/* Docked, the rows are DECK.dockedRowPx tall (v6 ruling 1): the type grows a step with them. */
+#app.deck-docked .deck-row {
+  gap: 14px;
+  padding: 0 18px;
+  font-size: 14px;
+}
+#app.deck-docked .deck-row code {
+  min-width: 112px;
+  font-size: 16px;
+}
+#app.deck-docked .deck-row em {
+  font-size: 11px;
 }
 .deck-wheel::before {
   content: '';
@@ -294,14 +308,18 @@
 .deck-row:focus-visible {
   outline-offset: -2px;
 }
+/* A further copy of a row (.deck-copy, a list that shows more rows than it holds) looks the same. */
 .deck-row.in-band,
-.deck-row.on {
+.deck-row.on,
+.deck-row.on-copy {
   color: var(--text) !important;
 }
-.deck-row.on code {
+.deck-row.on code,
+.deck-row.on-copy code {
   color: var(--accent);
 }
-.deck-own .deck-row-name {
+.deck-own .deck-row-name,
+.deck-own-copy .deck-row-name {
   color: var(--accent);
 }
 

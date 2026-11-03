@@ -1,7 +1,7 @@
 // The Sound panel and the share link (SPEC §4.3, §7.5; docs/plans/v5-sound-model.md, ruling 7),
 // headless. Audio output is not observable, so "nothing auto-plays" is read from
 // `data-events-scheduled` staying at 0 and the transport staying stopped.
-import { expect, isCdnError, openTab, test, type Page } from './fixtures';
+import { expect, isCdnError, openTab, showEditor, test, type Page } from './fixtures';
 
 const scheduled = async (page: Page) => Number(await page.locator('#app').getAttribute('data-events-scheduled'));
 const shot = (page: Page, name: string) => page.screenshot({ path: `test-results/sound-${name}.png`, fullPage: true });
@@ -22,6 +22,7 @@ async function openPanel(page: Page) {
 
 test('the Sound tab shows the panel, top to bottom; another tab hides it', async ({ page }) => {
   await page.goto('/#v1.e30');
+  await showEditor(page);
   await expect(page.locator('.sound-panel')).toBeHidden();
   await openPanel(page);
   await expect(page.locator('#tab-sound')).toHaveAttribute('aria-selected', 'true');
@@ -42,6 +43,7 @@ test('the Sound tab shows the panel, top to bottom; another tab hides it', async
 
 test('the ⓘ shows one plain line per choice, and hides them again', async ({ page }) => {
   await page.goto('/#v1.e30');
+  await showEditor(page);
   await openPanel(page);
   const info = page.locator('#sp-listen-info');
   const lines = page.locator('#sp-listen-lines li');
@@ -56,6 +58,7 @@ test('the ⓘ shows one plain line per choice, and hides them again', async ({ p
 
 test('Listen for, the switches and the volume follow the store; the deck’s select agrees', async ({ page }) => {
   await page.goto('/#v1.e30');
+  await showEditor(page);
   await openPanel(page);
   await listen(page, 'pitch').click();
   await expect(listen(page, 'pitch')).toHaveAttribute('aria-pressed', 'true');
@@ -73,6 +76,7 @@ test('Space on the deck’s focused select is the select’s, not play and pause
   // The deck's select is the phone's (the wide layout has none: v5 ruling 8).
   await page.setViewportSize({ width: 390, height: 844 });
   await page.goto('/#v1.e30');
+  await showEditor(page);
   await page.locator('#deck-listen').focus();
   await page.keyboard.press('Space');
   await expect(page.locator('#play')).toHaveText('Play');
@@ -84,6 +88,7 @@ test('SPEC §7.5: the sound, the link, a new tab: everything matches and nothing
   context,
 }) => {
   await page.goto('/#v1.e30');
+  await showEditor(page);
   await page.locator('#hand-0').fill('441');
   await openTab(page, 'sound');
   await page.locator('#bpm').fill('96');
@@ -120,6 +125,7 @@ test('SPEC §7.5: the sound, the link, a new tab: everything matches and nothing
 
 test('a link pasted while playing lands at the next cycle: no restart, no stop', async ({ page }) => {
   await page.goto('/#v1.e30');
+  await showEditor(page);
   await page.locator('#play').click();
   await expect(page.locator('#play')).toHaveText('Pause');
   await expect.poll(() => scheduled(page)).toBeGreaterThan(0);
@@ -127,6 +133,7 @@ test('a link pasted while playing lands at the next cycle: no restart, no stop',
   // A link from elsewhere: another pattern and another sound.
   const other = await page.context().newPage();
   await other.goto('/#v1.e30');
+  await showEditor(other);
   await other.locator('#hand-0').fill('531');
   await openPanel(other);
   await listen(other, 'height').click();
@@ -145,6 +152,7 @@ test('a link pasted while playing lands at the next cycle: no restart, no stop',
 
 test('a link that differs only in tempo, pasted while playing, reaches the player at the next cycle', async ({ page }) => {
   await page.goto('/#v1.e30');
+  await showEditor(page);
   await page.locator('#play').click();
   await expect(page.locator('#play')).toHaveText('Pause');
   await page.locator('#hand-0').fill('441');
@@ -160,8 +168,10 @@ test('a link that differs only in tempo, pasted while playing, reaches the playe
 
 test('a pasted link while stopped does not start anything', async ({ page }) => {
   await page.goto('/#v1.e30');
+  await showEditor(page);
   const other = await page.context().newPage();
   await other.goto('/#v1.e30');
+  await showEditor(other);
   await other.locator('#hand-0').fill('51');
   const link = await settledHref(other, '#51');
   await other.close();
@@ -179,7 +189,9 @@ test('a junk hash loads the defaults and the page works', async ({ page }) => {
   });
   for (const junk of ['#garbage', '#v1.', '#v1.!!!not-base64', '#v1.eyJwIjpbIjw8PCJdfQ']) {
     await page.goto('/' + junk);
+    await showEditor(page);
     await page.reload();
+    await showEditor(page);
     await expect(page.locator('#hand-0')).toHaveValue('3');
     await expect(page.locator('#bpm')).toHaveValue('104');
     await openPanel(page);
@@ -191,6 +203,7 @@ test('a junk hash loads the defaults and the page works', async ({ page }) => {
 
 test('a junk hash pasted onto an open page resets to the defaults', async ({ page }) => {
   await page.goto('/#v1.e30');
+  await showEditor(page);
   await page.locator('#hand-0').fill('441');
   await page.evaluate(() => (location.hash = '#v1.%%%junk'));
   await expect(page.locator('#hand-0')).toHaveValue('3');
@@ -198,6 +211,7 @@ test('a junk hash pasted onto an open page resets to the defaults', async ({ pag
 
 test('About keeps the state: its back link returns to the pattern as it was', async ({ page }) => {
   await page.goto('/#v1.e30');
+  await showEditor(page);
   await page.locator('#hand-0').fill('441');
   // Straight away: inside the debounce.
   await page.locator('.about-link').click();

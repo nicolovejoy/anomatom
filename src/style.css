@@ -354,6 +354,17 @@ kbd {
 #app.is-web.panel-stage .region-sheet {
   display: none;
 }
+/* Patterns with the editor hidden (docs/plans/v6-wheel-filters-three.md, ruling 2; mount-deck.ts
+   sets .deck-editor-hidden): no Pattern and Rhythm tabs. The sheet keeps its head (Stop and the
+   time slider while paused, the sound's status) at the foot of the column, as tall as it needs;
+   the wheel takes the rest (mount-deck.ts measures it). */
+#app.is-web.panel-patterns.deck-editor-hidden .region-sheet {
+  align-self: end;
+}
+#app.is-web.panel-patterns.deck-editor-hidden .sheet-tabs,
+#app.is-web.panel-patterns.deck-editor-hidden .sheet-panels {
+  display: none;
+}
 /* Sound: the Sound panel alone, no tabs; Patterns: Pattern and Rhythm, never Sound. */
 #app.is-web.panel-sound .sheet-tabs,
 #app.is-web .sheet-tab[data-tab='sound'] {

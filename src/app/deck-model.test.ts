@@ -29,6 +29,13 @@ import {
   nextFit,
   nearEnd,
   wheelNotch,
+  dockedRows,
+  wheelCopies,
+  rowOfSlot,
+  slotNear,
+  wheelDeltaPx,
+  wheelTurn,
+  editorShows,
   wheelPlace,
   sheetWheelPlace,
   nextPhase,
@@ -364,5 +371,82 @@ describe('the phone wheel phase', () => {
     expect(nextPhase('rest', 'return')).toBe('rest');
     expect(nextPhase('spinning', 'close')).toBe('rest');
     expect(nextPhase('settling', 'close')).toBe('rest');
+  });
+});
+
+describe('the web wheel (v6 rulings 1 to 3)', () => {
+  test('rows from a height: the most odd rows that fit, never fewer than the floor', () => {
+    expect(dockedRows(1024, 44, 7)).toBe(23);
+    expect(dockedRows(744, 44, 7)).toBe(15);
+    expect(dockedRows(44 * 12, 44, 7)).toBe(11);
+    expect(dockedRows(44 * 13, 44, 7)).toBe(13);
+    expect(dockedRows(100, 44, 7)).toBe(7);
+  });
+  test('copies: one while the deck has room to turn; more where the column shows more rows than it holds', () => {
+    expect(wheelCopies(19, 7, 2)).toBe(1);
+    expect(wheelCopies(19, 13, 2)).toBe(1);
+    expect(wheelCopies(19, 15, 2)).toBe(2);
+    expect(wheelCopies(19, 23, 2)).toBe(2);
+    expect(wheelCopies(5, 7, 2)).toBe(3);
+  });
+  test('with its copies the band rests clear of both ends, and a row either way does too', () => {
+    for (let length = 3; length <= 25; length++) {
+      for (let shown = 3; shown <= 31; shown += 2) {
+        const slots = length * wheelCopies(length, shown, 2);
+        const half = (shown - 1) / 2;
+        const rest = scrollForPlace(centrePlace(slots), 44, half);
+        for (const d of [-1, 0, 1]) expect(nearEnd(rest + d * 44, 44, half, slots, 2), `${length} ${shown} ${d}`).toBe(false);
+        expect(rest - 44).toBeGreaterThanOrEqual(0);
+        expect(rest + 44).toBeLessThanOrEqual((slots - shown) * 44);
+      }
+    }
+  });
+  test('a slot holds its row; the copy nearest the band is the one to use, a tie to the later', () => {
+    expect(rowOfSlot(0, 19)).toBe(0);
+    expect(rowOfSlot(20, 19)).toBe(1);
+    // One copy: the row itself.
+    expect(slotNear(4, 7, 19, 1)).toBe(4);
+    // Two copies of 19 (38 places, centre 19): offset 0 puts slot 19 (row 0's copy) at the centre.
+    expect(slotNear(0, 0, 19, 2)).toBe(19);
+    expect(slotNear(1, 0, 19, 2)).toBe(20);
+    // Offset 19 puts slot 0 at place 19, the centre.
+    expect(slotNear(0, 19, 19, 2)).toBe(0);
+    // A tie: 2 rows, 2 copies (4 places, centre 2); offset 1: slot 0 at place 3, slot 2 at place 1.
+    expect(slotNear(0, 1, 2, 2)).toBe(0);
+    expect(slotNear(0, 3, 2, 2)).toBe(2);
+  });
+  test('a wheel delta in px, from px, lines or pages', () => {
+    expect(wheelDeltaPx(100, 0, 40, 600)).toBe(100);
+    expect(wheelDeltaPx(3, 1, 40, 600)).toBe(120);
+    expect(wheelDeltaPx(-1, 2, 40, 600)).toBe(-600);
+  });
+  test('a mouse notch turns one row; a stream of small deltas turns one row per step, at a bounded rate', () => {
+    const fresh = { acc: 0, last: null };
+    expect(wheelTurn(fresh, 100, 1000, 50, 120)).toEqual({ step: 1, state: { acc: 0, last: 1000 } });
+    expect(wheelTurn(fresh, -400, 1000, 50, 120)).toEqual({ step: -1, state: { acc: 0, last: 1000 } });
+    // Below a step: kept.
+    expect(wheelTurn(fresh, 20, 1000, 50, 120)).toEqual({ step: null, state: { acc: 20, last: null } });
+    expect(wheelTurn({ acc: 20, last: null }, 40, 1016, 50, 120)).toEqual({ step: 1, state: { acc: 0, last: 1016 } });
+    // Inside the rate limit: dropped, however large.
+    expect(wheelTurn({ acc: 0, last: 1000 }, 100, 1100, 50, 120)).toEqual({ step: null, state: { acc: 0, last: 1000 } });
+    // Past it: turns again.
+    expect(wheelTurn({ acc: 0, last: 1000 }, 100, 1120, 50, 120)).toEqual({ step: 1, state: { acc: 0, last: 1120 } });
+    // A trackpad swipe: 16 ms events of 30 px for 400 ms turns a few rows, not a page.
+    let state: { acc: number; last: number | null } = fresh;
+    let turned = 0;
+    for (let t = 0; t <= 400; t += 16) {
+      const r = wheelTurn(state, 30, t, 50, 120);
+      state = r.state;
+      if (r.step) turned += 1;
+    }
+    expect(turned).toBeGreaterThanOrEqual(2);
+    expect(turned).toBeLessThanOrEqual(4);
+  });
+  test('the editor: a card hides it, Make your own and a non-card show it, typing into a card keeps it', () => {
+    expect(editorShows(true, { kind: 'pickCard' })).toBe(false);
+    expect(editorShows(false, { kind: 'makeOwn' })).toBe(true);
+    expect(editorShows(false, { kind: 'pattern', card: false })).toBe(true);
+    expect(editorShows(true, { kind: 'pattern', card: true })).toBe(true);
+    expect(editorShows(false, { kind: 'pattern', card: true })).toBe(false);
   });
 });

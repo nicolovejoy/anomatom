@@ -31,6 +31,8 @@ export async function openTab(page: import('@playwright/test').Page, tab: 'patte
   if (await panel.isVisible()) {
     if ((await panel.getAttribute('aria-pressed')) !== 'true') await panel.click();
     if (tab === 'sound') return;
+    // v6 ruling 2: a card on stage hides the editor until Make your own.
+    if (!(await page.locator(`#tab-${tab}`).isVisible())) await page.locator('.deck-own').click();
   }
   const button = page.locator(`#tab-${tab}`);
   if (!(await button.isVisible())) {
@@ -38,6 +40,16 @@ export async function openTab(page: import('@playwright/test').Page, tab: 'patte
     if (tab === 'sound') return;
   }
   if ((await button.getAttribute('aria-selected')) !== 'true') await button.click();
+}
+
+/**
+ * On the wide layout a card on stage hides the editor (docs/plans/v6-wheel-filters-three.md,
+ * ruling 2) until Make your own: shows it, as a reader would, so a test can type a pattern. Does
+ * nothing where the editor already shows or on a phone.
+ */
+export async function showEditor(page: import('@playwright/test').Page) {
+  if (!(await page.locator('.panel-choice').isVisible()) || !(await page.locator('.deck-wheel').isVisible())) return;
+  if (await page.locator('#app.deck-editor-hidden.panel-patterns').count()) await page.locator('.deck-own').click();
 }
 
 /** Stop lives beside the time slider, shown while paused: pause first if playing, then stop. */
