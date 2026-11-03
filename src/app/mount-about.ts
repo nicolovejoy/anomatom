@@ -96,11 +96,12 @@ function credits(): HTMLElement {
 function built(): HTMLElement {
   const p = el('p');
   p.className = 'about-built';
-  const when = new Intl.DateTimeFormat('en-US', {
-    timeZone: 'America/Los_Angeles',
-    dateStyle: 'medium',
-    timeStyle: 'short',
-  }).format(new Date(__BUILD_TIME__));
+  // The date and the time apart, joined here: WebKit joins them with " at ", the others with a comma.
+  const at = new Date(__BUILD_TIME__);
+  const zone = { timeZone: 'America/Los_Angeles' } as const;
+  const date = new Intl.DateTimeFormat('en-US', { ...zone, month: 'short', day: 'numeric', year: 'numeric' }).format(at);
+  const time = new Intl.DateTimeFormat('en-US', { ...zone, hour: 'numeric', minute: '2-digit' }).format(at);
+  const when = `${date}, ${time}`;
   p.append(`${copy.aboutBuilt} ${when} ${copy.aboutBuiltZone}`);
   if (__BUILD_COMMIT__) {
     p.append(' · ');
