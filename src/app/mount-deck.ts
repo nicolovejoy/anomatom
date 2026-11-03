@@ -111,7 +111,7 @@ export const mountDeck: Mount = (root, { store, player, sound }) => {
         <input id="volume" class="slider" type="range" min="0" max="1" step="${KNOBS.volumeStep}" aria-label="${copy.volumeLabel}" />
       </span>
     </div>
-    <div class="deck-picker" hidden>
+    <div class="deck-picker" id="deck-picker" hidden>
       <div class="deck-filters" role="group" aria-label="${t.filtersLabel}">${t.filters
         .map((f) => `<button type="button" class="deck-filter" data-group="${f.group}" aria-pressed="false">${f.name}</button>`)
         .join('')}</div>
@@ -425,7 +425,7 @@ export const mountDeck: Mount = (root, { store, player, sound }) => {
       patternButton.removeAttribute('aria-expanded');
       patternButton.removeAttribute('aria-controls');
     } else {
-      patternButton.setAttribute('aria-controls', 'deck-wheel');
+      patternButton.setAttribute('aria-controls', 'deck-picker');
       patternButton.setAttribute('aria-expanded', String(shown));
     }
     placeWheel();
@@ -599,7 +599,7 @@ export const mountDeck: Mount = (root, { store, player, sound }) => {
       returnTimer = setTimeout(() => {
         setPhase('return');
         if (phase !== 'rest') return;
-        const had = wheel.contains(document.activeElement);
+        const had = picker.contains(document.activeElement);
         closeWheel();
         if (had) patternButton.focus();
       }, DECK.returnMs);
@@ -669,6 +669,12 @@ export const mountDeck: Mount = (root, { store, player, sound }) => {
   // as a step does (no sound starts; the web editor hides). The phone wheel stays open.
   for (const button of filterButtons) {
     button.addEventListener('click', () => {
+      // On a phone a chip tapped while the wheel settles ends the turn: the wheel goes back to its
+      // place at rest and stays open while the reader filters (no return timer closes it).
+      if (phase !== 'rest') {
+        endPhase();
+        placeWheel();
+      }
       const choice = chooseFilter(store.get(), button.dataset.group as CardGroup);
       store.set({ deckFilter: choice.deckFilter });
       if (choice.load) pick(order.indexOf(choice.load));

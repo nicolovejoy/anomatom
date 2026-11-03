@@ -166,6 +166,41 @@ for (const size of [
       await fresh.close();
     });
 
+    if (size.phone) {
+      /** Turns the wheel one row with ↓ and waits until it has settled (on the sheet, the return timer running). */
+      const turnAndSettle = async (page: Page) => {
+        await page.locator('.deck-row[data-row="0"]').focus();
+        await page.keyboard.press('ArrowDown');
+        await expect(page.locator('.deck-wheel')).toHaveAttribute('data-phase', 'settling');
+      };
+
+      test('a chip tapped while the wheel settles keeps it open; the wheel goes back to rest', async ({ page }) => {
+        await page.goto('/');
+        await turnAndSettle(page);
+        await tap(page, '4');
+        await expect(page.locator('.deck-wheel')).toHaveAttribute('data-phase', 'rest');
+        // Past the return delay (1.5 s after the settle): still open, the chip lit.
+        await page.waitForTimeout(2500);
+        await expect(page.locator('.deck-wheel')).toBeVisible();
+        await expect(chip(page, '4')).toHaveAttribute('aria-pressed', 'true');
+      });
+
+      test('focus on a chip when the settled wheel closes goes to the pattern button', async ({ page }) => {
+        await page.goto('/');
+        await turnAndSettle(page);
+        await chip(page, '5').focus();
+        await expect(page.locator('.deck-wheel')).toBeHidden({ timeout: 4000 });
+        await expect(page.locator('.deck-pattern')).toBeFocused();
+      });
+
+      test('the pattern button controls the picker, chips and wheel', async ({ page }) => {
+        await page.goto('/');
+        await expect(page.locator('.deck-pattern')).toHaveAttribute('aria-controls', 'deck-picker');
+        await expect(page.locator('#deck-picker .deck-filters')).toBeVisible();
+        await expect(page.locator('#deck-picker .deck-wheel')).toBeVisible();
+      });
+    }
+
     if (!size.phone) {
       test('kept across panel changes; a typed card outside the group clears it', async ({ page }) => {
         await page.goto('/');
