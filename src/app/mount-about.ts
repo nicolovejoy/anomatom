@@ -58,7 +58,7 @@ function bibliography(): HTMLElement {
   const s = el('div');
   const lead = el('p');
   lead.append(copy.aboutMathLead, external(copy.aboutMathUrl, copy.aboutMathLink), copy.aboutMathTail);
-  s.append(el('h4', copy.aboutReadingHeading), lead);
+  s.append(el('h4', copy.aboutReadingHeading), el('p', copy.aboutReadingBy), lead);
   for (const { heading, entries } of parseBibliography(bibliographySource)) {
     const list = el('ol');
     list.className = 'bibliography';
@@ -88,8 +88,25 @@ function credits(): HTMLElement {
   }
   const repo = el('p');
   repo.append(external(copy.aboutRepoUrl, copy.aboutRepo), `. ${copy.aboutLicence}`);
-  s.append(el('h4', copy.aboutCreditsHeading), list, repo);
+  s.append(el('h4', copy.aboutCreditsHeading), list, repo, built());
   return s;
+}
+
+/** When this copy was built, as Nico's clock reads it (America/Los_Angeles), and the commit, linked. */
+function built(): HTMLElement {
+  const p = el('p');
+  p.className = 'about-built';
+  const when = new Intl.DateTimeFormat('en-US', {
+    timeZone: 'America/Los_Angeles',
+    dateStyle: 'medium',
+    timeStyle: 'short',
+  }).format(new Date(__BUILD_TIME__));
+  p.append(`${copy.aboutBuilt} ${when} ${copy.aboutBuiltZone}`);
+  if (__BUILD_COMMIT__) {
+    p.append(' · ');
+    p.append(external(copy.aboutCommitUrl + __BUILD_COMMIT__, __BUILD_COMMIT__.slice(0, 7)));
+  }
+  return p;
 }
 
 /** Layer 3, below the fold: the bibliography, the math notes, the credits and the repo. */

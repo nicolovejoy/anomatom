@@ -245,4 +245,15 @@ test.describe('SPEC 7.7: the About page', () => {
     const rels = await page.locator('.about a[target="_blank"]').evaluateAll((as) => as.map((a) => a.getAttribute('rel')));
     for (const rel of rels) expect(rel).toContain('noopener');
   });
+
+  test('the last line names when the site was built, Pacific time, and its commit', async ({ page }) => {
+    for (const size of [{ width: 1280, height: 800 }, { width: 390, height: 844 }]) {
+      await page.setViewportSize(size);
+      await page.goto('/#about');
+      const built = page.locator('.about-built');
+      await expect(built).toBeVisible();
+      await expect(built).toHaveText(/^Built [A-Z][a-z]{2} \d{1,2}, \d{4}, \d{1,2}:\d{2}\s[AP]M PT · [0-9a-f]{7}$/);
+      await expect(built.locator('a')).toHaveAttribute('href', /^https:\/\/github\.com\/nicolovejoy\/anomatom\/commit\/[0-9a-f]{40}$/);
+    }
+  });
 });

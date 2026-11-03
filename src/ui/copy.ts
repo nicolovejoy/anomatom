@@ -143,12 +143,14 @@ export const copy = {
     { term: 'Cycle', text: 'How long a pattern runs before every ball is back where it started.' },
   ] as readonly { term: string; text: string }[],
   aboutSourcesHeading: 'Sources and details',
-  aboutReadingHeading: 'What I read',
+  aboutReadingHeading: 'What we read',
+  /** Who read it: under the heading, before the numbered list. */
+  aboutReadingBy: 'Read by Claude and Nico, building anomatom.',
   /** Before the link to the math notes, which cite the bibliography by these numbers. */
-  aboutMathLead: 'The numbers are the ones my ',
+  aboutMathLead: 'The numbers are the ones our ',
   aboutMathLink: 'math notes',
   aboutMathUrl: 'https://github.com/nicolovejoy/anomatom/blob/main/docs/MATH.md',
-  aboutMathTail: ' cite: the theory behind the patterns, and the cases I test.',
+  aboutMathTail: ' cite: the theory behind the patterns, and the cases we test.',
   aboutCreditsHeading: 'Credits',
   aboutCredits: [
     { name: 'sani.js', url: 'https://github.com/monkape/sani.js', note: 'whose motion model my juggler ports. MIT.' },
@@ -158,6 +160,10 @@ export const copy = {
   aboutRepo: 'My source is on GitHub',
   aboutRepoUrl: 'https://github.com/nicolovejoy/anomatom',
   aboutLicence: 'It is open source under the MIT licence.',
+  /** The About page's last line: when this copy of the site was built, Pacific time, and its commit. */
+  aboutBuilt: 'Built',
+  aboutBuiltZone: 'PT',
+  aboutCommitUrl: 'https://github.com/nicolovejoy/anomatom/commit/',
 
   // -------------------------------------------------------------------------------------------
   // E: Knobs
