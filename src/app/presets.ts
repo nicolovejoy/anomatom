@@ -38,7 +38,7 @@ function syncCard(id: string, text: string, balls: number, cycle: number): Prese
   return { id, group: String(balls) as CardGroup, texts: [text], parts: must(partsFromSync(text)), ratio: R(1, 1), balls, cycle };
 }
 
-/** A passing card: two jugglers, each on a drum machine of their own and panned where the stage draws them (`mappingOf`). */
+/** A passing card: two or three jugglers, each on a drum machine of their own and panned where the stage draws them (`mappingOf`). */
 function passingCard(id: string, text: string, balls: number, cycle: number): Preset {
   return { id, group: 'passing', texts: [text], parts: must(partsFromPassing(text)), ratio: { a: 1, b: 1 }, balls, cycle };
 }
@@ -47,7 +47,7 @@ const R = (a: number, b: number): Ratio => ({ a, b });
 
 /**
  * The cards in screen order, group by group (docs/plans/v3-classics-controls.md, ruling 2): the 18
- * of docs/plans/v5-sound-model.md §4. The nine cut there (423, 55500, (4,4), 534, 645, four-count,
+ * of docs/plans/v5-sound-model.md §4, then the three-juggler passing cards of docs/plans/v6-wheel-filters-three.md ruling 5. The nine cut there (423, 55500, (4,4), 534, 645, four-count,
  * five-pass, seven-four-count, seven-pass) still play as typed patterns and short links.
  */
 export const PRESETS: readonly Preset[] = [
@@ -69,6 +69,9 @@ export const PRESETS: readonly Preset[] = [
   passingCard('three-count', '<3p 3 3|3p 3 3>', 6, 6),
   passingCard('seven-fours', '<4p 4p 3 3|3p 3p 4 4>', 7, 4),
   passingCard('rising-passes', '<3p 4p 5p 3 0 3|3p 3 3p 3 3p 3>', 6, 6),
+  passingCard('three-feed', '<3p2 3 3p3 3|3p1 3 3 3|3 3 3p1 3>', 9, 4),
+  passingCard('three-triangle', '<3p2 3 3 3|3p3 3 3 3|3p1 3 3 3>', 9, 4),
+  passingCard('three-ultimates', '<3p2 3|3p1 3p3|3 3p2>', 9, 2),
 ];
 
 const sameStructure = (a: unknown, b: unknown): boolean => {

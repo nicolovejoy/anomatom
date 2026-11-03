@@ -37,7 +37,7 @@ describe('the cards', () => {
     expect(ids.indexOf('pause')).toBeLessThan(ids.indexOf('classic'));
     expect(ids.indexOf('polyrhythm')).toBeLessThan(ids.indexOf('ramp'));
   });
-  test('the deck is the 18 of v5 §4, in this order', () => {
+  test('the deck is the 18 of v5 §4 and the three-juggler cards of v6, in this order', () => {
     expect(PRESETS.map((p) => [p.id, p.group, p.texts.join(' / ')])).toEqual([
       ['cascade', '3', '3'],
       ['shower', '3', '51'],
@@ -57,6 +57,9 @@ describe('the cards', () => {
       ['three-count', 'passing', '<3p 3 3|3p 3 3>'],
       ['seven-fours', 'passing', '<4p 4p 3 3|3p 3p 4 4>'],
       ['rising-passes', 'passing', '<3p 4p 5p 3 0 3|3p 3 3p 3 3p 3>'],
+      ['three-feed', 'passing', '<3p2 3 3p3 3|3p1 3 3 3|3 3 3p1 3>'],
+      ['three-triangle', 'passing', '<3p2 3 3 3|3p3 3 3 3|3p1 3 3 3>'],
+      ['three-ultimates', 'passing', '<3p2 3|3p1 3p3|3 3p2>'],
     ]);
     expect(Object.keys(copy.presets).sort()).toEqual(PRESETS.map((p) => p.id).sort());
   });
@@ -67,8 +70,25 @@ describe('the cards', () => {
       expect(judge((partsFromPassing(text) as { ok: true; parts: never }).parts).ok, text).toBe(true);
     }
   });
-  test('the passing cards are four hands, two jugglers', () => {
-    for (const p of PRESETS.filter((q) => q.group === 'passing')) expect(p.parts.length, p.id).toBe(4);
+  test('the passing cards are four hands (two jugglers) or six (three)', () => {
+    const three = ['three-feed', 'three-triangle', 'three-ultimates'];
+    for (const p of PRESETS.filter((q) => q.group === 'passing')) expect(p.parts.length, p.id).toBe(three.includes(p.id) ? 6 : 4);
+  });
+  test('the three-juggler cards (v6 ruling 5): Juggling Lab basic_passing.jml, "3 jugglers 9 balls", last in the group', () => {
+    const sourced: Record<string, [string, number, number]> = {
+      'three-feed': ['<3p2 3 3p3 3|3p1 3 3 3|3 3 3p1 3>', 9, 4],
+      'three-triangle': ['<3p2 3 3 3|3p3 3 3 3|3p1 3 3 3>', 9, 4],
+      'three-ultimates': ['<3p2 3|3p1 3p3|3 3p2>', 9, 2],
+    };
+    expect(PRESETS.slice(-3).map((q) => q.id)).toEqual(Object.keys(sourced));
+    for (const [id, [text, balls, cycle]] of Object.entries(sourced)) {
+      const q = PRESETS.find((x) => x.id === id)!;
+      expect([q.group, q.texts, q.balls, q.cycle], id).toEqual(['passing', [text], balls, cycle]);
+      expect(judge(q.parts).ok, id).toBe(true);
+      expect(buildSchedule(q.parts).balls, id).toBe(balls);
+      expect(cycleOf(q.parts), id).toBe(cycle);
+      expect(new Set(buildSchedule(q.parts).events.map((e) => e.part >> 1)).size, id).toBe(3);
+    }
   });
   test('the v4 passing cards (ruling 8): sourced notation, the ball count the source states, last in the group', () => {
     const sourced: Record<string, [string, number]> = {
@@ -76,8 +96,8 @@ describe('the cards', () => {
       'rising-passes': ['<3p 4p 5p 3 0 3|3p 3 3p 3 3p 3>', 6],
     };
     const ids = PRESETS.map((q) => q.id);
-    for (const q of PRESETS.filter((x) => x.group === 'passing')) expect([6, 7], q.id).toContain(q.balls);
-    expect(ids.slice(-2)).toEqual(Object.keys(sourced));
+    for (const q of PRESETS.filter((x) => x.group === 'passing')) expect([6, 7, 9], q.id).toContain(q.balls);
+    expect(ids.slice(-5, -3)).toEqual(Object.keys(sourced));
     for (const [id, [text, balls]] of Object.entries(sourced)) {
       const q = PRESETS.find((x) => x.id === id)!;
       expect([q.group, q.texts, q.balls], id).toEqual(['passing', [text], balls]);

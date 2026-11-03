@@ -3,7 +3,7 @@ import { describe, expect, it } from 'vitest';
 import { parseBibliography, segments } from './bibliography';
 
 describe('parseBibliography', () => {
-  it('reads the real file: six sections, numbers 1 to 24 in order, as MATH.md cites them', () => {
+  it('reads the real file: six sections, numbers 1 to 27 in order, as MATH.md cites them', () => {
     const sections = parseBibliography(readFileSync('docs/BIBLIOGRAPHY.md', 'utf8'));
     expect(sections.map((s) => s.heading)).toEqual([
       'Papers',
@@ -14,7 +14,7 @@ describe('parseBibliography', () => {
       'Passing patterns',
     ]);
     const all = sections.flatMap((s) => s.entries);
-    expect(all.map((e) => e.number)).toEqual(Array.from({ length: 24 }, (_, i) => i + 1));
+    expect(all.map((e) => e.number)).toEqual(Array.from({ length: 27 }, (_, i) => i + 1));
     expect(all.filter((e) => e.url === null).map((e) => e.number)).toEqual([2, 17]);
     expect(all[1]?.text).not.toContain('Listed from');
     expect(all[0]?.url).toBe('https://www.cecm.sfu.ca/organics/papers/buhler/paper/html/node1.html');
