@@ -96,6 +96,16 @@ test('swap two sites: 531 → 441 by choosing throws 1 and 2', async ({ page }) 
   await expect(hand1(page)).toHaveValue('441');
 });
 
+// v6.3 rulings 3 and 4: a fine pointer keeps its keyboard. No inputmode, no ⌨ (e2e/phone-swap.spec.ts has the phone).
+test('a fine pointer: no ⌨ key and no inputmode on the pattern inputs', async ({ page }) => {
+  await page.goto('/#v1.e30');
+  await showEditor(page);
+  await openTab(page, 'pattern');
+  await expect(hand1(page)).toBeVisible();
+  await expect(page.locator('.key-keyboard')).toBeHidden();
+  for (const input of await page.locator('.pattern-field input').all()) expect(await input.getAttribute('inputmode')).toBeNull();
+});
+
 test('play, pause, scrub, resume, stop; Space toggles; volume and sound panel', async ({ page }) => {
   await page.goto('/#v1.e30');
   await showEditor(page);

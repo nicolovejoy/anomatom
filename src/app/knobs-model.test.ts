@@ -28,6 +28,9 @@ import {
   joinAction,
   pieces,
   reduceRatio,
+  caretAt,
+  choosesOnPointerUp,
+  siteAt,
   siteCovering,
   statusLines,
   stepRatio,
@@ -349,6 +352,40 @@ describe('swap', () => {
     expect(siteCovering('5 3x1', 3, 5)).toBeNull();
     expect(siteCovering('531', 1, 1)).toBeNull();
     expect(siteCovering('531', 3, 4)).toBeNull();
+  });
+
+  test('siteAt: the throw whose box spans x, left edge in, right edge out; null between throws', () => {
+    const boxes = [
+      { site: 0, left: 10, right: 20 },
+      { site: 1, left: 30, right: 40 },
+    ];
+    expect(siteAt(boxes, 10)).toBe(0);
+    expect(siteAt(boxes, 19.5)).toBe(0);
+    expect(siteAt(boxes, 20)).toBeNull();
+    expect(siteAt(boxes, 35)).toBe(1);
+    expect(siteAt(boxes, 5)).toBeNull();
+    expect(siteAt([], 15)).toBeNull();
+  });
+
+  test('caretAt: the gap nearest x, before the first character to the end', () => {
+    const chars = [
+      { left: 10, right: 20 },
+      { left: 20, right: 30 },
+      { left: 30, right: 40 },
+    ];
+    expect(caretAt(chars, 0)).toBe(0);
+    expect(caretAt(chars, 14)).toBe(0);
+    expect(caretAt(chars, 21)).toBe(1);
+    expect(caretAt(chars, 36)).toBe(3);
+    expect(caretAt(chars, 90)).toBe(3);
+    expect(caretAt([], 5)).toBe(0);
+  });
+
+  test('choosesOnPointerUp: a finger or a pen chooses on pointerup, a mouse (or no pointer) on click', () => {
+    expect(choosesOnPointerUp('touch')).toBe(true);
+    expect(choosesOnPointerUp('pen')).toBe(true);
+    expect(choosesOnPointerUp('mouse')).toBe(false);
+    expect(choosesOnPointerUp('')).toBe(false);
   });
 
   test('toggleSite: two in one hand, untap, other hand restarts, a third keeps the last two', () => {
