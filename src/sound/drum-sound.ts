@@ -22,7 +22,7 @@
 // then is reported as an interruption if iOS says `interrupted` (a call still on) or its resume
 // has failed; one whose resume is still in flight is starting, not stopped (an audio device can
 // take longer than AUDIO_STALL_CHECK_MS to open: Firefox on Linux), and is reported only if that
-// resume fails. The player calls `renew` AUDIO_STALL_CHECK_MS after the gesture (the timer is the
+// resume fails. A fresh context not running at the check after a rebuild is reported either way. The player calls `renew` AUDIO_STALL_CHECK_MS after the gesture (the timer is the
 // player's), once per resume, and once more after a new context, which only checks.
 import type { PartIndex } from '../core/types';
 import { FILTER_OPEN_HZ, PARAM_SMOOTH_SECONDS } from '../tunables';
@@ -138,7 +138,7 @@ export function createDrumSound(
     };
     resuming.then(done, () => {
       done();
-      interrupted(ctx);
+      if (ctx.state !== 'running') interrupted(ctx);
     });
   }
 
@@ -319,7 +319,8 @@ export function createDrumSound(
     /**
      * Call AUDIO_STALL_CHECK_MS after `resume`. A context not running by then is reported as an
      * interruption (`onInterrupt`) when iOS says `interrupted` or no resume is in flight; one still
-     * starting is left to its resume, which reports itself if refused. If it says `running` but its clock has
+     * starting is left to its resume, which reports itself if refused. After a rebuild, the check
+     * reports a fresh context not running whatever its resume. If it says `running` but its clock has
      * not moved since, closes it and makes a fresh one: the bus at the current volume and cutoff,
      * the last mapping's kits and pad loading again. True if it did; `now()` is then the new
      * clock; call again after as long, which only checks the fresh one started. Once per resume:
@@ -330,7 +331,8 @@ export function createDrumSound(
       mark = null;
       if (!was || context !== was.ctx) return false;
       if (was.ctx.state !== 'running') {
-        if ((was.ctx.state as string) === 'interrupted' || !starting.has(was.ctx)) interrupted(was.ctx);
+        // A fresh context (the check) was made outside the gesture: its resume may pend forever.
+        if ((was.ctx.state as string) === 'interrupted' || was.check || !starting.has(was.ctx)) interrupted(was.ctx);
         return false;
       }
       if (was.check || was.ctx.currentTime !== was.time) return false;

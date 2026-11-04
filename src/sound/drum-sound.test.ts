@@ -570,12 +570,12 @@ describe('the context is watched (v6.3, #81)', () => {
     expect(none.renew()).toBe(false);
   });
 
-  test('a fresh context that has not started is resumed; the check after it never rebuilds, and a refused resume is heard', async () => {
+  test('a fresh context that has not started is resumed; the check after it never rebuilds and hears one still not running, its resume pending or refused', async () => {
     const contexts: ReturnType<typeof fakeContext>[] = [];
     let refuse!: (e: unknown) => void;
     const sound = createDrumSound(() => {
       const ctx = fakeContext(contexts.length === 0 ? 'running' : 'suspended');
-      // The third context: made outside a gesture, the browser refuses to start it.
+      // The third context: made outside a gesture, the browser leaves its resume pending, then refuses it.
       if (contexts.length === 2) ctx.resume.mockImplementation(() => new Promise<void>((_res, rej) => (refuse = rej)));
       contexts.push(ctx);
       return ctx;
@@ -591,12 +591,12 @@ describe('the context is watched (v6.3, #81)', () => {
     sound.resume();
     expect(sound.renew()).toBe(true);
     expect(contexts[2]?.resume).toHaveBeenCalled();
-    // Still starting at the check: not a failure. Refused: heard.
+    // Not running at the check, its resume pending (it may pend forever): heard. Refused later: heard again.
     expect(sound.renew()).toBe(false);
-    expect(heard).not.toHaveBeenCalled();
+    expect(heard).toHaveBeenCalledTimes(1);
     refuse(new Error('NotAllowedError'));
     await settle();
-    expect(heard).toHaveBeenCalledTimes(1);
+    expect(heard).toHaveBeenCalledTimes(2);
     expect(contexts).toHaveLength(3);
   });
 
@@ -620,6 +620,20 @@ describe('the context is watched (v6.3, #81)', () => {
     expect(heard).toHaveBeenCalledTimes(1);
     expect(sound.renew()).toBe(false);
     expect(heard).toHaveBeenCalledTimes(2);
+  });
+
+  test('a refused resume on a context that is running by then is not heard', async () => {
+    const ctx = fakeContext();
+    let refuse!: (e: unknown) => void;
+    ctx.resume.mockImplementation(() => new Promise<void>((_res, rej) => (refuse = rej)));
+    const sound = createDrumSound(() => ctx, async () => fakeKit() as Kit);
+    const heard = vi.fn();
+    sound.onInterrupt(heard);
+    sound.resume();
+    ctx.become('running');
+    refuse(new Error('AbortError'));
+    await settle();
+    expect(heard).not.toHaveBeenCalled();
   });
 
   test('a resume the browser refuses (Play during a call) is heard at once', async () => {
