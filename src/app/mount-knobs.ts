@@ -60,7 +60,7 @@ import {
 } from './lanes-model';
 import { cellColumns, focusAfterAdd, focusAfterRemove, laneDot, playheadSteps, ratioChipsShown, voiceName } from './lanes-view';
 import type { Mount } from './mount';
-import { fillPercent, hasChip } from './sheet-model';
+import { fillPercent, hasChip, soundRowHeld } from './sheet-model';
 import type { AppState } from './state';
 import './knobs.css';
 
@@ -573,16 +573,34 @@ export const mountKnobs: Mount = (root, { store, player, sound }) => {
     shownState = state;
   }
 
-  /** Shows whether the samples are loading, in or failed, beside Play; Retry only when failed. */
+  /**
+   * Shows whether the samples are loading, in or failed, beside Play; Retry only when failed. Once
+   * a failure has shown the row, a reload keeps it in place (Retry's room held, the text saying it
+   * is fetching), so the deck under it does not jump. The text is written only when it changes, so
+   * a screen reader is not told "fetching" again for every kit. Retry pressed keeps focus: it goes
+   * back to Retry when Retry comes back, unless the reader has moved it meanwhile.
+   */
+  let soundHeld = false;
+  let retryHadFocus = false;
   function showSoundStatus() {
     const status = sound.status();
+    soundHeld = soundRowHeld(status, soundHeld);
     soundStatus.dataset.state = status;
-    soundStatusText.textContent =
+    soundStatus.toggleAttribute('data-held', soundHeld);
+    const text =
       status === 'loading' ? copy.soundLoading : status === 'failed' ? copy.soundFailed : status === 'ready' ? copy.soundReady : '';
-    soundRetry.hidden = status !== 'failed';
+    if (soundStatusText.textContent !== text) soundStatusText.textContent = text;
+    soundRetry.hidden = !soundHeld;
+    soundRetry.disabled = status !== 'failed';
+    if (status === 'loading') return;
+    if (status === 'failed' && retryHadFocus && (document.activeElement === document.body || document.activeElement === null)) soundRetry.focus();
+    retryHadFocus = false;
   }
   sound.subscribe(showSoundStatus);
-  soundRetry.addEventListener('click', () => sound.retry());
+  soundRetry.addEventListener('click', () => {
+    retryHadFocus = document.activeElement === soundRetry;
+    sound.retry();
+  });
   showSoundStatus();
 
   /** Starts from stopped, or resumes from paused (Enter in a pattern input). */
