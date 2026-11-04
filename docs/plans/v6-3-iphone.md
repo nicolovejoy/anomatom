@@ -1,6 +1,6 @@
 # v6.3 · iPhone: sound that comes back, Swap that lights
 
-Status: planned 2026-11-03 (build governor Opus, session 1227). Two streams, Opus builds and Opus reviews (no Fable review this wave). Agents run every smoke that can run headless; Nico's real iPhone is the check only for what emulation cannot reach (an iOS audio session, a real touch keyboard).
+Status: merged 2026-11-03 (build governor Opus, session 1227; PRs 103 plan, 104 A (Opus, three review rounds), 105 B (Opus, one round); Opus reviews, no Fable). A rulings as built: the stall check reports a context not running only if iOS says `interrupted` or no resume is in flight (a resume still pending is starting: CI's Firefox takes 1.6 s), and after a rebuild it reports a fresh context not running whatever its resume; a refused resume reports itself. The A e2e reaches the context by wrapping `window.AudioContext` in a Playwright init script (test only, no app global). B as built: ⌨ in the pad's free fourth-row cell, labelled for the on-screen keyboard; a touch tap puts the caret in the gap nearest the finger (`caretAt`); ⌨'s keyboard carries across the `/` split and the join. Open: #106 (phone › after a chip, flaky on main). Device-only checks left: real iOS interruption and the iOS keyboard staying shut.
 
 ## 0. Decided with Nico, 2026-11-03
 
