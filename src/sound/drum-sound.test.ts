@@ -42,6 +42,13 @@ function fakeContext(state: AudioContextState = 'suspended') {
       ctx.state = 'running';
     }),
     close: vi.fn(async () => {}),
+    heard: [] as (() => void)[],
+    addEventListener: (_type: 'statechange', listener: () => void) => ctx.heard.push(listener),
+    /** The browser moving the context to `next`, as iOS does on an interruption. */
+    become(next: string) {
+      ctx.state = next as AudioContextState;
+      for (const listener of ctx.heard) listener();
+    },
   };
   return ctx as unknown as AudioContext & typeof ctx;
 }
@@ -468,5 +475,175 @@ describe('kits (v2 wave 1, ruling 1)', () => {
     await settle();
     sound.close();
     expect(made.map((m) => m.fake.disposed)).toEqual([true, true, true, true]);
+  });
+});
+
+describe('the context is watched (v6.3, #81)', () => {
+  test('leaving running (iOS interrupted, or suspended) is heard; running, a closed context and a stopped listener are not', () => {
+    const ctx = fakeContext('running');
+    const sound = createDrumSound(() => ctx, async () => fakeKit() as Kit);
+    const heard = vi.fn();
+    const stop = sound.onInterrupt(heard);
+    sound.now();
+    ctx.become('interrupted');
+    ctx.become('running');
+    ctx.become('suspended');
+    expect(heard).toHaveBeenCalledTimes(2);
+    stop();
+    ctx.become('interrupted');
+    expect(heard).toHaveBeenCalledTimes(2);
+    sound.onInterrupt(heard);
+    sound.close();
+    ctx.become('closed');
+    expect(heard).toHaveBeenCalledTimes(2);
+  });
+
+  test('renew: a context that says running but whose clock has not moved since the resume is replaced', async () => {
+    const contexts: ReturnType<typeof fakeContext>[] = [];
+    const kits: ReturnType<typeof fakeKit>[] = [];
+    const loadKit = vi.fn(async (_c: AudioContext) => {
+      const kit = fakeKit();
+      kits.push(kit);
+      return kit as Kit;
+    });
+    const sound = createDrumSound(() => {
+      const ctx = fakeContext('running');
+      contexts.push(ctx);
+      return ctx;
+    }, loadKit);
+    const heard = vi.fn();
+    sound.onInterrupt(heard);
+    sound.setMaster(0.4);
+    sound.setFilter(900);
+    sound.preload(DEFAULT_MAPPING);
+    await settle();
+    const old = contexts[0] as ReturnType<typeof fakeContext>;
+    sound.resume();
+    expect(sound.renew()).toBe(true);
+    expect(old.close).toHaveBeenCalled();
+    // A load for the old context that lands now is dropped: the epoch moved on.
+    kits[0]?.resolve();
+    await settle();
+    expect(kits[0]?.disposed).toBe(true);
+    // The new one: the bus at the current volume and cutoff, the last mapping loading on it.
+    const fresh = contexts[1] as ReturnType<typeof fakeContext>;
+    expect(fresh.nodes.find((n) => n.kind === 'filter')?.frequency.value).toBe(900);
+    expect(fresh.nodes.find((n) => n.kind === 'gain')?.gain.value).toBe(0.4);
+    expect(loadKit.mock.calls.slice(2).map(([c]) => c)).toEqual([fresh, fresh]);
+    expect(sound.status()).toBe('loading');
+    // Already running: not resumed. The old context closing is not an interruption.
+    expect(fresh.resume).not.toHaveBeenCalled();
+    old.become('closed');
+    expect(heard).not.toHaveBeenCalled();
+    fresh.currentTime = 0.25;
+    expect(sound.now()).toBe(0.25);
+    // Once per gesture: a clock that never runs is not replaced again until the next resume.
+    expect(sound.renew()).toBe(false);
+    sound.resume();
+    expect(sound.renew()).toBe(true);
+    expect(contexts).toHaveLength(3);
+  });
+
+  test('renew leaves a clock that moved, a closed sound and one never resumed alone; a context still not running is heard', () => {
+    const ctx = fakeContext('running');
+    const sound = createDrumSound(() => ctx, async () => fakeKit() as Kit);
+    const heard = vi.fn();
+    sound.onInterrupt(heard);
+    expect(sound.renew()).toBe(false);
+    sound.resume();
+    ctx.currentTime = 1.6;
+    expect(sound.renew()).toBe(false);
+    // Play during a call: the resume does not take, the state does not change, no statechange.
+    ctx.become('interrupted');
+    expect(heard).toHaveBeenCalledTimes(1);
+    ctx.resume.mockImplementation(() => new Promise<void>(() => {}));
+    sound.resume();
+    expect(sound.renew()).toBe(false);
+    expect(heard).toHaveBeenCalledTimes(2);
+    sound.resume();
+    sound.close();
+    expect(sound.renew()).toBe(false);
+    expect(heard).toHaveBeenCalledTimes(2);
+    expect(ctx.close).toHaveBeenCalledTimes(1);
+    const none = createDrumSound(() => null, async () => fakeKit() as Kit);
+    none.resume();
+    expect(none.renew()).toBe(false);
+  });
+
+  test('a fresh context that has not started is resumed; the check after it never rebuilds and hears one still not running, its resume pending or refused', async () => {
+    const contexts: ReturnType<typeof fakeContext>[] = [];
+    let refuse!: (e: unknown) => void;
+    const sound = createDrumSound(() => {
+      const ctx = fakeContext(contexts.length === 0 ? 'running' : 'suspended');
+      // The third context: made outside a gesture, the browser leaves its resume pending, then refuses it.
+      if (contexts.length === 2) ctx.resume.mockImplementation(() => new Promise<void>((_res, rej) => (refuse = rej)));
+      contexts.push(ctx);
+      return ctx;
+    }, async () => fakeKit() as Kit);
+    const heard = vi.fn();
+    sound.onInterrupt(heard);
+    sound.resume();
+    expect(sound.renew()).toBe(true);
+    expect(contexts[1]?.resume).toHaveBeenCalled();
+    // It started: the check says nothing, even on a clock that has not moved yet.
+    expect(sound.renew()).toBe(false);
+    expect(heard).not.toHaveBeenCalled();
+    sound.resume();
+    expect(sound.renew()).toBe(true);
+    expect(contexts[2]?.resume).toHaveBeenCalled();
+    // Not running at the check, its resume pending (it may pend forever): heard. Refused later: heard again.
+    expect(sound.renew()).toBe(false);
+    expect(heard).toHaveBeenCalledTimes(1);
+    refuse(new Error('NotAllowedError'));
+    await settle();
+    expect(heard).toHaveBeenCalledTimes(2);
+    expect(contexts).toHaveLength(3);
+  });
+
+  test('a clock slow to start (Firefox on Linux) is not stopped: still suspended at the check with its resume in flight, nothing is heard', async () => {
+    const ctx = fakeContext();
+    let started!: () => void;
+    ctx.resume.mockImplementation(() => new Promise<void>((res) => (started = res)));
+    const sound = createDrumSound(() => ctx, async () => fakeKit() as Kit);
+    const heard = vi.fn();
+    sound.onInterrupt(heard);
+    sound.resume();
+    expect(sound.renew()).toBe(false);
+    expect(ctx.close).not.toHaveBeenCalled();
+    ctx.become('running');
+    started();
+    await settle();
+    expect(heard).not.toHaveBeenCalled();
+    // Suspended with no resume in flight is stopped: heard on the statechange, and at the check.
+    sound.resume();
+    ctx.become('suspended');
+    expect(heard).toHaveBeenCalledTimes(1);
+    expect(sound.renew()).toBe(false);
+    expect(heard).toHaveBeenCalledTimes(2);
+  });
+
+  test('a refused resume on a context that is running by then is not heard', async () => {
+    const ctx = fakeContext();
+    let refuse!: (e: unknown) => void;
+    ctx.resume.mockImplementation(() => new Promise<void>((_res, rej) => (refuse = rej)));
+    const sound = createDrumSound(() => ctx, async () => fakeKit() as Kit);
+    const heard = vi.fn();
+    sound.onInterrupt(heard);
+    sound.resume();
+    ctx.become('running');
+    refuse(new Error('AbortError'));
+    await settle();
+    expect(heard).not.toHaveBeenCalled();
+  });
+
+  test('a resume the browser refuses (Play during a call) is heard at once', async () => {
+    const ctx = fakeContext('interrupted' as AudioContextState);
+    ctx.resume.mockRejectedValue(new Error('InvalidStateError'));
+    const sound = createDrumSound(() => ctx, async () => fakeKit() as Kit);
+    const heard = vi.fn();
+    sound.onInterrupt(heard);
+    sound.resume();
+    await settle();
+    expect(heard).toHaveBeenCalledTimes(1);
   });
 });

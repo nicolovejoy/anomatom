@@ -13,6 +13,17 @@
 // A part's kit is its `PartVoice.kit`. Changing it loads that kit for the part while the old one
 // keeps playing; the new one plays from its first hit after it is in. A kit a part has had is kept
 // (here and in the factory) until close, so switching back is instant.
+//
+// The context is watched (#81). When it leaves `running` (iOS `interrupted`: a call, the lock
+// button; or `suspended`), `onInterrupt` listeners hear of it, and the player pauses; only a
+// gesture resumes. A context that says `running` after a resume but whose clock has not moved
+// (WebKit's silent resume) is replaced by `renew`: closed, and a fresh one made with the bus at
+// the current volume and cutoff and the last mapping loaded again. A context still not running
+// then is reported as an interruption if iOS says `interrupted` (a call still on) or its resume
+// has failed; one whose resume is still in flight is starting, not stopped (an audio device can
+// take longer than AUDIO_STALL_CHECK_MS to open: Firefox on Linux), and is reported only if that
+// resume fails. A fresh context not running at the check after a rebuild is reported either way. The player calls `renew` AUDIO_STALL_CHECK_MS after the gesture (the timer is the
+// player's), once per resume, and once more after a new context, which only checks.
 import type { PartIndex } from '../core/types';
 import { FILTER_OPEN_HZ, PARAM_SMOOTH_SECONDS } from '../tunables';
 import type { Hit, Mapping, PadHit, PadInstrument } from './mapping';
@@ -76,6 +87,12 @@ export function createDrumSound(
   let epoch = 0;
   let lastMapping: Mapping | null = null;
   const listeners = new Set<() => void>();
+  const interruptListeners = new Set<() => void>();
+  // The clock as the last resume left it, for `renew`; taken by it, so one rebuild per gesture.
+  // `check`: left by a rebuild, so the next `renew` only checks the new context started.
+  let mark: { ctx: AudioContext; time: number; check: boolean } | null = null;
+  // Per context: its latest resume, while it is in flight.
+  const starting = new WeakMap<AudioContext, Promise<void>>();
 
   function status(): SoundStatus {
     if (inFlight > 0) return 'loading';
@@ -107,6 +124,30 @@ export function createDrumSound(
     if (session && session.type !== 'playback') session.type = 'playback';
   }
 
+  /** Tells the listeners `ctx` has stopped, unless it has been closed or replaced since. */
+  function interrupted(ctx: AudioContext) {
+    if (context === ctx) for (const listener of [...interruptListeners]) listener();
+  }
+
+  /** Resumes `ctx`; a resume the browser refuses is an interruption. */
+  function start(ctx: AudioContext) {
+    const resuming = ctx.resume();
+    starting.set(ctx, resuming);
+    const done = () => {
+      if (starting.get(ctx) === resuming) starting.delete(ctx);
+    };
+    resuming.then(done, () => {
+      done();
+      if (ctx.state !== 'running') interrupted(ctx);
+    });
+  }
+
+  function watch(ctx: AudioContext) {
+    ctx.addEventListener('statechange', () => {
+      if (ctx.state !== 'running') interrupted(ctx);
+    });
+  }
+
   function audio(): AudioContext | null {
     if (context === undefined) {
       context = makeContext();
@@ -119,10 +160,41 @@ export function createDrumSound(
         filter.connect(master);
         master.connect(context.destination);
         bus = { filter, master };
+        watch(context);
         setPlaybackSession();
       }
     }
     return context;
+  }
+
+  function resume() {
+    const ctx = audio();
+    if (!ctx) return;
+    setPlaybackSession();
+    mark = { ctx, time: ctx.currentTime, check: false };
+    if (ctx.state === 'suspended' || (ctx.state as string) === 'interrupted') start(ctx);
+  }
+
+  /** Disposes every kit and pad, moves the epoch on so loads in flight cannot land, closes the context. */
+  function close() {
+    for (const kit of [...held, ...pads.values(), ...loading]) kit.dispose();
+    ready.clear();
+    held.clear();
+    kept.clear();
+    pads.clear();
+    padsRequested.clear();
+    loading.clear();
+    requested.clear();
+    voices.clear();
+    epoch++;
+    inFlight = 0;
+    failedParts.clear();
+    failedPads.clear();
+    notify();
+    bus = null;
+    mark = null;
+    if (context) void context.close();
+    context = null;
   }
 
   function ramp(param: AudioParam, value: number) {
@@ -243,11 +315,42 @@ export function createDrumSound(
      */
     preload,
     /** Call from a user gesture: a context made before any gesture starts suspended. */
-    resume() {
+    resume,
+    /**
+     * Call AUDIO_STALL_CHECK_MS after `resume`. A context not running by then is reported as an
+     * interruption (`onInterrupt`) when iOS says `interrupted` or no resume is in flight; one still
+     * starting is left to its resume, which reports itself if refused. After a rebuild, the check
+     * reports a fresh context not running whatever its resume. If it says `running` but its clock has
+     * not moved since, closes it and makes a fresh one: the bus at the current volume and cutoff,
+     * the last mapping's kits and pad loading again. True if it did; `now()` is then the new
+     * clock; call again after as long, which only checks the fresh one started. Once per resume:
+     * a clock that never runs is not replaced again until the next gesture.
+     */
+    renew(): boolean {
+      const was = mark;
+      mark = null;
+      if (!was || context !== was.ctx) return false;
+      if (was.ctx.state !== 'running') {
+        // A fresh context (the check) was made outside the gesture: its resume may pend forever.
+        if ((was.ctx.state as string) === 'interrupted' || was.check || !starting.has(was.ctx)) interrupted(was.ctx);
+        return false;
+      }
+      if (was.check || was.ctx.currentTime !== was.time) return false;
+      close();
+      context = undefined;
       const ctx = audio();
-      if (!ctx) return;
-      setPlaybackSession();
-      if (ctx.state === 'suspended' || (ctx.state as string) === 'interrupted') void ctx.resume();
+      if (lastMapping) preload(lastMapping);
+      // Made outside the gesture, it may not start: the check `renew` leaves, and a refused resume, report it.
+      if (ctx) {
+        if (ctx.state !== 'running') start(ctx);
+        mark = { ctx, time: ctx.currentTime, check: true };
+      }
+      return true;
+    },
+    /** Calls `listener` when the context stops while it should be running (iOS interruptions); returns the way to stop. */
+    onInterrupt(listener: () => void) {
+      interruptListeners.add(listener);
+      return () => void interruptListeners.delete(listener);
     },
     /** Whether the samples are loading, in, or failed to load. */
     status,
@@ -290,25 +393,7 @@ export function createDrumSound(
         pad.start({ note: hit.note, velocity: hit.velocity, time, duration: hit.durationPulses * pulseLen });
       }
     },
-    close() {
-      for (const kit of [...held, ...pads.values(), ...loading]) kit.dispose();
-      ready.clear();
-      held.clear();
-      kept.clear();
-      pads.clear();
-      padsRequested.clear();
-      loading.clear();
-      requested.clear();
-      voices.clear();
-      epoch++;
-      inFlight = 0;
-      failedParts.clear();
-      failedPads.clear();
-      notify();
-      bus = null;
-      if (context) void context.close();
-      context = null;
-    },
+    close,
   };
 }
 

@@ -1,4 +1,4 @@
-// The player: the look-ahead loop (the only place with a timer) and the segments the picture
+// The player: the look-ahead loop (the only place with timers) and the segments the picture
 // reads. Every `SCHEDULER_INTERVAL_MS` it reads the audio clock and hands the sampler every event
 // up to `LOOKAHEAD_SECONDS` ahead, each from the segment that owns its time.
 //
@@ -36,6 +36,14 @@
 //   Scheduling picks up at the first whole pulse at or after the frozen time, so a scrub to a
 //   whole pulse plays that pulse's hit. A resume before the glide ends needs no shift and
 //   continues seamlessly, the picture still following the clock.
+//
+// The context stopping (#81): when DrumSound says the context has left `running` (an iOS
+// interruption), the player pauses as a press of Pause would; Play resumes. And
+// `AUDIO_STALL_CHECK_MS` after each gesture it asks DrumSound to `renew` a context whose clock
+// has not moved (or to report one a call still holds). A new context is a new clock: every
+// time the player keeps moves by the jump (`sound.now()` after less before), and what the dead
+// context never sounded is handed over again, from where this run's unheard audio began. One
+// more check follows a new context; it never rebuilds.
 import { carryOver } from '../core/carry';
 import type { Schedule } from '../core/types';
 import type { DrumSound } from '../sound/drum-sound';
@@ -43,7 +51,15 @@ import { filterCutoff, hitFor, padHitsAt, type Hit, type Mapping } from '../soun
 import { crossingsOfSchedule } from '../sound/schedule-crossings';
 import { eventsBetween, pulseSeconds, type TimedEvent } from '../sound/transport';
 import { mappingOf } from '../sound/drummers';
-import { DEFAULT_ALSO, DEFAULT_KIT_SHIFT, DEFAULT_LISTEN, LOOKAHEAD_SECONDS, SCHEDULER_INTERVAL_MS, START_DELAY_SECONDS } from '../tunables';
+import {
+  AUDIO_STALL_CHECK_MS,
+  DEFAULT_ALSO,
+  DEFAULT_KIT_SHIFT,
+  DEFAULT_LISTEN,
+  LOOKAHEAD_SECONDS,
+  SCHEDULER_INTERVAL_MS,
+  START_DELAY_SECONDS,
+} from '../tunables';
 import type { PlayerView, Segment } from '../view/types';
 
 export type { PlayerView, Segment } from '../view/types';
@@ -92,6 +108,7 @@ export function crossingCatches(
 
 export function createPlayer(sound: DrumSound, options: PlayerOptions = {}) {
   let timer: ReturnType<typeof setInterval> | undefined;
+  let stallCheck: ReturnType<typeof setTimeout> | undefined;
   let state: PlayState = 'stopped';
   /** Replaced, never mutated, so a view handed out stays as it was. */
   let segments: readonly Segment[] = [];
@@ -105,6 +122,8 @@ export function createPlayer(sound: DrumSound, options: PlayerOptions = {}) {
   let scheduled = 0;
   /** Audio time up to which events have been handed to the sampler. */
   let scheduledTo = 0;
+  /** Where this run's unheard audio begins: handed over again if the context is replaced. */
+  let runFrom = 0;
   /** While paused: the time the picture freezes at, and whether it is still gliding up to it. */
   let frozen = 0;
   let gliding = false;
@@ -113,6 +132,39 @@ export function createPlayer(sound: DrumSound, options: PlayerOptions = {}) {
   /** After a resume: the picture holds here until the clock reaches it. */
   let hold = -Infinity;
 
+  /** Every segment `d` seconds later. */
+  function shift(d: number) {
+    segments = segments.map((s) => ({
+      ...s,
+      startTime: s.startTime + d,
+      endTime: s.endTime === null ? null : s.endTime + d,
+    }));
+  }
+
+  /** After a gesture's resume: a context whose clock has not moved is replaced, and the player moves to the new clock. */
+  function checkClock() {
+    clearStallCheck();
+    stallCheck = setTimeout(() => {
+      stallCheck = undefined;
+      const before = sound.now();
+      if (!sound.renew()) return;
+      const d = sound.now() - before;
+      shift(d);
+      frozen += d;
+      cycleStart += d;
+      hold += d;
+      // Nothing since `runFrom` sounded: hand it over again (paused: resume sets it).
+      scheduledTo = runFrom + d;
+      // Check-only: the new context is reported if it cannot start.
+      checkClock();
+    }, AUDIO_STALL_CHECK_MS);
+  }
+
+  function clearStallCheck() {
+    if (stallCheck !== undefined) clearTimeout(stallCheck);
+    stallCheck = undefined;
+  }
+
   function stopTimer() {
     if (timer !== undefined) clearInterval(timer);
     timer = undefined;
@@ -120,6 +172,7 @@ export function createPlayer(sound: DrumSound, options: PlayerOptions = {}) {
 
   function stop() {
     stopTimer();
+    clearStallCheck();
     state = 'stopped';
     cutoff = Number.NaN;
     segments = [];
@@ -131,16 +184,19 @@ export function createPlayer(sound: DrumSound, options: PlayerOptions = {}) {
     stop();
     // A gesture: resume the context, and retry any kit that failed to load at page open.
     sound.resume();
+    checkClock();
     sound.preload(newMapping);
     mapping = newMapping;
     const startTime = sound.now() + START_DELAY_SECONDS;
     segments = [{ schedule, startTime, pulseLen: pulseSeconds(bpm, schedule.grids), endTime: null, carry: NO_CARRY }];
     scheduledTo = 0;
-    run();
+    run(sound.now());
   }
 
-  function run() {
+  /** `from`: where this run's unheard audio begins (see `runFrom`). */
+  function run(from: number) {
     state = 'playing';
+    runFrom = from;
     tick();
     timer = setInterval(tick, SCHEDULER_INTERVAL_MS);
   }
@@ -247,6 +303,7 @@ export function createPlayer(sound: DrumSound, options: PlayerOptions = {}) {
   function resume() {
     if (state !== 'paused') return;
     sound.resume();
+    checkClock();
     const now = sound.now();
     // Still gliding: the hits handed over are still sounding, so the picture keeps following
     // the clock and nothing shifts.
@@ -260,15 +317,13 @@ export function createPlayer(sound: DrumSound, options: PlayerOptions = {}) {
     const at = (frozen - seg.startTime) / seg.pulseLen;
     const k = Math.ceil(gliding ? at : at - 1e-9);
     scheduledTo = seg.startTime + d + Math.max(0, k - 0.5) * seg.pulseLen;
-    segments = segments.map((s) => ({
-      ...s,
-      startTime: s.startTime + d,
-      endTime: s.endTime === null ? null : s.endTime + d,
-    }));
+    shift(d);
     // A glide resume keeps the hold it had: in the past as a rule, but after a scrub ahead of
     // the clock, a resume and a pause in the wait, it is the scrubbed point the audio resumes at.
     hold = glide ? hold : frozen + d;
-    run();
+    // A glide: what was handed over before the pause, from now on, has not sounded yet. Otherwise
+    // the run starts at the resume point.
+    run(glide ? now : scheduledTo);
   }
 
   /** The time the picture shows, while playing or paused. */
@@ -279,6 +334,10 @@ export function createPlayer(sound: DrumSound, options: PlayerOptions = {}) {
     if (state === 'paused') return gliding ? Math.min(clock, Math.max(frozen, hold)) : frozen;
     return clock;
   }
+
+  // An interruption is a press of Pause: the screen never shows playing over a stopped clock.
+  // The way to stop listening is not kept: one player per page, for the page's life.
+  sound.onInterrupt(pause);
 
   return {
     play,

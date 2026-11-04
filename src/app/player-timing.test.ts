@@ -25,6 +25,8 @@ function fakeSound() {
   const sound = {
     now: () => clock,
     resume: vi.fn(),
+    renew: vi.fn(() => false),
+    onInterrupt: vi.fn(),
     preload: vi.fn(),
     setFilter: vi.fn(),
     playPad: vi.fn(),

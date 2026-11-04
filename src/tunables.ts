@@ -23,6 +23,11 @@ export const LOOKAHEAD_SECONDS = 0.1;
 export const SCHEDULER_INTERVAL_MS = 25;
 /** Delay between pressing play and the first pulse, so the first window has room. */
 export const START_DELAY_SECONDS = 0.05;
+/**
+ * After a resume from a gesture, how long the audio clock has to move. A context that says
+ * `running` but has not moved by then (WebKit, after an interruption) is replaced (#81).
+ */
+export const AUDIO_STALL_CHECK_MS = 300;
 
 /** The patterns in the boxes when the page opens: a vanilla cascade, and a two-ball fountain for hand 2 at other ratios. */
 export const DEFAULT_PATTERN = '3';

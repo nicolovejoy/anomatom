@@ -1,8 +1,8 @@
-import { expect, test, vi } from 'vitest';
+import { describe, expect, test, vi } from 'vitest';
 import { carryOver } from '../core';
 import { scheduleOf } from '../test/schedules';
 import { HEIGHT_DRUM } from '../test/mappings';
-import { LOOKAHEAD_SECONDS, SCHEDULER_INTERVAL_MS } from '../tunables';
+import { AUDIO_STALL_CHECK_MS, LOOKAHEAD_SECONDS, SCHEDULER_INTERVAL_MS, START_DELAY_SECONDS } from '../tunables';
 
 /** These tests hear the sound by throw height; the default preset now plays one voice per part. */
 const DEFAULT_MAPPING = HEIGHT_DRUM;
@@ -20,6 +20,8 @@ function fakeSound() {
   const sound = {
     now: () => clock,
     resume: vi.fn(),
+    renew: vi.fn(() => false),
+    onInterrupt: vi.fn(),
     preload: vi.fn(),
     setFilter: vi.fn(),
     playPad: vi.fn(),
@@ -910,4 +912,150 @@ test('a fresh play sends the cutoff again, in case the context is new', () => {
   expect(sound.setFilter).toHaveBeenCalledTimes(2);
   player.stop();
   vi.useRealTimers();
+});
+
+describe('the context stopping (v6.3, #81)', () => {
+  /** A sound whose clock can stall and be replaced: `renew` swaps in a fresh clock at 0 when `stalled`. */
+  function watchedSound() {
+    const fake = fakeSound();
+    let clock = 5;
+    let interrupt = () => {};
+    const s = fake.sound as unknown as Record<string, unknown>;
+    const state = { stalled: false };
+    s.now = () => clock;
+    s.onInterrupt = vi.fn((listener: () => void) => {
+      interrupt = listener;
+      return () => {};
+    });
+    // One new context per stall, as DrumSound's check after a rebuild never rebuilds.
+    s.renew = vi.fn(() => {
+      if (!state.stalled) return false;
+      state.stalled = false;
+      clock = 0;
+      return true;
+    });
+    return {
+      ...fake,
+      state,
+      interrupt: () => interrupt(),
+      tick: (seconds: number) => (clock += seconds),
+    };
+  }
+
+  test('an interruption while playing pauses, as Pause would; Play resumes through the gesture path', () => {
+    vi.useFakeTimers();
+    const { sound, interrupt } = watchedSound();
+    const player = createPlayer(sound);
+    interrupt();
+    expect(player.view().state).toBe('stopped');
+    player.play(schedule('3'), DEFAULT_MAPPING, 120);
+    interrupt();
+    expect(player.playing()).toBe(false);
+    expect(player.view().state).toBe('paused');
+    expect(sound.resume).toHaveBeenCalledTimes(1);
+    player.resume();
+    expect(sound.resume).toHaveBeenCalledTimes(2);
+    expect(player.playing()).toBe(true);
+    player.stop();
+    vi.useRealTimers();
+  });
+
+  test('a stalled clock is checked once per gesture, AUDIO_STALL_CHECK_MS after it; a clock that runs is kept', () => {
+    vi.useFakeTimers();
+    const { sound } = watchedSound();
+    const player = createPlayer(sound);
+    player.play(schedule('3'), DEFAULT_MAPPING, 120);
+    vi.advanceTimersByTime(AUDIO_STALL_CHECK_MS - 1);
+    expect(sound.renew).not.toHaveBeenCalled();
+    // A second gesture within the wait: one check, after the second.
+    player.pause();
+    player.resume();
+    vi.advanceTimersByTime(AUDIO_STALL_CHECK_MS);
+    expect(sound.renew).toHaveBeenCalledTimes(1);
+    vi.advanceTimersByTime(AUDIO_STALL_CHECK_MS * 4);
+    expect(sound.renew).toHaveBeenCalledTimes(1);
+    expect(player.view().segments[0]?.startTime).toBeCloseTo(5 + START_DELAY_SECONDS);
+    player.stop();
+    vi.useRealTimers();
+  });
+
+  test('after a new context the player moves to its clock and hands over again what the dead one swallowed', () => {
+    vi.useFakeTimers();
+    const { sound, played, state, tick } = watchedSound();
+    state.stalled = true;
+    const player = createPlayer(sound);
+    player.play(schedule('3'), DEFAULT_MAPPING, 120); // pulse 0.25 s
+    const before = played.map((p) => p.time);
+    expect(before[0]).toBeCloseTo(5 + START_DELAY_SECONDS);
+    vi.advanceTimersByTime(AUDIO_STALL_CHECK_MS);
+    // The new clock reads 0: the segment starts a start delay ahead of it, and pulse 0 is handed over again.
+    expect(player.view().segments[0]?.startTime).toBeCloseTo(START_DELAY_SECONDS);
+    vi.advanceTimersByTime(SCHEDULER_INTERVAL_MS);
+    const after = played.slice(before.length).map((p) => p.time);
+    expect(after[0]).toBeCloseTo(START_DELAY_SECONDS);
+    tick(1);
+    vi.advanceTimersByTime(SCHEDULER_INTERVAL_MS);
+    expect(played.at(-1)?.time).toBeGreaterThan(1);
+    expect(played.at(-1)?.time).toBeLessThan(1 + LOOKAHEAD_SECONDS + 0.25);
+    player.stop();
+    vi.useRealTimers();
+  });
+
+  test('paused when the new context comes: resume picks up on the new clock; stopped: nothing moves', () => {
+    vi.useFakeTimers();
+    const { sound, played, state, tick } = watchedSound();
+    state.stalled = true;
+    const player = createPlayer(sound);
+    player.play(schedule('3'), DEFAULT_MAPPING, 120);
+    player.pause();
+    vi.advanceTimersByTime(AUDIO_STALL_CHECK_MS);
+    expect(player.view().segments[0]?.startTime).toBeCloseTo(START_DELAY_SECONDS);
+    expect(player.view().now).toBeLessThan(1);
+    tick(0.5);
+    const n = played.length;
+    player.resume();
+    tick(0.25);
+    vi.advanceTimersByTime(SCHEDULER_INTERVAL_MS);
+    expect(played.length).toBeGreaterThan(n);
+    expect(played.slice(n).every((p) => p.time > 0.5 && p.time < 1)).toBe(true);
+    player.stop();
+    vi.useRealTimers();
+  });
+
+  test('stop clears the check: a context is never rebuilt behind a stopped player', () => {
+    vi.useFakeTimers();
+    const { sound, state } = watchedSound();
+    state.stalled = true;
+    const player = createPlayer(sound);
+    player.play(schedule('3'), DEFAULT_MAPPING, 120);
+    player.stop();
+    vi.advanceTimersByTime(AUDIO_STALL_CHECK_MS * 2);
+    expect(sound.renew).not.toHaveBeenCalled();
+    expect(player.view()).toMatchObject({ state: 'stopped', segments: [] });
+    vi.useRealTimers();
+  });
+
+  test('interrupted, then Play on a clock still stuck, then a new context: the hits handed over before the pause are heard', () => {
+    vi.useFakeTimers();
+    const { sound, played, state, tick, interrupt } = watchedSound();
+    const player = createPlayer(sound);
+    player.play(schedule('3'), DEFAULT_MAPPING, 120); // pulses at 5.05, 5.30, … 6.05
+    vi.advanceTimersByTime(AUDIO_STALL_CHECK_MS);
+    tick(1);
+    vi.advanceTimersByTime(SCHEDULER_INTERVAL_MS);
+    expect(played.at(-1)?.time).toBeCloseTo(6.05);
+    // The interruption, with 6.05 handed over and not heard; Play while the clock is stuck is a glide.
+    interrupt();
+    state.stalled = true;
+    player.resume();
+    const n = played.length;
+    vi.advanceTimersByTime(AUDIO_STALL_CHECK_MS);
+    // The new clock reads 0: 6.05 is 0.05, handed over again.
+    expect(played.slice(n)[0]?.time).toBeCloseTo(0.05);
+    // And the check after the new context: once more, no further rebuild.
+    vi.advanceTimersByTime(AUDIO_STALL_CHECK_MS);
+    expect(sound.renew).toHaveBeenCalledTimes(3);
+    player.stop();
+    vi.useRealTimers();
+  });
 });
