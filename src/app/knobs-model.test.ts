@@ -28,6 +28,7 @@ import {
   joinAction,
   pieces,
   reduceRatio,
+  caretAt,
   choosesOnPointerUp,
   siteAt,
   siteCovering,
@@ -364,6 +365,20 @@ describe('swap', () => {
     expect(siteAt(boxes, 35)).toBe(1);
     expect(siteAt(boxes, 5)).toBeNull();
     expect(siteAt([], 15)).toBeNull();
+  });
+
+  test('caretAt: the gap nearest x, before the first character to the end', () => {
+    const chars = [
+      { left: 10, right: 20 },
+      { left: 20, right: 30 },
+      { left: 30, right: 40 },
+    ];
+    expect(caretAt(chars, 0)).toBe(0);
+    expect(caretAt(chars, 14)).toBe(0);
+    expect(caretAt(chars, 21)).toBe(1);
+    expect(caretAt(chars, 36)).toBe(3);
+    expect(caretAt(chars, 90)).toBe(3);
+    expect(caretAt([], 5)).toBe(0);
   });
 
   test('choosesOnPointerUp: a finger or a pen chooses on pointerup, a mouse (or no pointer) on click', () => {

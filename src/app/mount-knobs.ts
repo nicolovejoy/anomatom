@@ -17,6 +17,7 @@ import { start as startPlayer } from './deck-model';
 import {
   analyse,
   badChar,
+  caretAt,
   choosesOnPointerUp,
   cyclePosition,
   cycleSamples,
@@ -649,7 +650,8 @@ export const mountKnobs: Mount = (root, { store, player, sound }) => {
       renderMirrors();
     };
     input.addEventListener('focus', () => (activeHand = h));
-    for (const type of ['select', 'keyup', 'pointerup', 'scroll']) input.addEventListener(type, remember);
+    // `click` too: a tap moves the caret after its pointerup (at the mouse events that follow), and the pad types there.
+    for (const type of ['select', 'keyup', 'pointerup', 'click', 'scroll']) input.addEventListener(type, remember);
     input.addEventListener('input', () => {
       const wasSplit = splitInputs(store.get());
       setPattern(h, input.value);
@@ -658,6 +660,8 @@ export const mountKnobs: Mount = (root, { store, player, sound }) => {
       if (h === 0 && !wasSplit && splitInputs(store.get())) {
         typedSplit = true;
         const next = inputs[1] as HTMLInputElement;
+        // The keyboard ⌨ opened goes on with hand 2 (v6.3 ruling 4): leaving hand 1 would shut it.
+        if (input.inputMode === 'text') next.inputMode = 'text';
         next.focus();
         next.setSelectionRange(0, 0);
       }
@@ -671,6 +675,7 @@ export const mountKnobs: Mount = (root, { store, player, sound }) => {
         e.preventDefault();
         const first = inputs[0] as HTMLInputElement;
         store.dispatch(join);
+        if (input.inputMode === 'text') first.inputMode = 'text';
         first.focus();
         first.setSelectionRange(first.value.length, first.value.length);
         return;
@@ -695,12 +700,21 @@ export const mountKnobs: Mount = (root, { store, player, sound }) => {
     // caret move, or leave a selection. Its click then does nothing, so a tap toggles once. A
     // mouse chooses on click, as before, unless it dragged a selection.
     input.addEventListener('pointerdown', (e) => (press = e.pointerType));
+    input.addEventListener('pointercancel', () => (press = ''));
     input.addEventListener('keydown', () => (press = ''));
     input.addEventListener('pointerup', (e) => {
       if (choosesOnPointerUp(e.pointerType)) choose(e.clientX);
     });
     input.addEventListener('click', (e) => {
-      if (choosesOnPointerUp(press) || input.selectionStart !== input.selectionEnd) return;
+      if (choosesOnPointerUp(press)) {
+        // A tap's caret goes where the finger landed, between two characters (`caretAt`): the pad types there.
+        const chars = Array.from(mirror.children, (span) => span.getBoundingClientRect());
+        const at = caretAt(chars, e.clientX);
+        input.setSelectionRange(at, at);
+        remember();
+        return;
+      }
+      if (input.selectionStart !== input.selectionEnd) return;
       choose(e.clientX);
     });
     // On a phone the pad is the keyboard; ⌨ handed this input to the phone's, until it is left.

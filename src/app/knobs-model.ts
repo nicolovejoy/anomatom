@@ -385,6 +385,16 @@ export function siteAt(boxes: readonly SiteBox[], x: number): number | null {
 }
 
 /**
+ * Where a tap puts the caret for the digit pad: the gap between characters nearest `x`, from each
+ * character's box behind the input, in order. A phone snaps a tap's caret to the ends of a word,
+ * and a pattern is one word, so without this the pad could type only at its ends.
+ */
+export function caretAt(boxes: readonly Pick<SiteBox, 'left' | 'right'>[], x: number): number {
+  const i = boxes.findIndex((b) => x < (b.left + b.right) / 2);
+  return i === -1 ? boxes.length : i;
+}
+
+/**
  * Whether a press by this pointer chooses a throw on `pointerup` rather than on `click` (v6.3
  * ruling 5): a finger or a pen, whose tap a phone may also read as a caret move or a selection.
  * A mouse keeps `click`.

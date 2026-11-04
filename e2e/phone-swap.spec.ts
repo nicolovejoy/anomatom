@@ -1,8 +1,10 @@
 // v6.3 stream B (docs/plans/v6-3-iphone.md, rulings 3 to 5; issue 82). On a phone the digit pad is
 // the keyboard: the pattern inputs carry inputmode="none", and ⌨ hands one to the phone's own until
 // it loses focus. A tap on a throw chooses it on pointerup, once. iPhone 13 emulation with touch
-// taps, headless; Firefox has no mobile emulation and is skipped. WebKit's emulated tap fires no
-// pointer events (only a click), so the once-per-tap test dispatches the events a phone sends.
+// taps, headless; Firefox has no mobile emulation and is skipped. Chromium and WebKit both fire
+// touch pointerdown and pointerup for an emulated tap, then mousedown, mouseup and click (WebKit's
+// click says pointerType mouse), so the main test runs the pointerup path in both. The once-per-tap
+// test dispatches a tap's events by hand to add a selection between them, which a tap cannot.
 // Screenshots go to the scratchpad when E2E_SHOTS names a directory, else nowhere.
 import { devices } from '@playwright/test';
 import { expect, openTab, test, type Page } from './fixtures';
@@ -91,6 +93,37 @@ test.describe('phone (iPhone 13), touch', () => {
     await expect(page.locator('.mirror .chosen')).toHaveCount(1);
     await expect(site(page, 1)).toHaveClass(/chosen/);
     await expect(page.locator('.swap-note')).toHaveText('One throw chosen; tap one more.');
+  });
+
+  test('a tap puts the caret where the pad types: 531, tap between 5 and 3, 4 → 5431', async ({ page }) => {
+    await page.goto('/#v1.e30');
+    await openTab(page, 'pattern');
+    await padType(page, '531');
+    await site(page, 1).scrollIntoViewIfNeeded();
+    const box = (await site(page, 1).boundingBox()) as { x: number; y: number; width: number; height: number };
+    // The left edge of the 3: the caret lands before it.
+    await page.touchscreen.tap(box.x + 1, box.y + box.height / 2);
+    await key(page, '4').tap();
+    await expect(hand1(page)).toHaveValue('5431');
+  });
+
+  test('the keyboard ⌨ opened goes on across a / b: the / split and the Backspace join', async ({ page }) => {
+    await page.goto('/#v1.e30');
+    await openTab(page, 'pattern');
+    await padType(page, '3');
+    await key(page, 'keyboard').tap();
+    await expect(hand1(page)).toBeFocused();
+    // A / at 1:1 splits the pattern: hand 2's input takes focus, with the keyboard still open.
+    await page.keyboard.type('/');
+    const hand2 = page.locator('#hand-1');
+    await expect(hand2).toBeFocused();
+    await expect(hand2).toHaveAttribute('inputmode', 'text');
+    await expect(hand1(page)).toHaveAttribute('inputmode', 'none');
+    // Backspace in the empty hand 2 joins it back: hand 1 takes focus, still on the keyboard.
+    await page.keyboard.press('Backspace');
+    await expect(hand1(page)).toBeFocused();
+    await expect(hand1(page)).toHaveAttribute('inputmode', 'text');
+    await expect(hand2).toHaveAttribute('inputmode', 'none');
   });
 
   test('⌨ hands the input to the phone’s keyboard until it loses focus', async ({ page }) => {
