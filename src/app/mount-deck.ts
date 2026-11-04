@@ -438,7 +438,10 @@ export const mountDeck: Mount = (root, { store, player, sound }) => {
     wheel.dataset.phase = phase;
   };
   wheel.dataset.phase = phase;
+  // Ending the phase ends the turn: a settle still pending would arm the return timer again and
+  // close a wheel that is open (issue 110: a chip tapped mid-turn; the pattern button tapped twice).
   const endPhase = () => {
+    stopTurn();
     clearTimeout(returnTimer);
     setPhase('close');
   };
@@ -664,12 +667,11 @@ export const mountDeck: Mount = (root, { store, player, sound }) => {
     button.addEventListener('click', () => {
       // On a phone a chip tapped while the wheel turns or settles ends the turn: the wheel goes back
       // to its place at rest and stays open while the reader filters (no pending settle, and so no
-      // return timer, closes it: issue 110).
-      stopTurn();
-      if (phase !== 'rest') {
-        endPhase();
-        placeWheel();
-      }
+      // return timer, closes it: issue 110). In landscape a turn never leaves rest, and its settle
+      // is cancelled too, so it cannot pick a row of the rebuilt list.
+      const was = phase;
+      endPhase();
+      if (was !== 'rest') placeWheel();
       const choice = chooseFilter(store.get(), chipOf(button));
       store.set({ deckFilter: choice.deckFilter });
       if (choice.load) pick(order.indexOf(choice.load));
