@@ -372,6 +372,25 @@ export function siteCovering(text: string, start: number, end: number): number |
   return site !== null && covered.every((p) => p.site === site) ? site : null;
 }
 
+/** A throw drawn behind an input, as the pointer meets it: its site and its left and right edges on screen. */
+export interface SiteBox {
+  readonly site: number;
+  readonly left: number;
+  readonly right: number;
+}
+
+/** The throw under a pointer at `x`, read off the boxes of the text behind the input; null between throws. */
+export function siteAt(boxes: readonly SiteBox[], x: number): number | null {
+  return boxes.find((b) => x >= b.left && x < b.right)?.site ?? null;
+}
+
+/**
+ * Whether a press by this pointer chooses a throw on `pointerup` rather than on `click` (v6.3
+ * ruling 5): a finger or a pen, whose tap a phone may also read as a caret move or a selection.
+ * A mouse keeps `click`.
+ */
+export const choosesOnPointerUp = (pointerType: string): boolean => pointerType === 'touch' || pointerType === 'pen';
+
 export interface Caret {
   readonly start: number;
   readonly end: number;

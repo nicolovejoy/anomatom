@@ -186,6 +186,9 @@ export const copy = {
   closePairKeyLabel: 'Close the pair',
   backspaceKey: '⌫',
   backspaceKeyLabel: 'Backspace',
+  /** On a phone the pad is the keyboard (v6.3 ruling 4): this key brings the phone's own, for / < > | spaces and letters. */
+  keyboardKey: '⌨',
+  keyboardKeyLabel: 'Type with the phone’s keyboard',
   /** The validity indicator beside each input: a mark, and what it says to a screen reader. */
   indicator: {
     ok: { mark: '✓', label: 'I can juggle this.' },

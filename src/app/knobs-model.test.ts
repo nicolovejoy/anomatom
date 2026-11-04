@@ -28,6 +28,8 @@ import {
   joinAction,
   pieces,
   reduceRatio,
+  choosesOnPointerUp,
+  siteAt,
   siteCovering,
   statusLines,
   stepRatio,
@@ -349,6 +351,26 @@ describe('swap', () => {
     expect(siteCovering('5 3x1', 3, 5)).toBeNull();
     expect(siteCovering('531', 1, 1)).toBeNull();
     expect(siteCovering('531', 3, 4)).toBeNull();
+  });
+
+  test('siteAt: the throw whose box spans x, left edge in, right edge out; null between throws', () => {
+    const boxes = [
+      { site: 0, left: 10, right: 20 },
+      { site: 1, left: 30, right: 40 },
+    ];
+    expect(siteAt(boxes, 10)).toBe(0);
+    expect(siteAt(boxes, 19.5)).toBe(0);
+    expect(siteAt(boxes, 20)).toBeNull();
+    expect(siteAt(boxes, 35)).toBe(1);
+    expect(siteAt(boxes, 5)).toBeNull();
+    expect(siteAt([], 15)).toBeNull();
+  });
+
+  test('choosesOnPointerUp: a finger or a pen chooses on pointerup, a mouse (or no pointer) on click', () => {
+    expect(choosesOnPointerUp('touch')).toBe(true);
+    expect(choosesOnPointerUp('pen')).toBe(true);
+    expect(choosesOnPointerUp('mouse')).toBe(false);
+    expect(choosesOnPointerUp('')).toBe(false);
   });
 
   test('toggleSite: two in one hand, untap, other hand restarts, a third keeps the last two', () => {

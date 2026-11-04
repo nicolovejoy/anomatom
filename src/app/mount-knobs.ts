@@ -17,6 +17,7 @@ import { start as startPlayer } from './deck-model';
 import {
   analyse,
   badChar,
+  choosesOnPointerUp,
   cyclePosition,
   cycleSamples,
   draftAction,
@@ -31,6 +32,7 @@ import {
   reduceRatio,
   showsPassKey,
   showsSyncKeys,
+  siteAt,
   siteCovering,
   splitInputs,
   statusLines,
@@ -69,8 +71,13 @@ const INPUTS = Array.from({ length: MAX_LANES }, (_, i) => i);
 const LANES = INPUTS;
 /** A step cell per beat of the longest period, shown up to the lane's steps. */
 const CELLS = Array.from({ length: MAX_PERIOD }, (_, i) => i);
-/** The pad in the order it is laid out, four to a row: the sync keys make a fourth row, and p (when shown) sits beside x. */
-const PAD_KEYS = ['1', '2', '3', 'backspace', '4', '5', '6', 'x', '7', '8', '9', '0', '(', ',', ')', 'p'];
+/**
+ * The pad in the order it is laid out, four to a row: the sync keys make a fourth row, ⌨ (on a
+ * coarse pointer) ends it, and p (when shown) sits beside x.
+ */
+const PAD_KEYS = ['1', '2', '3', 'backspace', '4', '5', '6', 'x', '7', '8', '9', '0', '(', ',', ')', 'keyboard', 'p'];
+/** A coarse pointer (a phone, a tablet): the pad is its keyboard, and ⌨ hands an input to its own (v6.3 rulings 3 and 4). */
+const COARSE = '(pointer: coarse)';
 /** Sync siteswap's keys (form 5): `(` always, `,` and `)` only while `showsSyncKeys`. */
 const SYNC_KEYS: Record<string, { text: string; label: string; hidden: boolean }> = {
   '(': { text: copy.openPairKey, label: copy.openPairKeyLabel, hidden: false },
@@ -180,6 +187,8 @@ export const mountKnobs: Mount = (root, { store, player, sound }) => {
             return `<button type="button" class="key key-op key-sync" data-key="${k}" aria-label="${sync.label}"${sync.hidden ? ' hidden' : ''}>${sync.text}</button>`;
           if (k === 'backspace')
             return `<button type="button" class="key key-op" data-key="backspace" aria-label="${copy.backspaceKeyLabel}">${copy.backspaceKey}</button>`;
+          if (k === 'keyboard')
+            return `<button type="button" class="key key-op key-keyboard" data-key="keyboard" aria-label="${copy.keyboardKeyLabel}" hidden>${copy.keyboardKey}</button>`;
           return `<button type="button" class="key" data-key="${k}">${k}</button>`;
         }).join('')}
       </div>
@@ -226,6 +235,7 @@ export const mountKnobs: Mount = (root, { store, player, sound }) => {
   const indicators = rows.map((r) => r.querySelector('.indicator') as HTMLSpanElement);
   const hint = $<HTMLParagraphElement>('.one-hand-hint');
   const passKey = $<HTMLButtonElement>('.key-pass');
+  const keyboardKey = $<HTMLButtonElement>('.key-keyboard');
   const pairKeys = [',', ')'].map((k) => $<HTMLButtonElement>(`.digit-pad [data-key="${k}"]`));
   const status = $<HTMLDivElement>('#status');
   const fixesRow = $<HTMLDivElement>('.fixes');
@@ -604,12 +614,16 @@ export const mountKnobs: Mount = (root, { store, player, sound }) => {
 
   /** Typing in one input: at 1:1 with two inputs, both are joined into the one draft (`a / b`). */
   const setPattern = (hand: number, text: string) => store.dispatch(draftAction(store.get(), store.derived(), hand, text));
+  /** Whether the pointer is coarse (a phone): `showCoarse` below follows it. */
+  const coarse = window.matchMedia(COARSE);
 
   INPUTS.forEach((h) => {
     const input = inputs[h] as HTMLInputElement;
     const mirror = mirrors[h] as HTMLSpanElement;
     /** The selection last turned into a swap site, so `select` and `keyup` choose it once. */
     let chosenRange = '';
+    /** The pointer that last pressed this input ('' after a key): a finger or pen chooses on `pointerup`, never by `click` or selection. */
+    let press = '';
     const remember = () => {
       activeHand = h;
       const start = input.selectionStart ?? input.value.length;
@@ -620,6 +634,11 @@ export const mountKnobs: Mount = (root, { store, player, sound }) => {
       const range = `${start}:${end}`;
       if (start === end || range === chosenRange) {
         if (start === end) chosenRange = '';
+        return;
+      }
+      // A tap's selection (a phone's caret, a word it selects) never chooses: the tap did, on pointerup.
+      if (choosesOnPointerUp(press)) {
+        chosenRange = range;
         return;
       }
       const site = siteCovering(input.value, start, end);
@@ -660,22 +679,37 @@ export const mountKnobs: Mount = (root, { store, player, sound }) => {
       e.preventDefault();
       start();
     });
-    // A tap on a throw chooses it for Swap (SPEC §4.1): the throw under the pointer, read off
-    // the coloured text behind the input.
-    input.addEventListener('click', (e) => {
-      if (input.selectionStart !== input.selectionEnd) return;
-      const hit = Array.from(mirror.querySelectorAll<HTMLSpanElement>('[data-site]')).find((span) => {
+    /** Chooses the throw under the pointer for Swap (SPEC §4.1), read off the coloured text behind the input. */
+    const choose = (x: number) => {
+      const boxes = Array.from(mirror.querySelectorAll<HTMLSpanElement>('[data-site]')).map((span) => {
         const r = span.getBoundingClientRect();
-        return e.clientX >= r.left && e.clientX < r.right;
+        return { site: Number(span.dataset.site), left: r.left, right: r.right };
       });
-      if (!hit) return;
-      selection = toggleSite(selection, h, Number(hit.dataset.site));
+      const site = siteAt(boxes, x);
+      if (site === null) return;
+      selection = toggleSite(selection, h, site);
       swapFailed = null;
       renderMirrors();
+    };
+    // A finger or pen chooses on pointerup (v6.3 ruling 5): a phone may take the tap's click as a
+    // caret move, or leave a selection. Its click then does nothing, so a tap toggles once. A
+    // mouse chooses on click, as before, unless it dragged a selection.
+    input.addEventListener('pointerdown', (e) => (press = e.pointerType));
+    input.addEventListener('keydown', () => (press = ''));
+    input.addEventListener('pointerup', (e) => {
+      if (choosesOnPointerUp(e.pointerType)) choose(e.clientX);
+    });
+    input.addEventListener('click', (e) => {
+      if (choosesOnPointerUp(press) || input.selectionStart !== input.selectionEnd) return;
+      choose(e.clientX);
+    });
+    // On a phone the pad is the keyboard; ⌨ handed this input to the phone's, until it is left.
+    input.addEventListener('blur', () => {
+      if (coarse.matches) input.inputMode = 'none';
     });
   });
 
-  for (const key of root.querySelectorAll<HTMLButtonElement>('.digit-pad .key')) {
+  for (const key of root.querySelectorAll<HTMLButtonElement>('.digit-pad .key:not(.key-keyboard)')) {
     key.addEventListener('click', () => {
       const h = activeHand;
       const text = inputText(store.get(), store.derived(), h);
@@ -685,6 +719,31 @@ export const mountKnobs: Mount = (root, { store, player, sound }) => {
       carets[h] = { start: edited.caret, end: edited.caret };
     });
   }
+
+  /**
+   * On a coarse pointer the iOS keyboard stays shut (v6.3 ruling 3): each input carries
+   * `inputmode="none"` and the pad types. ⌨ (ruling 4) gives the active input the phone's keyboard,
+   * for what the pad lacks (`/ < > |`, spaces, letters), until that input loses focus. A fine
+   * pointer has neither: no `inputmode`, no ⌨.
+   */
+  function showCoarse() {
+    for (const input of inputs) {
+      if (!coarse.matches) input.removeAttribute('inputmode');
+      else if (input !== document.activeElement) input.inputMode = 'none';
+    }
+    keyboardKey.hidden = !coarse.matches;
+  }
+  coarse.addEventListener('change', showCoarse);
+  showCoarse();
+  keyboardKey.addEventListener('click', () => {
+    const input = inputs[activeHand] as HTMLInputElement;
+    const caret = carets[activeHand] ?? { start: input.value.length, end: input.value.length };
+    // A focused input does not open the keyboard for a new inputmode: leave it, then come back.
+    input.blur();
+    input.inputMode = 'text';
+    input.focus();
+    input.setSelectionRange(caret.start, caret.end);
+  });
 
   swapButton.addEventListener('click', () => {
     if (selection?.sites.length !== 2) return;

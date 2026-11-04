@@ -106,8 +106,10 @@ test.describe('phone, 390×844', () => {
     expect(s.y).toBeGreaterThan(field.y);
     expect(s.y + s.height).toBeLessThanOrEqual(pad.y);
     expect(s.y + s.height).toBeLessThanOrEqual(844);
-    // The pad is whole: every key is there, and the first row of digits is a tap away.
-    await expect(page.locator('.digit-pad .key:not([hidden])')).toHaveCount(15);
+    // The pad is whole: every key is there, and the first row of digits is a tap away. A coarse
+    // pointer adds ⌨ in the fourth row's free cell (v6.3 ruling 4), not a new row.
+    const coarse = await page.evaluate(() => matchMedia('(pointer: coarse)').matches);
+    await expect(page.locator('.digit-pad .key:not([hidden])')).toHaveCount(coarse ? 16 : 15);
     await expect(key('1')).toBeInViewport();
     expect(await page.evaluate(() => document.documentElement.scrollHeight <= window.innerHeight)).toBe(true);
     await shot(page, 'make-your-own-swap');
