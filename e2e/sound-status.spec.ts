@@ -28,3 +28,63 @@ test('at 390px wide Play and the failed sound status show with the sheet closed'
   await expect(page.locator('#sound-retry')).toBeVisible();
   await page.screenshot({ path: 'test-results/sound-status-phone.png', fullPage: true });
 });
+
+type Box = { state: string; row: number[]; deck: number[] };
+
+// Nico, 2026-11-04 (#108): with the drums failed, a card that needs new kits loads them, so the
+// status goes loading, then failed again. The row keeps its place through that reload (Retry's
+// room held, the text saying it is fetching), so the deck under it never moves.
+test.describe('390px, a phone', () => {
+  test.use({ viewport: { width: 390, height: 844 }, hasTouch: true });
+
+  test('a reload after a failure keeps the sound row in place, so the deck does not move', async ({ page }) => {
+    // Once the row has shown, hold each aborted fetch a while, so the reload lasts long enough to see.
+    let slow = false;
+    await page.route('**/smpldsnds.github.io/**', async (route) => {
+      if (slow) await new Promise((r) => setTimeout(r, 600));
+      await route.abort();
+    });
+    await page.goto('/');
+    const status = page.locator('.sound-status');
+    const retry = page.locator('#sound-retry');
+    await expect(status).toHaveAttribute('data-state', 'failed');
+    await expect(retry).toBeVisible();
+    slow = true;
+    // Every frame and every status change, in the page: the state, the row's box and the deck's.
+    await page.evaluate(() => {
+      const w = window as unknown as { boxes: Box[]; watching: boolean };
+      w.boxes = [];
+      w.watching = true;
+      const box = (s: string) => {
+        const r = document.querySelector(s)!.getBoundingClientRect();
+        return [Math.round(r.top), Math.round(r.height)];
+      };
+      const row = document.querySelector('.sound-status')!;
+      const stamp = () => w.boxes.push({ state: row.getAttribute('data-state')!, row: box('.sound-status'), deck: box('.deck-bar') });
+      new MutationObserver(stamp).observe(row, { attributes: true });
+      const frame = () => {
+        stamp();
+        if (w.watching) requestAnimationFrame(frame);
+      };
+      frame();
+    });
+    // Jugglers 3 loads a three-juggler card, whose kits are new.
+    await page.locator('.deck-filter[data-by="jugglers"][data-n="3"]').tap();
+    await expect(status).toHaveAttribute('data-state', 'loading');
+    // While it loads, the row says so where it stood, and Retry's room stays, empty.
+    await expect(status).toBeVisible();
+    await expect(status).toContainText('I am fetching my drum sounds');
+    await expect(retry).toBeHidden();
+    await page.screenshot({ path: `${process.env.SOUND_SHOTS ?? 'test-results'}/sound-status-reload-phone.png` });
+    await expect(status).toHaveAttribute('data-state', 'failed', { timeout: 10_000 });
+    await expect(retry).toBeVisible();
+    const boxes = await page.evaluate(() => {
+      const w = window as unknown as { boxes: Box[]; watching: boolean };
+      w.watching = false;
+      return w.boxes;
+    });
+    expect(boxes.some((b) => b.state === 'loading')).toBe(true);
+    const first = boxes[0]!;
+    for (const b of boxes) expect({ row: b.row, deck: b.deck }).toEqual({ row: first.row, deck: first.deck });
+  });
+});

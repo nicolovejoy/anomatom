@@ -3,7 +3,7 @@ import { RATIO_CHIPS } from '../tunables';
 import { typed } from '../test/schedules';
 import { analyse } from './knobs-model';
 import { LADDER, SHEET } from '../tunables';
-import { dragEnd, edgeTab, ladderHeightPx, fillPercent, hasChip, keepsSpace, pressTab, shownTab, stepTab, summary, tempoLines, TABS } from './sheet-model';
+import { dragEnd, edgeTab, ladderHeightPx, fillPercent, hasChip, keepsSpace, pressTab, shownTab, soundRowHeld, stepTab, summary, tempoLines, TABS } from './sheet-model';
 
 const one = { a: 1, b: 1 };
 const threeTwo = { a: 3, b: 2 };
@@ -112,4 +112,14 @@ test('slider fill, clamped', () => {
   expect(fillPercent(300, 40, 240)).toBe(100);
   expect(fillPercent(0, 40, 240)).toBe(0);
   expect(fillPercent(1, 1, 1)).toBe(0);
+});
+
+test('the sound row: shown on a failure, kept through the reload after it, given up when ready', () => {
+  expect(soundRowHeld('loading', false)).toBe(false);
+  expect(soundRowHeld('failed', false)).toBe(true);
+  expect(soundRowHeld('loading', true)).toBe(true);
+  expect(soundRowHeld('failed', true)).toBe(true);
+  expect(soundRowHeld('ready', true)).toBe(false);
+  expect(soundRowHeld('idle', true)).toBe(false);
+  expect(soundRowHeld('ready', false)).toBe(false);
 });

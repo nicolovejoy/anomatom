@@ -62,7 +62,8 @@
 }
 
 /* The sound status says something only when the drums failed; loading and ready stay for a
-   screen reader (role="status"), off screen. */
+   screen reader (role="status"), off screen. A load after a failure keeps the row in place
+   (data-held), Retry's room kept but empty, so nothing under it moves. */
 .sound-status {
   display: flex;
   align-items: center;
@@ -70,7 +71,7 @@
   font-size: 13px;
   color: var(--warn-text);
 }
-.sound-status:not([data-state='failed']) {
+.sound-status:not([data-held]) {
   position: absolute;
   top: 0;
   left: 0;
@@ -79,6 +80,9 @@
   margin: -1px;
   overflow: hidden;
   clip: rect(0 0 0 0);
+}
+#sound-retry:disabled {
+  visibility: hidden;
 }
 #sound-retry {
   flex: 0 0 auto;

@@ -9,6 +9,7 @@ import { copy } from '../ui/copy';
 import { oneInput } from './actions';
 import type { Analysis } from './knobs-model';
 import { hand2Bpm } from './knobs-model';
+import type { SoundStatus } from '../sound/drum-sound';
 import type { SheetTab } from './state';
 
 export const TABS: readonly SheetTab[] = ['pattern', 'rhythm', 'sound'];
@@ -96,4 +97,14 @@ export function hasChip(ratio: Ratio, chips: readonly (readonly [number, number]
 export function fillPercent(value: number, min: number, max: number): number {
   if (max <= min) return 0;
   return Math.min(100, Math.max(0, ((value - min) / (max - min)) * 100));
+}
+
+/**
+ * Whether the sound status row keeps its place in the sheet head, given the status now and
+ * whether it kept it before. A failure shows the row (with Retry); a load that follows a failure
+ * (a new card's kits, or Retry) keeps it, so nothing under it moves while the kits reload. Ready,
+ * idle, or a load with nothing failed before it, give the row up (it stays for a screen reader).
+ */
+export function soundRowHeld(status: SoundStatus, held: boolean): boolean {
+  return status === 'failed' || (status === 'loading' && held);
 }

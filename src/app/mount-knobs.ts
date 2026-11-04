@@ -60,7 +60,7 @@ import {
 } from './lanes-model';
 import { cellColumns, focusAfterAdd, focusAfterRemove, laneDot, playheadSteps, ratioChipsShown, voiceName } from './lanes-view';
 import type { Mount } from './mount';
-import { fillPercent, hasChip } from './sheet-model';
+import { fillPercent, hasChip, soundRowHeld } from './sheet-model';
 import type { AppState } from './state';
 import './knobs.css';
 
@@ -573,13 +573,21 @@ export const mountKnobs: Mount = (root, { store, player, sound }) => {
     shownState = state;
   }
 
-  /** Shows whether the samples are loading, in or failed, beside Play; Retry only when failed. */
+  /**
+   * Shows whether the samples are loading, in or failed, beside Play; Retry only when failed. Once
+   * a failure has shown the row, a reload keeps it in place (Retry's room held, the text saying it
+   * is fetching), so the deck under it does not jump.
+   */
+  let soundHeld = false;
   function showSoundStatus() {
     const status = sound.status();
+    soundHeld = soundRowHeld(status, soundHeld);
     soundStatus.dataset.state = status;
+    soundStatus.toggleAttribute('data-held', soundHeld);
     soundStatusText.textContent =
       status === 'loading' ? copy.soundLoading : status === 'failed' ? copy.soundFailed : status === 'ready' ? copy.soundReady : '';
-    soundRetry.hidden = status !== 'failed';
+    soundRetry.hidden = !soundHeld;
+    soundRetry.disabled = status !== 'failed';
   }
   sound.subscribe(showSoundStatus);
   soundRetry.addEventListener('click', () => sound.retry());
