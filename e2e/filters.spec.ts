@@ -102,9 +102,18 @@ for (const size of [
     const tap = (page: Page, key: string) => (size.phone ? chip(page, key).tap() : chip(page, key).click());
     /** One step forward, as the reader would: ↓ on the web (v6.1 ruling 3), › on a phone. */
     const next = async (page: Page) => {
-      // aria-disabled on the last card, so a reader can still press it (force: Playwright waits on it otherwise).
-      if (size.phone) await page.locator('.deck-next').click({ force: true });
-      else {
+      if (size.phone) {
+        // Issue 106: the CDN is stubbed, so the drums have failed and the sheet's head shows Retry
+        // (44 px). A card that needs new kits hides it while they load and shows it again when
+        // they fail: the deck moves down and back, and the open wheel follows a frame later. A
+        // click aimed before the move lands on whatever is there after it (Make your own, Listen
+        // for). So wait until no load is in flight, and click as a reader does: on › where it
+        // rests, uncovered (Playwright's own checks). Only aria-disabled on the last card needs
+        // force (Playwright waits on it otherwise); the wheel is shut and nothing loads by then.
+        await expect(page.locator('.sound-status')).not.toHaveAttribute('data-state', 'loading');
+        const button = page.locator('.deck-next');
+        await button.click({ force: (await button.getAttribute('aria-disabled')) === 'true' });
+      } else {
         await page.evaluate(() => (document.activeElement as HTMLElement | null)?.blur());
         await page.keyboard.press('ArrowDown');
       }
@@ -305,16 +314,28 @@ for (const size of [
         await page.waitForTimeout(400);
         await expect(notation(page)).toHaveText(three[2]!);
         await page.screenshot({ path: `${SHOTS}/w6-jugglers-3-last-390x844.png` });
-        // And no further: ↓ on Make your own, or a scroll past the end, leaves it in the band.
-        await page.keyboard.press('ArrowDown');
-        await page.waitForTimeout(400);
-        expect(await drumBand(page)).toEqual({ row: '3', off: 0 });
+        // And no further. Settled, the wheel gives the sheet back and closes DECK.returnMs later (v5
+        // ruling 9), so checks timed after the settle raced the close on a slow runner (issue 106,
+        // WebKit on CI). Let it close, and open it again from the pattern: at rest nothing turns it
+        // and no timer runs; the band is on the card on stage.
+        const wheel = page.locator('.deck-wheel');
+        await expect(wheel).toBeHidden({ timeout: 3000 });
+        await page.locator('.deck-pattern').click();
+        await expect.poll(() => drumBand(page)).toEqual({ row: '2', off: 0 });
+        // A scroll past the end leaves Make your own in the band, blank rows past it.
         await page.locator('.deck-wheel-list').evaluate((l) => (l.scrollTop = 10000));
         await expect.poll(() => drumBand(page)).toEqual({ row: '3', off: 0 });
         const after = await rowsShown(page);
         const m = (after.length - 1) / 2;
         expect(after[m]).toBe('3');
         expect(after.slice(m + 1).every((r) => r === null)).toBe(true);
+        // ↓ on Make your own turns nothing: the band stays, the sheet is not taken, nothing loads.
+        await page.locator('.deck-row[data-row="3"]').focus();
+        await page.keyboard.press('ArrowDown');
+        await page.waitForTimeout(400);
+        expect(await drumBand(page)).toEqual({ row: '3', off: 0 });
+        await expect(wheel).toHaveAttribute('data-phase', 'rest');
+        await expect(notation(page)).toHaveText(three[2]!);
       });
 
       test('the full deck on a phone: each row once, no copies', async ({ page }) => {
