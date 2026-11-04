@@ -927,8 +927,10 @@ describe('the context stopping (v6.3, #81)', () => {
       interrupt = listener;
       return () => {};
     });
+    // One new context per stall, as DrumSound's check after a rebuild never rebuilds.
     s.renew = vi.fn(() => {
       if (!state.stalled) return false;
+      state.stalled = false;
       clock = 0;
       return true;
     });
@@ -1009,7 +1011,6 @@ describe('the context stopping (v6.3, #81)', () => {
     vi.advanceTimersByTime(AUDIO_STALL_CHECK_MS);
     expect(player.view().segments[0]?.startTime).toBeCloseTo(START_DELAY_SECONDS);
     expect(player.view().now).toBeLessThan(1);
-    state.stalled = false;
     tick(0.5);
     const n = played.length;
     player.resume();
@@ -1018,11 +1019,43 @@ describe('the context stopping (v6.3, #81)', () => {
     expect(played.length).toBeGreaterThan(n);
     expect(played.slice(n).every((p) => p.time > 0.5 && p.time < 1)).toBe(true);
     player.stop();
+    vi.useRealTimers();
+  });
+
+  test('stop clears the check: a context is never rebuilt behind a stopped player', () => {
+    vi.useFakeTimers();
+    const { sound, state } = watchedSound();
     state.stalled = true;
+    const player = createPlayer(sound);
     player.play(schedule('3'), DEFAULT_MAPPING, 120);
     player.stop();
-    vi.advanceTimersByTime(AUDIO_STALL_CHECK_MS);
+    vi.advanceTimersByTime(AUDIO_STALL_CHECK_MS * 2);
+    expect(sound.renew).not.toHaveBeenCalled();
     expect(player.view()).toMatchObject({ state: 'stopped', segments: [] });
+    vi.useRealTimers();
+  });
+
+  test('interrupted, then Play on a clock still stuck, then a new context: the hits handed over before the pause are heard', () => {
+    vi.useFakeTimers();
+    const { sound, played, state, tick, interrupt } = watchedSound();
+    const player = createPlayer(sound);
+    player.play(schedule('3'), DEFAULT_MAPPING, 120); // pulses at 5.05, 5.30, … 6.05
+    vi.advanceTimersByTime(AUDIO_STALL_CHECK_MS);
+    tick(1);
+    vi.advanceTimersByTime(SCHEDULER_INTERVAL_MS);
+    expect(played.at(-1)?.time).toBeCloseTo(6.05);
+    // The interruption, with 6.05 handed over and not heard; Play while the clock is stuck is a glide.
+    interrupt();
+    state.stalled = true;
+    player.resume();
+    const n = played.length;
+    vi.advanceTimersByTime(AUDIO_STALL_CHECK_MS);
+    // The new clock reads 0: 6.05 is 0.05, handed over again.
+    expect(played.slice(n)[0]?.time).toBeCloseTo(0.05);
+    // And the check after the new context: once more, no further rebuild.
+    vi.advanceTimersByTime(AUDIO_STALL_CHECK_MS);
+    expect(sound.renew).toHaveBeenCalledTimes(3);
+    player.stop();
     vi.useRealTimers();
   });
 });

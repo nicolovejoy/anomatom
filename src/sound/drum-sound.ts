@@ -18,8 +18,10 @@
 // button; or `suspended`), `onInterrupt` listeners hear of it, and the player pauses; only a
 // gesture resumes. A context that says `running` after a resume but whose clock has not moved
 // (WebKit's silent resume) is replaced by `renew`: closed, and a fresh one made with the bus at
-// the current volume and cutoff and the last mapping loaded again. The player calls it
-// AUDIO_STALL_CHECK_MS after the gesture (the timer is the player's), once per resume.
+// the current volume and cutoff and the last mapping loaded again. A context still not running
+// then (a call still on) is reported as an interruption. The player calls it
+// AUDIO_STALL_CHECK_MS after the gesture (the timer is the player's), once per resume, and once
+// more after a new context, which only checks.
 import type { PartIndex } from '../core/types';
 import { FILTER_OPEN_HZ, PARAM_SMOOTH_SECONDS } from '../tunables';
 import type { Hit, Mapping, PadHit, PadInstrument } from './mapping';
@@ -85,7 +87,8 @@ export function createDrumSound(
   const listeners = new Set<() => void>();
   const interruptListeners = new Set<() => void>();
   // The clock as the last resume left it, for `renew`; taken by it, so one rebuild per gesture.
-  let mark: { ctx: AudioContext; time: number } | null = null;
+  // `check`: left by a rebuild, so the next `renew` only checks the new context started.
+  let mark: { ctx: AudioContext; time: number; check: boolean } | null = null;
 
   function status(): SoundStatus {
     if (inFlight > 0) return 'loading';
@@ -151,7 +154,7 @@ export function createDrumSound(
     const ctx = audio();
     if (!ctx) return;
     setPlaybackSession();
-    mark = { ctx, time: ctx.currentTime };
+    mark = { ctx, time: ctx.currentTime, check: false };
     if (ctx.state === 'suspended' || (ctx.state as string) === 'interrupted') void ctx.resume();
   }
 
@@ -297,21 +300,31 @@ export function createDrumSound(
     /** Call from a user gesture: a context made before any gesture starts suspended. */
     resume,
     /**
-     * Call AUDIO_STALL_CHECK_MS after `resume`. If the context says `running` but its clock has
+     * Call AUDIO_STALL_CHECK_MS after `resume`. A context not running by then is reported as an
+     * interruption (`onInterrupt`): the resume did not take. If it says `running` but its clock has
      * not moved since, closes it and makes a fresh one: the bus at the current volume and cutoff,
      * the last mapping's kits and pad loading again. True if it did; `now()` is then the new
-     * clock. Once per resume: a clock that never runs is not replaced again until the next gesture.
+     * clock; call again after as long, which only checks the fresh one started. Once per resume:
+     * a clock that never runs is not replaced again until the next gesture.
      */
     renew(): boolean {
       const was = mark;
       mark = null;
-      if (!was || context !== was.ctx || was.ctx.state !== 'running' || was.ctx.currentTime !== was.time) return false;
+      if (!was || context !== was.ctx) return false;
+      if (was.ctx.state !== 'running') {
+        interrupted(was.ctx);
+        return false;
+      }
+      if (was.check || was.ctx.currentTime !== was.time) return false;
       close();
       context = undefined;
       const ctx = audio();
       if (lastMapping) preload(lastMapping);
-      // Made outside the gesture: where the browser will not start it, the player hears of it and pauses.
-      if (ctx && ctx.state !== 'running') ctx.resume().catch(() => interrupted(ctx));
+      // Made outside the gesture, it may not start: the check `renew` leaves reports it if not.
+      if (ctx) {
+        if (ctx.state !== 'running') void ctx.resume();
+        mark = { ctx, time: ctx.currentTime, check: true };
+      }
       return true;
     },
     /** Calls `listener` when the context stops while it should be running (iOS interruptions); returns the way to stop. */

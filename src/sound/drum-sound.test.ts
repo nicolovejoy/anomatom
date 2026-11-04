@@ -544,32 +544,38 @@ describe('the context is watched (v6.3, #81)', () => {
     expect(contexts).toHaveLength(3);
   });
 
-  test('renew leaves a clock that moved, a context not running, a closed sound and one never resumed alone', () => {
+  test('renew leaves a clock that moved, a closed sound and one never resumed alone; a context still not running is heard', () => {
     const ctx = fakeContext('running');
     const sound = createDrumSound(() => ctx, async () => fakeKit() as Kit);
+    const heard = vi.fn();
+    sound.onInterrupt(heard);
     expect(sound.renew()).toBe(false);
     sound.resume();
     ctx.currentTime = 1.6;
     expect(sound.renew()).toBe(false);
+    // Play during a call: the resume does not take, the state does not change, no statechange.
     ctx.become('interrupted');
-    ctx.resume.mockImplementation(async () => {});
+    expect(heard).toHaveBeenCalledTimes(1);
+    ctx.resume.mockImplementation(() => new Promise<void>(() => {}));
     sound.resume();
     expect(sound.renew()).toBe(false);
+    expect(heard).toHaveBeenCalledTimes(2);
     sound.resume();
     sound.close();
     expect(sound.renew()).toBe(false);
+    expect(heard).toHaveBeenCalledTimes(2);
     expect(ctx.close).toHaveBeenCalledTimes(1);
     const none = createDrumSound(() => null, async () => fakeKit() as Kit);
     none.resume();
     expect(none.renew()).toBe(false);
   });
 
-  test('a fresh context that has not started is resumed; if the browser refuses, the player hears it', async () => {
+  test('a fresh context that has not started is resumed; the check after it reports one still not running, and never rebuilds', () => {
     const contexts: ReturnType<typeof fakeContext>[] = [];
     const sound = createDrumSound(() => {
       const ctx = fakeContext(contexts.length === 0 ? 'running' : 'suspended');
-      // The third context: made outside a gesture, the browser will not start it.
-      if (contexts.length === 2) ctx.resume.mockRejectedValue(new Error('NotAllowedError'));
+      // The third context: made outside a gesture, the browser leaves its resume pending.
+      if (contexts.length === 2) ctx.resume.mockImplementation(() => new Promise<void>(() => {}));
       contexts.push(ctx);
       return ctx;
     }, async () => fakeKit() as Kit);
@@ -578,11 +584,14 @@ describe('the context is watched (v6.3, #81)', () => {
     sound.resume();
     expect(sound.renew()).toBe(true);
     expect(contexts[1]?.resume).toHaveBeenCalled();
-    await settle();
+    // It started: the check says nothing, even on a clock that has not moved yet.
+    expect(sound.renew()).toBe(false);
     expect(heard).not.toHaveBeenCalled();
     sound.resume();
     expect(sound.renew()).toBe(true);
-    await settle();
+    expect(contexts[2]?.resume).toHaveBeenCalled();
+    expect(sound.renew()).toBe(false);
     expect(heard).toHaveBeenCalledTimes(1);
+    expect(contexts).toHaveLength(3);
   });
 });
