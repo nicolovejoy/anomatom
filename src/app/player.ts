@@ -1,4 +1,4 @@
-// The player: the look-ahead loop (the only place with a timer) and the segments the picture
+// The player: the look-ahead loop (the only place with timers) and the segments the picture
 // reads. Every `SCHEDULER_INTERVAL_MS` it reads the audio clock and hands the sampler every event
 // up to `LOOKAHEAD_SECONDS` ahead, each from the segment that owns its time.
 //
@@ -36,6 +36,13 @@
 //   Scheduling picks up at the first whole pulse at or after the frozen time, so a scrub to a
 //   whole pulse plays that pulse's hit. A resume before the glide ends needs no shift and
 //   continues seamlessly, the picture still following the clock.
+//
+// The context stopping (#81): when DrumSound says the context has left `running` (an iOS
+// interruption), the player pauses as a press of Pause would; Play resumes. And
+// `AUDIO_STALL_CHECK_MS` after each gesture it asks DrumSound to `renew` a context whose clock
+// has not moved. A new context is a new clock: every time the player keeps moves by the jump
+// (`sound.now()` after less before), and what had been handed to the dead context since the
+// gesture is handed over again, from where that run began.
 import { carryOver } from '../core/carry';
 import type { Schedule } from '../core/types';
 import type { DrumSound } from '../sound/drum-sound';
@@ -43,7 +50,15 @@ import { filterCutoff, hitFor, padHitsAt, type Hit, type Mapping } from '../soun
 import { crossingsOfSchedule } from '../sound/schedule-crossings';
 import { eventsBetween, pulseSeconds, type TimedEvent } from '../sound/transport';
 import { mappingOf } from '../sound/drummers';
-import { DEFAULT_ALSO, DEFAULT_KIT_SHIFT, DEFAULT_LISTEN, LOOKAHEAD_SECONDS, SCHEDULER_INTERVAL_MS, START_DELAY_SECONDS } from '../tunables';
+import {
+  AUDIO_STALL_CHECK_MS,
+  DEFAULT_ALSO,
+  DEFAULT_KIT_SHIFT,
+  DEFAULT_LISTEN,
+  LOOKAHEAD_SECONDS,
+  SCHEDULER_INTERVAL_MS,
+  START_DELAY_SECONDS,
+} from '../tunables';
 import type { PlayerView, Segment } from '../view/types';
 
 export type { PlayerView, Segment } from '../view/types';
@@ -92,6 +107,7 @@ export function crossingCatches(
 
 export function createPlayer(sound: DrumSound, options: PlayerOptions = {}) {
   let timer: ReturnType<typeof setInterval> | undefined;
+  let stallCheck: ReturnType<typeof setTimeout> | undefined;
   let state: PlayState = 'stopped';
   /** Replaced, never mutated, so a view handed out stays as it was. */
   let segments: readonly Segment[] = [];
@@ -103,8 +119,9 @@ export function createPlayer(sound: DrumSound, options: PlayerOptions = {}) {
   let cutoff = Number.NaN;
   let edit: { schedule: Schedule; bpm: number } | null = null;
   let scheduled = 0;
-  /** Audio time up to which events have been handed to the sampler. */
+  /** Audio time up to which events have been handed to the sampler, and where this run began handing over. */
   let scheduledTo = 0;
+  let runFrom = 0;
   /** While paused: the time the picture freezes at, and whether it is still gliding up to it. */
   let frozen = 0;
   let gliding = false;
@@ -112,6 +129,32 @@ export function createPlayer(sound: DrumSound, options: PlayerOptions = {}) {
   let cycleStart = 0;
   /** After a resume: the picture holds here until the clock reaches it. */
   let hold = -Infinity;
+
+  /** Every segment `d` seconds later. */
+  function shift(d: number) {
+    segments = segments.map((s) => ({
+      ...s,
+      startTime: s.startTime + d,
+      endTime: s.endTime === null ? null : s.endTime + d,
+    }));
+  }
+
+  /** After a gesture's resume: a context whose clock has not moved is replaced, and the player moves to the new clock. */
+  function checkClock() {
+    if (stallCheck !== undefined) clearTimeout(stallCheck);
+    stallCheck = setTimeout(() => {
+      stallCheck = undefined;
+      const before = sound.now();
+      if (!sound.renew() || state === 'stopped') return;
+      const d = sound.now() - before;
+      shift(d);
+      frozen += d;
+      cycleStart += d;
+      hold += d;
+      // Nothing handed over since the gesture sounded: hand it over again (paused: resume sets it).
+      scheduledTo = runFrom + d;
+    }, AUDIO_STALL_CHECK_MS);
+  }
 
   function stopTimer() {
     if (timer !== undefined) clearInterval(timer);
@@ -131,6 +174,7 @@ export function createPlayer(sound: DrumSound, options: PlayerOptions = {}) {
     stop();
     // A gesture: resume the context, and retry any kit that failed to load at page open.
     sound.resume();
+    checkClock();
     sound.preload(newMapping);
     mapping = newMapping;
     const startTime = sound.now() + START_DELAY_SECONDS;
@@ -141,6 +185,7 @@ export function createPlayer(sound: DrumSound, options: PlayerOptions = {}) {
 
   function run() {
     state = 'playing';
+    runFrom = Math.max(scheduledTo, sound.now());
     tick();
     timer = setInterval(tick, SCHEDULER_INTERVAL_MS);
   }
@@ -247,6 +292,7 @@ export function createPlayer(sound: DrumSound, options: PlayerOptions = {}) {
   function resume() {
     if (state !== 'paused') return;
     sound.resume();
+    checkClock();
     const now = sound.now();
     // Still gliding: the hits handed over are still sounding, so the picture keeps following
     // the clock and nothing shifts.
@@ -260,11 +306,7 @@ export function createPlayer(sound: DrumSound, options: PlayerOptions = {}) {
     const at = (frozen - seg.startTime) / seg.pulseLen;
     const k = Math.ceil(gliding ? at : at - 1e-9);
     scheduledTo = seg.startTime + d + Math.max(0, k - 0.5) * seg.pulseLen;
-    segments = segments.map((s) => ({
-      ...s,
-      startTime: s.startTime + d,
-      endTime: s.endTime === null ? null : s.endTime + d,
-    }));
+    shift(d);
     // A glide resume keeps the hold it had: in the past as a rule, but after a scrub ahead of
     // the clock, a resume and a pause in the wait, it is the scrubbed point the audio resumes at.
     hold = glide ? hold : frozen + d;
@@ -279,6 +321,9 @@ export function createPlayer(sound: DrumSound, options: PlayerOptions = {}) {
     if (state === 'paused') return gliding ? Math.min(clock, Math.max(frozen, hold)) : frozen;
     return clock;
   }
+
+  // An interruption is a press of Pause: the screen never shows playing over a stopped clock.
+  sound.onInterrupt(pause);
 
   return {
     play,

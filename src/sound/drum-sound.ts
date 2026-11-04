@@ -13,6 +13,13 @@
 // A part's kit is its `PartVoice.kit`. Changing it loads that kit for the part while the old one
 // keeps playing; the new one plays from its first hit after it is in. A kit a part has had is kept
 // (here and in the factory) until close, so switching back is instant.
+//
+// The context is watched (#81). When it leaves `running` (iOS `interrupted`: a call, the lock
+// button; or `suspended`), `onInterrupt` listeners hear of it, and the player pauses; only a
+// gesture resumes. A context that says `running` after a resume but whose clock has not moved
+// (WebKit's silent resume) is replaced by `renew`: closed, and a fresh one made with the bus at
+// the current volume and cutoff and the last mapping loaded again. The player calls it
+// AUDIO_STALL_CHECK_MS after the gesture (the timer is the player's), once per resume.
 import type { PartIndex } from '../core/types';
 import { FILTER_OPEN_HZ, PARAM_SMOOTH_SECONDS } from '../tunables';
 import type { Hit, Mapping, PadHit, PadInstrument } from './mapping';
@@ -76,6 +83,9 @@ export function createDrumSound(
   let epoch = 0;
   let lastMapping: Mapping | null = null;
   const listeners = new Set<() => void>();
+  const interruptListeners = new Set<() => void>();
+  // The clock as the last resume left it, for `renew`; taken by it, so one rebuild per gesture.
+  let mark: { ctx: AudioContext; time: number } | null = null;
 
   function status(): SoundStatus {
     if (inFlight > 0) return 'loading';
@@ -107,6 +117,17 @@ export function createDrumSound(
     if (session && session.type !== 'playback') session.type = 'playback';
   }
 
+  /** Tells the listeners `ctx` has stopped, unless it has been closed or replaced since. */
+  function interrupted(ctx: AudioContext) {
+    if (context === ctx) for (const listener of [...interruptListeners]) listener();
+  }
+
+  function watch(ctx: AudioContext) {
+    ctx.addEventListener('statechange', () => {
+      if (ctx.state !== 'running') interrupted(ctx);
+    });
+  }
+
   function audio(): AudioContext | null {
     if (context === undefined) {
       context = makeContext();
@@ -119,10 +140,41 @@ export function createDrumSound(
         filter.connect(master);
         master.connect(context.destination);
         bus = { filter, master };
+        watch(context);
         setPlaybackSession();
       }
     }
     return context;
+  }
+
+  function resume() {
+    const ctx = audio();
+    if (!ctx) return;
+    setPlaybackSession();
+    mark = { ctx, time: ctx.currentTime };
+    if (ctx.state === 'suspended' || (ctx.state as string) === 'interrupted') void ctx.resume();
+  }
+
+  /** Disposes every kit and pad, moves the epoch on so loads in flight cannot land, closes the context. */
+  function close() {
+    for (const kit of [...held, ...pads.values(), ...loading]) kit.dispose();
+    ready.clear();
+    held.clear();
+    kept.clear();
+    pads.clear();
+    padsRequested.clear();
+    loading.clear();
+    requested.clear();
+    voices.clear();
+    epoch++;
+    inFlight = 0;
+    failedParts.clear();
+    failedPads.clear();
+    notify();
+    bus = null;
+    mark = null;
+    if (context) void context.close();
+    context = null;
   }
 
   function ramp(param: AudioParam, value: number) {
@@ -243,11 +295,29 @@ export function createDrumSound(
      */
     preload,
     /** Call from a user gesture: a context made before any gesture starts suspended. */
-    resume() {
+    resume,
+    /**
+     * Call AUDIO_STALL_CHECK_MS after `resume`. If the context says `running` but its clock has
+     * not moved since, closes it and makes a fresh one: the bus at the current volume and cutoff,
+     * the last mapping's kits and pad loading again. True if it did; `now()` is then the new
+     * clock. Once per resume: a clock that never runs is not replaced again until the next gesture.
+     */
+    renew(): boolean {
+      const was = mark;
+      mark = null;
+      if (!was || context !== was.ctx || was.ctx.state !== 'running' || was.ctx.currentTime !== was.time) return false;
+      close();
+      context = undefined;
       const ctx = audio();
-      if (!ctx) return;
-      setPlaybackSession();
-      if (ctx.state === 'suspended' || (ctx.state as string) === 'interrupted') void ctx.resume();
+      if (lastMapping) preload(lastMapping);
+      // Made outside the gesture: where the browser will not start it, the player hears of it and pauses.
+      if (ctx && ctx.state !== 'running') ctx.resume().catch(() => interrupted(ctx));
+      return true;
+    },
+    /** Calls `listener` when the context stops while it should be running (iOS interruptions); returns the way to stop. */
+    onInterrupt(listener: () => void) {
+      interruptListeners.add(listener);
+      return () => void interruptListeners.delete(listener);
     },
     /** Whether the samples are loading, in, or failed to load. */
     status,
@@ -290,25 +360,7 @@ export function createDrumSound(
         pad.start({ note: hit.note, velocity: hit.velocity, time, duration: hit.durationPulses * pulseLen });
       }
     },
-    close() {
-      for (const kit of [...held, ...pads.values(), ...loading]) kit.dispose();
-      ready.clear();
-      held.clear();
-      kept.clear();
-      pads.clear();
-      padsRequested.clear();
-      loading.clear();
-      requested.clear();
-      voices.clear();
-      epoch++;
-      inFlight = 0;
-      failedParts.clear();
-      failedPads.clear();
-      notify();
-      bus = null;
-      if (context) void context.close();
-      context = null;
-    },
+    close,
   };
 }
 

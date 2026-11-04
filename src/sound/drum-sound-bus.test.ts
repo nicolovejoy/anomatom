@@ -31,6 +31,7 @@ function fakeContext() {
     state: 'running',
     resume: vi.fn(async () => {}),
     close: vi.fn(async () => {}),
+    addEventListener: vi.fn(),
   };
   return ctx as unknown as AudioContext & typeof ctx;
 }
