@@ -116,6 +116,89 @@ test.describe('phone, 390×844', () => {
     expect(shut - second).toBeGreaterThanOrEqual(1500 - 20);
   });
 
+  // Issue 114: a wheel or a touch that scrolls nothing (a sideways swipe, a wheel at the end of the
+  // list, a finger lifted without a tap) began a turn that never ended, and the sheet stayed the
+  // wheel's for good. The wheel closes as after the turn before it.
+  const list = (page: Page) => page.locator('.deck-wheel-list');
+  const turnAndStop = async (page: Page) => {
+    const phases = await stampPhases(page);
+    await list(page).hover();
+    await page.mouse.wheel(0, 64);
+    await expect.poll(async () => stopsIn(await phases()).length).toBe(1);
+  };
+  /** Waits until the list has not scrolled for a while: the scroll that brings the loaded row to the band on load is over. */
+  const quiet = (page: Page) =>
+    list(page).evaluate(
+      (l) =>
+        new Promise<void>((done) => {
+          let t: ReturnType<typeof setTimeout> | undefined;
+          const again = () => {
+            clearTimeout(t);
+            t = setTimeout(() => (l.removeEventListener('scroll', again), done()), 400);
+          };
+          l.addEventListener('scroll', again);
+          again();
+        }),
+    );
+
+  test('issue 114: a sideways wheel while the wheel settles: it still closes', async ({ page }) => {
+    await page.goto('/');
+    await turnAndStop(page);
+    await list(page).evaluate((l) => l.dispatchEvent(new WheelEvent('wheel', { deltaX: 40, bubbles: true })));
+    await expect(page.locator('.deck-wheel')).toBeHidden({ timeout: 4000 });
+    expect(await phase(page)).toBe('rest');
+  });
+
+  test('issue 114: a touch held and lifted without a tap while the wheel settles: open while held, closed after', async ({ page }) => {
+    await page.goto('/');
+    await turnAndStop(page);
+    await list(page).evaluate((l) => l.dispatchEvent(new Event('touchstart', { bubbles: true })));
+    // Held past the return delay (DECK.returnMs, 1.5 s): the finger keeps the wheel open.
+    await page.waitForTimeout(2000);
+    await expect(page.locator('.deck-wheel')).toBeVisible();
+    await list(page).evaluate((l) => l.dispatchEvent(new Event('touchend', { bubbles: true })));
+    await expect(page.locator('.deck-wheel')).toBeHidden({ timeout: 4000 });
+    expect(await phase(page)).toBe('rest');
+  });
+
+  test('issue 114: a wheel past the last row mid-turn: the wheel still settles and closes', async ({ page }) => {
+    await page.goto('/');
+    await quiet(page);
+    // In the page: a turn to the end of the list, then, once its scroll (and any snap after it) is
+    // over but before it settles (DECK.settleMs, 160 ms), a wheel that scrolls nothing more.
+    await list(page).evaluate(
+      (l) =>
+        new Promise<void>((done) => {
+          let quiet: ReturnType<typeof setTimeout> | undefined;
+          const onScroll = () => {
+            clearTimeout(quiet);
+            quiet = setTimeout(() => {
+              l.removeEventListener('scroll', onScroll);
+              l.dispatchEvent(new WheelEvent('wheel', { deltaY: 100, bubbles: true }));
+              done();
+            }, 60);
+          };
+          l.addEventListener('scroll', onScroll);
+          l.dispatchEvent(new WheelEvent('wheel', { deltaY: 100, bubbles: true }));
+          l.scrollTop = l.scrollHeight;
+        }),
+    );
+    expect(await phase(page)).toBe('spinning');
+    await expect(page.locator('.deck-wheel')).toBeHidden({ timeout: 4000 });
+    expect(await phase(page)).toBe('rest');
+  });
+
+  test('issue 114: the mouse wheel kept turning at the end of the list: it closes', async ({ page }) => {
+    await page.goto('/');
+    await list(page).hover();
+    for (let i = 0; i < 12; i += 1) {
+      await page.mouse.wheel(0, 400);
+      await page.waitForTimeout(40);
+    }
+    await expect(page.locator('.deck-wheel')).toBeHidden({ timeout: 4000 });
+    expect(await phase(page)).toBe('rest');
+  });
+
   test('issue 82: Swap is in view under the input, above the pad, with nothing scrolled', async ({ page }) => {
     await page.goto('/');
     await page.locator('.deck-own').click();
