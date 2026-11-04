@@ -602,6 +602,17 @@ export const mountDeck: Mount = (root, { store, player, sound }) => {
     clearTimeout(settleTimer);
     settleTimer = setTimeout(settle, DECK.settleMs);
   }
+  /**
+   * A tap on a row or a chip ends the reader's turn: the settle it left pending never runs, so it
+   * neither picks the row under the band nor arms the return timer that closes the wheel (issue 110).
+   */
+  function stopTurn() {
+    clearTimeout(settleTimer);
+    clearTimeout(turnTimer);
+    turning = false;
+    keyRow = null;
+    seekRow = null;
+  }
   list.addEventListener('scroll', () => {
     // Docked, a scroll browses the menu: it never picks and never moves the band (v6.2 ruling 3).
     if (docked()) return;
@@ -622,10 +633,7 @@ export const mountDeck: Mount = (root, { store, player, sound }) => {
     const button = e.target instanceof Element ? e.target.closest<HTMLButtonElement>('.deck-row') : null;
     if (!button) return;
     const i = Number(button.dataset.row);
-    clearTimeout(settleTimer);
-    turning = false;
-    keyRow = null;
-    seekRow = null;
+    stopTurn();
     if (i === own) {
       // Docked, the band goes to Make your own and the editor shows under it (v6 ruling 2): a
       // click, Enter or Space on it, never the band passing (v6.1 ruling 2).
@@ -654,8 +662,10 @@ export const mountDeck: Mount = (root, { store, player, sound }) => {
   const chipOf = (b: HTMLButtonElement) => ({ by: b.dataset.by as 'balls' | 'jugglers', n: Number(b.dataset.n) });
   for (const button of filterButtons) {
     button.addEventListener('click', () => {
-      // On a phone a chip tapped while the wheel settles ends the turn: the wheel goes back to its
-      // place at rest and stays open while the reader filters (no return timer closes it).
+      // On a phone a chip tapped while the wheel turns or settles ends the turn: the wheel goes back
+      // to its place at rest and stays open while the reader filters (no pending settle, and so no
+      // return timer, closes it: issue 110).
+      stopTurn();
       if (phase !== 'rest') {
         endPhase();
         placeWheel();
