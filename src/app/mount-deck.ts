@@ -579,6 +579,11 @@ export const mountDeck: Mount = (root, { store, player, sound }) => {
       armSettle();
       return;
     }
+    // A turn begun but not yet scrolled is not this settle's to end (issue 109): the settle was
+    // armed before it, by a scroll from the page, and a turn's first scroll can come a few ms
+    // after it. Ending the turn here would take that scroll for the page's own. A turn that never
+    // scrolls lapses on its own (turn()).
+    if (turning && !scrolled && keyRow === null) return;
     const user = turning || keyRow !== null;
     keyRow = null;
     seekRow = null;

@@ -13,6 +13,26 @@ const shot = async (page: Page, name: string) => {
 
 const phase = (page: Page) => page.locator('.deck-wheel').getAttribute('data-phase');
 
+type Stamp = { at: number; phase: string | null; hidden: boolean };
+/**
+ * Stamps each phase the wheel enters, and when it hides, as it happens in the page (issues 106,
+ * 109): a poll notices a phase up to half a second late on a slow runner, so a delay timed from
+ * the poll comes out short. Returns a reader for the stamps.
+ */
+async function stampPhases(page: Page) {
+  await page.locator('.deck-wheel').evaluate((w) => {
+    const log: Stamp[] = [];
+    (window as unknown as { phases: typeof log }).phases = log;
+    new MutationObserver(() => log.push({ at: performance.now(), phase: w.getAttribute('data-phase'), hidden: (w as HTMLElement).hidden })).observe(w, {
+      attributes: true,
+      attributeFilter: ['data-phase', 'hidden'],
+    });
+  });
+  return () => page.evaluate(() => (window as unknown as { phases: Stamp[] }).phases);
+}
+/** When the wheel stopped: each stamp that enters `settling`. */
+const stopsIn = (log: Stamp[]) => log.filter((p, i, all) => p.phase === 'settling' && all[i - 1]?.phase !== 'settling');
+
 test.describe('phone, 390×844', () => {
   test.use({ viewport: { width: 390, height: 844 }, hasTouch: true });
 
@@ -39,6 +59,7 @@ test.describe('phone, 390×844', () => {
     await expect(page.locator('#play')).toBeInViewport();
     await shot(page, 'wheel-rest-first-visit');
 
+    const phases = await stampPhases(page);
     await page.locator('.deck-wheel-list').hover();
     await page.mouse.wheel(0, 64);
     await expect.poll(() => phase(page)).not.toBe('rest');
@@ -54,13 +75,12 @@ test.describe('phone, 390×844', () => {
     expect(stage.height - Math.max(0, stage.y + stage.height - w.y)).toBeGreaterThanOrEqual(200);
     await shot(page, 'wheel-turning');
 
-    // Stopped, the wheel keeps the sheet for the settle delay, then gives it back.
-    await expect.poll(() => phase(page)).toBe('settling');
-    const settledAt = Date.now();
-    await page.waitForTimeout(700);
-    await expect(wheel).toBeVisible();
+    // Stopped, the wheel keeps the sheet for the settle delay (DECK.returnMs, 1.5 s), then gives it
+    // back. Timed in the page, from when it stopped.
+    await expect.poll(async () => stopsIn(await phases()).length).toBe(1);
     await expect(wheel).toBeHidden({ timeout: 3000 });
-    expect(Date.now() - settledAt).toBeGreaterThan(1000);
+    const log = await phases();
+    expect(log.find((p) => p.hidden)!.at - stopsIn(log)[0]!.at).toBeGreaterThanOrEqual(1500 - 20);
     expect(await phase(page)).toBe('rest');
 
     // The controls are back, showing the pattern the wheel settled on.
@@ -76,17 +96,8 @@ test.describe('phone, 390×844', () => {
   test('a turn during the settle delay keeps the wheel open', async ({ page }) => {
     await page.goto('/');
     const wheel = page.locator('.deck-wheel');
-    // Each phase the wheel enters, and when it hides, stamped as it happens.
-    await wheel.evaluate((w) => {
-      const log: { at: number; phase: string | null; hidden: boolean }[] = [];
-      (window as unknown as { phases: typeof log }).phases = log;
-      new MutationObserver(() => log.push({ at: performance.now(), phase: w.getAttribute('data-phase'), hidden: (w as HTMLElement).hidden })).observe(w, {
-        attributes: true,
-        attributeFilter: ['data-phase', 'hidden'],
-      });
-    });
-    const phases = () => page.evaluate(() => (window as unknown as { phases: { at: number; phase: string | null; hidden: boolean }[] }).phases);
-    const stops = async () => (await phases()).filter((p, i, all) => p.phase === 'settling' && all[i - 1]?.phase !== 'settling');
+    const phases = await stampPhases(page);
+    const stops = async () => stopsIn(await phases());
     await page.locator('.deck-wheel-list').hover();
     await page.mouse.wheel(0, 64);
     await expect.poll(async () => (await stops()).length).toBe(1);
