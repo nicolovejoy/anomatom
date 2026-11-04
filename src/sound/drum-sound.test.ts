@@ -570,12 +570,13 @@ describe('the context is watched (v6.3, #81)', () => {
     expect(none.renew()).toBe(false);
   });
 
-  test('a fresh context that has not started is resumed; the check after it reports one still not running, and never rebuilds', () => {
+  test('a fresh context that has not started is resumed; the check after it never rebuilds, and a refused resume is heard', async () => {
     const contexts: ReturnType<typeof fakeContext>[] = [];
+    let refuse!: (e: unknown) => void;
     const sound = createDrumSound(() => {
       const ctx = fakeContext(contexts.length === 0 ? 'running' : 'suspended');
-      // The third context: made outside a gesture, the browser leaves its resume pending.
-      if (contexts.length === 2) ctx.resume.mockImplementation(() => new Promise<void>(() => {}));
+      // The third context: made outside a gesture, the browser refuses to start it.
+      if (contexts.length === 2) ctx.resume.mockImplementation(() => new Promise<void>((_res, rej) => (refuse = rej)));
       contexts.push(ctx);
       return ctx;
     }, async () => fakeKit() as Kit);
@@ -590,8 +591,45 @@ describe('the context is watched (v6.3, #81)', () => {
     sound.resume();
     expect(sound.renew()).toBe(true);
     expect(contexts[2]?.resume).toHaveBeenCalled();
+    // Still starting at the check: not a failure. Refused: heard.
     expect(sound.renew()).toBe(false);
+    expect(heard).not.toHaveBeenCalled();
+    refuse(new Error('NotAllowedError'));
+    await settle();
     expect(heard).toHaveBeenCalledTimes(1);
     expect(contexts).toHaveLength(3);
+  });
+
+  test('a clock slow to start (Firefox on Linux) is not stopped: still suspended at the check with its resume in flight, nothing is heard', async () => {
+    const ctx = fakeContext();
+    let started!: () => void;
+    ctx.resume.mockImplementation(() => new Promise<void>((res) => (started = res)));
+    const sound = createDrumSound(() => ctx, async () => fakeKit() as Kit);
+    const heard = vi.fn();
+    sound.onInterrupt(heard);
+    sound.resume();
+    expect(sound.renew()).toBe(false);
+    expect(ctx.close).not.toHaveBeenCalled();
+    ctx.become('running');
+    started();
+    await settle();
+    expect(heard).not.toHaveBeenCalled();
+    // Suspended with no resume in flight is stopped: heard on the statechange, and at the check.
+    sound.resume();
+    ctx.become('suspended');
+    expect(heard).toHaveBeenCalledTimes(1);
+    expect(sound.renew()).toBe(false);
+    expect(heard).toHaveBeenCalledTimes(2);
+  });
+
+  test('a resume the browser refuses (Play during a call) is heard at once', async () => {
+    const ctx = fakeContext('interrupted' as AudioContextState);
+    ctx.resume.mockRejectedValue(new Error('InvalidStateError'));
+    const sound = createDrumSound(() => ctx, async () => fakeKit() as Kit);
+    const heard = vi.fn();
+    sound.onInterrupt(heard);
+    sound.resume();
+    await settle();
+    expect(heard).toHaveBeenCalledTimes(1);
   });
 });

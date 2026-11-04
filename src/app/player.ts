@@ -40,10 +40,10 @@
 // The context stopping (#81): when DrumSound says the context has left `running` (an iOS
 // interruption), the player pauses as a press of Pause would; Play resumes. And
 // `AUDIO_STALL_CHECK_MS` after each gesture it asks DrumSound to `renew` a context whose clock
-// has not moved (or to report one that has not started). A new context is a new clock: every
+// has not moved (or to report one a call still holds). A new context is a new clock: every
 // time the player keeps moves by the jump (`sound.now()` after less before), and what the dead
 // context never sounded is handed over again, from where this run's unheard audio began. One
-// more check follows a new context, to report it if it does not start; it never rebuilds.
+// more check follows a new context; it never rebuilds.
 import { carryOver } from '../core/carry';
 import type { Schedule } from '../core/types';
 import type { DrumSound } from '../sound/drum-sound';
@@ -155,7 +155,7 @@ export function createPlayer(sound: DrumSound, options: PlayerOptions = {}) {
       hold += d;
       // Nothing since `runFrom` sounded: hand it over again (paused: resume sets it).
       scheduledTo = runFrom + d;
-      // Check-only: the new context is reported if it has not started.
+      // Check-only: the new context is reported if it cannot start.
       checkClock();
     }, AUDIO_STALL_CHECK_MS);
   }
