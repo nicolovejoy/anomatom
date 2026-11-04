@@ -485,7 +485,7 @@ export const mountDeck: Mount = (root, { store, player, sound }) => {
   // PageDown Home End on a row. A scroll from the page (snapping after a layout change, the wheel
   // shown again, Tab bringing a row into view, the band following an arrow) never does. A turn
   // that does not scroll (at an end) lapses after two settles, so a later scroll from the page is
-  // not taken for one. Docked the list is a menu, and its scroll only browses (v6.2 ruling 3).
+  // not taken for one (lapse). Docked the list is a menu, and its scroll only browses (v6.2 ruling 3).
   let turning = false;
   let turnTimer: ReturnType<typeof setTimeout> | undefined;
   const turn = () => {
@@ -493,8 +493,12 @@ export const mountDeck: Mount = (root, { store, player, sound }) => {
     seekRow = null;
     clearTimeout(returnTimer);
     clearTimeout(turnTimer);
-    turnTimer = setTimeout(() => (turning = false), DECK.settleMs * 2);
+    turnTimer = setTimeout(lapse, DECK.settleMs * 2);
   };
+  /** A finger is on the list: a turn that scrolls nothing does not end under it (issue 114). */
+  let touching = false;
+  /** A turn scrolled the wheel and its settle has not stopped it yet. */
+  let unsettled = false;
   // The wheel takes the sheet on the first real scroll of a turn, not on the touch or the wheel
   // event that precedes it: a tap on a row must find the row where the finger landed (ruling 9).
   // A touch that never scrolls is no turn at all.
@@ -511,7 +515,19 @@ export const mountDeck: Mount = (root, { store, player, sound }) => {
     turn();
   };
   for (const type of ['wheel', 'touchstart']) list.addEventListener(type, startTurn, { passive: true });
-  for (const type of ['touchend', 'touchcancel']) list.addEventListener(type, armSettle, { passive: true });
+  list.addEventListener('touchstart', () => (touching = true), { passive: true });
+  for (const type of ['touchend', 'touchcancel']) {
+    list.addEventListener(
+      type,
+      () => {
+        touching = false;
+        // A finger held past the turn's lapse: the turn is over now it lifts.
+        if (!turning) lapse();
+        armSettle();
+      },
+      { passive: true },
+    );
+  }
 
   /** Turns the phone's wheel to `to` as the reader's turn: the band goes there, and the row loads when it settles. */
   function turnTo(to: number) {
@@ -568,6 +584,7 @@ export const mountDeck: Mount = (root, { store, player, sound }) => {
       keyRow = null;
       seekRow = null;
       turning = false;
+      unsettled = false;
       return;
     }
     const at = rowAt();
@@ -582,7 +599,7 @@ export const mountDeck: Mount = (root, { store, player, sound }) => {
     // A turn begun but not yet scrolled is not this settle's to end (issue 109): the settle was
     // armed before it, by a scroll from the page, and a turn's first scroll can come a few ms
     // after it. Ending the turn here would take that scroll for the page's own. A turn that never
-    // scrolls lapses on its own (turn()).
+    // scrolls lapses on its own (lapse).
     if (turning && !scrolled && keyRow === null) return;
     const user = turning || keyRow !== null;
     keyRow = null;
@@ -590,6 +607,25 @@ export const mountDeck: Mount = (root, { store, player, sound }) => {
     turning = false;
     clearTimeout(turnTimer);
     if (!user || !scrolled) return;
+    stopWheel(at);
+  }
+  /**
+   * A turn's input is over (its timer lapsed, or the finger lifted after it): a turn that scrolled
+   * nothing is no turn of its own, so no settle comes to end it (issue 114: a sideways swipe, a
+   * wheel past the last row, a finger lifted without a tap). The sheet may still be the wheel's,
+   * from the turn before, whose return timer this turn cleared or whose settle it swallowed (the
+   * issue 109 guard in settle): the wheel stops, picks and closes as that turn would have.
+   */
+  function lapse() {
+    turning = false;
+    if (touching || scrolled || keyRow !== null || wheel.hidden || docked()) return;
+    if (phase === 'rest' && !unsettled) return;
+    clearTimeout(settleTimer);
+    stopWheel(rowAt());
+  }
+  /** A turn ends: the upright wheel settles and closes DECK.returnMs later; the row in the band loads. */
+  function stopWheel(at: number) {
+    unsettled = false;
     if (upright()) {
       setPhase('stop');
       clearTimeout(returnTimer);
@@ -618,6 +654,7 @@ export const mountDeck: Mount = (root, { store, player, sound }) => {
     clearTimeout(settleTimer);
     clearTimeout(turnTimer);
     turning = false;
+    unsettled = false;
     keyRow = null;
     seekRow = null;
   }
@@ -632,6 +669,7 @@ export const mountDeck: Mount = (root, { store, player, sound }) => {
       sheetOn();
       turn();
       scrolled = true;
+      unsettled = true;
     }
     armSettle();
   });
