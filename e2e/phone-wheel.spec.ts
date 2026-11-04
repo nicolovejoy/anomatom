@@ -70,21 +70,39 @@ test.describe('phone, 390×844', () => {
     await shot(page, 'wheel-settled');
   });
 
+  // Timed in the page, from when the wheel stopped (issue 106): a poll notices `settling` up to
+  // half a second late, and a second turn timed from then reached a slow runner (WebKit on CI) after
+  // the first delay had closed the wheel.
   test('a turn during the settle delay keeps the wheel open', async ({ page }) => {
     await page.goto('/');
     const wheel = page.locator('.deck-wheel');
+    // Each phase the wheel enters, and when it hides, stamped as it happens.
+    await wheel.evaluate((w) => {
+      const log: { at: number; phase: string | null; hidden: boolean }[] = [];
+      (window as unknown as { phases: typeof log }).phases = log;
+      new MutationObserver(() => log.push({ at: performance.now(), phase: w.getAttribute('data-phase'), hidden: (w as HTMLElement).hidden })).observe(w, {
+        attributes: true,
+        attributeFilter: ['data-phase', 'hidden'],
+      });
+    });
+    const phases = () => page.evaluate(() => (window as unknown as { phases: { at: number; phase: string | null; hidden: boolean }[] }).phases);
+    const stops = async () => (await phases()).filter((p, i, all) => p.phase === 'settling' && all[i - 1]?.phase !== 'settling');
     await page.locator('.deck-wheel-list').hover();
     await page.mouse.wheel(0, 64);
-    await expect.poll(() => phase(page)).toBe('settling');
-    await page.waitForTimeout(1000);
+    await expect.poll(async () => (await stops()).length).toBe(1);
+    const first = (await stops())[0]!.at;
+    // A second turn well inside the first delay (DECK.returnMs, 1.5 s): 0.7 s after the stop.
+    await page.waitForFunction((t) => performance.now() >= t, first + 700);
     // The wheel moved to the sheet when the turn began: the pointer goes to it again.
     await page.locator('.deck-wheel-list').hover();
     await page.mouse.wheel(0, 64);
-    await expect.poll(() => phase(page)).not.toBe('rest');
-    await page.waitForTimeout(900);
-    // 1.9 s after the first stop: the first delay would have closed it by now.
-    await expect(wheel).toBeVisible();
+    await expect.poll(async () => (await stops()).length).toBe(2);
+    const second = (await stops())[1]!.at;
+    // The wheel stayed open through the first delay, and closes the delay after the second stop.
     await expect(wheel).toBeHidden({ timeout: 3000 });
+    const shut = (await phases()).find((p) => p.hidden)!.at;
+    expect(shut - first).toBeGreaterThan(1500 + 700);
+    expect(shut - second).toBeGreaterThanOrEqual(1500 - 20);
   });
 
   test('issue 82: Swap is in view under the input, above the pad, with nothing scrolled', async ({ page }) => {
