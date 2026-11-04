@@ -114,12 +114,13 @@ test('slider fill, clamped', () => {
   expect(fillPercent(1, 1, 1)).toBe(0);
 });
 
-test('the sound row: shown on a failure, kept through the reload after it, given up when ready', () => {
+test('the sound row: shown on a failure, kept through the reload after it (a rebuild\'s idle too), given up when ready', () => {
   expect(soundRowHeld('loading', false)).toBe(false);
   expect(soundRowHeld('failed', false)).toBe(true);
   expect(soundRowHeld('loading', true)).toBe(true);
   expect(soundRowHeld('failed', true)).toBe(true);
   expect(soundRowHeld('ready', true)).toBe(false);
-  expect(soundRowHeld('idle', true)).toBe(false);
+  expect(soundRowHeld('idle', true)).toBe(true);
+  expect(soundRowHeld('idle', false)).toBe(false);
   expect(soundRowHeld('ready', false)).toBe(false);
 });
