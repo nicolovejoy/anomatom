@@ -433,6 +433,8 @@ export const mountDeck: Mount = (root, { store, player, sound }) => {
   // return. The timer lives here; the rule is the model's.
   let phase: WheelPhase = 'rest';
   let returnTimer: ReturnType<typeof setTimeout> | undefined;
+  /** The wheel stopped under a finger: the return timer waits for the last finger to lift (issue 116). */
+  let returnHeld = false;
   const setPhase = (event: Parameters<typeof nextPhase>[1]) => {
     phase = nextPhase(phase, event);
     wheel.dataset.phase = phase;
@@ -443,6 +445,7 @@ export const mountDeck: Mount = (root, { store, player, sound }) => {
   const endPhase = () => {
     stopTurn();
     clearTimeout(returnTimer);
+    returnHeld = false;
     setPhase('close');
   };
 
@@ -492,10 +495,14 @@ export const mountDeck: Mount = (root, { store, player, sound }) => {
     turning = true;
     seekRow = null;
     clearTimeout(returnTimer);
+    returnHeld = false;
     clearTimeout(turnTimer);
     turnTimer = setTimeout(lapse, DECK.settleMs * 2);
   };
-  /** A finger is on the list: a turn that scrolls nothing does not end under it (issue 114). */
+  /**
+   * A finger is on the list: a turn that scrolls nothing does not end under it (issue 114), and the
+   * wheel never closes under it (issue 116). Any finger: one of two lifting leaves it true.
+   */
   let touching = false;
   /** A turn scrolled the wheel and its settle has not stopped it yet. */
   let unsettled = false;
@@ -516,11 +523,14 @@ export const mountDeck: Mount = (root, { store, player, sound }) => {
   };
   for (const type of ['wheel', 'touchstart']) list.addEventListener(type, startTurn, { passive: true });
   list.addEventListener('touchstart', () => (touching = true), { passive: true });
-  for (const type of ['touchend', 'touchcancel']) {
+  for (const type of ['touchend', 'touchcancel'] as const) {
     list.addEventListener(
       type,
-      () => {
-        touching = false;
+      (e) => {
+        touching = e.touches.length > 0;
+        if (touching) return;
+        // The wheel stopped under the finger: its return delay starts now it lifts.
+        if (returnHeld) armReturn();
         // A finger held past the turn's lapse: the turn is over now it lifts.
         if (!turning) lapse();
         armSettle();
@@ -628,19 +638,28 @@ export const mountDeck: Mount = (root, { store, player, sound }) => {
     unsettled = false;
     if (upright()) {
       setPhase('stop');
-      clearTimeout(returnTimer);
-      returnTimer = setTimeout(() => {
-        setPhase('return');
-        if (phase !== 'rest') return;
-        const had = picker.contains(document.activeElement);
-        closeWheel();
-        if (had) patternButton.focus();
-      }, DECK.returnMs);
+      // It may settle under a held finger, but it closes only after the last finger lifts.
+      if (touching) {
+        clearTimeout(returnTimer);
+        returnHeld = true;
+      } else armReturn();
     }
     // The band resting on Make your own opens nothing and loads nothing: only a tap on it does
     // (v6.1 ruling 2).
     const chosen = settledPick(at, current(), order.length);
     if (chosen !== null) pick(chosen);
+  }
+  /** The wheel closes DECK.returnMs from now, and the controls return. */
+  function armReturn() {
+    returnHeld = false;
+    clearTimeout(returnTimer);
+    returnTimer = setTimeout(() => {
+      setPhase('return');
+      if (phase !== 'rest') return;
+      const had = picker.contains(document.activeElement);
+      closeWheel();
+      if (had) patternButton.focus();
+    }, DECK.returnMs);
   }
   function armSettle() {
     clearTimeout(settleTimer);
