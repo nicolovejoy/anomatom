@@ -559,8 +559,10 @@ export const mountDeck: Mount = (root, { store, player, sound }) => {
     turnTimer = setTimeout(lapse, DECK.settleMs * 2);
   };
   /**
-   * A finger is on the list: a turn that scrolls nothing does not end under it (issue 114), and the
-   * wheel never closes under it (issue 116). Any finger: one of two lifting leaves it true.
+   * A finger is on the list: a turn that scrolls nothing does not end under it (issue 114), the
+   * wheel never closes under it (issue 116), and a scroll under it is the reader's turn even after
+   * it held still past the settle (issue 118). Only fingers that landed on the list count: one held
+   * on a chip lifts there, and the list never hears of it (issue 119).
    */
   let touching = false;
   /** A turn scrolled the wheel and its settle has not stopped it yet. */
@@ -589,7 +591,7 @@ export const mountDeck: Mount = (root, { store, player, sound }) => {
     list.addEventListener(
       type,
       (e) => {
-        touching = e.touches.length > 0;
+        touching = [...e.touches].some((t) => list.contains(t.target as Node));
         if (touching) return;
         // The wheel stopped under the finger: its return delay starts now it lifts.
         if (returnHeld) armReturn();
@@ -757,7 +759,8 @@ export const mountDeck: Mount = (root, { store, player, sound }) => {
     ownTop = null;
     band(rowAt());
     // A scroll the page made itself (re-placing the wheel, a snap) is no turn and takes no sheet.
-    if (turning && !mine) {
+    // Under a finger it is the reader's, though the settle ended the turn while it held still (issue 118).
+    if ((turning || touching) && !mine) {
       sheetOn();
       turn();
       scrolled = true;
