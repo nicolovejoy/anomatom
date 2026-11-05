@@ -1,5 +1,6 @@
 // v5 stream B2 (docs/plans/v5-sound-model.md, ruling 9; issues 79 and 82). At 390×844 the pattern
-// wheel takes the whole sheet while it turns, and 1.5 s after it settles the controls return;
+// wheel takes the whole sheet while it turns, and 1.5 s after it settles the controls return and
+// the wheel shrinks to three rows over the foot of the stage (docs/plans/v6-4-wheel-shrinks.md);
 // Swap is in view under the input, above the digit pad. Issue 79 (the docked wheel's band one
 // row off a typed 97531) is checked where it was found, 1280×800, on the docked menu of v6.2
 // (docs/plans/v6-2-wheel-ends.md, ruling 3). Headless; screenshots go to
@@ -32,94 +33,29 @@ async function stampPhases(page: Page) {
 }
 /** When the wheel stopped: each stamp that enters `settling`. */
 const stopsIn = (log: Stamp[]) => log.filter((p, i, all) => p.phase === 'settling' && all[i - 1]?.phase !== 'settling');
+/** When the wheel went compact (v6.4 ruling 1): the first stamp in `compact`. */
+const compactIn = (log: Stamp[]) => log.find((p) => p.phase === 'compact');
+
+/** The compact wheel (v6.4 rulings 1 and 2): shown, three rows, no chips, Play and the deck under it. */
+async function expectCompact(page: Page) {
+  const wheel = page.locator('.deck-wheel');
+  await expect(wheel).toHaveAttribute('data-phase', 'compact', { timeout: 4000 });
+  await expect(wheel).toBeVisible();
+  await expect(page.locator('.deck-filters')).toBeHidden();
+  await expect(page.locator('.deck-pattern')).toHaveAttribute('aria-expanded', 'true');
+  const w = (await wheel.boundingBox())!;
+  // Three rows less a quarter row cut at each edge (DECK.compactRows, compactCut).
+  expect(Math.round(w.height)).toBe(80);
+  expect(w.y + w.height).toBeLessThanOrEqual((await page.locator('.deck-bar').boundingBox())!.y + 1);
+  await expect(page.locator('#play')).toBeInViewport();
+  await expect(page.locator('.deck-sound')).toBeInViewport();
+}
 
 test.describe('phone, 390×844', () => {
   test.use({ viewport: { width: 390, height: 844 }, hasTouch: true });
 
-  // The wheel moves to the sheet on the first scroll of a turn, not on the touch: the row under the
-  // finger must still be there when the tap's click fires.
-  test('a tap on a row of the open wheel at rest picks it', async ({ page }) => {
-    await page.goto('/');
-    const row = page.locator('.deck-row[data-id="shower"]');
-    await expect(row).toBeInViewport();
-    await row.tap();
-    await expect(page.locator('.deck-notation')).toHaveText('51');
-    await expect(page.locator('.deck-wheel')).toBeHidden();
-  });
-
-  test('the wheel takes the sheet while it turns; the controls return 1.5 s after it settles', async ({ page }) => {
-    await page.goto('/');
-    const wheel = page.locator('.deck-wheel');
-    const bar = page.locator('.deck-bar');
-    await expect(wheel).toBeVisible();
-
-    // At rest, a first visit's open wheel is over the stage: Play and the deck show under it.
-    const rest = (await wheel.boundingBox())!;
-    expect(rest.y + rest.height).toBeLessThanOrEqual((await bar.boundingBox())!.y + 1);
-    await expect(page.locator('#play')).toBeInViewport();
-    await shot(page, 'wheel-rest-first-visit');
-
-    const phases = await stampPhases(page);
-    await page.locator('.deck-wheel-list').hover();
-    await page.mouse.wheel(0, 64);
-    await expect.poll(() => phase(page)).not.toBe('rest');
-    await expect(wheel).toBeVisible();
-    // Turning, it takes the sheet: the deck and the sheet are under it, the figure above.
-    const w = (await wheel.boundingBox())!;
-    const b = (await bar.boundingBox())!;
-    expect(w.x).toBe(0);
-    expect(w.width).toBe(390);
-    expect(w.y).toBeLessThanOrEqual(b.y);
-    expect(w.y + w.height).toBeGreaterThanOrEqual(844 - 1);
-    const stage = (await page.locator('.region-juggler').boundingBox())!;
-    expect(stage.height - Math.max(0, stage.y + stage.height - w.y)).toBeGreaterThanOrEqual(200);
-    await shot(page, 'wheel-turning');
-
-    // Stopped, the wheel keeps the sheet for the settle delay (DECK.returnMs, 1.5 s), then gives it
-    // back. Timed in the page, from when it stopped.
-    await expect.poll(async () => stopsIn(await phases()).length).toBe(1);
-    await expect(wheel).toBeHidden({ timeout: 3000 });
-    const log = await phases();
-    expect(log.find((p) => p.hidden)!.at - stopsIn(log)[0]!.at).toBeGreaterThanOrEqual(1500 - 20);
-    expect(await phase(page)).toBe('rest');
-
-    // The controls are back, showing the pattern the wheel settled on.
-    await expect(page.locator('#play')).toBeInViewport();
-    await expect(page.locator('.deck-sound')).toBeInViewport();
-    await expect(page.locator('.deck-notation')).not.toHaveText('3');
-    await shot(page, 'wheel-settled');
-  });
-
-  // Timed in the page, from when the wheel stopped (issue 106): a poll notices `settling` up to
-  // half a second late, and a second turn timed from then reached a slow runner (WebKit on CI) after
-  // the first delay had closed the wheel.
-  test('a turn during the settle delay keeps the wheel open', async ({ page }) => {
-    await page.goto('/');
-    const wheel = page.locator('.deck-wheel');
-    const phases = await stampPhases(page);
-    const stops = async () => stopsIn(await phases());
-    await page.locator('.deck-wheel-list').hover();
-    await page.mouse.wheel(0, 64);
-    await expect.poll(async () => (await stops()).length).toBe(1);
-    const first = (await stops())[0]!.at;
-    // A second turn well inside the first delay (DECK.returnMs, 1.5 s): 0.7 s after the stop.
-    await page.waitForFunction((t) => performance.now() >= t, first + 700);
-    // The wheel moved to the sheet when the turn began: the pointer goes to it again.
-    await page.locator('.deck-wheel-list').hover();
-    await page.mouse.wheel(0, 64);
-    await expect.poll(async () => (await stops()).length).toBe(2);
-    const second = (await stops())[1]!.at;
-    // The wheel stayed open through the first delay, and closes the delay after the second stop.
-    await expect(wheel).toBeHidden({ timeout: 3000 });
-    const shut = (await phases()).find((p) => p.hidden)!.at;
-    expect(shut - first).toBeGreaterThan(1500 + 700);
-    expect(shut - second).toBeGreaterThanOrEqual(1500 - 20);
-  });
-
-  // Issue 114: a wheel or a touch that scrolls nothing (a sideways swipe, a wheel at the end of the
-  // list, a finger lifted without a tap) began a turn that never ended, and the sheet stayed the
-  // wheel's for good. The wheel closes as after the turn before it.
   const list = (page: Page) => page.locator('.deck-wheel-list');
+  /** A turn of the open wheel by the mouse wheel, until it has stopped (settling, the return timer running). */
   const turnAndStop = async (page: Page) => {
     const phases = await stampPhases(page);
     await list(page).hover();
@@ -156,29 +92,341 @@ test.describe('phone, 390×844', () => {
         }),
     );
 
-  test('issue 114: a sideways wheel while the wheel settles: it still closes', async ({ page }) => {
+
+  // The wheel moves to the sheet on the first scroll of a turn, not on the touch: the row under the
+  // finger must still be there when the tap's click fires.
+  test('a tap on a row of the open wheel at rest picks it', async ({ page }) => {
+    await page.goto('/');
+    const row = page.locator('.deck-row[data-id="shower"]');
+    await expect(row).toBeInViewport();
+    await row.tap();
+    await expect(page.locator('.deck-notation')).toHaveText('51');
+    // It plays, and the wheel shrinks rather than closing (v6.4 ruling 4).
+    await expect(page.locator('#play')).toHaveText('Pause');
+    await expectCompact(page);
+    await expect(page.locator('.deck-row.in-band')).toHaveAttribute('data-id', 'shower');
+  });
+
+  test('the wheel takes the sheet while it turns; 1.5 s after it settles the controls return and it is compact', async ({ page }) => {
+    await page.goto('/');
+    const wheel = page.locator('.deck-wheel');
+    const bar = page.locator('.deck-bar');
+    await expect(wheel).toBeVisible();
+
+    // At rest, a first visit's open wheel is over the stage: Play and the deck show under it.
+    const rest = (await wheel.boundingBox())!;
+    expect(rest.y + rest.height).toBeLessThanOrEqual((await bar.boundingBox())!.y + 1);
+    await expect(page.locator('#play')).toBeInViewport();
+    await shot(page, 'wheel-rest-first-visit');
+
+    const phases = await stampPhases(page);
+    await page.locator('.deck-wheel-list').hover();
+    await page.mouse.wheel(0, 64);
+    await expect.poll(() => phase(page)).not.toBe('rest');
+    await expect(wheel).toBeVisible();
+    // Turning, it takes the sheet: the deck and the sheet are under it, the figure above.
+    const w = (await wheel.boundingBox())!;
+    const b = (await bar.boundingBox())!;
+    expect(w.x).toBe(0);
+    expect(w.width).toBe(390);
+    expect(w.y).toBeLessThanOrEqual(b.y);
+    expect(w.y + w.height).toBeGreaterThanOrEqual(844 - 1);
+    const stage = (await page.locator('.region-juggler').boundingBox())!;
+    expect(stage.height - Math.max(0, stage.y + stage.height - w.y)).toBeGreaterThanOrEqual(200);
+    await shot(page, 'wheel-turning');
+
+    // Stopped, the wheel keeps the sheet for the settle delay (DECK.returnMs, 1.5 s), then gives it
+    // back and shrinks (v6.4 ruling 1). Timed in the page, from when it stopped.
+    await expect.poll(async () => stopsIn(await phases()).length).toBe(1);
+    await expectCompact(page);
+    const log = await phases();
+    expect(compactIn(log)!.at - stopsIn(log)[0]!.at).toBeGreaterThanOrEqual(1500 - 20);
+    expect(log.some((p) => p.hidden)).toBe(false);
+
+    // The controls are back, showing the pattern the wheel settled on; the band is on its row.
+    await expect(page.locator('.deck-notation')).not.toHaveText('3');
+    const settled = await page.locator('.deck-notation').textContent();
+    await expect(page.locator('.deck-row.in-band code')).toHaveText(settled!);
+    // Three rows show: the band's in the middle, a row each side.
+    const c = (await wheel.boundingBox())!;
+    const band = (await page.locator('.deck-row.in-band').boundingBox())!;
+    expect(Math.abs(band.y + band.height / 2 - (c.y + c.height / 2))).toBeLessThanOrEqual(2);
+    // The juggler draws wholly above the compact wheel, taller than above the seven-row one.
+    await expect.poll(async () => {
+      const j = (await page.locator('.region-juggler').boundingBox())!;
+      return j.y + j.height <= c.y + 1 && j.y + j.height > rest.y;
+    }).toBe(true);
+    await shot(page, 'wheel-settled');
+  });
+
+  // v6.4 ruling 3: a touch on the compact wheel that turns nothing (and taps no row) grows it back
+  // to the open wheel at rest, seven rows and the chips, which stays; a turn of it takes the sheet
+  // and it is compact again 1.5 s after it settles.
+  test('v6.4: a touch on the compact wheel grows it back; a turn of it takes the sheet and shrinks it again', async ({ page }) => {
+    await page.goto('/');
+    await turnAndStop(page);
+    await expectCompact(page);
+    const banded = await page.locator('.deck-row.in-band').getAttribute('data-row');
+    // A press and lift, no scroll, no click.
+    await touch(page, 'touchstart', 1);
+    await page.waitForTimeout(100);
+    await touch(page, 'touchend', 0);
+    const wheel = page.locator('.deck-wheel');
+    await expect(wheel).toHaveAttribute('data-phase', 'rest');
+    await expect(page.locator('.deck-filters')).toBeVisible();
+    await expect.poll(async () => Math.round((await wheel.boundingBox())!.height)).toBe(224);
+    // The band stays on its row through both changes of size.
+    await expect(page.locator('.deck-row.in-band')).toHaveAttribute('data-row', banded!);
+    // It stays open at rest: no return timer runs.
+    await page.waitForTimeout(2200);
+    await expect(wheel).toHaveAttribute('data-phase', 'rest');
+    await expect(wheel).toBeVisible();
+
+    // Back to compact, then a turn on the compact wheel: it takes the sheet, settles, and is
+    // compact again the return delay after it stopped.
+    await turnAndStop(page);
+    await expectCompact(page);
+    const phases = await stampPhases(page);
+    await list(page).hover();
+    await page.mouse.wheel(0, 64);
+    await expect.poll(() => phase(page)).toBe('spinning');
+    const w = (await wheel.boundingBox())!;
+    expect(w.y + w.height).toBeGreaterThanOrEqual(844 - 1);
+    await expect(page.locator('.deck-filters')).toBeVisible();
+    await expect.poll(async () => stopsIn(await phases()).length).toBe(1);
+    await expectCompact(page);
+    const log = await phases();
+    expect(compactIn(log)!.at - stopsIn(log)[0]!.at).toBeGreaterThanOrEqual(1500 - 20);
+    const settled = await page.locator('.deck-notation').textContent();
+    await expect(page.locator('.deck-row.in-band code')).toHaveText(settled!);
+  });
+
+  // v6.4 ruling 4: a row tapped on the compact wheel plays it and leaves the wheel compact.
+  test('v6.4: a tap on a row of the compact wheel plays it; the wheel stays compact', async ({ page }) => {
+    await page.goto('/');
+    await turnAndStop(page);
+    await expectCompact(page);
+    const band = Number(await page.locator('.deck-row.in-band').getAttribute('data-row'));
+    // The row under the band, its upper three quarters in view.
+    const next = page.locator(`.deck-row[data-row="${band + 1}"]`);
+    const code = await next.locator('code').textContent();
+    const w = (await page.locator('.deck-wheel').boundingBox())!;
+    await page.touchscreen.tap(w.x + w.width / 2, w.y + w.height - 10);
+    await expect(page.locator('.deck-notation')).toHaveText(code!);
+    await expect(page.locator('#play')).toHaveText('Pause');
+    await expectCompact(page);
+    await expect(page.locator('.deck-row.in-band')).toHaveAttribute('data-row', String(band + 1));
+    // Still compact well after: a tap arms no return timer and grows nothing.
+    await page.waitForTimeout(2000);
+    await expect(page.locator('.deck-wheel')).toHaveAttribute('data-phase', 'compact');
+  });
+
+  // Review of #120, finding 1: a tap held past the turn's lapse (320 ms) grew the drum at touchend,
+  // before the tap's click, which then landed on another row. The grow waits DECK.growGraceMs; the
+  // click cancels it. In the page, the click comes right after the lift and is hit-tested where
+  // the finger was, as a browser's is.
+  test('v6.4: a slow tap (400 ms) on the compact band row plays that row; the wheel stays compact', async ({ page }) => {
+    await page.goto('/');
+    await turnAndStop(page);
+    await expectCompact(page);
+    const phases = await stampPhases(page);
+    const band = page.locator('.deck-row.in-band');
+    const row = await band.getAttribute('data-row');
+    const code = await band.locator('code').textContent();
+    const b = (await band.boundingBox())!;
+    await touch(page, 'touchstart', 1);
+    await page.waitForTimeout(400);
+    const clicked = await list(page).evaluate(
+      (l, [x, y]) => {
+        const e = new Event('touchend', { bubbles: true });
+        Object.defineProperty(e, 'touches', { value: [] });
+        l.dispatchEvent(e);
+        const hit = document.elementFromPoint(x as number, y as number)?.closest<HTMLElement>('.deck-row');
+        hit?.click();
+        return hit?.dataset.row ?? null;
+      },
+      [b.x + b.width / 2, b.y + b.height / 2],
+    );
+    expect(clicked).toBe(row);
+    await expect(page.locator('.deck-notation')).toHaveText(code!);
+    await expect(page.locator('#play')).toHaveText('Pause');
+    await page.waitForTimeout(800);
+    await expectCompact(page);
+    expect((await phases()).some((p) => p.phase === 'rest')).toBe(false);
+  });
+
+  test('v6.4: a slow tap (400 ms) on the compact band row, by real touch events: that row plays', async ({ page, browserName }) => {
+    test.skip(browserName !== 'chromium', 'CDP touch events are Chromium only');
+    await page.goto('/');
+    await turnAndStop(page);
+    await expectCompact(page);
+    const band = page.locator('.deck-row.in-band');
+    const code = await band.locator('code').textContent();
+    const b = (await band.boundingBox())!;
+    const cdp = await page.context().newCDPSession(page);
+    const at = { x: b.x + b.width / 2, y: b.y + b.height / 2 };
+    await cdp.send('Input.dispatchTouchEvent', { type: 'touchStart', touchPoints: [at] });
+    await page.waitForTimeout(400);
+    await cdp.send('Input.dispatchTouchEvent', { type: 'touchEnd', touchPoints: [] });
+    await expect(page.locator('.deck-notation')).toHaveText(code!);
+    await expect(page.locator('#play')).toHaveText('Pause');
+    await page.waitForTimeout(800);
+    await expectCompact(page);
+  });
+
+  test('v6.4: a long press (800 ms, no click) on the compact wheel grows it, the grace after the lift', async ({ page }) => {
+    await page.goto('/');
+    await turnAndStop(page);
+    await expectCompact(page);
+    const phases = await stampPhases(page);
+    await touch(page, 'touchstart', 1);
+    await page.waitForTimeout(800);
+    expect(await phase(page)).toBe('compact');
+    const lifted = await touch(page, 'touchend', 0);
+    await expect(page.locator('.deck-wheel')).toHaveAttribute('data-phase', 'rest');
+    await expect(page.locator('.deck-filters')).toBeVisible();
+    const grown = (await phases()).find((p) => p.phase === 'rest')!.at;
+    // DECK.growGraceMs, 350 ms.
+    expect(grown - lifted).toBeGreaterThanOrEqual(350 - 20);
+  });
+
+  // Review of #120, finding 2: turned on its side, the compact wheel becomes the column's open wheel.
+  test('v6.4: turned on its side, the compact wheel leaves compact', async ({ page }) => {
+    await page.goto('/');
+    await turnAndStop(page);
+    await expectCompact(page);
+    await page.setViewportSize({ width: 844, height: 390 });
+    await expect(page.locator('.deck-wheel')).toHaveAttribute('data-phase', 'rest');
+    await expect(page.locator('.deck-picker')).not.toHaveClass(/is-compact/);
+    await expect(page.locator('.deck-filters')).toBeVisible();
+    await page.setViewportSize({ width: 390, height: 844 });
+    await expect(page.locator('.deck-wheel')).toHaveAttribute('data-phase', 'rest');
+    await expect.poll(async () => Math.round((await page.locator('.deck-wheel').boundingBox())!.height)).toBe(224);
+  });
+
+  // v6.4 ruling 5, revised by the governor: a tap on the deck under the compact wheel (Play, ‹ ›,
+  // mute, volume, Listen for) leaves it compact, and the band follows the pattern.
+  test('v6.4: Play, › and mute under the compact wheel leave it compact; the band follows', async ({ page }) => {
+    await page.goto('/');
+    await turnAndStop(page);
+    await expectCompact(page);
+    await page.locator('#play').click();
+    await expect(page.locator('#play')).toHaveText('Pause');
+    await expectCompact(page);
+    const before = await page.locator('.deck-notation').textContent();
+    await page.locator('.deck-next').click();
+    await expect(page.locator('.deck-notation')).not.toHaveText(before!);
+    const now = await page.locator('.deck-notation').textContent();
+    await expect(page.locator('.deck-row.in-band code')).toHaveText(now!);
+    await expectCompact(page);
+    await page.locator('#mute').click();
+    await page.locator('#deck-listen').selectOption('height');
+    await expectCompact(page);
+    // Details still closes it.
+    await page.locator('.deck-details').click();
+    await expect(page.locator('.deck-wheel')).toBeHidden();
+  });
+
+  // Review of #120, finding 4: from the compact wheel PageDown pages by the full drum (DECK.wheelRows), not three.
+  test('v6.4: PageDown on the compact wheel turns it seven rows', async ({ page }) => {
+    await page.goto('/');
+    await turnAndStop(page);
+    await expectCompact(page);
+    const from = Number(await page.locator('.deck-row.in-band').getAttribute('data-row'));
+    await page.locator(`.deck-row[data-row="${from}"]`).focus();
+    await page.keyboard.press('PageDown');
+    await expect(page.locator('.deck-row.in-band')).toHaveAttribute('data-row', String(from + 7));
+  });
+
+  // v6.4 ruling 5: the pattern name, Escape, Details, Make your own and a tap elsewhere (the stage)
+  // close the compact wheel fully; the pattern name opens it again at seven rows with the chips.
+  for (const how of ['pattern', 'escape', 'details', 'outside', 'make-your-own'] as const) {
+    test(`v6.4: ${how} closes the compact wheel`, async ({ page }) => {
+      await page.goto('/');
+      await turnAndStop(page);
+      await expectCompact(page);
+      if (how === 'pattern') await page.locator('.deck-pattern').click();
+      if (how === 'escape') await page.keyboard.press('Escape');
+      if (how === 'details') await page.locator('.deck-details').click();
+      if (how === 'outside') await page.locator('.region-juggler').click({ position: { x: 20, y: 20 } });
+      if (how === 'make-your-own') {
+        await list(page).evaluate((l) => (l.scrollTop = l.scrollHeight));
+        await expect(page.locator('.deck-own')).toHaveClass(/in-band/);
+        await page.locator('.deck-own').click();
+        await expect(page.locator('#tab-pattern')).toHaveAttribute('aria-selected', 'true');
+      }
+      await expect(page.locator('.deck-wheel')).toBeHidden();
+      expect(await phase(page)).toBe('rest');
+      await expect(page.locator('.deck-pattern')).toHaveAttribute('aria-expanded', 'false');
+      if (how !== 'pattern') return;
+      await page.locator('.deck-pattern').click();
+      await expect(page.locator('.deck-filters')).toBeVisible();
+      await expect.poll(async () => Math.round((await page.locator('.deck-wheel').boundingBox())!.height)).toBe(224);
+    });
+  }
+
+  // v6.4 ruling 7: compact is still open, and keeps focus where it was.
+  test('v6.4: keys turn the wheel; when it goes compact the focused row keeps its focus', async ({ page }) => {
+    await page.goto('/');
+    await page.locator('.deck-row[data-row="0"]').focus();
+    await page.keyboard.press('ArrowDown');
+    await expectCompact(page);
+    await expect(page.locator('.deck-row[data-row="1"]')).toBeFocused();
+    await expect(page.locator('.deck-row[tabindex="0"]')).toHaveCount(1);
+  });
+
+  // Timed in the page, from when the wheel stopped (issue 106): a poll notices `settling` up to
+  // half a second late, and a second turn timed from then reached a slow runner (WebKit on CI) after
+  // the first delay had closed the wheel.
+  test('a turn during the settle delay keeps the wheel on the sheet', async ({ page }) => {
+    await page.goto('/');
+    const wheel = page.locator('.deck-wheel');
+    const phases = await stampPhases(page);
+    const stops = async () => stopsIn(await phases());
+    await page.locator('.deck-wheel-list').hover();
+    await page.mouse.wheel(0, 64);
+    await expect.poll(async () => (await stops()).length).toBe(1);
+    const first = (await stops())[0]!.at;
+    // A second turn well inside the first delay (DECK.returnMs, 1.5 s): 0.7 s after the stop.
+    await page.waitForFunction((t) => performance.now() >= t, first + 700);
+    // The wheel moved to the sheet when the turn began: the pointer goes to it again.
+    await page.locator('.deck-wheel-list').hover();
+    await page.mouse.wheel(0, 64);
+    await expect.poll(async () => (await stops()).length).toBe(2);
+    const second = (await stops())[1]!.at;
+    // The wheel kept the sheet through the first delay, and goes compact the delay after the second stop.
+    await expectCompact(page);
+    await expect(wheel).toBeVisible();
+    const shut = compactIn(await phases())!.at;
+    expect(shut - first).toBeGreaterThan(1500 + 700);
+    expect(shut - second).toBeGreaterThanOrEqual(1500 - 20);
+  });
+
+  // Issue 114: a wheel or a touch that scrolls nothing (a sideways swipe, a wheel at the end of the
+  // list, a finger lifted without a tap) began a turn that never ended, and the sheet stayed the
+  // wheel's for good. The wheel goes compact (v6.4) as after the turn before it.
+  test('issue 114: a sideways wheel while the wheel settles: it still goes compact', async ({ page }) => {
     await page.goto('/');
     await turnAndStop(page);
     await list(page).evaluate((l) => l.dispatchEvent(new WheelEvent('wheel', { deltaX: 40, bubbles: true })));
-    await expect(page.locator('.deck-wheel')).toBeHidden({ timeout: 4000 });
-    expect(await phase(page)).toBe('rest');
+    await expectCompact(page);
   });
 
-  test('issue 114: a touch held and lifted without a tap while the wheel settles: open while held, closed after', async ({ page }) => {
+  test('issue 114: a touch held and lifted without a tap while the wheel settles: on the sheet while held, compact after', async ({ page }) => {
     await page.goto('/');
     await turnAndStop(page);
     await touch(page, 'touchstart', 1);
-    // Held past the return delay (DECK.returnMs, 1.5 s): the finger keeps the wheel open.
+    // Held past the return delay (DECK.returnMs, 1.5 s): the finger keeps the wheel on the sheet.
     await page.waitForTimeout(2000);
     await expect(page.locator('.deck-wheel')).toBeVisible();
+    expect(await phase(page)).toBe('settling');
     await touch(page, 'touchend', 0);
-    await expect(page.locator('.deck-wheel')).toBeHidden({ timeout: 4000 });
-    expect(await phase(page)).toBe('rest');
+    await expectCompact(page);
   });
 
-  // Issue 116: while any finger is on the list the wheel never closes; it closes the return delay
-  // (DECK.returnMs, 1.5 s) after the last finger lifts.
-  test('issue 116: two fingers down, one lifts: open while the other is held, closed after it lifts', async ({ page }) => {
+  // Issue 116: while any finger is on the list the wheel never changes size; it goes compact
+  // (v6.4) the return delay (DECK.returnMs, 1.5 s) after the last finger lifts.
+  test('issue 116: two fingers down, one lifts: on the sheet while the other is held, compact after it lifts', async ({ page }) => {
     await page.goto('/');
     await turnAndStop(page);
     await touch(page, 'touchstart', 1);
@@ -188,14 +436,14 @@ test.describe('phone, 390×844', () => {
     await touch(page, 'touchend', 1);
     await page.waitForTimeout(2500);
     await expect(page.locator('.deck-wheel')).toBeVisible();
+    expect(await phase(page)).toBe('settling');
     const phases = await stampPhases(page);
     const lifted = await touch(page, 'touchend', 0);
-    await expect(page.locator('.deck-wheel')).toBeHidden({ timeout: 4000 });
-    expect((await phases()).find((p) => p.hidden)!.at - lifted).toBeGreaterThanOrEqual(1500 - 20);
-    expect(await phase(page)).toBe('rest');
+    await expectCompact(page);
+    expect(compactIn(await phases())!.at - lifted).toBeGreaterThanOrEqual(1500 - 20);
   });
 
-  test('issue 116: a drag, then the finger held still: open while held, closed 1.5 s after it lifts', async ({ page }) => {
+  test('issue 116: a drag, then the finger held still: on the sheet while held, compact 1.5 s after it lifts', async ({ page }) => {
     await page.goto('/');
     await quiet(page);
     const phases = await stampPhases(page);
@@ -209,14 +457,35 @@ test.describe('phone, 390×844', () => {
     // Held still well past the settle (160 ms) and the return delay (1.5 s).
     await page.waitForTimeout(3000);
     await expect(page.locator('.deck-wheel')).toBeVisible();
-    expect((await phases()).some((p) => p.hidden)).toBe(false);
+    expect((await phases()).some((p) => p.hidden || p.phase === 'compact')).toBe(false);
     const lifted = await touch(page, 'touchend', 0);
-    await expect(page.locator('.deck-wheel')).toBeHidden({ timeout: 4000 });
-    expect((await phases()).find((p) => p.hidden)!.at - lifted).toBeGreaterThanOrEqual(1500 - 20);
-    expect(await phase(page)).toBe('rest');
+    await expectCompact(page);
+    expect(compactIn(await phases())!.at - lifted).toBeGreaterThanOrEqual(1500 - 20);
   });
 
-  test('issue 114: a wheel past the last row mid-turn: the wheel still settles and closes', async ({ page }) => {
+  // v6.4 ruling 1 with issue 116: a turn of the compact wheel under a finger takes the sheet, and
+  // the wheel does not shrink again while the finger is down.
+  test('issue 116, v6.4: a drag on the compact wheel, then held: on the sheet while held, compact 1.5 s after it lifts', async ({ page }) => {
+    await page.goto('/');
+    await turnAndStop(page);
+    await expectCompact(page);
+    await quiet(page);
+    const phases = await stampPhases(page);
+    await touch(page, 'touchstart', 1);
+    for (let i = 1; i <= 4; i += 1) {
+      await list(page).evaluate((l, i) => (l.scrollTop += 16 * i), i);
+      await page.waitForTimeout(30);
+    }
+    await expect.poll(() => phase(page)).not.toBe('compact');
+    await page.waitForTimeout(3000);
+    expect((await phases()).some((p) => p.phase === 'compact')).toBe(false);
+    expect(Math.round((await page.locator('.deck-wheel').boundingBox())!.height)).toBeGreaterThan(80);
+    const lifted = await touch(page, 'touchend', 0);
+    await expectCompact(page);
+    expect(compactIn(await phases())!.at - lifted).toBeGreaterThanOrEqual(1500 - 20);
+  });
+
+  test('issue 114: a wheel past the last row mid-turn: the wheel still settles and goes compact', async ({ page }) => {
     await page.goto('/');
     await quiet(page);
     // In the page: a turn to the end of the list, then, once its scroll (and any snap after it) is
@@ -239,19 +508,17 @@ test.describe('phone, 390×844', () => {
         }),
     );
     expect(await phase(page)).toBe('spinning');
-    await expect(page.locator('.deck-wheel')).toBeHidden({ timeout: 4000 });
-    expect(await phase(page)).toBe('rest');
+    await expectCompact(page);
   });
 
-  test('issue 114: the mouse wheel kept turning at the end of the list: it closes', async ({ page }) => {
+  test('issue 114: the mouse wheel kept turning at the end of the list: it goes compact', async ({ page }) => {
     await page.goto('/');
     await list(page).hover();
     for (let i = 0; i < 12; i += 1) {
       await page.mouse.wheel(0, 400);
       await page.waitForTimeout(40);
     }
-    await expect(page.locator('.deck-wheel')).toBeHidden({ timeout: 4000 });
-    expect(await phase(page)).toBe('rest');
+    await expectCompact(page);
   });
 
   test('issue 82: Swap is in view under the input, above the pad, with nothing scrolled', async ({ page }) => {

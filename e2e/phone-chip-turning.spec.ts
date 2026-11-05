@@ -1,8 +1,8 @@
 // Issue 110 (found in the review of #108): on a phone, ending the wheel's phase while the drum
 // still turns ends the turn. The settle the turn left pending must not arm the return timer that
-// closes the wheel 1.5 s later (DECK.returnMs). Two ways in: a filter chip tapped mid-turn (the
-// wheel stays open while the reader filters), and the pattern button tapped twice mid-turn (the
-// wheel closes and opens again, and stays open). Headless, 390×844.
+// shrinks the wheel 1.5 s later (DECK.returnMs; before v6.4 it closed it). Two ways in: a filter
+// chip tapped mid-turn (the wheel stays open while the reader filters), and the pattern button
+// tapped twice mid-turn (the wheel closes and opens again, and stays open). Headless, 390×844.
 import { expect, test, type Page } from './fixtures';
 
 const phase = (page: Page) => page.locator('.deck-wheel').getAttribute('data-phase');

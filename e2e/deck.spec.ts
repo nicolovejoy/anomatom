@@ -195,8 +195,10 @@ for (const size of SIZES) {
       await expect(page.locator('.deck-row[aria-current]')).toHaveCount(1);
       // Docked, the band moves to the clicked row (v6.2 ruling 3).
       if (size.docked) await expect(page.locator('.deck-row.in-band')).toHaveAttribute('data-id', 'classic');
-      // On a phone the pick closes the wheel; docked, it stays.
-      await expect(page.locator('.deck-wheel')).toBeVisible({ visible: size.docked });
+      // On a phone upright the pick leaves the wheel compact (v6.4 ruling 4); on its side it
+      // closes; docked, it stays.
+      await expect(page.locator('.deck-wheel')).toBeVisible({ visible: !size.column });
+      if (!size.docked && !size.column) await expect(page.locator('.deck-wheel')).toHaveAttribute('data-phase', 'compact');
       await page.screenshot({ path: `${SHOTS}/deck-wheel-pick-${size.name}.png` });
     });
 
@@ -392,9 +394,8 @@ test.describe('phone', () => {
     expect(await page.evaluate(() => (window as unknown as { loads: string[] }).loads)).toEqual([landed]);
     await expect.poll(async () => (await page.locator('.deck-row.in-band code').textContent()) === (await notation(page).textContent())).toBe(true);
     // Forty more, past the end: the drum stops on Make your own, which loads nothing.
-    // (The settled wheel has closed, as on a phone; the pattern opens it again.)
-    await expect(page.locator('.deck-wheel')).toBeHidden({ timeout: 3000 });
-    await page.locator('.deck-pattern').click();
+    // (The settled wheel has gone compact, as on a phone (v6.4); the turn takes it from there.)
+    await expect(page.locator('.deck-wheel')).toHaveAttribute('data-phase', 'compact', { timeout: 3000 });
     await expect(page.locator('.deck-row.in-band')).toHaveAttribute('data-row', '15');
     await spin(40);
     await expect(page.locator('.deck-row.in-band')).toHaveClass(/deck-own/);

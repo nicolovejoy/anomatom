@@ -256,13 +256,27 @@ export function sheetWheelPlace(view: Box, stage: Box, coverTop: number, rowPx: 
 }
 
 /**
+ * Where the compact phone wheel sits (docs/plans/v6-4-wheel-shrinks.md, ruling 1): `rows` rows
+ * with no chips above them, the drum's edges cutting `cut` of a row off the outer two, over the
+ * foot of the stage as the open wheel sits (wheelPlace), or down its side where the stage is short.
+ */
+export function compactWheelPlace(stage: Box, rowPx: number, rows: number, cut: number, minFigure: number, sideMax: number): WheelPlace {
+  // One "row" as tall as the whole drum: wheelPlace's rule for a wheel of that height.
+  return { ...wheelPlace(stage, Math.round(rowPx * (rows - 2 * cut)), 1, minFigure, sideMax), rows };
+}
+
+/**
  * The upright phone wheel's phase (ruling 9): at `rest` the controls show and an open wheel sits
  * in its stage place; a reader's turn makes it `spinning` and it takes the sheet; when it stops
  * it is `settling` (still on the sheet, the picked row in the band) until the return delay
- * passes, then `rest` and the wheel closes. A turn during the settling spins it again.
+ * passes, then `compact` (docs/plans/v6-4-wheel-shrinks.md, ruling 1): three rows over the foot
+ * of the stage, the controls under it. A turn during the settling, or on the compact wheel, spins
+ * it again; a touch on the compact wheel that turns nothing `grow`s it back to `rest` (ruling 3);
+ * a row tapped plays it and leaves the wheel compact (`tap`, ruling 4). `close` (the wheel shut)
+ * always rests.
  */
-export type WheelPhase = 'rest' | 'spinning' | 'settling';
-export type WheelEvent = 'turn' | 'stop' | 'return' | 'close';
+export type WheelPhase = 'rest' | 'spinning' | 'settling' | 'compact';
+export type WheelEvent = 'turn' | 'stop' | 'return' | 'grow' | 'tap' | 'close';
 
 export function nextPhase(phase: WheelPhase, event: WheelEvent): WheelPhase {
   switch (event) {
@@ -271,7 +285,11 @@ export function nextPhase(phase: WheelPhase, event: WheelEvent): WheelPhase {
     case 'stop':
       return phase === 'spinning' ? 'settling' : phase;
     case 'return':
-      return phase === 'settling' ? 'rest' : phase;
+      return phase === 'settling' ? 'compact' : phase;
+    case 'grow':
+      return phase === 'compact' ? 'rest' : phase;
+    case 'tap':
+      return 'compact';
     case 'close':
       return 'rest';
   }
