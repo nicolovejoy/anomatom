@@ -308,7 +308,8 @@ export const mountDeck: Mount = (root, { store, player, sound }) => {
       column = { left: k.left - v.left, top: k.bottom - v.top, width: k.width, height: v.bottom - k.bottom };
     }
     // A phone upright, compact (v6.4 ruling 1): three rows above the ladder strip (v6.5 ruling 9),
-    // no chips (v6.4 ruling 2), the juggler drawn above them. Only upright: on its side the wheel never shrinks.
+    // no chips (v6.4 ruling 2), the juggler drawn above them. Only upright: on its side the wheel
+    // never shrinks.
     // Turned on its side while compact, the wheel leaves compact for the column's open wheel.
     if (column && phase === 'compact') setPhase('grow');
     const compact = phase === 'compact';

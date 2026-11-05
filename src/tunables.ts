@@ -578,8 +578,8 @@ export const DECK = {
   returnMs: 3000,
   /**
    * The compact upright phone wheel (v6.4 ruling 1): this many rows, odd, the middle one in the
-   * band, above the ladder strip (v6.5 ruling 9) with no chips. The drum's edges cut compactCut of a row off
-   * the top of the top row and the bottom of the bottom one, and the outer rows fade.
+   * band, above the ladder strip (v6.5 ruling 9) with no chips. The drum's edges cut compactCut
+   * of a row off the top of the top row and the bottom of the bottom one, and the outer rows fade.
    */
   compactRows: 3,
   compactCut: 0.25,
@@ -598,10 +598,9 @@ export const DECK = {
    */
   dockedMinHeightPx: 560,
   /**
-   * The open phone wheel keeps the juggler in view: upright, directly above the ladder strip when
-   * at least this much of the stage stays above the wheel and the strip together (v6.5 ruling 9);
-   * else over the stage's foot when this much stays above the wheel; else beside it, at most
-   * sidePx wide.
+   * The open phone wheel keeps the juggler in view: when at least this much of the stage stays
+   * above the wheel, upright directly above the ladder strip (v6.5 ruling 9, revised), else over
+   * the stage's foot; less, beside it, at most sidePx wide.
    */
   minFigurePx: 200,
   sidePx: 300,

@@ -225,14 +225,14 @@ export function rowsThatFit(height: number, rowPx: number, rows: number): number
  * Where the open wheel sits when it is not docked, so the juggler and the beat ladder stay in
  * view. Given `column` (a phone on its side, or a wide screen too short to dock: the right-hand
  * column below Kit and Sound), in that column, with as many rows as fit there (ruling 5 of
- * docs/plans/v4-1-polish.md). Else, given `strip` (a phone upright: the ladder strip's height at
- * the stage's foot), directly above the strip when at least `minFigure` of height stays above the
- * wheel and the strip together (docs/plans/v6-5-audio-session-wheel-place.md, ruling 9; the
- * juggler keeps the wheel's height clear under it, `padFigure`). Else over the stage's foot, under
- * the strip, when at least `minFigure` stays above the wheel (a short phone); else down the
- * stage's right side, at most `sideMax` and at most half the stage wide, centred on the stage's
- * height (or at its top when shorter). `head` px above the rows (the filter chips, v6 ruling 4)
- * count in the place: its top is theirs.
+ * docs/plans/v4-1-polish.md). Else, where at least `minFigure` of the stage's height stays above
+ * the wheel: given `strip` (a phone upright: the ladder strip's height at the stage's foot),
+ * directly above the strip, the juggler keeping the wheel's height clear under it (`padFigure`;
+ * docs/plans/v6-5-audio-session-wheel-place.md, ruling 9 as revised); without one, over the
+ * stage's foot (`padBottom`). Either way the figure and the strip share what the wheel leaves.
+ * Else down the stage's right side, at most `sideMax` and at most half the stage wide, centred
+ * on the stage's height (or at its top when shorter). `head` px above the rows (the filter chips,
+ * v6 ruling 4) count in the place: its top is theirs.
  */
 export function wheelPlace(
   stage: Box,
@@ -250,10 +250,10 @@ export function wheelPlace(
   }
   const wheelHeight = rowPx * rows + head;
   const foot = stage.top + stage.height;
-  if (strip !== null && stage.height - strip - wheelHeight >= minFigure) {
-    return { left: stage.left, top: foot - strip - wheelHeight, width: stage.width, height: wheelHeight, padBottom: 0, padRight: 0, padFigure: wheelHeight, rows };
-  }
   if (stage.height - wheelHeight >= minFigure) {
+    if (strip !== null) {
+      return { left: stage.left, top: foot - strip - wheelHeight, width: stage.width, height: wheelHeight, padBottom: 0, padRight: 0, padFigure: wheelHeight, rows };
+    }
     return { left: stage.left, top: foot - wheelHeight, width: stage.width, height: wheelHeight, padBottom: wheelHeight, padRight: 0, padFigure: 0, rows };
   }
   const width = Math.min(sideMax, Math.round(stage.width / 2));
@@ -280,10 +280,10 @@ export function sheetWheelPlace(view: Box, stage: Box, coverTop: number, rowPx: 
 
 /**
  * Where the compact phone wheel sits (docs/plans/v6-4-wheel-shrinks.md, ruling 1): `rows` rows
- * with no chips above them, the drum's edges cutting `cut` of a row off the outer two, in the
- * open wheel's three places (wheelPlace): directly above the ladder strip, `strip` tall
- * (docs/plans/v6-5-audio-session-wheel-place.md, ruling 9), where the figure keeps `minFigure`
- * above both; else over the stage's foot; else down its side.
+ * with no chips above them, the drum's edges cutting `cut` of a row off the outer two, placed as
+ * the open wheel is (wheelPlace): where `minFigure` of the stage stays above it, directly above
+ * the ladder strip, `strip` tall (docs/plans/v6-5-audio-session-wheel-place.md, ruling 9 as
+ * revised), or over the stage's foot when no strip is given; else down its side.
  */
 export function compactWheelPlace(stage: Box, rowPx: number, rows: number, cut: number, minFigure: number, sideMax: number, strip: number | null = null): WheelPlace {
   // One "row" as tall as the whole drum: wheelPlace's rule for a wheel of that height.

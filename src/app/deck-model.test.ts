@@ -540,22 +540,24 @@ describe('the upright phone wheel above the ladder strip (v6.5 rulings 9 and 10)
       rows: 3,
     });
   });
-  test('375×667: the wheel at rest falls back over the stage foot (129 px would stay above it and the strip), the compact one stays above the strip', () => {
+  test('375×667: the wheel at rest and the compact one sit above the strip too (v6.5 ruling 9, revised: the foot would give the juggler no more)', () => {
     expect(wheelPlace(stage(513), 32, 7, 200, 300, null, 40, 120)).toEqual({
       left: 0,
-      top: 249,
+      top: 129,
       width: 390,
       height: 264,
-      padBottom: 264,
+      padBottom: 0,
       padRight: 0,
-      padFigure: 0,
+      padFigure: 264,
       rows: 7,
     });
     expect(compactWheelPlace(stage(513), 32, 3, 0.25, 200, 300, 120)).toMatchObject({ top: 313, padBottom: 0, padFigure: 80 });
   });
-  test('exactly the figure\'s minimum above the wheel and the strip is enough', () => {
-    expect(compactWheelPlace(stage(400), 32, 3, 0.25, 200, 300, 120)).toMatchObject({ top: 200, padFigure: 80 });
-    expect(compactWheelPlace(stage(399), 32, 3, 0.25, 200, 300, 120)).toMatchObject({ top: 319, padBottom: 80, padFigure: 0 });
+  test('above the strip while the figure keeps its minimum above the wheel; one pixel less, down the side', () => {
+    expect(compactWheelPlace(stage(280), 32, 3, 0.25, 200, 300, 120)).toMatchObject({ top: 80, padFigure: 80, padRight: 0 });
+    expect(compactWheelPlace(stage(279), 32, 3, 0.25, 200, 300, 120)).toMatchObject({ left: 195, padRight: 195, padFigure: 0 });
+    expect(wheelPlace(stage(464), 32, 7, 200, 300, null, 40, 120)).toMatchObject({ top: 80, padFigure: 264, padRight: 0 });
+    expect(wheelPlace(stage(463), 32, 7, 200, 300, null, 40, 120)).toMatchObject({ left: 195, padRight: 195, padFigure: 0 });
   });
   test('a shorter stage: down its side, as before', () => {
     expect(wheelPlace(stage(390), 32, 7, 200, 300, null, 40, 120)).toMatchObject({ left: 195, width: 195, padBottom: 0, padRight: 195, padFigure: 0 });

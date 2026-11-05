@@ -9,9 +9,12 @@
 import { expect, openTab, test, type Page } from './fixtures';
 import { DECK } from '../src/tunables';
 
-/** The return delay (DECK.returnMs, 3 s since v6.5 ruling 11), and a hold that outlasts it. */
+/**
+ * The return delay (DECK.returnMs, 3 s since v6.5 ruling 11), and a hold that outlasts it: a
+ * settle (DECK.settleMs), then the return delay, and a margin, as in phone-chip-turning.
+ */
 const RETURN = DECK.returnMs;
-const PAST_RETURN = RETURN + 500;
+const PAST_RETURN = DECK.settleMs + RETURN + 500;
 
 const SHOTS = process.env.E2E_SHOTS;
 const shot = async (page: Page, name: string) => {
