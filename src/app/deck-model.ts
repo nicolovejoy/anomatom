@@ -294,11 +294,12 @@ export function compactWheelPlace(stage: Box, rowPx: number, rows: number, cut: 
  * The upright phone wheel's phase (ruling 9): at `rest` the controls show and an open wheel sits
  * in its stage place; a reader's turn makes it `spinning` and it takes the sheet; when it stops
  * it is `settling` (still on the sheet, the picked row in the band) until the return delay
- * passes, then `compact` (docs/plans/v6-4-wheel-shrinks.md, ruling 1): three rows above the ladder
- * strip (docs/plans/v6-5-audio-session-wheel-place.md, ruling 9), the strip and the controls under it. A turn during the settling, or on the compact wheel, spins
- * it again; a touch on the compact wheel that turns nothing `grow`s it back to `rest` (ruling 3);
- * a row tapped plays it and leaves the wheel compact (`tap`, ruling 4). `close` (the wheel shut)
- * always rests.
+ * passes, then `compact` (docs/plans/v6-4-wheel-shrinks.md, ruling 1): three rows above the
+ * ladder strip (docs/plans/v6-5-audio-session-wheel-place.md, ruling 9), the strip and the
+ * controls under it. A turn during the settling, or on the compact wheel, spins it again; a
+ * touch on the compact wheel that turns nothing `grow`s it back to `rest` (ruling 3); a row
+ * tapped plays it and leaves the wheel compact (`tap`, ruling 4). `close` (the wheel shut) always
+ * rests.
  */
 export type WheelPhase = 'rest' | 'spinning' | 'settling' | 'compact';
 export type WheelEvent = 'turn' | 'stop' | 'return' | 'grow' | 'tap' | 'close';
