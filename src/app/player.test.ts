@@ -2,7 +2,7 @@ import { describe, expect, test, vi } from 'vitest';
 import { carryOver } from '../core';
 import { scheduleOf } from '../test/schedules';
 import { HEIGHT_DRUM } from '../test/mappings';
-import { AUDIO_STALL_CHECK_MS, LOOKAHEAD_SECONDS, SCHEDULER_INTERVAL_MS, START_DELAY_SECONDS } from '../tunables';
+import { AUDIO_RELEASE_MS, AUDIO_STALL_CHECK_MS, LOOKAHEAD_SECONDS, SCHEDULER_INTERVAL_MS, START_DELAY_SECONDS } from '../tunables';
 
 /** These tests hear the sound by throw height; the default preset now plays one voice per part. */
 const DEFAULT_MAPPING = HEIGHT_DRUM;
@@ -20,6 +20,7 @@ function fakeSound() {
   const sound = {
     now: () => clock,
     resume: vi.fn(),
+    park: vi.fn(),
     renew: vi.fn(() => false),
     onInterrupt: vi.fn(),
     preload: vi.fn(),
@@ -1055,6 +1056,133 @@ describe('the context stopping (v6.3, #81)', () => {
     // And the check after the new context: once more, no further rebuild.
     vi.advanceTimersByTime(AUDIO_STALL_CHECK_MS);
     expect(sound.renew).toHaveBeenCalledTimes(3);
+    player.stop();
+    vi.useRealTimers();
+  });
+});
+
+describe('letting go of the audio session (v6.5, #123)', () => {
+  test('pause and stop park AUDIO_RELEASE_MS later, not before; a stop while stopped parks nothing', () => {
+    vi.useFakeTimers();
+    const { sound } = fakeSound();
+    const player = createPlayer(sound);
+    player.stop();
+    vi.advanceTimersByTime(AUDIO_RELEASE_MS * 2);
+    expect(sound.park).not.toHaveBeenCalled();
+    player.play(schedule('3'), DEFAULT_MAPPING, 120);
+    player.pause();
+    vi.advanceTimersByTime(AUDIO_RELEASE_MS - 1);
+    expect(sound.park).not.toHaveBeenCalled();
+    vi.advanceTimersByTime(1);
+    expect(sound.park).toHaveBeenCalledTimes(1);
+    player.play(schedule('3'), DEFAULT_MAPPING, 120);
+    player.stop();
+    vi.advanceTimersByTime(AUDIO_RELEASE_MS - 1);
+    expect(sound.park).toHaveBeenCalledTimes(1);
+    vi.advanceTimersByTime(1);
+    expect(sound.park).toHaveBeenCalledTimes(2);
+    vi.useRealTimers();
+  });
+
+  test('play or resume before then cancels the park', () => {
+    vi.useFakeTimers();
+    const { sound } = fakeSound();
+    const player = createPlayer(sound);
+    player.play(schedule('3'), DEFAULT_MAPPING, 120);
+    player.pause();
+    vi.advanceTimersByTime(AUDIO_RELEASE_MS - 1);
+    player.resume();
+    vi.advanceTimersByTime(AUDIO_RELEASE_MS * 2);
+    expect(sound.park).not.toHaveBeenCalled();
+    player.stop();
+    vi.advanceTimersByTime(AUDIO_RELEASE_MS - 1);
+    player.play(schedule('3'), DEFAULT_MAPPING, 120);
+    vi.advanceTimersByTime(AUDIO_RELEASE_MS * 2);
+    expect(sound.park).not.toHaveBeenCalled();
+    player.stop();
+    vi.useRealTimers();
+  });
+
+  test('hidden while paused or stopped parks at once; paused while hidden parks at once; shown does nothing', () => {
+    vi.useFakeTimers();
+    const { sound } = fakeSound();
+    const player = createPlayer(sound);
+    player.setHidden(true);
+    expect(sound.park).toHaveBeenCalledTimes(1);
+    player.setHidden(false);
+    player.play(schedule('3'), DEFAULT_MAPPING, 120);
+    player.pause();
+    player.setHidden(true);
+    expect(sound.park).toHaveBeenCalledTimes(2);
+    // The park due in view was taken by the one at once: no second.
+    vi.advanceTimersByTime(AUDIO_RELEASE_MS * 2);
+    expect(sound.park).toHaveBeenCalledTimes(2);
+    // Shown again: no resume without a gesture, no park.
+    player.setHidden(false);
+    expect(sound.resume).toHaveBeenCalledTimes(1);
+    expect(player.view().state).toBe('paused');
+    // Playing, hidden (it keeps playing), then paused there: an iOS interruption in the background.
+    player.resume();
+    player.setHidden(true);
+    expect(player.playing()).toBe(true);
+    expect(sound.park).toHaveBeenCalledTimes(2);
+    player.pause();
+    expect(sound.park).toHaveBeenCalledTimes(3);
+    vi.useRealTimers();
+  });
+
+  test('a park clears the stall check: a parked clock is never rebuilt', () => {
+    vi.useFakeTimers();
+    const { sound } = fakeSound();
+    const player = createPlayer(sound);
+    player.play(schedule('3'), DEFAULT_MAPPING, 120);
+    player.pause();
+    player.setHidden(true);
+    vi.advanceTimersByTime(AUDIO_STALL_CHECK_MS * 2);
+    expect(sound.renew).not.toHaveBeenCalled();
+    vi.useRealTimers();
+  });
+
+  test('hidden while playing keeps playing (AUDIO_PLAYS_HIDDEN): no pause, no park', () => {
+    vi.useFakeTimers();
+    const { sound, played, tick } = fakeSound();
+    const player = createPlayer(sound);
+    player.play(schedule('3'), DEFAULT_MAPPING, 120);
+    player.setHidden(true);
+    const n = played.length;
+    tick(1);
+    vi.advanceTimersByTime(AUDIO_RELEASE_MS);
+    expect(player.playing()).toBe(true);
+    expect(played.length).toBeGreaterThan(n);
+    expect(sound.park).not.toHaveBeenCalled();
+    player.stop();
+    vi.useRealTimers();
+  });
+
+  test('a clock stood still across a park resumes START_DELAY_SECONDS ahead of the gesture', () => {
+    vi.useFakeTimers();
+    const { sound, played, tick } = fakeSound();
+    const run = runner(tick);
+    const player = createPlayer(sound);
+    player.play(schedule('3'), DEFAULT_MAPPING, 120); // pulse 0.25 s
+    run(1);
+    player.pause();
+    run(0.2); // the glide ends at 1.1
+    vi.advanceTimersByTime(AUDIO_RELEASE_MS);
+    expect(sound.park).toHaveBeenCalledTimes(1);
+    // Parked: the clock stands still at 1.2 however long the page waits.
+    vi.advanceTimersByTime(60_000);
+    const n = played.length;
+    expect(player.view().now).toBeCloseTo(1.1);
+    player.resume();
+    // The picture holds at the frozen point, now START_DELAY_SECONDS ahead of the still clock.
+    expect(player.view().now).toBeCloseTo(1.2 + START_DELAY_SECONDS);
+    run(0.3);
+    const next = played.slice(n);
+    expect(next.length).toBeGreaterThan(0);
+    // The first pulse after the frozen point, START_DELAY_SECONDS after the gesture at 1.2 or later.
+    expect(next[0]?.time).toBeGreaterThanOrEqual(1.2 + START_DELAY_SECONDS - 1e-9);
+    expect(next[0]?.time).toBeLessThan(1.2 + START_DELAY_SECONDS + 0.25);
     player.stop();
     vi.useRealTimers();
   });

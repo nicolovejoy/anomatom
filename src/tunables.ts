@@ -28,6 +28,19 @@ export const START_DELAY_SECONDS = 0.05;
  * `running` but has not moved by then (WebKit, after an interruption) is replaced (#81).
  */
 export const AUDIO_STALL_CHECK_MS = 300;
+/**
+ * After Pause or Stop with the page in view, how long before the audio session is let go (v6.5,
+ * #123: the context suspended, iOS's media controls gone). Long enough for the glide (at most
+ * LOOKAHEAD_SECONDS) and the drums' tails to finish; a Play before then cancels it. A hidden
+ * page lets go at once: its timers may never fire.
+ */
+export const AUDIO_RELEASE_MS = 2000;
+/**
+ * Whether a playing anomatom keeps sounding with the page hidden (another app, the lock screen).
+ * `false` makes hiding while playing a press of Pause, and the session is let go at once.
+ * Provisional (v6.5 ruling 2, coordinator's call, 2026-11-05): Nico has not answered yet.
+ */
+export const AUDIO_PLAYS_HIDDEN = true;
 
 /** The patterns in the boxes when the page opens: a vanilla cascade, and a two-ball fountain for hand 2 at other ratios. */
 export const DEFAULT_PATTERN = '3';

@@ -101,6 +101,11 @@ if (app) {
   window.addEventListener('hashchange', showRoute);
   showRoute();
 
+  // The page hidden or shown (v6.5, #123): paused or stopped, hidden lets go of the audio session.
+  document.addEventListener('visibilitychange', () => player.setHidden(document.visibilityState === 'hidden'));
+  window.addEventListener('pagehide', () => player.setHidden(true));
+  window.addEventListener('pageshow', () => player.setHidden(document.hidden));
+
   const frame = () => {
     const view = player.view();
     for (const draw of draws) draw(view);
