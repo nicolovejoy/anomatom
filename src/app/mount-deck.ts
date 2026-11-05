@@ -305,11 +305,13 @@ export const mountDeck: Mount = (root, { store, player, sound }) => {
     }
     // A phone upright, compact (v6.4 ruling 1): three rows over the foot of the stage, no chips
     // (ruling 2), the juggler drawn above them. Only upright: on its side the wheel never shrinks.
-    const compact = phase === 'compact' && !column;
+    // Turned on its side while compact, the wheel leaves compact for the column's open wheel.
+    if (column && phase === 'compact') setPhase('grow');
+    const compact = phase === 'compact';
     picker.classList.toggle('is-compact', compact);
     // A phone upright, turning: the wheel takes the whole sheet, the deck and all (ruling 9).
     const bar = (root.querySelector('.deck-bar') as HTMLElement).getBoundingClientRect();
-    const sheetPlace = column || phase === 'rest' || phase === 'compact'
+    const sheetPlace = column || phase === 'rest' || compact
       ? null
       : sheetWheelPlace({ left: 0, top: 0, width: v.width, height: v.height }, { ...box, left: 0 }, bar.top - v.top, DECK.rowPx, DECK.phoneMinRows, DECK.minFigurePx, DECK.filtersPx);
     // The filter chips sit above the rows, in the place (v6 ruling 4).
@@ -492,6 +494,18 @@ export const mountDeck: Mount = (root, { store, player, sound }) => {
     setPhase('grow');
     placeWheel();
   };
+  /**
+   * The grow waits DECK.growGraceMs after the finger lifts: a tap held past the turn's lapse has its
+   * click still to come, and a drum grown under it would send the click to another row. The click
+   * (stopTurn), or a new touch (turn), cancels it.
+   */
+  let growTimer: ReturnType<typeof setTimeout> | undefined;
+  const armGrow = () => {
+    clearTimeout(growTimer);
+    growTimer = setTimeout(() => {
+      if (phase === 'compact' && !touching && !wheel.hidden) grow();
+    }, DECK.growGraceMs);
+  };
 
   patternButton.addEventListener('click', () => {
     if (docked()) {
@@ -536,6 +550,7 @@ export const mountDeck: Mount = (root, { store, player, sound }) => {
   let turning = false;
   let turnTimer: ReturnType<typeof setTimeout> | undefined;
   const turn = () => {
+    clearTimeout(growTimer);
     turning = true;
     seekRow = null;
     clearTimeout(returnTimer);
@@ -615,7 +630,8 @@ export const mountDeck: Mount = (root, { store, player, sound }) => {
   list.addEventListener('keydown', (e) => {
     if (!turnsWheel(e.key) || e.ctrlKey || e.metaKey || e.altKey) return;
     e.preventDefault();
-    const to = rowAfterKey(e.key, roving, rowCount, shownRows);
+    // From the compact wheel a key's turn takes the sheet, so it pages by the full drum.
+    const to = rowAfterKey(e.key, roving, rowCount, phase === 'compact' ? DECK.wheelRows : shownRows);
     if (docked()) {
       // Focus first: the tab stop stays on a focused row (markRows), Make your own included.
       rove(to);
@@ -679,7 +695,8 @@ export const mountDeck: Mount = (root, { store, player, sound }) => {
     // Compact, a touch that scrolled nothing and tapped no row (a tap clears this lapse: stopTurn)
     // grows the wheel back, once the last finger is up (v6.4 ruling 3); a mouse wheel does nothing.
     if (phase === 'compact') {
-      if (pressed) grow();
+      if (pressed) armGrow();
+      pressed = false;
       return;
     }
     if (phase === 'rest' && !unsettled) return;
@@ -724,6 +741,7 @@ export const mountDeck: Mount = (root, { store, player, sound }) => {
    * neither picks the row under the band nor arms the return timer that closes the wheel (issue 110).
    */
   function stopTurn() {
+    clearTimeout(growTimer);
     clearTimeout(settleTimer);
     clearTimeout(turnTimer);
     turning = false;
@@ -818,9 +836,13 @@ export const mountDeck: Mount = (root, { store, player, sound }) => {
   // A card outside the lit filter, typed or from a link, clears it (filterKeeper).
   store.derive(filterKeeper());
 
-  // Tapping outside closes the phone wheel, compact too (v6.4 ruling 5); the tap still does what it does.
+  // Tapping outside closes the phone wheel; the tap still does what it does. The compact wheel
+  // stays for a tap on the deck under it, Play, ‹ ›, mute, volume and Listen for (v6.4 ruling 5,
+  // revised): Details closes it on its own click, the pattern name toggles it.
+  const deckRows = [...root.querySelectorAll<HTMLElement>('.deck-bar, .deck-sound')];
   document.addEventListener('pointerdown', (e) => {
     const target = e.target as Node;
+    if (phase === 'compact' && deckRows.some((r) => r.contains(target))) return;
     if (wheelOpen && !docked() && !picker.contains(target) && !patternButton.contains(target)) closeWheel();
   });
   // Escape closes the wheel first, and only the wheel.

@@ -221,8 +221,125 @@ test.describe('phone, 390×844', () => {
     await expect(page.locator('.deck-wheel')).toHaveAttribute('data-phase', 'compact');
   });
 
-  // v6.4 ruling 5: the pattern name, Escape, Details, Make your own and a tap outside close the
-  // compact wheel fully; the pattern name opens it again at seven rows with the chips.
+  // Review of #120, finding 1: a tap held past the turn's lapse (320 ms) grew the drum at touchend,
+  // before the tap's click, which then landed on another row. The grow waits DECK.growGraceMs; the
+  // click cancels it. In the page, the click comes right after the lift and is hit-tested where
+  // the finger was, as a browser's is.
+  test('v6.4: a slow tap (400 ms) on the compact band row plays that row; the wheel stays compact', async ({ page }) => {
+    await page.goto('/');
+    await turnAndStop(page);
+    await expectCompact(page);
+    const phases = await stampPhases(page);
+    const band = page.locator('.deck-row.in-band');
+    const row = await band.getAttribute('data-row');
+    const code = await band.locator('code').textContent();
+    const b = (await band.boundingBox())!;
+    await touch(page, 'touchstart', 1);
+    await page.waitForTimeout(400);
+    const clicked = await list(page).evaluate(
+      (l, [x, y]) => {
+        const e = new Event('touchend', { bubbles: true });
+        Object.defineProperty(e, 'touches', { value: [] });
+        l.dispatchEvent(e);
+        const hit = document.elementFromPoint(x as number, y as number)?.closest<HTMLElement>('.deck-row');
+        hit?.click();
+        return hit?.dataset.row ?? null;
+      },
+      [b.x + b.width / 2, b.y + b.height / 2],
+    );
+    expect(clicked).toBe(row);
+    await expect(page.locator('.deck-notation')).toHaveText(code!);
+    await expect(page.locator('#play')).toHaveText('Pause');
+    await page.waitForTimeout(800);
+    await expectCompact(page);
+    expect((await phases()).some((p) => p.phase === 'rest')).toBe(false);
+  });
+
+  test('v6.4: a slow tap (400 ms) on the compact band row, by real touch events: that row plays', async ({ page, browserName }) => {
+    test.skip(browserName !== 'chromium', 'CDP touch events are Chromium only');
+    await page.goto('/');
+    await turnAndStop(page);
+    await expectCompact(page);
+    const band = page.locator('.deck-row.in-band');
+    const code = await band.locator('code').textContent();
+    const b = (await band.boundingBox())!;
+    const cdp = await page.context().newCDPSession(page);
+    const at = { x: b.x + b.width / 2, y: b.y + b.height / 2 };
+    await cdp.send('Input.dispatchTouchEvent', { type: 'touchStart', touchPoints: [at] });
+    await page.waitForTimeout(400);
+    await cdp.send('Input.dispatchTouchEvent', { type: 'touchEnd', touchPoints: [] });
+    await expect(page.locator('.deck-notation')).toHaveText(code!);
+    await expect(page.locator('#play')).toHaveText('Pause');
+    await page.waitForTimeout(800);
+    await expectCompact(page);
+  });
+
+  test('v6.4: a long press (800 ms, no click) on the compact wheel grows it, the grace after the lift', async ({ page }) => {
+    await page.goto('/');
+    await turnAndStop(page);
+    await expectCompact(page);
+    const phases = await stampPhases(page);
+    await touch(page, 'touchstart', 1);
+    await page.waitForTimeout(800);
+    expect(await phase(page)).toBe('compact');
+    const lifted = await touch(page, 'touchend', 0);
+    await expect(page.locator('.deck-wheel')).toHaveAttribute('data-phase', 'rest');
+    await expect(page.locator('.deck-filters')).toBeVisible();
+    const grown = (await phases()).find((p) => p.phase === 'rest')!.at;
+    // DECK.growGraceMs, 350 ms.
+    expect(grown - lifted).toBeGreaterThanOrEqual(350 - 20);
+  });
+
+  // Review of #120, finding 2: turned on its side, the compact wheel becomes the column's open wheel.
+  test('v6.4: turned on its side, the compact wheel leaves compact', async ({ page }) => {
+    await page.goto('/');
+    await turnAndStop(page);
+    await expectCompact(page);
+    await page.setViewportSize({ width: 844, height: 390 });
+    await expect(page.locator('.deck-wheel')).toHaveAttribute('data-phase', 'rest');
+    await expect(page.locator('.deck-picker')).not.toHaveClass(/is-compact/);
+    await expect(page.locator('.deck-filters')).toBeVisible();
+    await page.setViewportSize({ width: 390, height: 844 });
+    await expect(page.locator('.deck-wheel')).toHaveAttribute('data-phase', 'rest');
+    await expect.poll(async () => Math.round((await page.locator('.deck-wheel').boundingBox())!.height)).toBe(224);
+  });
+
+  // v6.4 ruling 5, revised by the governor: a tap on the deck under the compact wheel (Play, ‹ ›,
+  // mute, volume, Listen for) leaves it compact, and the band follows the pattern.
+  test('v6.4: Play, › and mute under the compact wheel leave it compact; the band follows', async ({ page }) => {
+    await page.goto('/');
+    await turnAndStop(page);
+    await expectCompact(page);
+    await page.locator('#play').click();
+    await expect(page.locator('#play')).toHaveText('Pause');
+    await expectCompact(page);
+    const before = await page.locator('.deck-notation').textContent();
+    await page.locator('.deck-next').click();
+    await expect(page.locator('.deck-notation')).not.toHaveText(before!);
+    const now = await page.locator('.deck-notation').textContent();
+    await expect(page.locator('.deck-row.in-band code')).toHaveText(now!);
+    await expectCompact(page);
+    await page.locator('#mute').click();
+    await page.locator('#deck-listen').selectOption('height');
+    await expectCompact(page);
+    // Details still closes it.
+    await page.locator('.deck-details').click();
+    await expect(page.locator('.deck-wheel')).toBeHidden();
+  });
+
+  // Review of #120, finding 4: from the compact wheel PageDown pages by the full drum (DECK.wheelRows), not three.
+  test('v6.4: PageDown on the compact wheel turns it seven rows', async ({ page }) => {
+    await page.goto('/');
+    await turnAndStop(page);
+    await expectCompact(page);
+    const from = Number(await page.locator('.deck-row.in-band').getAttribute('data-row'));
+    await page.locator(`.deck-row[data-row="${from}"]`).focus();
+    await page.keyboard.press('PageDown');
+    await expect(page.locator('.deck-row.in-band')).toHaveAttribute('data-row', String(from + 7));
+  });
+
+  // v6.4 ruling 5: the pattern name, Escape, Details, Make your own and a tap elsewhere (the stage)
+  // close the compact wheel fully; the pattern name opens it again at seven rows with the chips.
   for (const how of ['pattern', 'escape', 'details', 'outside', 'make-your-own'] as const) {
     test(`v6.4: ${how} closes the compact wheel`, async ({ page }) => {
       await page.goto('/');
