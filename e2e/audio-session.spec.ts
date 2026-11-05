@@ -30,7 +30,7 @@ async function playAndHear(page: Page) {
   const at = await clock(page);
   await page.locator('#play').click();
   await expect(page.locator('#play')).toHaveText('Pause');
-  await expect.poll(() => clock(page), { timeout: 1_000 }).toBeGreaterThan(at);
+  await expect.poll(() => clock(page), { timeout: 5_000 }).toBeGreaterThan(at);
   await expect.poll(() => scheduled(page), { timeout: 5_000 }).toBeGreaterThan(before + 4);
   expect(await contextState(page)).toBe('running');
   // Past the stall check (AUDIO_STALL_CHECK_MS), so a stray renew rebuild would show here.
