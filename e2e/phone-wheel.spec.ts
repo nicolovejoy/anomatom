@@ -63,19 +63,26 @@ test.describe('phone, 390×844', () => {
     await expect.poll(async () => stopsIn(await phases()).length).toBe(1);
   };
   /**
-   * A touch on the list, made in the page: `fingers` is how many stay down after it (TouchEvent's
-   * `touches`). WebKit on a laptop has no TouchEvent constructor, so the list is set on an Event.
-   * Returns when it was sent, in the page's clock.
+   * A touch on the list, made in the page: `fingers` is how many stay down on the list after it,
+   * and `away` how many stay down on a filter chip (TouchEvent's `touches`, each with its target:
+   * issue 119). WebKit on a laptop has no TouchEvent constructor, so the list is set on an Event.
+   * `on: 'chip'` sends the event to the chip instead of the list. Returns when it was sent, in the
+   * page's clock.
    */
-  const touch = (page: Page, type: 'touchstart' | 'touchend', fingers: number) =>
+  const touch = (page: Page, type: 'touchstart' | 'touchend', fingers: number, away = 0, on: 'list' | 'chip' = 'list') =>
     list(page).evaluate(
-      (l, [type, fingers]) => {
+      (l, [type, fingers, away, on]) => {
+        const chip = document.querySelector('.deck-filter')!;
         const e = new Event(type as string, { bubbles: true });
-        Object.defineProperty(e, 'touches', { value: Array.from({ length: fingers as number }, () => ({})) });
-        l.dispatchEvent(e);
+        const touches = [
+          ...Array.from({ length: fingers as number }, () => ({ target: l })),
+          ...Array.from({ length: away as number }, () => ({ target: chip })),
+        ];
+        Object.defineProperty(e, 'touches', { value: touches });
+        (on === 'chip' ? chip : l).dispatchEvent(e);
         return performance.now();
       },
-      [type, fingers] as const,
+      [type, fingers, away, on] as const,
     );
   /** Waits until the list has not scrolled for a while: the scroll that brings the loaded row to the band on load is over. */
   const quiet = (page: Page) =>
@@ -459,6 +466,50 @@ test.describe('phone, 390×844', () => {
     await expect(page.locator('.deck-wheel')).toBeVisible();
     expect((await phases()).some((p) => p.hidden || p.phase === 'compact')).toBe(false);
     const lifted = await touch(page, 'touchend', 0);
+    await expectCompact(page);
+    expect(compactIn(await phases())!.at - lifted).toBeGreaterThanOrEqual(1500 - 20);
+  });
+
+  // Issue 118: the settle (160 ms still) ended the turn under a held finger, and a scroll that
+  // resumed under it moved the band but was not counted as a turn, so its row never loaded.
+  test('issue 118: a drag, held still, then dragged on: the stage plays the row the band lands on', async ({ page }) => {
+    await page.goto('/');
+    await quiet(page);
+    const start = Number(await page.locator('.deck-row.in-band').getAttribute('data-row'));
+    const drag = async () => {
+      // A row (DECK.rowPx, 32 px) a step: the list snaps to rows, so a smaller step snaps back.
+      for (let i = 0; i < 2; i += 1) {
+        await list(page).evaluate((l) => (l.scrollTop += 32), undefined);
+        await page.waitForTimeout(30);
+      }
+    };
+    await touch(page, 'touchstart', 1);
+    await drag();
+    // Held still: the wheel settles under the finger and loads the row two down.
+    await expect.poll(() => phase(page)).toBe('settling');
+    await expect(page.locator('.deck-row.in-band')).toHaveAttribute('data-row', String(start + 2));
+    await expect(page.locator('.deck-notation')).toHaveText((await page.locator('.deck-row.in-band code').textContent())!);
+    await page.waitForTimeout(500);
+    // Dragged on two more rows under the same finger, then lifted.
+    await drag();
+    await touch(page, 'touchend', 0);
+    await expectCompact(page);
+    await expect(page.locator('.deck-row.in-band')).toHaveAttribute('data-row', String(start + 4));
+    await expect(page.locator('.deck-notation')).toHaveText((await page.locator('.deck-row.in-band code').textContent())!);
+  });
+
+  // Issue 119: a finger held on a chip counted as one on the list, so after the list's finger lifted
+  // the wheel waited for a touchend on the list that never came, and stayed on the sheet.
+  test('issue 119: a finger on the list and one on a chip; the list finger lifts, then the chip finger: compact 1.5 s later', async ({ page }) => {
+    await page.goto('/');
+    await turnAndStop(page);
+    await touch(page, 'touchstart', 1);
+    await touch(page, 'touchstart', 1, 1, 'chip');
+    // Past the turn's lapse (two settles, 320 ms), the list's finger lifts; the chip's stays.
+    await page.waitForTimeout(500);
+    const phases = await stampPhases(page);
+    const lifted = await touch(page, 'touchend', 0, 1);
+    await touch(page, 'touchend', 0, 0, 'chip');
     await expectCompact(page);
     expect(compactIn(await phases())!.at - lifted).toBeGreaterThanOrEqual(1500 - 20);
   });
