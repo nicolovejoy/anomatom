@@ -11,8 +11,8 @@
 // own or a pattern that is no card (docs/plans/v6-1-wheel-feel.md, ruling 2). It is a menu
 // (docs/plans/v6-2-wheel-ends.md, ruling 3): each row once, the band on the chosen row, a native
 // scroll that only browses. On a phone it is a drum with ends (ruling 4). Upright, after a turn
-// settles it shrinks to three rows over the foot of the stage rather than closing
-// (docs/plans/v6-4-wheel-shrinks.md).
+// settles it shrinks to three rows rather than closing (docs/plans/v6-4-wheel-shrinks.md),
+// directly above the ladder strip (docs/plans/v6-5-audio-session-wheel-place.md).
 // The logic is in deck-model.ts and layout-model.ts; this file is elements and events.
 //
 // This mount owns Play and the keys that drive it: Space plays and pauses from anywhere (one
@@ -263,9 +263,12 @@ export const mountDeck: Mount = (root, { store, player, sound }) => {
     !docked() && !app.classList.contains('is-web') && !app.classList.contains('is-wide') && !app.classList.contains('is-landscape');
 
   /**
-   * Over the stage on a phone, measured so it fits every layout: under the figure, or beside it
-   * when the stage is short. The stage keeps that part clear (--wheel-pad-*, style.css), so the
-   * juggler draws in what is left and stays in view (wheelPlace in deck-model.ts).
+   * Over the stage on a phone, measured so it fits every layout: upright, directly above the
+   * ladder strip (docs/plans/v6-5-audio-session-wheel-place.md, ruling 9), else over the stage's
+   * foot under the figure, or beside it when the stage is short. The juggler's region keeps the
+   * wheel above the strip clear (--wheel-pad-figure), the stage the wheel over its foot or side
+   * (--wheel-pad-bottom, --wheel-pad-right; style.css), so the juggler draws in what is left and
+   * stays in view (wheelPlace in deck-model.ts).
    */
   function placeWheel() {
     if (docked() || wheel.hidden) {
@@ -273,6 +276,7 @@ export const mountDeck: Mount = (root, { store, player, sound }) => {
       picker.classList.remove('is-compact');
       app.style.setProperty('--wheel-pad-bottom', '0px');
       app.style.setProperty('--wheel-pad-right', '0px');
+      app.style.setProperty('--wheel-pad-figure', '0px');
       if (wheel.hidden) return setRows(DECK.wheelRows, DECK.rowPx);
       // Docked (v6 ruling 1, v6.2 ruling 3): taller rows, top aligned; while the editor is hidden,
       // as many as the column holds between the wheel's top and the sheet's head at its foot (Stop,
@@ -303,8 +307,9 @@ export const mountDeck: Mount = (root, { store, player, sound }) => {
       const k = (root.querySelector('.deck-sound') as HTMLElement).getBoundingClientRect();
       column = { left: k.left - v.left, top: k.bottom - v.top, width: k.width, height: v.bottom - k.bottom };
     }
-    // A phone upright, compact (v6.4 ruling 1): three rows over the foot of the stage, no chips
-    // (ruling 2), the juggler drawn above them. Only upright: on its side the wheel never shrinks.
+    // A phone upright, compact (v6.4 ruling 1): three rows above the ladder strip (v6.5 ruling 9),
+    // no chips (v6.4 ruling 2), the juggler drawn above them. Only upright: on its side the wheel
+    // never shrinks.
     // Turned on its side while compact, the wheel leaves compact for the column's open wheel.
     if (column && phase === 'compact') setPhase('grow');
     const compact = phase === 'compact';
@@ -314,18 +319,22 @@ export const mountDeck: Mount = (root, { store, player, sound }) => {
     const sheetPlace = column || phase === 'rest' || compact
       ? null
       : sheetWheelPlace({ left: 0, top: 0, width: v.width, height: v.height }, { ...box, left: 0 }, bar.top - v.top, DECK.rowPx, DECK.phoneMinRows, DECK.minFigurePx, DECK.filtersPx);
+    // Upright, at rest or compact, the wheel sits directly above the ladder strip at the stage's
+    // foot where the figure keeps its room (v6.5 ruling 9): the strip's height, measured.
+    const strip = column ? null : (document.querySelector('.region-ladder') as HTMLElement | null)?.getBoundingClientRect().height ?? null;
     // The filter chips sit above the rows, in the place (v6 ruling 4).
     const place =
       sheetPlace ??
       (compact
-        ? compactWheelPlace(box, DECK.rowPx, DECK.compactRows, DECK.compactCut, DECK.minFigurePx, DECK.sidePx)
-        : wheelPlace(box, DECK.rowPx, DECK.wheelRows, DECK.minFigurePx, DECK.sidePx, column, DECK.filtersPx));
+        ? compactWheelPlace(box, DECK.rowPx, DECK.compactRows, DECK.compactCut, DECK.minFigurePx, DECK.sidePx, strip)
+        : wheelPlace(box, DECK.rowPx, DECK.wheelRows, DECK.minFigurePx, DECK.sidePx, column, DECK.filtersPx, strip));
     picker.style.left = `${place.left}px`;
     picker.style.top = `${place.top}px`;
     picker.style.width = `${place.width}px`;
     setRows(place.rows, DECK.rowPx, compact ? DECK.compactCut : 0);
     app.style.setProperty('--wheel-pad-bottom', `${place.padBottom}px`);
     app.style.setProperty('--wheel-pad-right', `${place.padRight}px`);
+    app.style.setProperty('--wheel-pad-figure', `${place.padFigure}px`);
   }
 
   /**
@@ -452,8 +461,8 @@ export const mountDeck: Mount = (root, { store, player, sound }) => {
   };
 
   // The phone wheel's phase (nextPhase in deck-model.ts): spinning while the reader turns it,
-  // settling after it stops, and 1.5 s later (DECK.returnMs) the controls return and the wheel
-  // goes compact (v6.4 ruling 1). The timer lives here; the rule is the model's.
+  // settling after it stops, and 3 s later (DECK.returnMs) the controls return and the wheel
+  // goes compact (v6.4 ruling 1; v6.5 ruling 11). The timer lives here; the rule is the model's.
   let phase: WheelPhase = 'rest';
   let returnTimer: ReturnType<typeof setTimeout> | undefined;
   /** The wheel stopped under a finger: the return timer waits for the last finger to lift (issue 116). */
