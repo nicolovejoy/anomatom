@@ -16,6 +16,8 @@ const clock = (page: Page) =>
   page.evaluate(() => (window as unknown as Watched).contexts.at(-1)?.currentTime ?? 0);
 const contextState = (page: Page) =>
   page.evaluate(() => (window as unknown as Watched).contexts.at(-1)?.state ?? 'none');
+/** How many contexts the page has made: a park keeps its one, and nothing rebuilds it after a resume. */
+const contextCount = (page: Page) => page.evaluate(() => (window as unknown as Watched).contexts.length);
 const setVisibility = (page: Page, visibility: DocumentVisibilityState) =>
   page.evaluate((v) => {
     (window as unknown as Watched).visibility = v;
@@ -31,6 +33,9 @@ async function playAndHear(page: Page) {
   await expect.poll(() => clock(page), { timeout: 1_000 }).toBeGreaterThan(at);
   await expect.poll(() => scheduled(page), { timeout: 5_000 }).toBeGreaterThan(before + 4);
   expect(await contextState(page)).toBe('running');
+  // Past the stall check (AUDIO_STALL_CHECK_MS), so a stray renew rebuild would show here.
+  await page.waitForTimeout(500);
+  expect(await contextCount(page)).toBe(1);
 }
 
 test.beforeEach(async ({ page }) => {
@@ -59,6 +64,7 @@ test('Pause lets go of the audio session about AUDIO_RELEASE_MS later; Play take
   await page.waitForTimeout(AUDIO_RELEASE_MS / 2);
   expect(await contextState(page)).toBe('running');
   await expect.poll(() => contextState(page), { timeout: AUDIO_RELEASE_MS }).toBe('suspended');
+  expect(await contextCount(page)).toBe(1);
   expect(Date.now() - paused).toBeLessThan(AUDIO_RELEASE_MS + 1_000);
   if (SHOTS) await page.screenshot({ path: `${SHOTS}/audio-session-parked.png` });
   // A park is not an interruption: nothing else changed on screen.
@@ -80,6 +86,7 @@ test('hidden while playing keeps playing; paused while hidden lets go at once; s
   await page.locator('#play').click();
   await expect(page.locator('#play')).toHaveText('Play');
   await expect.poll(() => contextState(page), { timeout: AUDIO_RELEASE_MS / 4 }).toBe('suspended');
+  expect(await contextCount(page)).toBe(1);
 
   // Shown again: no sound without a gesture.
   await setVisibility(page, 'visible');

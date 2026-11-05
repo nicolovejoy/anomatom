@@ -210,6 +210,9 @@ export function createDrumSound(
     const done = () => {
       if (settling.get(ctx) === suspending) settling.delete(ctx);
     };
+    // A refused suspend leaves `parked` on a context still running, its state changes unheard until
+    // the next resume: harmless, as the player is paused or stopped whenever it parks, and the
+    // gesture that resumes un-parks it before anything is scheduled.
     suspending.then(done, done);
     const session = audioSession();
     if (session && session.type !== 'auto') session.type = 'auto';
