@@ -24,6 +24,11 @@
 // take longer than AUDIO_STALL_CHECK_MS to open: Firefox on Linux), and is reported only if that
 // resume fails. A fresh context not running at the check after a rebuild is reported either way. The player calls `renew` AUDIO_STALL_CHECK_MS after the gesture (the timer is the
 // player's), once per resume, and once more after a new context, which only checks.
+//
+// Parking (v6.5, #123): `park` lets go of the audio session while nothing plays, so iOS shows no
+// media controls for the page. It suspends the context and hands the session back (`'auto'`);
+// the context, its kits, pads and clock are kept, and the next gesture's `resume` takes it all
+// up again. A park is not an interruption: the context stopping because of it is not reported.
 import type { PartIndex } from '../core/types';
 import { FILTER_OPEN_HZ, PARAM_SMOOTH_SECONDS } from '../tunables';
 import type { Hit, Mapping, PadHit, PadInstrument } from './mapping';
@@ -93,6 +98,10 @@ export function createDrumSound(
   let mark: { ctx: AudioContext; time: number; check: boolean } | null = null;
   // Per context: its latest resume, while it is in flight.
   const starting = new WeakMap<AudioContext, Promise<void>>();
+  // The context `park` let go of, until the next `resume` or close; and per context, its park's
+  // suspend while it settles (its late `'suspended'` must not pause a Play made meanwhile).
+  let parked: AudioContext | null = null;
+  const settling = new WeakMap<AudioContext, Promise<void>>();
 
   function status(): SoundStatus {
     if (inFlight > 0) return 'loading';
@@ -142,9 +151,16 @@ export function createDrumSound(
     });
   }
 
+  /**
+   * A context that leaves `running` is interrupted, unless it was parked or its park is still
+   * settling, or it says `suspended` with a resume in flight (a Play made while a park settles:
+   * the park's late event, the context starting again behind it).
+   */
   function watch(ctx: AudioContext) {
     ctx.addEventListener('statechange', () => {
-      if (ctx.state !== 'running') interrupted(ctx);
+      if (ctx.state === 'running' || parked === ctx || settling.has(ctx)) return;
+      if (ctx.state === 'suspended' && starting.has(ctx)) return;
+      interrupted(ctx);
     });
   }
 
@@ -170,9 +186,36 @@ export function createDrumSound(
   function resume() {
     const ctx = audio();
     if (!ctx) return;
+    parked = null;
     setPlaybackSession();
     mark = { ctx, time: ctx.currentTime, check: false };
-    if (ctx.state === 'suspended' || (ctx.state as string) === 'interrupted') start(ctx);
+    // A park still settling may say `running` yet: its suspend lands first, so resume after it.
+    if (ctx.state === 'suspended' || (ctx.state as string) === 'interrupted' || settling.has(ctx)) start(ctx);
+  }
+
+  /**
+   * Lets go of the audio session (v6.5, #123): suspends the context and sets iOS's session type to
+   * `'auto'`, so the page stops being a now-playing app. Keeps the context, its kits and pads, and
+   * its clock (stood still, not replaced); the next `resume`, a gesture, takes it up again. Not an
+   * interruption: nothing is reported, and a `renew` due from the gesture before it does nothing.
+   * With no context made yet (or no Web Audio) it does nothing and makes none.
+   */
+  function park() {
+    const ctx = context;
+    if (!ctx || parked === ctx) return;
+    parked = ctx;
+    mark = null;
+    const suspending = ctx.suspend();
+    settling.set(ctx, suspending);
+    const done = () => {
+      if (settling.get(ctx) === suspending) settling.delete(ctx);
+    };
+    // A refused suspend leaves `parked` on a context still running, its state changes unheard until
+    // the next resume: harmless, as the player is paused or stopped whenever it parks, and the
+    // gesture that resumes un-parks it before anything is scheduled.
+    suspending.then(done, done);
+    const session = audioSession();
+    if (session && session.type !== 'auto') session.type = 'auto';
   }
 
   /** Disposes every kit and pad, moves the epoch on so loads in flight cannot land, closes the context. */
@@ -193,6 +236,7 @@ export function createDrumSound(
     notify();
     bus = null;
     mark = null;
+    parked = null;
     if (context) void context.close();
     context = null;
   }
@@ -314,8 +358,9 @@ export function createDrumSound(
      * a new pan or gain moves the node params and reloads nothing.
      */
     preload,
-    /** Call from a user gesture: a context made before any gesture starts suspended. */
+    /** Call from a user gesture: a context made before any gesture starts suspended. Ends a park. */
     resume,
+    park,
     /**
      * Call AUDIO_STALL_CHECK_MS after `resume`. A context not running by then is reported as an
      * interruption (`onInterrupt`) when iOS says `interrupted` or no resume is in flight; one still

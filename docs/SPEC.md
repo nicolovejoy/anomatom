@@ -164,6 +164,8 @@ v2 rules (2026-10-29):
 14. Everything derived comes from one memoised selector, `derived(state)` in `src/app/derived.ts`, keyed on state identity and computed once per change: the Schedule (with cycle, lattice and verdict), the texts per hand, the cross groups and ball counts, the fixes, and the fractional-mean message. Every mount reads it; none recomputes it. A reset notice is an action result held in `notice`, not derived state.
 15. The share link keeps working: `#v3.` encodes the parts, ratio, tempo and sound (v5; `#v2.` encoded the Mapping); old `#v1.` and `#v2.` links and short links such as `#531@140` decode to the same Schedule as before.
 
+(v6.5, 2026-11-05, `docs/plans/v6-5-audio-session-wheel-place.md`.) Paused or stopped, anomatom lets go of the audio session: the audio context is suspended and iOS's session handed back, at once when the page is hidden and two seconds after Pause or Stop otherwise (`AUDIO_RELEASE_MS`), so iOS shows no media controls for it. The context, its samples and its clock are kept; nothing reloads. Playing, it keeps sounding with the page hidden (provisional, `AUDIO_PLAYS_HIDDEN`). Only a gesture (Play, Enter, a card) brings the sound back; showing the page again does not.
+
 ## 6. Default mapping (v1)
 
 | Event field | Drives | Default rule |

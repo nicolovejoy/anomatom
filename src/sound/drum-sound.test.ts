@@ -42,6 +42,14 @@ function fakeContext(state: AudioContextState = 'suspended') {
       ctx.state = 'running';
     }),
     close: vi.fn(async () => {}),
+    /** Deferred, as the browser's is: `settleSuspend` ends it (the park's settling window). */
+    settleSuspend: () => {},
+    suspend: vi.fn(
+      () =>
+        new Promise<void>((resolve) => {
+          ctx.settleSuspend = resolve;
+        }),
+    ),
     heard: [] as (() => void)[],
     addEventListener: (_type: 'statechange', listener: () => void) => ctx.heard.push(listener),
     /** The browser moving the context to `next`, as iOS does on an interruption. */
@@ -645,5 +653,144 @@ describe('the context is watched (v6.3, #81)', () => {
     sound.resume();
     await settle();
     expect(heard).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe('parking lets go of the audio session (v6.5, #123)', () => {
+  function sessionOf(type = 'playback') {
+    return { type };
+  }
+
+  test('park suspends the context and hands the session back; resume takes it up again, nothing reloaded', async () => {
+    const ctx = fakeContext('running');
+    const session = sessionOf();
+    const loadKit = vi.fn(async () => fakeKit() as Kit);
+    const sound = createDrumSound(() => ctx, loadKit, undefined, () => session);
+    sound.preload(DEFAULT_MAPPING);
+    await settle();
+    sound.park();
+    expect(ctx.suspend).toHaveBeenCalledTimes(1);
+    expect(session.type).toBe('auto');
+    // Once: a second park while parked asks nothing more.
+    sound.park();
+    expect(ctx.suspend).toHaveBeenCalledTimes(1);
+    ctx.settleSuspend();
+    ctx.become('suspended');
+    await settle();
+    ctx.currentTime = 1.5;
+    expect(sound.now()).toBe(1.5);
+    sound.resume();
+    expect(session.type).toBe('playback');
+    expect(ctx.resume).toHaveBeenCalledTimes(1);
+    expect(ctx.close).not.toHaveBeenCalled();
+    expect(loadKit).toHaveBeenCalledTimes(2);
+    // A browser with no audio session parks too.
+    const bare = fakeContext('running');
+    const none = createDrumSound(() => bare, async () => fakeKit() as Kit, undefined, () => null);
+    none.now();
+    none.park();
+    expect(bare.suspend).toHaveBeenCalledTimes(1);
+  });
+
+  test('a park with no context made yet, or no Web Audio, does nothing and makes none', () => {
+    const make = vi.fn(() => fakeContext('running'));
+    const session = sessionOf();
+    const sound = createDrumSound(make, async () => fakeKit() as Kit, undefined, () => session);
+    sound.park();
+    expect(make).not.toHaveBeenCalled();
+    expect(session.type).toBe('playback');
+    const silent = createDrumSound(() => null, async () => fakeKit() as Kit);
+    silent.now();
+    silent.park();
+    silent.resume();
+    expect(silent.now()).toBe(0);
+  });
+
+  test('a statechange while parked or while the park settles is not heard; one after resume is', async () => {
+    const ctx = fakeContext('running');
+    const sound = createDrumSound(() => ctx, async () => fakeKit() as Kit, undefined, () => sessionOf());
+    const heard = vi.fn();
+    sound.onInterrupt(heard);
+    sound.now();
+    // Parked: its own suspend, heard by nobody.
+    sound.park();
+    ctx.become('suspended');
+    ctx.settleSuspend();
+    await settle();
+    ctx.become('interrupted');
+    expect(heard).not.toHaveBeenCalled();
+    // Resumed: a context stopping now is an interruption again.
+    sound.resume();
+    await settle();
+    expect(ctx.state).toBe('running');
+    ctx.become('interrupted');
+    expect(heard).toHaveBeenCalledTimes(1);
+  });
+
+  test('Play while the park settles: resumed after the suspend, and the late suspended event does not pause it', async () => {
+    const ctx = fakeContext('running');
+    let started!: () => void;
+    ctx.resume.mockImplementation(
+      () =>
+        new Promise<void>((res) => {
+          started = () => {
+            ctx.state = 'running';
+            res();
+          };
+        }),
+    );
+    const sound = createDrumSound(() => ctx, async () => fakeKit() as Kit, undefined, () => sessionOf());
+    const heard = vi.fn();
+    sound.onInterrupt(heard);
+    sound.now();
+    sound.park();
+    // Still `running`: the suspend has not landed. Play resumes it all the same.
+    sound.resume();
+    expect(ctx.resume).toHaveBeenCalledTimes(1);
+    ctx.become('suspended');
+    ctx.settleSuspend();
+    await settle();
+    // The park has settled; the resume is still in flight: its event is the context starting.
+    ctx.become('suspended');
+    expect(heard).not.toHaveBeenCalled();
+    started();
+    await settle();
+    ctx.become('running');
+    expect(heard).not.toHaveBeenCalled();
+    // A park whose suspend the browser refuses settles too.
+    ctx.suspend.mockRejectedValueOnce(new Error('InvalidStateError'));
+    sound.park();
+    await settle();
+    sound.resume();
+    expect(ctx.resume).toHaveBeenCalledTimes(1);
+  });
+
+  test('renew after a park returns false and reports nothing', async () => {
+    const ctx = fakeContext('running');
+    const sound = createDrumSound(() => ctx, async () => fakeKit() as Kit, undefined, () => sessionOf());
+    const heard = vi.fn();
+    sound.onInterrupt(heard);
+    // A gesture, then a park before its check: the clock never moved, but nothing is rebuilt.
+    sound.resume();
+    sound.park();
+    ctx.settleSuspend();
+    ctx.become('suspended');
+    await settle();
+    expect(sound.renew()).toBe(false);
+    expect(ctx.close).not.toHaveBeenCalled();
+    expect(heard).not.toHaveBeenCalled();
+  });
+
+  test('close clears the park; a closed sound has no context to park', () => {
+    const ctx = fakeContext('running');
+    const session = sessionOf();
+    const sound = createDrumSound(() => ctx, async () => fakeKit() as Kit, undefined, () => session);
+    sound.now();
+    sound.park();
+    sound.close();
+    session.type = 'playback';
+    sound.park();
+    expect(ctx.suspend).toHaveBeenCalledTimes(1);
+    expect(session.type).toBe('playback');
   });
 });

@@ -44,6 +44,16 @@
 // time the player keeps moves by the jump (`sound.now()` after less before), and what the dead
 // context never sounded is handed over again, from where this run's unheard audio began. One
 // more check follows a new context; it never rebuilds.
+//
+// Letting go of the audio session (v6.5, #123): paused or stopped, the player asks DrumSound to
+// `park` (the context suspended, iOS's media controls gone). With the page in view that is
+// AUDIO_RELEASE_MS after Pause or Stop, so the glide and the drums' tails finish; a Play or
+// resume before then cancels it. With the page hidden (`setHidden`) it is at once, as a hidden
+// page's timers may never fire: hidden while paused or stopped, or paused while hidden (an iOS
+// interruption in the background). Hidden while playing, it keeps playing (AUDIO_PLAYS_HIDDEN;
+// false makes that a press of Pause). Shown again does nothing: only a gesture resumes. A park
+// needs no re-anchoring: the clock stands still and keeps its value, and play and resume derive
+// everything from `sound.now()` at the gesture.
 import { carryOver } from '../core/carry';
 import type { Schedule } from '../core/types';
 import type { DrumSound } from '../sound/drum-sound';
@@ -52,6 +62,8 @@ import { crossingsOfSchedule } from '../sound/schedule-crossings';
 import { eventsBetween, pulseSeconds, type TimedEvent } from '../sound/transport';
 import { mappingOf } from '../sound/drummers';
 import {
+  AUDIO_PLAYS_HIDDEN,
+  AUDIO_RELEASE_MS,
   AUDIO_STALL_CHECK_MS,
   DEFAULT_ALSO,
   DEFAULT_KIT_SHIFT,
@@ -109,6 +121,9 @@ export function crossingCatches(
 export function createPlayer(sound: DrumSound, options: PlayerOptions = {}) {
   let timer: ReturnType<typeof setInterval> | undefined;
   let stallCheck: ReturnType<typeof setTimeout> | undefined;
+  /** The park due AUDIO_RELEASE_MS after a Pause or Stop in view; and whether the page is hidden. */
+  let release: ReturnType<typeof setTimeout> | undefined;
+  let hidden = false;
   let state: PlayState = 'stopped';
   /** Replaced, never mutated, so a view handed out stays as it was. */
   let segments: readonly Segment[] = [];
@@ -165,12 +180,32 @@ export function createPlayer(sound: DrumSound, options: PlayerOptions = {}) {
     stallCheck = undefined;
   }
 
+  function clearRelease() {
+    if (release !== undefined) clearTimeout(release);
+    release = undefined;
+  }
+
+  /** Lets go of the audio session now; no stall check survives it (a parked clock does not move). */
+  function park() {
+    clearRelease();
+    clearStallCheck();
+    sound.park();
+  }
+
+  /** After Pause or Stop: park at once if the page is hidden, else AUDIO_RELEASE_MS later. */
+  function letGo() {
+    if (hidden) return park();
+    clearRelease();
+    release = setTimeout(park, AUDIO_RELEASE_MS);
+  }
+
   function stopTimer() {
     if (timer !== undefined) clearInterval(timer);
     timer = undefined;
   }
 
-  function stop() {
+  /** Stop, keeping the audio session: `play` starts again at once. */
+  function halt() {
     stopTimer();
     clearStallCheck();
     state = 'stopped';
@@ -180,8 +215,15 @@ export function createPlayer(sound: DrumSound, options: PlayerOptions = {}) {
     hold = -Infinity;
   }
 
+  function stop() {
+    const was = state;
+    halt();
+    if (was !== 'stopped') letGo();
+  }
+
   function play(schedule: Schedule, newMapping: Mapping, bpm: number) {
-    stop();
+    clearRelease();
+    halt();
     // A gesture: resume the context, and retry any kit that failed to load at page open.
     sound.resume();
     checkClock();
@@ -298,10 +340,12 @@ export function createPlayer(sound: DrumSound, options: PlayerOptions = {}) {
     const { cycle } = seg.schedule;
     const cycles = Math.max(0, Math.floor((frozen - seg.startTime) / seg.pulseLen / cycle));
     cycleStart = seg.startTime + cycles * cycle * seg.pulseLen;
+    letGo();
   }
 
   function resume() {
     if (state !== 'paused') return;
+    clearRelease();
     sound.resume();
     checkClock();
     const now = sound.now();
@@ -353,6 +397,17 @@ export function createPlayer(sound: DrumSound, options: PlayerOptions = {}) {
     stop,
     pause,
     resume,
+    /**
+     * The page hidden (another app, the lock screen) or shown again. Hidden while paused or
+     * stopped lets go of the audio session at once; while playing, nothing (AUDIO_PLAYS_HIDDEN),
+     * or else a press of Pause. Shown does nothing: only a gesture brings the sound back.
+     */
+    setHidden(next: boolean) {
+      hidden = next;
+      if (!hidden) return;
+      if (state !== 'playing') return park();
+      if (!AUDIO_PLAYS_HIDDEN) pause();
+    },
     /** True only while playing; false when stopped or paused. */
     playing: () => state === 'playing',
     /**
