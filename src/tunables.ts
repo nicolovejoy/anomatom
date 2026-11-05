@@ -570,13 +570,15 @@ export const DECK = {
    * A phone's wheel takes the whole sheet while it turns; this long after it settles (or after the
    * last finger lifts) the controls return (docs/plans/v5-sound-model.md, ruling 9). Upright, the
    * wheel then shrinks to compactRows rows instead of closing (docs/plans/v6-4-wheel-shrinks.md,
-   * ruling 1); it closes from the pattern name, Escape, Details, Make your own or a tap outside
-   * the wheel and the deck under it.
+   * ruling 1), directly above the ladder strip with the strip and the controls under it; 3 s, so
+   * it lingers long enough to use (docs/plans/v6-5-audio-session-wheel-place.md, ruling 11). It
+   * closes from the pattern name, Escape, Details, Make your own or a tap outside the wheel and
+   * the deck under it.
    */
-  returnMs: 1500,
+  returnMs: 3000,
   /**
    * The compact upright phone wheel (v6.4 ruling 1): this many rows, odd, the middle one in the
-   * band, over the foot of the stage with no chips. The drum's edges cut compactCut of a row off
+   * band, above the ladder strip (v6.5 ruling 9) with no chips. The drum's edges cut compactCut of a row off
    * the top of the top row and the bottom of the bottom one, and the outer rows fade.
    */
   compactRows: 3,
@@ -596,8 +598,10 @@ export const DECK = {
    */
   dockedMinHeightPx: 560,
   /**
-   * The open phone wheel keeps the juggler in view: under the figure when the stage has at least
-   * this much height left above it, else beside it, at most sidePx wide.
+   * The open phone wheel keeps the juggler in view: upright, directly above the ladder strip when
+   * at least this much of the stage stays above the wheel and the strip together (v6.5 ruling 9);
+   * else over the stage's foot when this much stays above the wheel; else beside it, at most
+   * sidePx wide.
    */
   minFigurePx: 200,
   sidePx: 300,

@@ -1,9 +1,13 @@
 // Issue 110 (found in the review of #108): on a phone, ending the wheel's phase while the drum
 // still turns ends the turn. The settle the turn left pending must not arm the return timer that
-// shrinks the wheel 1.5 s later (DECK.returnMs; before v6.4 it closed it). Two ways in: a filter
+// shrinks the wheel 3 s later (DECK.returnMs; before v6.4 it closed it). Two ways in: a filter
 // chip tapped mid-turn (the wheel stays open while the reader filters), and the pattern button
 // tapped twice mid-turn (the wheel closes and opens again, and stays open). Headless, 390×844.
 import { expect, test, type Page } from './fixtures';
+import { DECK } from '../src/tunables';
+
+/** Past the would-be shrink: a settle (DECK.settleMs), then the return delay (DECK.returnMs), and a margin. */
+const PAST_RETURN = DECK.settleMs + DECK.returnMs + 500;
 
 const phase = (page: Page) => page.locator('.deck-wheel').getAttribute('data-phase');
 const BALLS_5 = '.deck-filter[data-by="balls"][data-n="5"]';
@@ -48,9 +52,9 @@ test.describe('phone, 390×844', () => {
     await expect(page.locator('.deck-row[data-id]')).toHaveCount(3);
     await expect(page.locator('.deck-notation')).toHaveText('5');
 
-    // Past the would-be close (a settle of 160 ms, then the return delay of 1.5 s): still open,
+    // Past the would-be close (a settle of 160 ms, then the return delay of 3 s): still open,
     // still at rest, the card and the filter unchanged.
-    await page.waitForTimeout(2500);
+    await page.waitForTimeout(PAST_RETURN);
     await expect(wheel).toBeVisible();
     expect(await phase(page)).toBe('rest');
     await expect(page.locator('.deck-notation')).toHaveText('5');
@@ -69,7 +73,7 @@ test.describe('phone, 390×844', () => {
     await expect(page.locator('.deck-pattern')).toHaveAttribute('aria-expanded', 'true');
 
     // Past the would-be close: the turn's settle was cancelled with it, so nothing closes the wheel.
-    await page.waitForTimeout(2500);
+    await page.waitForTimeout(PAST_RETURN);
     await expect(wheel).toBeVisible();
     expect(await phase(page)).toBe('rest');
   });

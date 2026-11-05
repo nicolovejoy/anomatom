@@ -5,6 +5,7 @@
 // Screenshots go to e2e/shots/.
 import { mkdirSync } from 'node:fs';
 import { PRESETS } from '../src/app/presets';
+import { DECK } from '../src/tunables';
 import { expect, isCdnError, openTab, test, type Page } from './fixtures';
 
 const SHOTS = 'e2e/shots';
@@ -278,6 +279,11 @@ for (const size of SIZES) {
           // Over the stage, not over the deck, and clear of the juggler, which stays in view (ruling B).
           expect(w.y + w.height).toBeLessThanOrEqual(Math.max(bar.y, stage.y + stage.height) + 1);
           expect(w.x).toBeGreaterThanOrEqual(stage.x - 1);
+          // Upright, directly above the ladder strip, the strip and the deck under it (v6.5 ruling 9).
+          const ladder = (await page.locator('.region-ladder').boundingBox())!;
+          expect(w.y + w.height).toBeLessThanOrEqual(ladder.y + 1);
+          expect(ladder.y + ladder.height).toBeLessThanOrEqual(bar.y + 1);
+          await expect(page.locator('.region-ladder')).toBeInViewport();
         }
         expect(await page.evaluate(() => document.documentElement.scrollHeight <= window.innerHeight)).toBe(true);
         await expect(page.locator('.deck-pattern')).toHaveAttribute('aria-expanded', 'true');
@@ -395,7 +401,7 @@ test.describe('phone', () => {
     await expect.poll(async () => (await page.locator('.deck-row.in-band code').textContent()) === (await notation(page).textContent())).toBe(true);
     // Forty more, past the end: the drum stops on Make your own, which loads nothing.
     // (The settled wheel has gone compact, as on a phone (v6.4); the turn takes it from there.)
-    await expect(page.locator('.deck-wheel')).toHaveAttribute('data-phase', 'compact', { timeout: 3000 });
+    await expect(page.locator('.deck-wheel')).toHaveAttribute('data-phase', 'compact', { timeout: DECK.returnMs + 2000 });
     await expect(page.locator('.deck-row.in-band')).toHaveAttribute('data-row', '15');
     await spin(40);
     await expect(page.locator('.deck-row.in-band')).toHaveClass(/deck-own/);

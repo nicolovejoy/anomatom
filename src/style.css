@@ -214,6 +214,13 @@ button:disabled {
   padding-bottom: var(--wheel-pad-bottom, 0px);
   padding-right: var(--wheel-pad-right, 0px);
 }
+/* Upright, the wheel at rest or compact sits directly above the ladder strip, which stays at the
+   stage's foot: the juggler's region keeps the wheel's height clear under it instead
+   (docs/plans/v6-5-audio-session-wheel-place.md, ruling 10). A margin, not a padding: the
+   juggler's canvas fills its region (position: absolute; inset: 0), so padding would not shrink it. */
+#app.wheel-open .region-juggler {
+  margin-bottom: var(--wheel-pad-figure, 0px);
+}
 /* Open on a phone: the sheet takes the height the stage and the deck leave, up to its share. */
 #app.sheet-open:not(.is-wide) .region-sheet {
   flex: 0 1 var(--sheet-open-height, 62dvh);

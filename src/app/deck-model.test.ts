@@ -171,6 +171,7 @@ describe('the open phone wheel keeps the juggler in view', () => {
       height: 224,
       padBottom: 224,
       padRight: 0,
+      padFigure: 0,
       rows: 7,
     });
   });
@@ -182,6 +183,7 @@ describe('the open phone wheel keeps the juggler in view', () => {
       height: 224,
       padBottom: 0,
       padRight: 210,
+      padFigure: 0,
       rows: 7,
     });
     expect(wheelPlace({ left: 0, top: 10, width: 800, height: 200 }, 32, 7, 200, 300)).toMatchObject({ left: 500, top: 10, width: 300 });
@@ -196,6 +198,7 @@ describe('the open phone wheel keeps the juggler in view', () => {
       height: 224,
       padBottom: 0,
       padRight: 0,
+      padFigure: 0,
       rows: 7,
     });
     // 667×375: 221 px, so five rows.
@@ -304,6 +307,7 @@ describe('the phone wheel takes the sheet', () => {
       height: 224,
       padBottom: 114,
       padRight: 0,
+      padFigure: 0,
       rows: 7,
     });
   });
@@ -326,6 +330,7 @@ describe('the phone wheel takes the sheet', () => {
       height: 264,
       padBottom: 154,
       padRight: 0,
+      padFigure: 0,
       rows: 7,
     });
     // Open sheet: the chips sit above the seventeen rows, still clear of the figure's 200 px.
@@ -344,6 +349,7 @@ describe('the open phone wheel with the filter chips above it', () => {
       height: 264,
       padBottom: 264,
       padRight: 0,
+      padFigure: 0,
       rows: 7,
     });
   });
@@ -488,6 +494,7 @@ describe('the compact phone wheel (v6.4 ruling 1)', () => {
       height: 80,
       padBottom: 80,
       padRight: 0,
+      padFigure: 0,
       rows: 3,
     });
     // No cut: three whole rows.
@@ -501,8 +508,61 @@ describe('the compact phone wheel (v6.4 ruling 1)', () => {
       height: 80,
       padBottom: 0,
       padRight: 195,
+      padFigure: 0,
       rows: 3,
     });
+  });
+});
+
+describe('the upright phone wheel above the ladder strip (v6.5 rulings 9 and 10)', () => {
+  // The stage as the play view measures it (view-relative): 390×844 is 690 tall, 375×667 is 513;
+  // the strip, 120 px, at its foot. The chips are 40 px over the seven rows.
+  const stage = (height: number) => ({ left: 0, top: 0, width: 390, height });
+  test('390×844: the wheel at rest and the compact one sit directly above the strip, the juggler keeps their height clear', () => {
+    expect(wheelPlace(stage(690), 32, 7, 200, 300, null, 40, 120)).toEqual({
+      left: 0,
+      top: 306,
+      width: 390,
+      height: 264,
+      padBottom: 0,
+      padRight: 0,
+      padFigure: 264,
+      rows: 7,
+    });
+    expect(compactWheelPlace(stage(690), 32, 3, 0.25, 200, 300, 120)).toEqual({
+      left: 0,
+      top: 490,
+      width: 390,
+      height: 80,
+      padBottom: 0,
+      padRight: 0,
+      padFigure: 80,
+      rows: 3,
+    });
+  });
+  test('375×667: the wheel at rest falls back over the stage foot (129 px would stay above it and the strip), the compact one stays above the strip', () => {
+    expect(wheelPlace(stage(513), 32, 7, 200, 300, null, 40, 120)).toEqual({
+      left: 0,
+      top: 249,
+      width: 390,
+      height: 264,
+      padBottom: 264,
+      padRight: 0,
+      padFigure: 0,
+      rows: 7,
+    });
+    expect(compactWheelPlace(stage(513), 32, 3, 0.25, 200, 300, 120)).toMatchObject({ top: 313, padBottom: 0, padFigure: 80 });
+  });
+  test('exactly the figure\'s minimum above the wheel and the strip is enough', () => {
+    expect(compactWheelPlace(stage(400), 32, 3, 0.25, 200, 300, 120)).toMatchObject({ top: 200, padFigure: 80 });
+    expect(compactWheelPlace(stage(399), 32, 3, 0.25, 200, 300, 120)).toMatchObject({ top: 319, padBottom: 80, padFigure: 0 });
+  });
+  test('a shorter stage: down its side, as before', () => {
+    expect(wheelPlace(stage(390), 32, 7, 200, 300, null, 40, 120)).toMatchObject({ left: 195, width: 195, padBottom: 0, padRight: 195, padFigure: 0 });
+    expect(compactWheelPlace(stage(250), 32, 3, 0.25, 200, 300, 120)).toMatchObject({ left: 195, top: 85, padRight: 195, padFigure: 0 });
+  });
+  test('no strip given (on its side, or wide): over the foot as before, never above a strip', () => {
+    expect(wheelPlace(stage(690), 32, 7, 200, 300, null, 40)).toMatchObject({ top: 426, padBottom: 264, padFigure: 0 });
   });
 });
 

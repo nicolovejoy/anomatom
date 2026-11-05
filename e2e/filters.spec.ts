@@ -9,6 +9,7 @@
 // to each of the four and no further. Screenshots go to FILTER_SHOTS, or e2e/shots/.
 import { mkdirSync } from 'node:fs';
 import { expect, isCdnError, test, type Page } from './fixtures';
+import { DECK } from '../src/tunables';
 
 const SHOTS = process.env.FILTER_SHOTS ?? 'e2e/shots';
 mkdirSync(SHOTS, { recursive: true });
@@ -319,7 +320,7 @@ for (const size of [
         // slow runner (issue 106, WebKit on CI). Let it go compact, close it and open it again from
         // the pattern: at rest nothing turns it and no timer runs; the band is on the card on stage.
         const wheel = page.locator('.deck-wheel');
-        await expect(wheel).toHaveAttribute('data-phase', 'compact', { timeout: 3000 });
+        await expect(wheel).toHaveAttribute('data-phase', 'compact', { timeout: DECK.returnMs + 2000 });
         await page.locator('.deck-pattern').click();
         await expect(wheel).toBeHidden();
         await page.locator('.deck-pattern').click();
@@ -382,8 +383,8 @@ for (const size of [
         await turnAndSettle(page);
         await tap(page, 'balls-4');
         await expect(page.locator('.deck-wheel')).toHaveAttribute('data-phase', 'rest');
-        // Past the return delay (1.5 s after the settle): still open, the chip lit.
-        await page.waitForTimeout(2500);
+        // Past the return delay (DECK.returnMs, 3 s after the settle): still open, the chip lit.
+        await page.waitForTimeout(DECK.settleMs + DECK.returnMs + 500);
         await expect(page.locator('.deck-wheel')).toBeVisible();
         await expect(chip(page, 'balls-4')).toHaveAttribute('aria-pressed', 'true');
       });
@@ -393,7 +394,7 @@ for (const size of [
         await page.goto('/');
         await turnAndSettle(page);
         await chip(page, 'jugglers-3').focus();
-        await expect(page.locator('.deck-wheel')).toHaveAttribute('data-phase', 'compact', { timeout: 4000 });
+        await expect(page.locator('.deck-wheel')).toHaveAttribute('data-phase', 'compact', { timeout: DECK.returnMs + 2000 });
         await expect(page.locator('.deck-filters')).toBeHidden();
         await expect(page.locator('.deck-row[tabindex="0"]')).toBeFocused();
       });
