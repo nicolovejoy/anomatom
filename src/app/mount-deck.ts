@@ -10,7 +10,9 @@
 // column while the editor (Pattern and Rhythm) is hidden, which it is until a click on Make your
 // own or a pattern that is no card (docs/plans/v6-1-wheel-feel.md, ruling 2). It is a menu
 // (docs/plans/v6-2-wheel-ends.md, ruling 3): each row once, the band on the chosen row, a native
-// scroll that only browses. On a phone it is a drum with ends (ruling 4).
+// scroll that only browses. On a phone it is a drum with ends (ruling 4). Upright, after a turn
+// settles it shrinks to three rows over the foot of the stage rather than closing
+// (docs/plans/v6-4-wheel-shrinks.md).
 // The logic is in deck-model.ts and layout-model.ts; this file is elements and events.
 //
 // This mount owns Play and the keys that drive it: Space plays and pauses from anywhere (one
@@ -27,6 +29,7 @@ import {
   deckLabel,
   deckPresets,
   chooseFilter,
+  compactWheelPlace,
   filterChips,
   filteredPresets,
   filterKeeper,
@@ -267,6 +270,7 @@ export const mountDeck: Mount = (root, { store, player, sound }) => {
   function placeWheel() {
     if (docked() || wheel.hidden) {
       for (const p of ['left', 'top', 'width']) picker.style.removeProperty(p);
+      picker.classList.remove('is-compact');
       app.style.setProperty('--wheel-pad-bottom', '0px');
       app.style.setProperty('--wheel-pad-right', '0px');
       if (wheel.hidden) return setRows(DECK.wheelRows, DECK.rowPx);
@@ -299,29 +303,45 @@ export const mountDeck: Mount = (root, { store, player, sound }) => {
       const k = (root.querySelector('.deck-sound') as HTMLElement).getBoundingClientRect();
       column = { left: k.left - v.left, top: k.bottom - v.top, width: k.width, height: v.bottom - k.bottom };
     }
-    // A phone upright: the wheel takes the whole sheet, the deck and all (ruling 9).
+    // A phone upright, compact (v6.4 ruling 1): three rows over the foot of the stage, no chips
+    // (ruling 2), the juggler drawn above them. Only upright: on its side the wheel never shrinks.
+    const compact = phase === 'compact' && !column;
+    picker.classList.toggle('is-compact', compact);
+    // A phone upright, turning: the wheel takes the whole sheet, the deck and all (ruling 9).
     const bar = (root.querySelector('.deck-bar') as HTMLElement).getBoundingClientRect();
-    const sheetPlace = column || phase === 'rest'
+    const sheetPlace = column || phase === 'rest' || phase === 'compact'
       ? null
       : sheetWheelPlace({ left: 0, top: 0, width: v.width, height: v.height }, { ...box, left: 0 }, bar.top - v.top, DECK.rowPx, DECK.phoneMinRows, DECK.minFigurePx, DECK.filtersPx);
     // The filter chips sit above the rows, in the place (v6 ruling 4).
-    const place = sheetPlace ?? wheelPlace(box, DECK.rowPx, DECK.wheelRows, DECK.minFigurePx, DECK.sidePx, column, DECK.filtersPx);
+    const place =
+      sheetPlace ??
+      (compact
+        ? compactWheelPlace(box, DECK.rowPx, DECK.compactRows, DECK.compactCut, DECK.minFigurePx, DECK.sidePx)
+        : wheelPlace(box, DECK.rowPx, DECK.wheelRows, DECK.minFigurePx, DECK.sidePx, column, DECK.filtersPx));
     picker.style.left = `${place.left}px`;
     picker.style.top = `${place.top}px`;
     picker.style.width = `${place.width}px`;
-    setRows(place.rows, DECK.rowPx);
+    setRows(place.rows, DECK.rowPx, compact ? DECK.compactCut : 0);
     app.style.setProperty('--wheel-pad-bottom', `${place.padBottom}px`);
     app.style.setProperty('--wheel-pad-right', `${place.padRight}px`);
   }
 
-  /** The wheel shows `shown` rows `px` tall. A change brings the band back to its row when the wheel next draws. */
-  function setRows(shown: number, px: number) {
-    if (shown !== shownRows || px !== rowPx) {
+  /**
+   * The wheel shows `shown` rows `px` tall, the drum's edges cutting `cut` of a row off the outer
+   * two (the compact wheel, v6.4 ruling 1). A new row height, or any change docked, brings the band
+   * back to its row when the wheel next draws. On a phone a new count or cut needs nothing: row r
+   * sits in the band at r rows down whatever the drum shows (scrollForRow), and a drum that grows
+   * from compact as a turn takes the sheet must not be pulled back to the card on stage.
+   */
+  function setRows(shown: number, px: number, cut = 0) {
+    if (shown !== shownRows || px !== rowPx || cut !== shownCut) {
+      if (px !== rowPx || docked()) scrollWanted = true;
       shownRows = shown;
       rowPx = px;
+      shownCut = cut;
       wheel.style.setProperty('--deck-rows', String(shown));
       wheel.style.setProperty('--deck-row', `${px}px`);
-      scrollWanted = true;
+      wheel.style.setProperty('--deck-cut', String(cut));
     }
   }
 
@@ -330,6 +350,7 @@ export const mountDeck: Mount = (root, { store, player, sound }) => {
   // (scrollForRow). Docked there are none: the rows are a menu, top aligned, row r r rows down.
   let shownRows: number = DECK.wheelRows;
   let rowPx: number = DECK.rowPx;
+  let shownCut = 0;
   /** Where the page last set the list's scrollTop itself; the scroll event it causes is not a turn. */
   let ownTop: number | null = null;
   /** The row in the phone's band at the list's scrollTop. */
@@ -429,12 +450,14 @@ export const mountDeck: Mount = (root, { store, player, sound }) => {
   };
 
   // The phone wheel's phase (nextPhase in deck-model.ts): spinning while the reader turns it,
-  // settling after it stops, and 1.5 s later (DECK.returnMs) the wheel closes and the controls
-  // return. The timer lives here; the rule is the model's.
+  // settling after it stops, and 1.5 s later (DECK.returnMs) the controls return and the wheel
+  // goes compact (v6.4 ruling 1). The timer lives here; the rule is the model's.
   let phase: WheelPhase = 'rest';
   let returnTimer: ReturnType<typeof setTimeout> | undefined;
   /** The wheel stopped under a finger: the return timer waits for the last finger to lift (issue 116). */
   let returnHeld = false;
+  /** A touch began on the compact wheel: if it neither turns it nor taps a row, it grows it (v6.4 ruling 3). */
+  let pressed = false;
   const setPhase = (event: Parameters<typeof nextPhase>[1]) => {
     phase = nextPhase(phase, event);
     wheel.dataset.phase = phase;
@@ -446,7 +469,28 @@ export const mountDeck: Mount = (root, { store, player, sound }) => {
     stopTurn();
     clearTimeout(returnTimer);
     returnHeld = false;
+    pressed = false;
     setPhase('close');
+  };
+  /**
+   * The upright wheel goes compact (v6.4 rulings 1 and 4): after the return delay, or a row tapped.
+   * Compact is still open (ruling 7): focus stays where it is, but focus on a chip, which hides
+   * (ruling 2), goes to the wheel's tab stop.
+   */
+  const shrink = (event: 'return' | 'tap') => {
+    const chipFocused = picker.querySelector('.deck-filters')?.contains(document.activeElement) ?? false;
+    clearTimeout(returnTimer);
+    returnHeld = false;
+    pressed = false;
+    setPhase(event);
+    placeWheel();
+    if (chipFocused) rows[roving]?.focus({ preventScroll: true });
+  };
+  /** A touch on the compact wheel that turned nothing and tapped no row: the open wheel is back, seven rows and the chips (v6.4 ruling 3). */
+  const grow = () => {
+    pressed = false;
+    setPhase('grow');
+    placeWheel();
   };
 
   patternButton.addEventListener('click', () => {
@@ -513,12 +557,15 @@ export const mountDeck: Mount = (root, { store, player, sound }) => {
   const sheetOn = () => {
     if (!upright()) return;
     const was = phase;
+    pressed = false;
     setPhase('turn');
-    if (was === 'rest') placeWheel();
+    // From rest or compact the wheel moves to the sheet; settling, it is there already.
+    if (was === 'rest' || was === 'compact') placeWheel();
   };
-  const startTurn = () => {
+  const startTurn = (e: Event) => {
     if (docked()) return;
     scrolled = false;
+    pressed = e.type === 'touchstart' && phase === 'compact';
     turn();
   };
   for (const type of ['wheel', 'touchstart']) list.addEventListener(type, startTurn, { passive: true });
@@ -629,11 +676,17 @@ export const mountDeck: Mount = (root, { store, player, sound }) => {
   function lapse() {
     turning = false;
     if (touching || scrolled || keyRow !== null || wheel.hidden || docked()) return;
+    // Compact, a touch that scrolled nothing and tapped no row (a tap clears this lapse: stopTurn)
+    // grows the wheel back, once the last finger is up (v6.4 ruling 3); a mouse wheel does nothing.
+    if (phase === 'compact') {
+      if (pressed) grow();
+      return;
+    }
     if (phase === 'rest' && !unsettled) return;
     clearTimeout(settleTimer);
     stopWheel(rowAt());
   }
-  /** A turn ends: the upright wheel settles and closes DECK.returnMs later; the row in the band loads. */
+  /** A turn ends: the upright wheel settles and goes compact DECK.returnMs later; the row in the band loads. */
   function stopWheel(at: number) {
     unsettled = false;
     if (upright()) {
@@ -649,13 +702,14 @@ export const mountDeck: Mount = (root, { store, player, sound }) => {
     const chosen = settledPick(at, current(), order.length);
     if (chosen !== null) pick(chosen);
   }
-  /** The wheel closes DECK.returnMs from now, and the controls return. */
+  /** The wheel goes compact DECK.returnMs from now, and the controls return (v6.4 ruling 1). */
   function armReturn() {
     returnHeld = false;
     clearTimeout(returnTimer);
     returnTimer = setTimeout(() => {
-      setPhase('return');
-      if (phase !== 'rest') return;
+      if (nextPhase(phase, 'return') !== 'compact') return;
+      if (upright()) return shrink('return');
+      // Turned on its side mid-settle: there the wheel never shrinks (ruling 6), it closes as before.
       const had = picker.contains(document.activeElement);
       closeWheel();
       if (had) patternButton.focus();
@@ -673,6 +727,7 @@ export const mountDeck: Mount = (root, { store, player, sound }) => {
     clearTimeout(settleTimer);
     clearTimeout(turnTimer);
     turning = false;
+    pressed = false;
     unsettled = false;
     keyRow = null;
     seekRow = null;
@@ -711,13 +766,16 @@ export const mountDeck: Mount = (root, { store, player, sound }) => {
       store.set({ sheetTab: 'pattern' });
       return;
     }
-    // A tap on a row is a gesture: it plays the row (ruling A), unlike a step or a settle.
+    // A tap on a row is a gesture: it plays the row (ruling A), unlike a step or a settle. Upright
+    // the wheel then goes compact, from the open, turning or compact wheel (v6.4 ruling 4); on its
+    // side it closes.
     pick(i);
     start(player, store.get());
     rove(i);
     markRows();
+    if (upright()) shrink('tap');
+    else closeWheel();
     scrollToCurrent(true);
-    closeWheel();
   });
 
   // The filter chips (v6.1 ruling 4, chooseFilter in deck-model.ts): one lit at a time across both
@@ -760,7 +818,7 @@ export const mountDeck: Mount = (root, { store, player, sound }) => {
   // A card outside the lit filter, typed or from a link, clears it (filterKeeper).
   store.derive(filterKeeper());
 
-  // Tapping outside closes the phone wheel; the tap still does what it does.
+  // Tapping outside closes the phone wheel, compact too (v6.4 ruling 5); the tap still does what it does.
   document.addEventListener('pointerdown', (e) => {
     const target = e.target as Node;
     if (wheelOpen && !docked() && !picker.contains(target) && !patternButton.contains(target)) closeWheel();

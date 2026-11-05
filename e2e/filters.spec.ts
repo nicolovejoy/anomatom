@@ -314,12 +314,14 @@ for (const size of [
         await page.waitForTimeout(400);
         await expect(notation(page)).toHaveText(three[2]!);
         await page.screenshot({ path: `${SHOTS}/w6-jugglers-3-last-390x844.png` });
-        // And no further. Settled, the wheel gives the sheet back and closes DECK.returnMs later (v5
-        // ruling 9), so checks timed after the settle raced the close on a slow runner (issue 106,
-        // WebKit on CI). Let it close, and open it again from the pattern: at rest nothing turns it
-        // and no timer runs; the band is on the card on stage.
+        // And no further. Settled, the wheel gives the sheet back and goes compact DECK.returnMs
+        // later (v5 ruling 9, v6.4 ruling 1), so checks timed after the settle raced the return on a
+        // slow runner (issue 106, WebKit on CI). Let it go compact, close it and open it again from
+        // the pattern: at rest nothing turns it and no timer runs; the band is on the card on stage.
         const wheel = page.locator('.deck-wheel');
-        await expect(wheel).toBeHidden({ timeout: 3000 });
+        await expect(wheel).toHaveAttribute('data-phase', 'compact', { timeout: 3000 });
+        await page.locator('.deck-pattern').click();
+        await expect(wheel).toBeHidden();
         await page.locator('.deck-pattern').click();
         await expect.poll(() => drumBand(page)).toEqual({ row: '2', off: 0 });
         // A scroll past the end leaves Make your own in the band, blank rows past it.
@@ -386,12 +388,14 @@ for (const size of [
         await expect(chip(page, 'balls-4')).toHaveAttribute('aria-pressed', 'true');
       });
 
-      test('focus on a chip when the settled wheel closes goes to the pattern button', async ({ page }) => {
+      // The compact wheel hides the chips (v6.4 ruling 2): focus on one goes to the wheel's tab stop.
+      test('focus on a chip when the settled wheel goes compact goes to the wheel', async ({ page }) => {
         await page.goto('/');
         await turnAndSettle(page);
         await chip(page, 'jugglers-3').focus();
-        await expect(page.locator('.deck-wheel')).toBeHidden({ timeout: 4000 });
-        await expect(page.locator('.deck-pattern')).toBeFocused();
+        await expect(page.locator('.deck-wheel')).toHaveAttribute('data-phase', 'compact', { timeout: 4000 });
+        await expect(page.locator('.deck-filters')).toBeHidden();
+        await expect(page.locator('.deck-row[tabindex="0"]')).toBeFocused();
       });
 
       test('the pattern button controls the picker, chips and wheel', async ({ page }) => {

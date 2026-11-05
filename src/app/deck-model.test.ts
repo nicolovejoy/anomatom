@@ -30,6 +30,7 @@ import {
   editorShows,
   wheelPlace,
   sheetWheelPlace,
+  compactWheelPlace,
   nextPhase,
   filteredPresets,
   chooseFilter,
@@ -443,12 +444,12 @@ describe('the filter chips in two groups (v6.1 ruling 4)', () => {
 });
 
 describe('the phone wheel phase', () => {
-  test('a turn spins; a stop settles; the return delay brings the controls back', () => {
+  test('a turn spins; a stop settles; the return delay makes the wheel compact (v6.4 ruling 1)', () => {
     let phase = nextPhase('rest', 'turn');
     expect(phase).toBe('spinning');
     phase = nextPhase(phase, 'stop');
     expect(phase).toBe('settling');
-    expect(nextPhase(phase, 'return')).toBe('rest');
+    expect(nextPhase(phase, 'return')).toBe('compact');
   });
   test('a turn while settling spins again, and the return delay of the old stop does nothing then', () => {
     expect(nextPhase('settling', 'turn')).toBe('spinning');
@@ -459,6 +460,49 @@ describe('the phone wheel phase', () => {
     expect(nextPhase('rest', 'return')).toBe('rest');
     expect(nextPhase('spinning', 'close')).toBe('rest');
     expect(nextPhase('settling', 'close')).toBe('rest');
+    expect(nextPhase('compact', 'close')).toBe('rest');
+  });
+  test('compact: a turn spins it on the sheet, a touch grows it, a stop or a return leaves it (v6.4 ruling 3)', () => {
+    expect(nextPhase('compact', 'turn')).toBe('spinning');
+    expect(nextPhase('compact', 'grow')).toBe('rest');
+    expect(nextPhase('compact', 'stop')).toBe('compact');
+    expect(nextPhase('compact', 'return')).toBe('compact');
+  });
+  test('a touch grows only a compact wheel', () => {
+    expect(nextPhase('rest', 'grow')).toBe('rest');
+    expect(nextPhase('spinning', 'grow')).toBe('spinning');
+    expect(nextPhase('settling', 'grow')).toBe('settling');
+  });
+  test('a row tapped leaves the wheel compact, from any phase (v6.4 ruling 4)', () => {
+    for (const phase of ['rest', 'spinning', 'settling', 'compact'] as const) expect(nextPhase(phase, 'tap')).toBe('compact');
+  });
+});
+
+describe('the compact phone wheel (v6.4 ruling 1)', () => {
+  test('over the foot of the stage, as tall as its rows less the cut at both edges, no chips', () => {
+    // 390×844: three rows, a quarter of a row cut at the top and the bottom.
+    expect(compactWheelPlace({ left: 0, top: 0, width: 390, height: 690 }, 32, 3, 0.25, 200, 300)).toEqual({
+      left: 0,
+      top: 610,
+      width: 390,
+      height: 80,
+      padBottom: 80,
+      padRight: 0,
+      rows: 3,
+    });
+    // No cut: three whole rows.
+    expect(compactWheelPlace({ left: 0, top: 0, width: 390, height: 690 }, 32, 3, 0, 200, 300)).toMatchObject({ top: 594, height: 96, rows: 3 });
+  });
+  test('a stage too short for the figure above it: down its right side, as the open wheel goes', () => {
+    expect(compactWheelPlace({ left: 0, top: 0, width: 390, height: 250 }, 32, 3, 0.25, 200, 300)).toEqual({
+      left: 195,
+      top: 85,
+      width: 195,
+      height: 80,
+      padBottom: 0,
+      padRight: 195,
+      rows: 3,
+    });
   });
 });
 

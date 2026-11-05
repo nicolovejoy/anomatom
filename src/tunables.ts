@@ -554,10 +554,19 @@ export const DECK = {
   /** The wheel picks its row this long after the last scroll event, not on each row it passes. */
   settleMs: 160,
   /**
-   * A phone's wheel takes the whole sheet while it turns; this long after it settles the wheel
-   * closes and the controls return (docs/plans/v5-sound-model.md, ruling 9).
+   * A phone's wheel takes the whole sheet while it turns; this long after it settles (or after the
+   * last finger lifts) the controls return (docs/plans/v5-sound-model.md, ruling 9). Upright, the
+   * wheel then shrinks to compactRows rows instead of closing (docs/plans/v6-4-wheel-shrinks.md,
+   * ruling 1); it closes from the pattern name, Escape, Details, Make your own or a tap outside.
    */
   returnMs: 1500,
+  /**
+   * The compact upright phone wheel (v6.4 ruling 1): this many rows, odd, the middle one in the
+   * band, over the foot of the stage with no chips. The drum's edges cut compactCut of a row off
+   * the top of the top row and the bottom of the bottom one, and the outer rows fade.
+   */
+  compactRows: 3,
+  compactCut: 0.25,
   /** The fewest rows the sheet-covering phone wheel shows (it shows more where the sheet is taller). */
   phoneMinRows: 7,
   /** A mouse wheel over the pattern name steps once per this much scroll (a notch is about 100). */

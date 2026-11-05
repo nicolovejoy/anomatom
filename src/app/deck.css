@@ -284,7 +284,8 @@
 }
 .deck-wheel {
   position: relative;
-  height: calc(var(--deck-row) * var(--deck-rows));
+  /* --deck-cut: the part of a row the compact drum's edges cut off its outer two (v6.4 ruling 1). */
+  height: calc(var(--deck-row) * (var(--deck-rows) - 2 * var(--deck-cut, 0)));
   overflow: hidden;
   background: var(--surface);
   border-top: 1px solid var(--rule);
@@ -329,7 +330,7 @@
   position: absolute;
   left: 0;
   right: 0;
-  top: calc(var(--deck-row) * (var(--deck-rows) - 1) / 2);
+  top: calc(var(--deck-row) * ((var(--deck-rows) - 1) / 2 - var(--deck-cut, 0)));
   height: var(--deck-row);
   border-top: 1px solid var(--handle);
   border-bottom: 1px solid var(--handle);
@@ -341,6 +342,17 @@
   inset: 0;
   pointer-events: none;
   background: linear-gradient(var(--surface), transparent 30%, transparent 70%, var(--surface));
+}
+/* The compact phone wheel (docs/plans/v6-4-wheel-shrinks.md, rulings 1 and 2): three rows, the
+   band in the middle, the outer two cut at the drum's edges and fading toward them; no chips. */
+.deck-picker.is-compact .deck-filters {
+  display: none;
+}
+/* The band is the middle 40% of the compact drum; the outer rows are dimmed a fifth at the
+   band's edge and fade out toward the drum's, so the middle row is plainly the chosen one. */
+.deck-picker.is-compact .deck-wheel::after {
+  --dim: color-mix(in srgb, var(--surface) 20%, transparent);
+  background: linear-gradient(var(--surface), var(--dim) 30%, transparent 30%, transparent 70%, var(--dim) 70%, var(--surface));
 }
 /* Docked, a menu: no fixed band and no fade; the chosen row carries the band (below). */
 #app.deck-docked .deck-wheel::before,
@@ -356,16 +368,21 @@
   height: 100%;
   overflow-y: auto;
   overscroll-behavior: contain;
+  /* No scroll anchoring: as the drum grows or shrinks (compact, v6.4) its blank rows change height,
+     and a browser that anchors on the first row moves scrollTop with them, so the band would land
+     rows away. Row r is in the band at r rows down whatever the drum shows. */
+  overflow-anchor: none;
   scroll-snap-type: y mandatory;
   scrollbar-width: none;
 }
-/* The blank rows past both ends of the phone's drum (ruling 4): half the rows shown, less the band,
-   above the first and below the last, so either end can turn into the band and stops there. */
+/* The blank rows past both ends of the phone's drum (ruling 4): half the rows shown, less the band
+   (and less the compact drum's cut), above the first and below the last, so either end can turn
+   into the band and stops there. */
 .deck-wheel-list::before,
 .deck-wheel-list::after {
   content: '';
   flex: none;
-  height: calc(var(--deck-row) * (var(--deck-rows) - 1) / 2);
+  height: calc(var(--deck-row) * ((var(--deck-rows) - 1) / 2 - var(--deck-cut, 0)));
 }
 /* Docked, a menu (ruling 3): no blank rows, no snap points; a longer list scrolls natively and the
    scroll only browses. */
