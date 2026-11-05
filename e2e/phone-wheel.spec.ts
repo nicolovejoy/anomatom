@@ -623,6 +623,35 @@ test.describe('phone, 390×844', () => {
   });
 });
 
+// Issue 128: on a short phone (360×640) the juggler gets less than its 120 px floor above the
+// wheel at rest; with the floor kept, the strip ran 18 px under the Play bar. The place is exact.
+// Here the stubbed sample CDN leaves the sound's status row showing under the deck (44 px), so
+// 360×684 lays the stage out as a reader's 360×640 does: 486 px, the juggler about 102 px.
+test.describe('phone, 360×640 (684 with the status row)', () => {
+  test.use({ viewport: { width: 360, height: 684 }, hasTouch: true });
+
+  test('issue 128: the wheel at rest sits on the strip, the strip above the deck bar, the juggler clear above the chips', async ({ page }) => {
+    await page.goto('/');
+    const wheel = page.locator('.deck-wheel');
+    await expect(wheel).toBeVisible();
+    await expect(wheel).toHaveAttribute('data-phase', 'rest');
+    await expect.poll(async () => {
+      const w = (await wheel.boundingBox())!;
+      const s = (await page.locator('.region-ladder').boundingBox())!;
+      const bar = (await page.locator('.deck-bar').boundingBox())!;
+      const chips = (await page.locator('.deck-filters').boundingBox())!;
+      const j = (await page.locator('.region-juggler').boundingBox())!;
+      return {
+        // The case of the issue: across the stage, the juggler under its old 120 px floor.
+        across: w.x === 0 && j.height > 0 && j.height < 120,
+        onStrip: Math.abs(w.y + w.height - s.y) <= 1,
+        stripAboveBar: s.y + s.height <= bar.y + 1,
+        jugglerAboveChips: j.y + j.height <= chips.y + 1,
+      };
+    }).toEqual({ across: true, onStrip: true, stripAboveBar: true, jugglerAboveChips: true });
+  });
+});
+
 test.describe('wide, 1280×800', () => {
   test.use({ viewport: { width: 1280, height: 800 } });
 
