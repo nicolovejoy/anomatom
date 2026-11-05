@@ -126,6 +126,21 @@ test.describe('phone, 390×844', () => {
     await page.mouse.wheel(0, 64);
     await expect.poll(async () => stopsIn(await phases()).length).toBe(1);
   };
+  /**
+   * A touch on the list, made in the page: `fingers` is how many stay down after it (TouchEvent's
+   * `touches`). WebKit on a laptop has no TouchEvent constructor, so the list is set on an Event.
+   * Returns when it was sent, in the page's clock.
+   */
+  const touch = (page: Page, type: 'touchstart' | 'touchend', fingers: number) =>
+    list(page).evaluate(
+      (l, [type, fingers]) => {
+        const e = new Event(type as string, { bubbles: true });
+        Object.defineProperty(e, 'touches', { value: Array.from({ length: fingers as number }, () => ({})) });
+        l.dispatchEvent(e);
+        return performance.now();
+      },
+      [type, fingers] as const,
+    );
   /** Waits until the list has not scrolled for a while: the scroll that brings the loaded row to the band on load is over. */
   const quiet = (page: Page) =>
     list(page).evaluate(
@@ -152,12 +167,52 @@ test.describe('phone, 390×844', () => {
   test('issue 114: a touch held and lifted without a tap while the wheel settles: open while held, closed after', async ({ page }) => {
     await page.goto('/');
     await turnAndStop(page);
-    await list(page).evaluate((l) => l.dispatchEvent(new Event('touchstart', { bubbles: true })));
+    await touch(page, 'touchstart', 1);
     // Held past the return delay (DECK.returnMs, 1.5 s): the finger keeps the wheel open.
     await page.waitForTimeout(2000);
     await expect(page.locator('.deck-wheel')).toBeVisible();
-    await list(page).evaluate((l) => l.dispatchEvent(new Event('touchend', { bubbles: true })));
+    await touch(page, 'touchend', 0);
     await expect(page.locator('.deck-wheel')).toBeHidden({ timeout: 4000 });
+    expect(await phase(page)).toBe('rest');
+  });
+
+  // Issue 116: while any finger is on the list the wheel never closes; it closes the return delay
+  // (DECK.returnMs, 1.5 s) after the last finger lifts.
+  test('issue 116: two fingers down, one lifts: open while the other is held, closed after it lifts', async ({ page }) => {
+    await page.goto('/');
+    await turnAndStop(page);
+    await touch(page, 'touchstart', 1);
+    await touch(page, 'touchstart', 2);
+    // Past the turn's lapse (two settles, 320 ms), one finger lifts; the other stays.
+    await page.waitForTimeout(500);
+    await touch(page, 'touchend', 1);
+    await page.waitForTimeout(2500);
+    await expect(page.locator('.deck-wheel')).toBeVisible();
+    const phases = await stampPhases(page);
+    const lifted = await touch(page, 'touchend', 0);
+    await expect(page.locator('.deck-wheel')).toBeHidden({ timeout: 4000 });
+    expect((await phases()).find((p) => p.hidden)!.at - lifted).toBeGreaterThanOrEqual(1500 - 20);
+    expect(await phase(page)).toBe('rest');
+  });
+
+  test('issue 116: a drag, then the finger held still: open while held, closed 1.5 s after it lifts', async ({ page }) => {
+    await page.goto('/');
+    await quiet(page);
+    const phases = await stampPhases(page);
+    // A drag: the finger lands, and the list scrolls under it a few rows.
+    await touch(page, 'touchstart', 1);
+    for (let i = 1; i <= 4; i += 1) {
+      await list(page).evaluate((l, i) => (l.scrollTop += 16 * i), i);
+      await page.waitForTimeout(30);
+    }
+    await expect.poll(() => phase(page)).not.toBe('rest');
+    // Held still well past the settle (160 ms) and the return delay (1.5 s).
+    await page.waitForTimeout(3000);
+    await expect(page.locator('.deck-wheel')).toBeVisible();
+    expect((await phases()).some((p) => p.hidden)).toBe(false);
+    const lifted = await touch(page, 'touchend', 0);
+    await expect(page.locator('.deck-wheel')).toBeHidden({ timeout: 4000 });
+    expect((await phases()).find((p) => p.hidden)!.at - lifted).toBeGreaterThanOrEqual(1500 - 20);
     expect(await phase(page)).toBe('rest');
   });
 
