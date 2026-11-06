@@ -477,7 +477,12 @@ export const mountDeck: Mount = (root, { store, player, sound }) => {
     keyTries = 0;
     seekRow = scrollToRow(row, true) ? row : null;
     clearTimeout(seekTimer);
-    if (seekRow !== null) seekTimer = setTimeout(() => (seekRow = null), DECK.settleMs * DECK.keySettleTries);
+    if (seekRow === null) return;
+    seekTimer = setTimeout(() => (seekRow = null), DECK.settleMs * DECK.keySettleTries);
+    // The settle asks for the goal again even if no scroll comes (issue 139): shrunk in the same
+    // task, the drum's re-snap to the row it holds can cancel the smooth scroll before it moves,
+    // and with no scroll event no settle ran, so the band stayed on the cancelled turn's row.
+    armSettle();
   }
 
   function showWheel() {
