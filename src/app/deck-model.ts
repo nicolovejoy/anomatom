@@ -194,6 +194,26 @@ export function rowAfterKey(key: string, row: number, length: number, page: numb
   return Math.min(length - 1, Math.max(0, next));
 }
 
+/**
+ * How many rows PageUp and PageDown turn the phone wheel (docs/plans/v6-7-wheel-loose-ends.md,
+ * ruling 2): the rows the card will show. From `compact` a key's turn grows the card first, so a
+ * page is the grown card's `grown` rows (as many as fit, measured: grownRows); in any other phase
+ * the rows it shows now, `shown`.
+ */
+export function keyPage(phase: WheelPhase, shown: number, grown: number): number {
+  return phase === 'compact' ? grown : shown;
+}
+
+/**
+ * The touches still on the list (ruling 3): of the identifiers `held` (touches that started on
+ * the list), those still in `live` (a touch event's `touches`). Known by identifier, not by
+ * target: a finger held on a row the list rebuilt under it is on a detached node (issue 121).
+ */
+export function heldTouches(held: ReadonlySet<number>, live: Iterable<number>): Set<number> {
+  const now = new Set(live);
+  return new Set([...held].filter((id) => now.has(id)));
+}
+
 export interface Box {
   readonly left: number;
   readonly top: number;

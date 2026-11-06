@@ -30,6 +30,8 @@ import {
   editorShows,
   wheelPlace,
   grownRows,
+  heldTouches,
+  keyPage,
   nextPhase,
   filteredPresets,
   chooseFilter,
@@ -477,6 +479,47 @@ describe('the upright phone wheel grown in place (v6.6 ruling 5)', () => {
   test('the sheet open: its head and tabs stay, the juggler at its open floor', () => {
     expect(grownRows(at(623, 116, 100), 32, 7, 3, 120)).toBe(5);
     expect(grownRows(at(800, 116, 100), 32, 7, 3, 120)).toBe(7);
+  });
+});
+
+describe('PageUp and PageDown page by the rows the card will show (v6.7 ruling 2, #134)', () => {
+  // From compact a key's turn grows the card first: the page is the grown count (grownRows).
+  test('from compact on a tall phone (390×844): seven, the grown card', () => {
+    expect(keyPage('compact', 3, 7)).toBe(7);
+  });
+  test('from compact on a short phone (375×667): five', () => {
+    expect(keyPage('compact', 3, 5)).toBe(5);
+  });
+  test('from compact on a shorter one, or with the sound’s status row: three', () => {
+    expect(keyPage('compact', 3, 3)).toBe(3);
+    // The sheet open (ruling 1): one row shown at rest, the sheet's grown count a page.
+    expect(keyPage('compact', 1, 3)).toBe(3);
+  });
+  test('grown already (spinning, settling, grown): the rows it shows now', () => {
+    expect(keyPage('spinning', 5, 7)).toBe(5);
+    expect(keyPage('settling', 7, 5)).toBe(7);
+    expect(keyPage('grown', 3, 7)).toBe(3);
+    // On its side (rest) the open wheel's rows, as before.
+    expect(keyPage('rest', 7, 7)).toBe(7);
+  });
+});
+
+describe('the touches held on the list, by identifier (v6.7 ruling 3, #121)', () => {
+  test('one held, still down: held', () => {
+    expect(heldTouches(new Set([3]), [3])).toEqual(new Set([3]));
+  });
+  test('one of two lifted: the other still held', () => {
+    expect(heldTouches(new Set([1, 2]), [2])).toEqual(new Set([2]));
+  });
+  test('a stranger’s lift (a chip finger): the list finger still held, the stranger never counted', () => {
+    // Finger 1 on the list, finger 7 on a chip; the chip finger lifts: touches holds 1 alone.
+    expect(heldTouches(new Set([1]), [1])).toEqual(new Set([1]));
+    // The chip finger still down, the list finger lifts: none held, though a touch is down.
+    expect(heldTouches(new Set([1]), [7])).toEqual(new Set());
+  });
+  test('all lifted: none held', () => {
+    expect(heldTouches(new Set([1, 2]), [])).toEqual(new Set());
+    expect(heldTouches(new Set(), [])).toEqual(new Set());
   });
 });
 
