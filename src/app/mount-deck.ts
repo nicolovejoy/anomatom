@@ -436,8 +436,10 @@ export const mountDeck: Mount = (root, { store, player, sound }) => {
     const i = current();
     if (i === null) {
       seekRow = null;
-      // Upright a hand-made pattern's band rests on Make your own (v6.6 ruling 9).
-      if (upright()) scrollToRow(own, smooth);
+      // Upright a hand-made pattern's band rests on Make your own (v6.6 ruling 9). At once, not
+      // smoothly: typing passes through cards ("5" and "555" on the way to "5551"), and WebKit
+      // snapped the list back to the card's row over a smooth scroll still under way.
+      if (upright()) scrollToRow(own, false);
       return;
     }
     // A browser may wait a while before it starts a smooth scroll: the goal is asked for again
@@ -451,6 +453,10 @@ export const mountDeck: Mount = (root, { store, player, sound }) => {
     if (seekRow !== null) seekTimer = setTimeout(() => (seekRow = null), DECK.settleMs * DECK.keySettleTries);
   }
 
+  /** Where the phone's band rests between turns: the card on stage, or Make your own where the band rests there. */
+  const homeRow = () => (restOwn || current() === null ? own : (current() as number));
+  /** The band was to go home under a held finger (shrink); it goes when the last finger lifts. */
+  let bandHome = false;
   /** Turns the phone's band to `row` as the page's own goal: asked for again until it is there, and never a pick. */
   function seekBand(row: number) {
     keyTries = 0;
@@ -535,7 +541,12 @@ export const mountDeck: Mount = (root, { store, player, sound }) => {
     // Make your own where the band rests there.
     // A goal the settle asks for again (seekRow), as a scroll the browser still runs (the turn's
     // own, or its snap) may land after this one.
-    if (event === 'close') seekBand(restOwn || current() === null ? own : (current() as number));
+    // Under a finger still on the list the scroll would read as a turn and grow the card again
+    // (#116): the band goes home when the last finger lifts instead.
+    if (event === 'close') {
+      if (touching) bandHome = true;
+      else seekBand(homeRow());
+    }
   };
   /**
    * A touch on the compact wheel that turned nothing and tapped no row grows it in place (v6.6
@@ -686,6 +697,10 @@ export const mountDeck: Mount = (root, { store, player, sound }) => {
       (e) => {
         touching = [...e.touches].some((t) => list.contains(t.target as Node));
         if (touching) return;
+        if (bandHome) {
+          bandHome = false;
+          seekBand(homeRow());
+        }
         // The wheel stopped under the finger: its return delay starts now it lifts.
         if (returnHeld) armReturn();
         // A finger held past the turn's lapse: the turn is over now it lifts.
@@ -813,7 +828,8 @@ export const mountDeck: Mount = (root, { store, player, sound }) => {
       } else armReturn();
     }
     // The band resting on Make your own opens nothing and loads nothing: only a tap on it does
-    // (v6.1 ruling 2).
+    // (v6.1 ruling 2). Settled on a card, the band no longer rests on Make your own.
+    if (at !== own) restOwn = false;
     const chosen = settledPick(at, current(), order.length);
     if (chosen !== null) pick(chosen);
   }
@@ -857,6 +873,8 @@ export const mountDeck: Mount = (root, { store, player, sound }) => {
     // A scroll the page made itself (re-placing the wheel, a snap) is no turn and grows nothing.
     // Under a finger it is the reader's, though the settle ended the turn while it held still (issue 118).
     if ((turning || touching) && !mine) {
+      // A turn after all: its settle loads the row it lands on, so the band needs no going home.
+      bandHome = false;
       sheetOn();
       turn();
       scrolled = true;

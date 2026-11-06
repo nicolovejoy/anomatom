@@ -542,6 +542,44 @@ test.describe('phone upright, 390×844', () => {
     });
   }
 
+  // Review of round 1: restOwn went stale after Make your own, and the band's return ran under a
+  // live finger, where its scroll read as a turn and grew the card again (#116).
+  test('after Make your own, a turn back to the card on stage, then a turn cancelled by Escape under a held finger: compact while held, the band home on the stage’s card when it lifts', async ({ page }) => {
+    await page.goto('/#3');
+    await expectCompact(page);
+    await page.locator('.deck-own').click();
+    await expect(page.locator('.deck-own')).toHaveClass(/in-band/);
+    await quiet(page);
+    // Back to Cascade, the card on stage, by a drag; it settles there and loads nothing new.
+    await touch(page, 'touchstart', 1);
+    await list(page).evaluate((l) => (l.scrollTop = 0));
+    await expect.poll(() => phase(page)).toBe('settling');
+    await touch(page, 'touchend', 0);
+    await expect(page.locator('.deck-row.in-band')).toHaveAttribute('data-row', '0');
+    await expectCompact(page);
+    await quiet(page);
+    // A turn of two rows, and Escape before it settles, the finger still down.
+    await touch(page, 'touchstart', 1);
+    // The scroll and Escape in one task, before the settle (DECK.settleMs) can pick the row.
+    await list(page).evaluate(
+      (l, px) =>
+        new Promise<void>((done) => {
+          l.addEventListener('scroll', () => setTimeout(() => (document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true })), done()), 20), { once: true });
+          l.scrollTop += px;
+        }),
+      2 * DECK.rowPx,
+    );
+    expect(await phase(page)).toBe('compact');
+    await page.waitForTimeout(500);
+    expect(await phase(page)).toBe('compact');
+    await touch(page, 'touchend', 0);
+    await expect(page.locator('.deck-row.in-band')).toHaveAttribute('data-row', '0');
+    await expect(page.locator('.deck-row.in-band')).toHaveAttribute('aria-current', 'true');
+    await expect(onStage(page)).toHaveText('3');
+    await page.waitForTimeout(800);
+    expect(await phase(page)).toBe('compact');
+  });
+
   test('Details: the Sound tab, the card compact, Play visible', async ({ page }) => {
     await page.goto('/#3');
     await pressAndLift(page);
