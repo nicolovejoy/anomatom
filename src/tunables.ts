@@ -580,19 +580,18 @@ export const DECK = {
   /** The wheel picks its row this long after the last scroll event, not on each row it passes. */
   settleMs: 160,
   /**
-   * A phone's wheel takes the whole sheet while it turns; this long after it settles (or after the
-   * last finger lifts) the controls return (docs/plans/v5-sound-model.md, ruling 9). Upright, the
-   * wheel then shrinks to compactRows rows instead of closing (docs/plans/v6-4-wheel-shrinks.md,
-   * ruling 1), directly above the ladder strip with the strip and the controls under it; 3 s, so
-   * it lingers long enough to use (docs/plans/v6-5-audio-session-wheel-place.md, ruling 11). It
-   * closes from the pattern name, Escape, Details, Make your own or a tap outside the wheel and
-   * the deck under it.
+   * Upright, the wheel is a card at the top of the screen (docs/plans/v6-6-deck-on-top-four-jugglers.md,
+   * ruling 4): grown in place while it turns, it goes back to compactRows this long after it settles
+   * or after the last finger lifts, and as long after a press that grew it; 3 s, so it lingers long
+   * enough to use (docs/plans/v6-5-audio-session-wheel-place.md, ruling 11). On a phone on its side
+   * the wheel closes this long after it settles, as before.
    */
   returnMs: 3000,
   /**
-   * The compact upright phone wheel (v6.4 ruling 1): this many rows, odd, the middle one in the
-   * band, above the ladder strip (v6.5 ruling 9) with no chips. The drum's edges cut compactCut
-   * of a row off the top of the top row and the bottom of the bottom one, and the outer rows fade.
+   * The compact upright phone wheel, where it starts and rests (v6.4 ruling 1; v6.6 ruling 4): this
+   * many rows, odd, the middle one in the band, in the card at the top under the filter chips. The
+   * drum's edges cut compactCut of a row off the top of the top row and the bottom of the bottom
+   * one, and the outer rows fade. Grown, it shows up to wheelRows (v6.6 ruling 5).
    */
   compactRows: 3,
   compactCut: 0.25,
@@ -601,8 +600,6 @@ export const DECK = {
    * the finger lifts, unless a click comes first: a slow tap's click lands on the row it was on.
    */
   growGraceMs: 350,
-  /** The fewest rows the sheet-covering phone wheel shows (it shows more where the sheet is taller). */
-  phoneMinRows: 7,
   /** A mouse wheel over the pattern name steps once per this much scroll (a notch is about 100). */
   notchPx: 50,
   /**
@@ -611,12 +608,26 @@ export const DECK = {
    */
   dockedMinHeightPx: 560,
   /**
-   * The open phone wheel keeps the juggler in view: when at least this much of the stage stays
-   * above the wheel, upright directly above the ladder strip (v6.5 ruling 9, revised), else over
-   * the stage's foot; less, beside it, at most sidePx wide.
+   * The juggler's region keeps at least this much above the ladder strip: upright, the grown card
+   * at the top shows as many rows as leave it this (v6.6 ruling 5); on a phone on its side, the open
+   * wheel goes over the stage's foot when this much of the stage stays above it, else beside it, at
+   * most sidePx wide. Upright with the sheet open the juggler keeps sheetFigurePx instead (ruling 7).
    */
   minFigurePx: 200,
   sidePx: 300,
+  sheetFigurePx: 120,
+  /**
+   * The upright phone's deck on top (docs/plans/v6-6-deck-on-top-four-jugglers.md, ruling 2): the
+   * wheel a card cardMarginPx from the screen's left edge, the top bar and the side column,
+   * cardRadiusPx round; beside it a side column sideColumnPx wide (cardMarginPx from the right
+   * edge) with Play, sidePlayPx square, over mute and the volume slider. The filter chips on the
+   * card's top row are cardChipPx square (ruling 3), each group's label above its chips.
+   */
+  cardMarginPx: 12,
+  cardRadiusPx: 8,
+  sideColumnPx: 100,
+  sidePlayPx: 48,
+  cardChipPx: 26,
   /**
    * The web wheel (docs/plans/v6-wheel-filters-three.md, rulings 1 and 3; a menu since
    * docs/plans/v6-2-wheel-ends.md, ruling 3). Docked, its rows are dockedRowPx tall, and it shows

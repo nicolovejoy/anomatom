@@ -254,6 +254,10 @@
   gap: 4px;
   min-width: 0;
 }
+/* The chips of a group: no box of their own but upright, where they sit under the group's label. */
+.deck-filter-chips {
+  display: contents;
+}
 .deck-filter-label {
   align-self: center;
   margin-right: 4px;
@@ -343,11 +347,9 @@
   pointer-events: none;
   background: linear-gradient(var(--surface), transparent 30%, transparent 70%, var(--surface));
 }
-/* The compact phone wheel (docs/plans/v6-4-wheel-shrinks.md, rulings 1 and 2): three rows, the
-   band in the middle, the outer two cut at the drum's edges and fading toward them; no chips. */
-.deck-picker.is-compact .deck-filters {
-  display: none;
-}
+/* The compact phone wheel (docs/plans/v6-4-wheel-shrinks.md, ruling 1): three rows, the band in
+   the middle, the outer two cut at the drum's edges and fading toward them. Upright only, where
+   the chips stay above it (docs/plans/v6-6-deck-on-top-four-jugglers.md, ruling 3). */
 /* The band is the middle 40% of the compact drum; the outer rows are dimmed a fifth at the
    band's edge and fade out toward the drum's, so the middle row is plainly the chosen one. */
 .deck-picker.is-compact .deck-wheel::after {
@@ -457,6 +459,133 @@
 #app.deck-docked .deck-row.in-band {
   background: var(--raised) !important;
   box-shadow: inset 0 1px 0 var(--accent), inset 0 -1px 0 var(--accent);
+}
+
+/* Make your own, whose notation and "Your pattern" show only upright with a hand-made pattern on
+   stage (mount-deck.ts sets .is-yours; v6.6 ruling 9). */
+.deck-own:not(.is-yours) .deck-own-code,
+.deck-own:not(.is-yours) .deck-own-yours {
+  display: none;
+}
+.deck-own.invalid .deck-own-code {
+  color: var(--warn);
+}
+.deck-own.invalid .deck-band-meta {
+  color: var(--warn-text);
+}
+
+/* -------------------------------------------------------------------------------------------
+   A phone held upright (docs/plans/v6-6-deck-on-top-four-jugglers.md, rulings 1 to 3 and 9): the
+   deck on top. The wheel is a card (DECK.cardMarginPx from the edges, DECK.cardRadiusPx round),
+   the filter chips its top row; beside it the side column (DECK.sideColumnPx): Play
+   (DECK.sidePlayPx square), then mute and the slider. No ‹ ›, no pattern button, no key hints:
+   the band row is the pattern's name. The play view's grid is in style.css.
+   ------------------------------------------------------------------------------------------- */
+#app:not(.is-wide):not(.is-landscape) .deck-picker {
+  grid-area: wheel;
+  position: relative;
+  z-index: auto;
+  display: flex;
+  flex-direction: column;
+  align-self: start;
+  min-width: 0;
+  margin: var(--deck-card-margin) var(--deck-card-margin) 0;
+  border: 1px solid var(--rule);
+  border-radius: var(--deck-card-radius);
+  overflow: hidden;
+}
+/* The chips sit on top though they follow the drum in the page (the drum's list is the first tab
+   stop: ruling 10). Six of them, Balls 3 4 5 and Jugglers 2 3 4, fit on one line at 375 px only
+   with each group's label over its chips (see the v6.6 report): the chips keep their
+   DECK.cardChipPx and the labels their words. */
+#app:not(.is-wide):not(.is-landscape) .deck-filters {
+  order: -1;
+  height: auto;
+  gap: 12px;
+  padding: 4px 10px 6px;
+  border-top: 0;
+}
+#app:not(.is-wide):not(.is-landscape) .deck-filter-group {
+  flex-direction: column;
+  gap: 2px;
+}
+#app:not(.is-wide):not(.is-landscape) .deck-filter-label {
+  align-self: start;
+  margin: 0;
+  font-size: 10px;
+  line-height: 12px;
+}
+#app:not(.is-wide):not(.is-landscape) .deck-filter-chips {
+  display: flex;
+  gap: 3px;
+}
+#app:not(.is-wide):not(.is-landscape) .deck-filter {
+  width: var(--deck-chip);
+  height: var(--deck-chip);
+  font-size: 13px;
+}
+#app:not(.is-wide):not(.is-landscape) .deck-wheel {
+  border-bottom: 0;
+}
+/* The band row is the pattern's name: notation, name, then its meta in place of its tag (or "next
+   cycle" in place of the meta while a change waits). The rows are narrower than the screen. */
+#app:not(.is-wide):not(.is-landscape) .deck-row {
+  gap: 8px;
+  padding: 0 10px;
+}
+#app:not(.is-wide):not(.is-landscape) .deck-row code {
+  min-width: 0;
+}
+#app:not(.is-wide):not(.is-landscape) .deck-row.in-band em {
+  display: none;
+}
+.deck-band-meta,
+.deck-row .deck-pending {
+  flex: none;
+  margin-left: auto;
+  font-size: 11px;
+}
+.deck-band-meta {
+  color: var(--valid);
+}
+.deck-row .deck-pending:not([hidden]) + .deck-band-meta {
+  display: none;
+}
+/* The side column: Play over mute and the slider, nothing else. */
+#app:not(.is-wide):not(.is-landscape) .deck-bar {
+  grid-area: side;
+  align-self: start;
+  width: var(--deck-side);
+  min-height: 0;
+  margin: var(--deck-card-margin) var(--deck-card-margin) 0 0;
+  padding: 0;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 8px;
+  border-top: 0;
+  background: transparent;
+}
+#app:not(.is-wide):not(.is-landscape) .deck-arrow,
+#app:not(.is-wide):not(.is-landscape) .deck-bar > .deck-pattern {
+  display: none;
+}
+#app:not(.is-wide):not(.is-landscape) .deck-play {
+  align-self: center;
+  width: var(--deck-side-play);
+  height: var(--deck-side-play);
+  margin: 0;
+}
+#app:not(.is-wide):not(.is-landscape) .deck-volume {
+  margin-left: 0;
+  min-width: 0;
+}
+#app:not(.is-wide):not(.is-landscape) .deck-volume .slider {
+  flex: 1 1 auto;
+  min-width: 0;
+  width: auto;
+}
+#app:not(.is-wide):not(.is-landscape) .deck-sound {
+  grid-area: sound;
 }
 
 /* The wide layout (docs/plans/v5-sound-model.md, ruling 8; .is-web). The bar under the stage is

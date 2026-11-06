@@ -214,16 +214,9 @@ button:disabled {
   padding-bottom: var(--wheel-pad-bottom, 0px);
   padding-right: var(--wheel-pad-right, 0px);
 }
-/* Upright, the wheel at rest or compact sits directly above the ladder strip, which stays at the
-   stage's foot: the juggler's region keeps the wheel's height clear under it instead
-   (docs/plans/v6-5-audio-session-wheel-place.md, ruling 10). A margin, not a padding: the
-   juggler's canvas fills its region (position: absolute; inset: 0), so padding would not shrink it.
-   Open, the region may shrink under its 120 px floor: wheelPlace keeps DECK.minFigurePx for the
-   juggler and the strip together, so on a short phone (360×640) the juggler gets less than 120,
-   and a floor would push the strip under the Play bar (issue 128). The wide layout's own floor,
-   later in this file, still wins there. */
+/* Open over the stage (a phone on its side, a short wide screen), the juggler's region may shrink
+   under its 120 px floor: wheelPlace keeps DECK.minFigurePx of the stage for it. */
 #app.wheel-open .region-juggler {
-  margin-bottom: var(--wheel-pad-figure, 0px);
   min-height: 0;
 }
 /* Open on a phone: the sheet takes the height the stage and the deck leave, up to its share. */
@@ -232,6 +225,44 @@ button:disabled {
   min-height: 0;
 }
 
+/* A phone held upright (docs/plans/v6-6-deck-on-top-four-jugglers.md, ruling 2): the deck on top.
+   Under the top bar a band of two columns, the wheel as a card (deck.css) and the side column
+   (Play, mute and the slider), then the stage, the sound row and the sheet. The region of the deck
+   is no box of its own (its parts are the grid's), and nothing is measured: the stage's row takes
+   what the band leaves, so the juggler gives way as the card grows and gets its room back as it
+   shrinks, the ladder strip at the stage's foot all the while. The stage's row never goes under
+   its content's floor: the strip, and the juggler's (0 with the sheet closed, as issue 128 made
+   it; DECK.sheetFigurePx with it open). */
+#app:not(.is-wide):not(.is-landscape) .play-view {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  grid-template-rows: auto minmax(min-content, 1fr) auto auto;
+  grid-template-areas: 'wheel side' 'stage stage' 'sound sound' 'sheet sheet';
+}
+#app:not(.is-wide):not(.is-landscape) .region-deck {
+  display: contents;
+}
+#app:not(.is-wide):not(.is-landscape) .stage {
+  grid-area: stage;
+  min-height: 0;
+}
+#app:not(.is-wide):not(.is-landscape) .region-juggler {
+  min-height: 0;
+}
+#app:not(.is-wide):not(.is-landscape) .region-sheet {
+  grid-area: sheet;
+}
+/* The sheet open shares the play view with the band (ruling 7): it takes what the band, the stage's
+   floor and the sound row leave, up to its share, and its panels scroll inside it. */
+#app.sheet-open:not(.is-wide):not(.is-landscape) .play-view {
+  grid-template-rows: auto minmax(min-content, 1fr) auto minmax(0, var(--sheet-open-height, 62dvh));
+}
+#app.sheet-open:not(.is-wide):not(.is-landscape) .region-juggler {
+  min-height: var(--deck-sheet-figure, 120px);
+}
+#app.sheet-open:not(.is-wide):not(.is-landscape) .region-sheet {
+  overflow: hidden;
+}
 /* A phone on its side (SHEET.landscape; mount-sheet.ts sets .is-landscape): the stage on the left,
    the deck and the sheet a column on the right, so juggler, ladder and the closed sheet all fit. */
 #app.is-landscape .play-view {
