@@ -29,8 +29,7 @@ import {
   nearestTop,
   editorShows,
   wheelPlace,
-  sheetWheelPlace,
-  compactWheelPlace,
+  grownRows,
   nextPhase,
   filteredPresets,
   chooseFilter,
@@ -171,7 +170,6 @@ describe('the open phone wheel keeps the juggler in view', () => {
       height: 224,
       padBottom: 224,
       padRight: 0,
-      padFigure: 0,
       rows: 7,
     });
   });
@@ -183,7 +181,6 @@ describe('the open phone wheel keeps the juggler in view', () => {
       height: 224,
       padBottom: 0,
       padRight: 210,
-      padFigure: 0,
       rows: 7,
     });
     expect(wheelPlace({ left: 0, top: 10, width: 800, height: 200 }, 32, 7, 200, 300)).toMatchObject({ left: 500, top: 10, width: 300 });
@@ -198,7 +195,6 @@ describe('the open phone wheel keeps the juggler in view', () => {
       height: 224,
       padBottom: 0,
       padRight: 0,
-      padFigure: 0,
       rows: 7,
     });
     // 667×375: 221 px, so five rows.
@@ -297,49 +293,6 @@ describe('the transport', () => {
   });
 });
 
-describe('the phone wheel takes the sheet', () => {
-  const view = { left: 0, top: 0, width: 390, height: 800 };
-  test('a closed sheet: seven rows along the bottom, the stage keeps the overlap clear', () => {
-    expect(sheetWheelPlace(view, { left: 0, top: 0, width: 390, height: 690 }, 690, 32, 7, 200)).toEqual({
-      left: 0,
-      top: 576,
-      width: 390,
-      height: 224,
-      padBottom: 114,
-      padRight: 0,
-      padFigure: 0,
-      rows: 7,
-    });
-  });
-  test('an open sheet: as many rows as cover it, rounded up to odd', () => {
-    expect(sheetWheelPlace(view, { left: 0, top: 0, width: 390, height: 280 }, 280, 32, 7, 200)).toMatchObject({ rows: 17, top: 256, padBottom: 24 });
-    expect(sheetWheelPlace(view, { left: 0, top: 0, width: 390, height: 544 }, 544, 32, 7, 200)).toMatchObject({ rows: 9, top: 512 });
-  });
-  test('never so tall that the figure loses its minimum', () => {
-    expect(sheetWheelPlace(view, { left: 0, top: 0, width: 390, height: 220 }, 220, 32, 7, 200)).toMatchObject({ rows: 17, top: 256, padBottom: 0 });
-  });
-  test('no room for even three rows: null', () => {
-    expect(sheetWheelPlace({ ...view, height: 300 }, { left: 0, top: 0, width: 390, height: 100 }, 100, 32, 7, 280)).toBeNull();
-  });
-  test('the filter chips above the rows count in the place (v6 ruling 4)', () => {
-    // Closed sheet, 40 px of chips: still seven rows, the place 40 px taller and higher.
-    expect(sheetWheelPlace(view, { left: 0, top: 0, width: 390, height: 690 }, 690, 32, 7, 200, 40)).toEqual({
-      left: 0,
-      top: 536,
-      width: 390,
-      height: 264,
-      padBottom: 154,
-      padRight: 0,
-      padFigure: 0,
-      rows: 7,
-    });
-    // Open sheet: the chips sit above the seventeen rows, still clear of the figure's 200 px.
-    expect(sheetWheelPlace(view, { left: 0, top: 0, width: 390, height: 220 }, 220, 32, 7, 200, 40)).toMatchObject({ rows: 17, top: 216 });
-    // Where the figure's minimum is what limits: a row pair fewer than without the chips.
-    expect(sheetWheelPlace(view, { left: 0, top: 0, width: 390, height: 220 }, 220, 32, 7, 280, 40)).toMatchObject({ rows: 15, top: 280 });
-  });
-});
-
 describe('the open phone wheel with the filter chips above it', () => {
   test('along the stage bottom, the chips over the rows', () => {
     expect(wheelPlace({ left: 0, top: 0, width: 390, height: 600 }, 32, 7, 200, 300, null, 40)).toEqual({
@@ -349,7 +302,6 @@ describe('the open phone wheel with the filter chips above it', () => {
       height: 264,
       padBottom: 264,
       padRight: 0,
-      padFigure: 0,
       rows: 7,
     });
   });
@@ -450,8 +402,8 @@ describe('the filter chips in two groups (v6.1 ruling 4)', () => {
   });
 });
 
-describe('the phone wheel phase', () => {
-  test('a turn spins; a stop settles; the return delay makes the wheel compact (v6.4 ruling 1)', () => {
+describe('the phone wheel phase on its side (and a short wide screen)', () => {
+  test('a turn spins; a stop settles; the return delay ends the settle (the mount then closes the wheel)', () => {
     let phase = nextPhase('rest', 'turn');
     expect(phase).toBe('spinning');
     phase = nextPhase(phase, 'stop');
@@ -465,107 +417,66 @@ describe('the phone wheel phase', () => {
   test('a stop or a return at rest changes nothing; close always rests', () => {
     expect(nextPhase('rest', 'stop')).toBe('rest');
     expect(nextPhase('rest', 'return')).toBe('rest');
-    expect(nextPhase('spinning', 'close')).toBe('rest');
-    expect(nextPhase('settling', 'close')).toBe('rest');
-    expect(nextPhase('compact', 'close')).toBe('rest');
+    for (const phase of ['spinning', 'settling', 'compact', 'grown'] as const) expect(nextPhase(phase, 'close')).toBe('rest');
   });
-  test('compact: a turn spins it on the sheet, a touch grows it, a stop or a return leaves it (v6.4 ruling 3)', () => {
-    expect(nextPhase('compact', 'turn')).toBe('spinning');
+  test('a compact wheel turned on its side grows to rest; nothing else grows', () => {
     expect(nextPhase('compact', 'grow')).toBe('rest');
-    expect(nextPhase('compact', 'stop')).toBe('compact');
-    expect(nextPhase('compact', 'return')).toBe('compact');
-  });
-  test('a touch grows only a compact wheel', () => {
     expect(nextPhase('rest', 'grow')).toBe('rest');
     expect(nextPhase('spinning', 'grow')).toBe('spinning');
     expect(nextPhase('settling', 'grow')).toBe('settling');
   });
-  test('a row tapped leaves the wheel compact, from any phase (v6.4 ruling 4)', () => {
-    for (const phase of ['rest', 'spinning', 'settling', 'compact'] as const) expect(nextPhase(phase, 'tap')).toBe('compact');
+});
+
+describe('the upright phone wheel phase (v6.6 ruling 4)', () => {
+  const up = (phase: Parameters<typeof nextPhase>[0], event: Parameters<typeof nextPhase>[1]) => nextPhase(phase, event, true);
+  test('a turn grows it in place, spinning, from any phase', () => {
+    for (const phase of ['compact', 'grown', 'spinning', 'settling'] as const) expect(up(phase, 'turn')).toBe('spinning');
+  });
+  test('a stop settles a spinning wheel and nothing else', () => {
+    expect(up('spinning', 'stop')).toBe('settling');
+    for (const phase of ['compact', 'grown', 'settling'] as const) expect(up(phase, 'stop')).toBe(phase);
+  });
+  test('the return delay makes a settled wheel and a grown one compact; a spinning one stays', () => {
+    expect(up('settling', 'return')).toBe('compact');
+    expect(up('grown', 'return')).toBe('compact');
+    expect(up('spinning', 'return')).toBe('spinning');
+    expect(up('compact', 'return')).toBe('compact');
+  });
+  test('a press and lift that turns nothing grows only the compact wheel', () => {
+    expect(up('compact', 'grow')).toBe('grown');
+    for (const phase of ['grown', 'spinning', 'settling'] as const) expect(up(phase, 'grow')).toBe(phase);
+  });
+  test('a row tapped makes it compact, from any phase', () => {
+    for (const phase of ['compact', 'grown', 'spinning', 'settling'] as const) expect(up(phase, 'tap')).toBe('compact');
+  });
+  test('Escape, a tap outside, Details, Make your own: compact, never rest; on a compact wheel nothing changes', () => {
+    for (const phase of ['compact', 'grown', 'spinning', 'settling', 'rest'] as const) expect(up(phase, 'close')).toBe('compact');
   });
 });
 
-describe('the compact phone wheel (v6.4 ruling 1)', () => {
-  test('over the foot of the stage, as tall as its rows less the cut at both edges, no chips', () => {
-    // 390×844: three rows, a quarter of a row cut at the top and the bottom.
-    expect(compactWheelPlace({ left: 0, top: 0, width: 390, height: 690 }, 32, 3, 0.25, 200, 300)).toEqual({
-      left: 0,
-      top: 610,
-      width: 390,
-      height: 80,
-      padBottom: 80,
-      padRight: 0,
-      padFigure: 0,
-      rows: 3,
-    });
-    // No cut: three whole rows.
-    expect(compactWheelPlace({ left: 0, top: 0, width: 390, height: 690 }, 32, 3, 0, 200, 300)).toMatchObject({ top: 594, height: 96, rows: 3 });
+describe('the upright phone wheel grown in place (v6.6 ruling 5)', () => {
+  // Heights as the mount measures them (illustrative): the card's chrome (its 12 px top margin, the
+  // border, the chips row) 62 px here, about 64 in the page,
+  // the strip 120 (100 with the sheet open), the sound row 53; the closed sheet 20 (44 with the
+  // sound's status row showing, as the stubbed e2e has it).
+  const at = (view: number, sheet = 20, strip = 120) => ({ view, chrome: 62, strip, sound: 53, sheet });
+  test('390×844 (800 under the top bar): seven rows, the juggler keeping its 200 px', () => {
+    expect(grownRows(at(800), 32, 7, 3, 200)).toBe(7);
+    expect(grownRows(at(800, 44), 32, 7, 3, 200)).toBe(7);
   });
-  test('a stage too short for the figure above it: down its right side, as the open wheel goes', () => {
-    expect(compactWheelPlace({ left: 0, top: 0, width: 390, height: 250 }, 32, 3, 0.25, 200, 300)).toEqual({
-      left: 195,
-      top: 85,
-      width: 195,
-      height: 80,
-      padBottom: 0,
-      padRight: 195,
-      padFigure: 0,
-      rows: 3,
-    });
+  test('375×667 (623): five rows; seven would leave the juggler 104', () => {
+    expect(grownRows(at(623), 32, 7, 3, 200)).toBe(5);
+    // Exactly 200 px left at five rows; one pixel less, three.
+    expect(grownRows(at(615), 32, 7, 3, 200)).toBe(5);
+    expect(grownRows(at(614), 32, 7, 3, 200)).toBe(3);
   });
-});
-
-describe('the upright phone wheel above the ladder strip (v6.5 rulings 9 and 10)', () => {
-  // The stage as the play view measures it (view-relative): 390×844 is 690 tall, 375×667 is 513;
-  // the strip, 120 px, at its foot. The chips are 40 px over the seven rows.
-  const stage = (height: number) => ({ left: 0, top: 0, width: 390, height });
-  test('390×844: the wheel at rest and the compact one sit directly above the strip, the juggler keeps their height clear', () => {
-    expect(wheelPlace(stage(690), 32, 7, 200, 300, null, 40, 120)).toEqual({
-      left: 0,
-      top: 306,
-      width: 390,
-      height: 264,
-      padBottom: 0,
-      padRight: 0,
-      padFigure: 264,
-      rows: 7,
-    });
-    expect(compactWheelPlace(stage(690), 32, 3, 0.25, 200, 300, 120)).toEqual({
-      left: 0,
-      top: 490,
-      width: 390,
-      height: 80,
-      padBottom: 0,
-      padRight: 0,
-      padFigure: 80,
-      rows: 3,
-    });
+  test('a stage shorter than an SE’s: never fewer than the compact rows', () => {
+    expect(grownRows(at(400), 32, 7, 3, 200)).toBe(3);
+    expect(grownRows(at(0), 32, 7, 3, 200)).toBe(3);
   });
-  test('375×667: the wheel at rest and the compact one sit above the strip too (v6.5 ruling 9, revised: the foot would give the juggler no more)', () => {
-    expect(wheelPlace(stage(513), 32, 7, 200, 300, null, 40, 120)).toEqual({
-      left: 0,
-      top: 129,
-      width: 390,
-      height: 264,
-      padBottom: 0,
-      padRight: 0,
-      padFigure: 264,
-      rows: 7,
-    });
-    expect(compactWheelPlace(stage(513), 32, 3, 0.25, 200, 300, 120)).toMatchObject({ top: 313, padBottom: 0, padFigure: 80 });
-  });
-  test('above the strip while the figure keeps its minimum above the wheel; one pixel less, down the side', () => {
-    expect(compactWheelPlace(stage(280), 32, 3, 0.25, 200, 300, 120)).toMatchObject({ top: 80, padFigure: 80, padRight: 0 });
-    expect(compactWheelPlace(stage(279), 32, 3, 0.25, 200, 300, 120)).toMatchObject({ left: 195, padRight: 195, padFigure: 0 });
-    expect(wheelPlace(stage(464), 32, 7, 200, 300, null, 40, 120)).toMatchObject({ top: 80, padFigure: 264, padRight: 0 });
-    expect(wheelPlace(stage(463), 32, 7, 200, 300, null, 40, 120)).toMatchObject({ left: 195, padRight: 195, padFigure: 0 });
-  });
-  test('a shorter stage: down its side, as before', () => {
-    expect(wheelPlace(stage(390), 32, 7, 200, 300, null, 40, 120)).toMatchObject({ left: 195, width: 195, padBottom: 0, padRight: 195, padFigure: 0 });
-    expect(compactWheelPlace(stage(250), 32, 3, 0.25, 200, 300, 120)).toMatchObject({ left: 195, top: 85, padRight: 195, padFigure: 0 });
-  });
-  test('no strip given (on its side, or wide): over the foot as before, never above a strip', () => {
-    expect(wheelPlace(stage(690), 32, 7, 200, 300, null, 40)).toMatchObject({ top: 426, padBottom: 264, padFigure: 0 });
+  test('the sheet open: its head and tabs stay, the juggler at its open floor', () => {
+    expect(grownRows(at(623, 116, 100), 32, 7, 3, 120)).toBe(5);
+    expect(grownRows(at(800, 116, 100), 32, 7, 3, 120)).toBe(7);
   });
 });
 

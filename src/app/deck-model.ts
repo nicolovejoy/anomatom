@@ -205,12 +205,6 @@ export interface WheelPlace extends Box {
   /** What the stage keeps clear for the wheel: at its foot, or to its right. */
   readonly padBottom: number;
   readonly padRight: number;
-  /**
-   * What the juggler's region keeps clear under it, the strip still at the stage's foot: the
-   * wheel's height when it sits above the strip (docs/plans/v6-5-audio-session-wheel-place.md,
-   * ruling 10), else 0.
-   */
-  readonly padFigure: number;
   /** The rows it shows: `rows`, or fewer (odd, at least 3) where the column is short. */
   readonly rows: number;
 }
@@ -222,102 +216,84 @@ export function rowsThatFit(height: number, rowPx: number, rows: number): number
 }
 
 /**
- * Where the open wheel sits when it is not docked, so the juggler and the beat ladder stay in
- * view. Given `column` (a phone on its side, or a wide screen too short to dock: the right-hand
- * column below Kit and Sound), in that column, with as many rows as fit there (ruling 5 of
- * docs/plans/v4-1-polish.md). Else, where at least `minFigure` of the stage's height stays above
- * the wheel: given `strip` (a phone upright: the ladder strip's height at the stage's foot),
- * directly above the strip, the juggler keeping the wheel's height clear under it (`padFigure`;
- * docs/plans/v6-5-audio-session-wheel-place.md, ruling 9 as revised); without one, over the
- * stage's foot (`padBottom`). Either way the figure and the strip share what the wheel leaves.
- * Else down the stage's right side, at most `sideMax` and at most half the stage wide, centred
- * on the stage's height (or at its top when shorter). `head` px above the rows (the filter chips,
- * v6 ruling 4) count in the place: its top is theirs.
+ * Where the open wheel sits when it is neither docked nor on an upright phone (whose wheel is a
+ * card in the band at the top, in the page's flow: docs/plans/v6-6-deck-on-top-four-jugglers.md,
+ * ruling 2), so the juggler and the beat ladder stay in view. Given `column` (a phone on its side,
+ * or a wide screen too short to dock: the right-hand column below Kit and Sound), in that column,
+ * with as many rows as fit there (ruling 5 of docs/plans/v4-1-polish.md). Else over the stage's
+ * foot (`padBottom`), where at least `minFigure` of the stage's height stays above it; else down
+ * the stage's right side, at most `sideMax` and at most half the stage wide, centred on the
+ * stage's height (or at its top when shorter). `head` px above the rows (the filter chips, v6
+ * ruling 4) count in the place: its top is theirs.
  */
-export function wheelPlace(
-  stage: Box,
-  rowPx: number,
-  rows: number,
-  minFigure: number,
-  sideMax: number,
-  column: Box | null = null,
-  head = 0,
-  strip: number | null = null,
-): WheelPlace {
+export function wheelPlace(stage: Box, rowPx: number, rows: number, minFigure: number, sideMax: number, column: Box | null = null, head = 0): WheelPlace {
   const fit = column ? rowsThatFit(column.height - head, rowPx, rows) : 0;
   if (column && fit > 0) {
-    return { left: column.left, top: column.top, width: column.width, height: fit * rowPx + head, padBottom: 0, padRight: 0, padFigure: 0, rows: fit };
+    return { left: column.left, top: column.top, width: column.width, height: fit * rowPx + head, padBottom: 0, padRight: 0, rows: fit };
   }
   const wheelHeight = rowPx * rows + head;
-  const foot = stage.top + stage.height;
   if (stage.height - wheelHeight >= minFigure) {
-    if (strip !== null) {
-      return { left: stage.left, top: foot - strip - wheelHeight, width: stage.width, height: wheelHeight, padBottom: 0, padRight: 0, padFigure: wheelHeight, rows };
-    }
-    return { left: stage.left, top: foot - wheelHeight, width: stage.width, height: wheelHeight, padBottom: wheelHeight, padRight: 0, padFigure: 0, rows };
+    return { left: stage.left, top: stage.top + stage.height - wheelHeight, width: stage.width, height: wheelHeight, padBottom: wheelHeight, padRight: 0, rows };
   }
   const width = Math.min(sideMax, Math.round(stage.width / 2));
-  return { left: stage.left + stage.width - width, top: stage.top + Math.max(0, (stage.height - wheelHeight) / 2), width, height: wheelHeight, padBottom: 0, padRight: width, padFigure: 0, rows };
+  return { left: stage.left + stage.width - width, top: stage.top + Math.max(0, (stage.height - wheelHeight) / 2), width, height: wheelHeight, padBottom: 0, padRight: width, rows };
+}
+
+/** What the upright phone's grown wheel is measured against (v6.6 ruling 5), each in px. */
+export interface UprightHeights {
+  /** The play view: everything under the top bar. */
+  readonly view: number;
+  /** The card less its rows: its top margin, its border, the filter chips. */
+  readonly chrome: number;
+  /** The ladder strip at the stage's foot. */
+  readonly strip: number;
+  /** The sound row (Listen for, Details). */
+  readonly sound: number;
+  /** The sheet's part that never gives way: the whole closed sheet, or an open one's head and tabs. */
+  readonly sheet: number;
 }
 
 /**
- * Where the phone wheel sits when it takes the sheet (docs/plans/v5-sound-model.md, ruling 9):
- * across the full width of the play view, anchored to its bottom, covering the deck and the sheet
- * (`coverTop`, view-relative, is where the deck starts). It shows an odd number of rows, at least
- * `minRows` and enough to cover `coverTop` downwards, but never so many that less than `minFigure`
- * of the stage stays above it. The stage keeps the part the wheel overlaps clear (`padBottom`).
- * Null where not even three rows fit under that rule: the caller falls back to wheelPlace.
- * `head` px above the rows (the filter chips) count in the place, as in wheelPlace.
+ * The rows the upright phone's grown wheel shows (v6.6 ruling 5): the most, odd, at most `maxRows`
+ * (DECK.wheelRows) and at least `minRows` (DECK.compactRows), that leave the juggler's region
+ * `minFigure` above the strip. Where not even `minRows` leave it that (a stage shorter than an
+ * iPhone SE's), `minRows`: the chips and the compact rows never give way, the juggler does.
  */
-export function sheetWheelPlace(view: Box, stage: Box, coverTop: number, rowPx: number, minRows: number, minFigure: number, head = 0): WheelPlace | null {
-  const wanted = Math.max(minRows, Math.ceil((view.height - coverTop - head) / rowPx));
-  const rows = rowsThatFit(view.height - (stage.top + minFigure) - head, rowPx, wanted % 2 === 0 ? wanted + 1 : wanted);
-  if (rows === 0) return null;
-  const height = rows * rowPx + head;
-  const top = view.height - height;
-  return { left: 0, top, width: view.width, height, padBottom: Math.max(0, stage.top + stage.height - top), padRight: 0, padFigure: 0, rows };
+export function grownRows(h: UprightHeights, rowPx: number, maxRows: number, minRows: number, minFigure: number): number {
+  return Math.max(minRows, rowsThatFit(h.view - h.chrome - h.strip - h.sound - h.sheet - minFigure, rowPx, maxRows));
 }
 
 /**
- * Where the compact phone wheel sits (docs/plans/v6-4-wheel-shrinks.md, ruling 1): `rows` rows
- * with no chips above them, the drum's edges cutting `cut` of a row off the outer two, placed as
- * the open wheel is (wheelPlace): where `minFigure` of the stage stays above it, directly above
- * the ladder strip, `strip` tall (docs/plans/v6-5-audio-session-wheel-place.md, ruling 9 as
- * revised), or over the stage's foot when no strip is given; else down its side.
+ * The phone wheel's phase. On a phone on its side (or a short wide screen) the wheel opens and
+ * closes as before: at `rest` it is open in its place; a reader's turn makes it `spinning`; when
+ * it stops it is `settling`, and the return delay closes it (the mount closes it on `compact`);
+ * `close` (the wheel shut) rests; `grow` turns a compact wheel (one turned on its side) to `rest`.
+ *
+ * On a phone held upright (docs/plans/v6-6-deck-on-top-four-jugglers.md, ruling 4) the wheel is a
+ * card at the top that never closes: it starts and rests `compact` (three rows, the chips above
+ * them); a turn makes it `spinning`, grown in place; a stop `settling`; the return delay (after
+ * the settle, or the last finger's lift) `compact` again. A press that turns nothing and taps no
+ * row `grow`s it to `grown`, the grown wheel at rest, which the return delay also makes compact.
+ * A row tapped (`tap`) and `close` (Escape, a tap outside, Details, Make your own, the layout
+ * turned upright) make it compact. There is no `rest` upright.
  */
-export function compactWheelPlace(stage: Box, rowPx: number, rows: number, cut: number, minFigure: number, sideMax: number, strip: number | null = null): WheelPlace {
-  // One "row" as tall as the whole drum: wheelPlace's rule for a wheel of that height.
-  return { ...wheelPlace(stage, Math.round(rowPx * (rows - 2 * cut)), 1, minFigure, sideMax, null, 0, strip), rows };
-}
-
-/**
- * The upright phone wheel's phase (ruling 9): at `rest` the controls show and an open wheel sits
- * in its stage place; a reader's turn makes it `spinning` and it takes the sheet; when it stops
- * it is `settling` (still on the sheet, the picked row in the band) until the return delay
- * passes, then `compact` (docs/plans/v6-4-wheel-shrinks.md, ruling 1): three rows above the
- * ladder strip (docs/plans/v6-5-audio-session-wheel-place.md, ruling 9), the strip and the
- * controls under it. A turn during the settling, or on the compact wheel, spins it again; a
- * touch on the compact wheel that turns nothing `grow`s it back to `rest` (ruling 3); a row
- * tapped plays it and leaves the wheel compact (`tap`, ruling 4). `close` (the wheel shut) always
- * rests.
- */
-export type WheelPhase = 'rest' | 'spinning' | 'settling' | 'compact';
+export type WheelPhase = 'rest' | 'spinning' | 'settling' | 'compact' | 'grown';
 export type WheelEvent = 'turn' | 'stop' | 'return' | 'grow' | 'tap' | 'close';
 
-export function nextPhase(phase: WheelPhase, event: WheelEvent): WheelPhase {
+export function nextPhase(phase: WheelPhase, event: WheelEvent, upright = false): WheelPhase {
   switch (event) {
     case 'turn':
       return 'spinning';
     case 'stop':
       return phase === 'spinning' ? 'settling' : phase;
     case 'return':
-      return phase === 'settling' ? 'compact' : phase;
+      return phase === 'settling' || (upright && phase === 'grown') ? 'compact' : phase;
     case 'grow':
-      return phase === 'compact' ? 'rest' : phase;
+      return phase === 'compact' ? (upright ? 'grown' : 'rest') : phase;
     case 'tap':
       return 'compact';
     case 'close':
-      return 'rest';
+      return upright ? 'compact' : 'rest';
   }
 }
 

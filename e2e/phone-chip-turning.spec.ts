@@ -1,8 +1,8 @@
 // Issue 110 (found in the review of #108): on a phone, ending the wheel's phase while the drum
-// still turns ends the turn. The settle the turn left pending must not arm the return timer that
-// shrinks the wheel 3 s later (DECK.returnMs; before v6.4 it closed it). Two ways in: a filter
-// chip tapped mid-turn (the wheel stays open while the reader filters), and the pattern button
-// tapped twice mid-turn (the wheel closes and opens again, and stays open). Headless, 390×844.
+// still turns ends the turn: the settle the turn left pending must neither pick a row nor arm a
+// return of its own. Upright (docs/plans/v6-6-deck-on-top-four-jugglers.md) the ways in are a
+// filter chip tapped mid-turn (the card stays grown and goes compact the return delay later), and
+// Escape or Details mid-turn (compact at once). Headless, 390×844.
 import { expect, test, type Page } from './fixtures';
 import { DECK } from '../src/tunables';
 
@@ -37,7 +37,9 @@ const clickWhileSpinning = async (page: Page, selectors: string[]) => {
 test.describe('phone, 390×844', () => {
   test.use({ viewport: { width: 390, height: 844 }, hasTouch: true });
 
-  test('a chip tapped while the drum turns keeps the wheel open', async ({ page }) => {
+  // Upright a chip neither grows nor shrinks the card (docs/plans/v6-6-deck-on-top-four-jugglers.md,
+  // ruling 4): the turn ends without a pick, and the grown card goes compact the return delay later.
+  test('a chip tapped while the drum turns: the turn picks nothing more, the card goes compact the return delay later', async ({ page }) => {
     await page.goto('/');
     const wheel = page.locator('.deck-wheel');
     await expect(wheel).toBeVisible();
@@ -45,36 +47,50 @@ test.describe('phone, 390×844', () => {
 
     await clickWhileSpinning(page, [BALLS_5]);
 
-    // The chip ends the turn: the phase is back at rest, the filter lit, its first card loaded.
-    expect(await phase(page)).toBe('rest');
+    // The chip ends the turn: the card stays grown, the filter lit, its first card loaded.
+    expect(await phase(page)).toBe('settling');
     await expect(page.locator('.deck-filter[aria-pressed="true"]')).toHaveCount(1);
     await expect(balls5(page)).toHaveAttribute('aria-pressed', 'true');
     await expect(page.locator('.deck-row[data-id]')).toHaveCount(3);
     await expect(page.locator('.deck-notation')).toHaveText('5');
 
-    // Past the would-be close (a settle of 160 ms, then the return delay of 3 s): still open,
-    // still at rest, the card and the filter unchanged.
-    await page.waitForTimeout(PAST_RETURN);
+    // The turn's settle was cancelled: nothing else loads, and the card is compact again later.
+    await expect(wheel).toHaveAttribute('data-phase', 'compact', { timeout: PAST_RETURN });
     await expect(wheel).toBeVisible();
-    expect(await phase(page)).toBe('rest');
     await expect(page.locator('.deck-notation')).toHaveText('5');
     await expect(balls5(page)).toHaveAttribute('aria-pressed', 'true');
   });
 
-  test('the pattern button tapped twice while the drum turns leaves the wheel open', async ({ page }) => {
-    await page.goto('/');
-    const wheel = page.locator('.deck-wheel');
-    await expect(wheel).toBeVisible();
-
-    // The first tap closes the wheel, the second opens it again.
-    await clickWhileSpinning(page, ['.deck-pattern', '.deck-pattern']);
-    await expect(wheel).toBeVisible();
-    expect(await phase(page)).toBe('rest');
-    await expect(page.locator('.deck-pattern')).toHaveAttribute('aria-expanded', 'true');
-
-    // Past the would-be close: the turn's settle was cancelled with it, so nothing closes the wheel.
-    await page.waitForTimeout(PAST_RETURN);
-    await expect(wheel).toBeVisible();
-    expect(await phase(page)).toBe('rest');
-  });
+  // The pattern button that issue 110 was found with is gone upright (v6.6 ruling 1); Escape and
+  // Details end the phase in its place.
+  for (const how of ['Escape', 'Details'] as const) {
+    test(`${how} while the drum turns: compact at once, and the turn's pending settle picks nothing`, async ({ page }) => {
+      await page.goto('/');
+      const wheel = page.locator('.deck-wheel');
+      await expect(wheel).toBeVisible();
+      const before = await page.locator('.deck-notation').textContent();
+      if (how === 'Escape') {
+        await expect(async () => {
+          await page.locator('.deck-wheel-list').hover();
+          await page.mouse.wheel(0, 64);
+          await expect.poll(() => phase(page), { timeout: 1000, intervals: [20] }).toBe('spinning');
+          const pressed = await page.evaluate(() => {
+            if (document.querySelector('.deck-wheel')?.getAttribute('data-phase') !== 'spinning') return false;
+            document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
+            return true;
+          });
+          expect(pressed).toBe(true);
+        }).toPass({ timeout: 10_000 });
+      } else await clickWhileSpinning(page, ['.deck-details']);
+      expect(await phase(page)).toBe('compact');
+      // The band goes back to the pattern on stage: the band row names what plays (v6.6 ruling 9).
+      await expect(page.locator('.deck-row.in-band code')).toHaveText(before!);
+      await expect(page.locator('.deck-row.in-band')).toHaveAttribute('aria-current', 'true');
+      await page.waitForTimeout(PAST_RETURN);
+      await expect(wheel).toBeVisible();
+      expect(await phase(page)).toBe('compact');
+      await expect(page.locator('.deck-notation')).toHaveText(before!);
+      await expect(page.locator('.deck-row.in-band code')).toHaveText(before!);
+    });
+  }
 });
