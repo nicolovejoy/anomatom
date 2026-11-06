@@ -1,7 +1,8 @@
 import { describe, expect, test } from 'vitest';
 import type { Schedule } from '../core';
 import { scheduleOf } from '../test/schedules';
-import { axisPulse, ladderFrame } from './ladder';
+import { BALL_COLOURS, LADDER, SHEET } from '../tunables';
+import { axisPulse, ladderFrame, laneGeometry, rowY } from './ladder';
 import type { LadderView } from './ladder';
 import type { Segment } from './types';
 
@@ -241,5 +242,36 @@ describe('a faulted group still draws its bars, grey, with no ball (design §6)'
     const half = frameAt(scheduleOf(['1 3 2', '2'], { a: 3, b: 2 }), 0, { windowPulses: 6, playheadFraction: 0 });
     expect(new Set(half.bars.filter((b) => b.broken).map((b) => b.from))).toEqual(new Set([0]));
     expect(new Set(half.bars.filter((b) => !b.broken).map((b) => b.from))).toEqual(new Set([1]));
+  });
+});
+
+describe('eight lanes (four jugglers, v6.6 ruling 17)', () => {
+  const heights = [SHEET.ladderPx.open, SHEET.ladderPx.closed, SHEET.landscape.ladderPx, LADDER.heightPx];
+  test.each(heights)('at %i px no bar of any row crosses the next lane\'s line, and none is under the least bar', (height) => {
+    const g = laneGeometry(8, height, LADDER, BALL_COLOURS.length);
+    expect(g.barPx).toBeGreaterThanOrEqual(LADDER.minBarHeightPx);
+    expect(g.barPx).toBeLessThanOrEqual(LADDER.barPx);
+    for (let part = 0; part < 8; part++) {
+      const next = part < 7 ? (g.y[part + 1] as number) : height - LADDER.lanePaddingPx;
+      for (let colour = 0; colour < BALL_COLOURS.length; colour++) {
+        const mid = rowY(g, part, colour);
+        expect(mid - g.barPx / 2, `${part}:${colour}`).toBeGreaterThanOrEqual(g.y[part] as number);
+        expect(mid + g.barPx / 2, `${part}:${colour}`).toBeLessThanOrEqual(next + 1e-9);
+      }
+    }
+  });
+  test('a band under a bar and its gap thins the bar to fit, one row a lane; a roomy strip keeps the whole bar', () => {
+    const open = laneGeometry(8, SHEET.ladderPx.open, LADDER, BALL_COLOURS.length);
+    const band = (SHEET.ladderPx.open - 2 * LADDER.lanePaddingPx) / 8;
+    expect([open.barPx, open.rows]).toEqual([band - LADDER.rowGapPx, 1]);
+    expect(laneGeometry(8, LADDER.heightPx, LADDER, BALL_COLOURS.length).barPx).toBe(LADDER.barPx);
+    // A strip too small for even the least bar keeps the least bar.
+    expect(laneGeometry(8, 2 * LADDER.lanePaddingPx + 8, LADDER, BALL_COLOURS.length).barPx).toBe(LADDER.minBarHeightPx);
+  });
+  test('two to five parts on the phone strips, and six on the closed strip, keep the whole bar', () => {
+    for (const height of [SHEET.ladderPx.open, SHEET.ladderPx.closed, LADDER.heightPx]) {
+      for (const parts of [2, 3, 4, 5]) expect(laneGeometry(parts, height, LADDER, BALL_COLOURS.length).barPx, `${parts}@${height}`).toBe(LADDER.barPx);
+    }
+    expect(laneGeometry(6, SHEET.ladderPx.closed, LADDER, BALL_COLOURS.length).barPx).toBe(LADDER.barPx);
   });
 });

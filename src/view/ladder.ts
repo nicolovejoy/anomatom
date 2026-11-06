@@ -70,6 +70,8 @@ export interface LaneLayout {
   readonly lanePaddingPx: number;
   readonly barPx: number;
   readonly rowGapPx: number;
+  /** A band too small for a whole bar thins it, never under this (v6.6 ruling 17). */
+  readonly minBarHeightPx: number;
 }
 
 /** Where each part's lane line sits on a strip `height` pixels tall, and which way its rows grow. */
@@ -89,16 +91,29 @@ export interface LaneGeometry {
  * growing towards each other, one row per ball colour (`colours` of them), as the strip always
  * was. Three or more: the strip between the paddings split into one band per part, each lane's
  * line at its band's top and its rows growing down, as many rows as fit in the band (at least one).
+ * A band smaller than a bar and its gap (eight parts on a phone, v6.6 ruling 17) draws its bars
+ * `band - rowGapPx` tall, never under `minBarHeightPx`, one row per lane, so no bar crosses into
+ * the next lane.
  */
 export function laneGeometry(parts: number, height: number, layout: LaneLayout, colours: number): LaneGeometry {
-  const step = layout.barPx + layout.rowGapPx;
   const pad = layout.lanePaddingPx;
-  const base = { step, barPx: layout.barPx, rowGapPx: layout.rowGapPx };
-  if (parts <= 2) return { ...base, y: [pad, height - pad], dir: [1, -1], rows: colours };
+  if (parts <= 2) {
+    const base = { step: layout.barPx + layout.rowGapPx, barPx: layout.barPx, rowGapPx: layout.rowGapPx };
+    return { ...base, y: [pad, height - pad], dir: [1, -1], rows: colours };
+  }
   const band = (height - 2 * pad) / parts;
+  const barPx = Math.max(layout.minBarHeightPx, Math.min(layout.barPx, band - layout.rowGapPx));
+  const step = barPx + layout.rowGapPx;
   // A row fits when its bar ends a row gap short of the next lane's line.
-  const rows = Math.max(1, Math.floor((band - layout.barPx - 2 * layout.rowGapPx) / step) + 1);
-  return { ...base, y: Array.from({ length: parts }, (_, i) => pad + i * band), dir: Array.from({ length: parts }, () => 1 as const), rows };
+  const rows = Math.max(1, Math.floor((band - barPx - 2 * layout.rowGapPx) / step) + 1);
+  return {
+    step,
+    barPx,
+    rowGapPx: layout.rowGapPx,
+    y: Array.from({ length: parts }, (_, i) => pad + i * band),
+    dir: Array.from({ length: parts }, () => 1 as const),
+    rows,
+  };
 }
 
 /** The y of a bar's end in `part`'s lane: each ball colour its own row, so overlapping flights stay visible. */

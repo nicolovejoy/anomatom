@@ -146,6 +146,16 @@ export function figureSpans(parts: number, layout: Pick<JugglerLayout, 'catchX' 
   return spans;
 }
 
+/**
+ * A hand's bar across, in pixels: centred on its catch-to-throw span, as wide as the span and a
+ * ball radius `r` either side, never wider than `handMaxPx`. `px` maps scene x to pixels.
+ */
+export function handBar(h: Pick<HandPlace, 'catchX' | 'throwX'>, px: (x: number) => number, r: number, handMaxPx: number): { left: number; width: number } {
+  const mid = px((h.catchX + h.throwX) / 2);
+  const width = Math.min(Math.abs(px(h.catchX) - px(h.throwX)) + 2 * r, handMaxPx);
+  return { left: mid - width / 2, width };
+}
+
 /** The caption tunables `captionRoom` and `captionPlace` read. */
 export interface CaptionLayout {
   readonly captionFontPx: number;

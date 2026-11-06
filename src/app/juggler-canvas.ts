@@ -2,7 +2,7 @@
 import { BALL_COLOURS, JUGGLER } from '../tunables';
 import { copy } from '../ui/copy';
 import { partColour } from '../view/colours';
-import { captionPlace, captionRoom, figureSpans, sceneScale, type JugglerFrame } from '../view/juggler';
+import { captionPlace, captionRoom, figureSpans, handBar, sceneScale, type JugglerFrame } from '../view/juggler';
 
 export function drawJuggler(canvas: HTMLCanvasElement, frame: JugglerFrame) {
   const ctx = canvas.getContext('2d');
@@ -39,11 +39,10 @@ export function drawJuggler(canvas: HTMLCanvasElement, frame: JugglerFrame) {
   const handY = Math.min(py(0) + r + JUGGLER.handGapPx, height - JUGGLER.handBarPx);
   for (const h of frame.hands) {
     ctx.fillStyle = tinted ? partColour(h.part) : JUGGLER.hand;
-    const mid = px((h.catchX + h.throwX) / 2);
-    const w = Math.min(Math.abs(px(h.catchX) - px(h.throwX)) + 2 * r, JUGGLER.handMaxPx);
+    const { left: x, width: w } = handBar(h, px, r, JUGGLER.handMaxPx);
     const bar = JUGGLER.handBarPx;
     ctx.beginPath();
-    ctx.roundRect(mid - w / 2, handY, w, bar, bar / 2);
+    ctx.roundRect(x, handY, w, bar, bar / 2);
     ctx.fill();
   }
 

@@ -1,9 +1,10 @@
 import { describe, expect, test } from 'vitest';
-import { buildSchedule, flightsOf, partsFromOnsets } from '../core';
+import { buildSchedule, flightsOf, partsFromOnsets, partsFromPassing } from '../core';
 import type { Event, Parts, Schedule } from '../core';
 import { scheduleOf, vanillaParts } from '../test/schedules';
 import { JUGGLER } from '../tunables';
-import { captionPlace, captionRoom, figureSpans, handPlaces, jugglerFrame, sceneScale } from './juggler';
+import { copy } from '../ui/copy';
+import { captionPlace, captionRoom, figureSpans, handBar, handPlaces, jugglerFrame, sceneScale } from './juggler';
 import type { JugglerBall, JugglerLayout, SceneScale } from './juggler';
 import type { Segment } from './types';
 
@@ -560,6 +561,47 @@ describe('figureSpans', () => {
     expect(spans.map((s) => s.part)).toEqual([0, 2, 4]);
     expect(spans.map((s) => s.left)).toEqual([c0, c0 + stride, c0 + 2 * stride]);
     expect(spans.map((s) => s.right)).toEqual([c1, c1 + stride, c1 + 2 * stride]);
+  });
+});
+
+describe('four figures on a phone (v6.6 ruling 18)', () => {
+  const J = JUGGLER;
+  // The caption's width, generously: 0.6 em a character is wider than IBM Plex Sans' "Juggler 4"
+  // (the e2e measures the real one against this).
+  const captionPx = copy.jugglerCaption(3).length * 0.6 * J.captionFontPx;
+  const square = partsFromPassing('<3p2 3 3 3|3p3 3 3 3|3p4 3 3 3|3p1 3 3 3>');
+  if (!square.ok) throw new Error('square');
+  const seg = single(buildSchedule(square.parts));
+  // A tall canvas, so the scale is width-bound: the worst case across, where figures are closest.
+  const HEIGHT = 2000;
+
+  test.each([320, 375, 390])('at %i px wide, captions a caption and 8 px apart, each hand bar inside its figure', (width) => {
+    const f = jugglerFrame([seg], at(seg, 1), J);
+    expect(f.parts).toBe(8);
+    const room = captionRoom(HEIGHT, J);
+    const { sx, sy, x0 } = sceneScale(f.bounds, width, HEIGHT - room, J);
+    // Width-bound: the scale across is what the width allows.
+    expect(sx).toBeCloseTo((width - 2 * J.minRadiusPx) / (f.bounds.right - f.bounds.left), 9);
+    const px = (x: number) => x0 + (x - f.bounds.left) * sx;
+    const r = Math.max(J.radius * Math.min(sx, sy), J.minRadiusPx);
+    const spans = figureSpans(f.parts, J);
+    expect(spans).toHaveLength(4);
+    const centres = spans.map((s) => (px(s.left) + px(s.right)) / 2);
+    for (let i = 1; i < centres.length; i++) expect((centres[i] as number) - (centres[i - 1] as number)).toBeGreaterThanOrEqual(captionPx + 8);
+    // Each hand's bar inside its own figure's span (widened by a ball), so neighbours never touch.
+    for (const h of f.hands) {
+      const fig = spans[Math.floor(h.part / 2)] as { left: number; right: number };
+      const bar = handBar(h, px, r, J.handMaxPx);
+      expect(bar.left, String(h.part)).toBeGreaterThanOrEqual(px(fig.left) - r - 1e-9);
+      expect(bar.left + bar.width, String(h.part)).toBeLessThanOrEqual(px(fig.right) + r + 1e-9);
+    }
+    for (let i = 1; i < spans.length; i++) expect(px((spans[i] as { left: number }).left) - r).toBeGreaterThan(px((spans[i - 1] as { right: number }).right) + r);
+  });
+
+  test('handBar: the span and a ball either side, centred, never past handMaxPx', () => {
+    const id = (x: number) => x * 100;
+    expect(handBar({ catchX: 0, throwX: 0.25 }, id, 6, 64)).toEqual({ left: 12.5 - 37 / 2, width: 37 });
+    expect(handBar({ catchX: 0.9, throwX: 0.65 }, (x) => x * 1000, 6, 64)).toEqual({ left: 775 - 32, width: 64 });
   });
 });
 
