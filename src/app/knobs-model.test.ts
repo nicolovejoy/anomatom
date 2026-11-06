@@ -1,7 +1,7 @@
 import { describe, expect, test } from 'vitest';
 import { scheduleOf, typed } from '../test/schedules';
 import { partsFromOnsets } from '../core';
-import { BPM_RANGE, MAX_RATIO } from '../tunables';
+import { BPM_RANGE, MAX_JUGGLERS, MAX_RATIO } from '../tunables';
 import type { PlayerView, Segment } from '../view/types';
 import { copy } from '../ui/copy';
 import { reduce } from './actions';
@@ -481,8 +481,8 @@ describe('a passing set in the editor (ruling 7)', () => {
     expect(analyse(s).inputs).toEqual(['<3p 3|3p 3>']);
   });
   test('an error under the one input', () => {
-    const a = analyse(passing('<3p 3|3p 3|3p 3|3p 3>'));
-    expect(a.errors[0]).toEqual({ kind: 'too-many-jugglers', max: 3 });
+    const a = analyse(passing('<3p 3|3p 3|3p 3|3p 3|3p 3>'));
+    expect(a.errors[0]).toEqual({ kind: 'too-many-jugglers', max: MAX_JUGGLERS });
     expect(a.inputs).toHaveLength(1);
     const b = analyse(passing('<3p 3|3? 3>'));
     expect(b.errors[0]).toMatchObject({ kind: 'bad-char' });

@@ -73,7 +73,7 @@ export function drawLadder(canvas: HTMLCanvasElement, frame: Frame, options: Dra
     ctx.globalAlpha = b.inhuman ? LADDER_E.inhumanAlpha : 1;
     if (b.cross) {
       ctx.strokeStyle = colour;
-      ctx.lineWidth = LADDER.crossLinePx;
+      ctx.lineWidth = Math.min(LADDER.crossLinePx, lanes.barPx);
       ctx.lineCap = 'round';
       ctx.beginPath();
       ctx.moveTo(x0, y0);
@@ -81,7 +81,7 @@ export function drawLadder(canvas: HTMLCanvasElement, frame: Frame, options: Dra
       ctx.stroke();
     } else {
       ctx.fillStyle = colour;
-      ctx.fillRect(x0, y0 - LADDER.barPx / 2, x1 - x0, LADDER.barPx);
+      ctx.fillRect(x0, y0 - lanes.barPx / 2, x1 - x0, lanes.barPx);
     }
   }
 

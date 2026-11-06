@@ -63,8 +63,8 @@ for (const size of SIZES) {
       // v5 ruling 8: the wide layout has no sound row (Listen for is in the Sound panel and on ↑ ↓).
       await expect(page.locator('.deck-sound')).toBeVisible({ visible: !size.docked });
       await expect(page.locator('.deck-wheel')).toBeVisible();
-      // Every preset (the 18 of v5 §4 and the three-juggler cards of v6) and Make your own.
-      expect(PRESETS.length).toBe(21);
+      // Every preset (the 18 of v5 §4, the three-juggler cards of v6, the four-juggler cards of v6.6) and Make your own.
+      expect(PRESETS.length).toBe(23);
       await expect(page.locator('.deck-row')).toHaveCount(PRESETS.length + 1);
       await expect(page.locator('.deck-row').last()).toHaveText('Make your own');
       await expect(notation(page)).toHaveText('3');
@@ -339,7 +339,8 @@ test.describe('phone', () => {
     await page.goto('/#753');
     await expect(notation(page)).toHaveText('753');
     await page.locator('.deck-prev').click();
-    await expect(page.locator('.deck-meta')).toHaveText('3 jugglers');
+    // The last card: Square, four jugglers (v6.6).
+    await expect(page.locator('.deck-meta')).toHaveText('4 jugglers');
   });
 
   test('scrolling up from Cascade goes nowhere: Cascade stays in the band, blank rows above it', async ({ page }) => {

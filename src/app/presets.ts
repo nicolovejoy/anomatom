@@ -5,7 +5,7 @@
 import { partsFromLines, partsFromPassing, partsFromSync, partsFromVanilla } from '../core';
 import type { Parts, PartsResult, Ratio } from '../core';
 
-/** The card screen's groups: a card's ball count, the passing cards (two or three jugglers) apart. */
+/** The card screen's groups: a card's ball count, the passing cards (two to four jugglers) apart. */
 export type CardGroup = '3' | '4' | '5' | 'passing';
 
 export interface Preset {
@@ -38,7 +38,7 @@ function syncCard(id: string, text: string, balls: number, cycle: number): Prese
   return { id, group: String(balls) as CardGroup, texts: [text], parts: must(partsFromSync(text)), ratio: R(1, 1), balls, cycle };
 }
 
-/** A passing card: two or three jugglers, each on a drum machine of their own and panned where the stage draws them (`mappingOf`). */
+/** A passing card: two to four jugglers, each on a drum machine of their own and panned where the stage draws them (`mappingOf`). */
 function passingCard(id: string, text: string, balls: number, cycle: number): Preset {
   return { id, group: 'passing', texts: [text], parts: must(partsFromPassing(text)), ratio: { a: 1, b: 1 }, balls, cycle };
 }
@@ -47,7 +47,9 @@ const R = (a: number, b: number): Ratio => ({ a, b });
 
 /**
  * The cards in screen order, group by group (docs/plans/v3-classics-controls.md, ruling 2): the 18
- * of docs/plans/v5-sound-model.md §4, then the three-juggler passing cards of docs/plans/v6-wheel-filters-three.md ruling 5. The nine cut there (423, 55500, (4,4), 534, 645, four-count,
+ * of docs/plans/v5-sound-model.md §4, then the three-juggler passing cards of docs/plans/v6-wheel-filters-three.md ruling 5,
+ * then the four-juggler cards of docs/plans/v6-6-deck-on-top-four-jugglers.md ruling 20 (shapes from
+ * the Passing Patterns Compendium, BIBLIOGRAPHY 27; notation by Juggling Lab's conventions, 26). The nine cut there (423, 55500, (4,4), 534, 645, four-count,
  * five-pass, seven-four-count, seven-pass) still play as typed patterns and short links.
  */
 export const PRESETS: readonly Preset[] = [
@@ -72,6 +74,8 @@ export const PRESETS: readonly Preset[] = [
   passingCard('three-feed', '<3p2 3 3p3 3|3p1 3 3 3|3 3 3p1 3>', 9, 4),
   passingCard('three-triangle', '<3p2 3 3 3|3p3 3 3 3|3p1 3 3 3>', 9, 4),
   passingCard('three-ultimates', '<3p2 3|3p1 3p3|3 3p2>', 9, 2),
+  passingCard('four-typewriter', '<3p2 3 3p3 3 3p4 3|3p1 3 3 3 3 3|3 3 3p1 3 3 3|3 3 3 3 3p1 3>', 12, 6),
+  passingCard('four-square', '<3p2 3 3 3|3p3 3 3 3|3p4 3 3 3|3p1 3 3 3>', 12, 4),
 ];
 
 const sameStructure = (a: unknown, b: unknown): boolean => {

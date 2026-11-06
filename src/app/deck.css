@@ -413,13 +413,18 @@
   white-space: nowrap;
   text-align: left;
 }
+/* A notation too long for the row (the four-juggler cards, v6.6) ellipsizes; the name stays whole. */
 .deck-row code {
-  flex: 0 0 auto;
+  flex: 0 1 auto;
   min-width: 96px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: pre;
   font: 14px var(--font-mono);
   color: var(--text);
 }
 .deck-row-name {
+  flex: 0 0 auto;
   min-width: 0;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -528,7 +533,9 @@
   flex: 0 1 auto;
   min-width: 0;
 }
+/* The name, dot and meta never give way: a long notation (the four-juggler cards, v6.6) ellipsizes first. */
 .topbar-pattern .deck-line {
+  flex: none;
   font-size: 14px;
 }
 .topbar-pattern .deck-name {

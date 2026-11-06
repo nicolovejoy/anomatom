@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'vitest';
-import { MAX_JUGGLERS } from '../tunables';
+import { MAX_JUGGLERS, MAX_PARTS } from '../tunables';
 import { judge } from './judge';
 import { cycleOf, partsFromVanilla, textOf } from './parts';
 import { isPass, isPassingSet, jugglerOf, parsePassing, partsFromPassing, passingText } from './passing';
@@ -82,7 +82,7 @@ describe('parsePassing', () => {
   });
 
   test(`more than ${MAX_JUGGLERS} jugglers is too-many-jugglers`, () => {
-    expect(parsePassing('<3p 3|3p 3|3p 3|3p 3>')).toEqual({
+    expect(parsePassing('<3p 3|3p 3|3p 3|3p 3|3p 3>')).toEqual({
       ok: false,
       juggler: 0,
       error: { kind: 'too-many-jugglers', max: MAX_JUGGLERS },
@@ -91,6 +91,29 @@ describe('parsePassing', () => {
 });
 
 describe('partsFromPassing (ruling 2, MATH.md §10)', () => {
+  test(`MAX_PARTS holds every hand of ${MAX_JUGGLERS} jugglers, so five later raises both`, () => {
+    expect(MAX_PARTS).toBeGreaterThanOrEqual(2 * MAX_JUGGLERS);
+  });
+
+  test('four jugglers (v6.6 ruling 15): the typewriter feed and the square, 12 balls; p4 names the fourth juggler', () => {
+    const feed = parts('<3p2 3 3p3 3 3p4 3|3p1 3 3 3 3 3|3 3 3p1 3 3 3|3 3 3 3 3p1 3>');
+    expect(feed).toHaveLength(8);
+    const s = buildSchedule(feed);
+    expect([s.verdict.ok, s.balls, s.cycle]).toEqual([true, 12, 6]);
+    // The feeder's right hand (part 0) passes to jugglers 2, 3 and 4 in turn, each pass landing in
+    // that juggler's left hand (parts 3, 5, 7); each feedee's right hand passes back once, at the
+    // pulse it is fed, into the feeder's left hand (part 1). MATH.md §10's worked case.
+    const tos = (p: number) => ((feed[p] as Part).flights as { throws: readonly { to: number | null }[] }).throws.map((t) => t.to);
+    expect(tos(0)).toEqual([3, 5, 7]);
+    expect([tos(2)[0], tos(4)[1], tos(6)[2]]).toEqual([1, 1, 1]);
+    // The square: each right hand passes to the next juggler round, into its left hand.
+    const square = parts('<3p2 3 3 3|3p3 3 3 3|3p4 3 3 3|3p1 3 3 3>');
+    expect([0, 2, 4, 6].map((p) => landing(square, p))).toEqual([3, 5, 7, 1]);
+    expect(buildSchedule(square).balls).toBe(12);
+    // From juggler 3, p4 is a pass; with three jugglers it names nobody.
+    expect(parsePassing('<3p2 3|3p3 3|3p4 3>')).toMatchObject({ ok: false, error: { kind: 'bad-target' } });
+  });
+
   test('<3p 3|3p 3>: four parts in vanilla layout, ok, 6 balls, cycle 2; part 0 passes to part 3, part 2 to part 1', () => {
     const ps = parts('<3p 3|3p 3>');
     expect(ps).toHaveLength(4);
@@ -156,7 +179,7 @@ describe('partsFromPassing (ruling 2, MATH.md §10)', () => {
   });
 
   test('too many jugglers is refused at part 0, an input the editor has', () => {
-    expect(partsFromPassing('<3p 3|3p 3|3p 3|3p 3>')).toEqual({
+    expect(partsFromPassing('<3p 3|3p 3|3p 3|3p 3|3p 3>')).toEqual({
       ok: false,
       part: 0,
       error: { kind: 'too-many-jugglers', max: MAX_JUGGLERS },
@@ -172,7 +195,7 @@ describe('partsFromPassing (ruling 2, MATH.md §10)', () => {
 });
 
 describe('passingText and isPassingSet', () => {
-  test.each(['<3p 3|3p 3>', '<3p|3p>', '<4p 3|3 4p>', '<3p2 3|3p3 3|3p1 3>', '<3p 3|3>', '<5 3|3>', '<3p 3 3|3p 3 3>', '<a 0|b 1>'])(
+  test.each(['<3p 3|3p 3>', '<3p|3p>', '<4p 3|3 4p>', '<3p2 3|3p3 3|3p1 3>', '<3p2 3 3 3|3p3 3 3 3|3p4 3 3 3|3p1 3 3 3>', '<3p2 3 3p3 3 3p4 3|3p1 3 3 3 3 3|3 3 3p1 3 3 3|3 3 3 3 3p1 3>', '<3p 3|3>', '<5 3|3>', '<3p 3 3|3p 3 3>', '<a 0|b 1>'])(
     '%s round-trips',
     (text) => {
       const ps = parts(text);
@@ -207,11 +230,12 @@ describe('passingText and isPassingSet', () => {
     expect(isPassingSet([bend(ps[0] as Part, 0), ...ps.slice(1)])).toBe(false);
   });
 
-  test('false for an odd count, for more than three jugglers, for a broken layout or unequal halves', () => {
+  test(`false for an odd count, for more than ${MAX_JUGGLERS} jugglers, for a broken layout or unequal halves`, () => {
     const ps = parts('<3p 3|3p 3>');
     expect(isPassingSet(ps.slice(0, 3))).toBe(false);
-    const four = parts('<3p2 3|3p3 3|3p1 3>');
-    expect(isPassingSet([...four, ...ps.slice(0, 2)])).toBe(false);
+    const eight = parts('<3p2 3|3p1 3|3p4 3|3p3 3>');
+    expect(isPassingSet(eight)).toBe(true);
+    expect(isPassingSet([...eight, ...ps.slice(0, 2)])).toBe(false);
     expect(isPassingSet([ps[0] as Part, { ...(ps[1] as Part), phase: 0 }, ...ps.slice(2)])).toBe(false);
     expect(isPassingSet([{ ...(ps[0] as Part), spacing: 4 }, ...ps.slice(1)])).toBe(false);
     expect(isPassingSet([{ ...(ps[0] as Part), unit: 2 }, ...ps.slice(1)])).toBe(false);
