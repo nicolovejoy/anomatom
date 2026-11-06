@@ -59,13 +59,21 @@
 //
 // SPEC §4.1 (v2): a flight longer than `humanAirtimeSeconds` from throw to catch, at its
 // segment's tempo, is "not a human throw" (`inhuman`): presentation only.
+//
+// The world frame (v6.8 rulings 1 and 2): every point also has a ground coordinate z, away from
+// the default camera, from a figure placement. The line (the default) is the picture above, at
+// z = 0: every number it gives is the 2D view's. The ring is the 3D view's: one figure at the
+// centre facing the camera, two face to face, three or more on a circle facing its centre. A
+// flight's ground point (x, z) moves linearly from the thrower's throw point to the catcher's
+// catch point, and y exactly as on the line, so a ball's path is one parabola in the vertical
+// plane through the two.
 import { mod } from '../core/math';
 import type { Event, Flight, PartIndex, Schedule } from '../core/types';
 import { ballColours } from './colours';
 import { catchPart, isCoincident } from './grids';
 import type { Segment } from './types';
 
-/** The scene, in metres, x to the right and y up, y = 0 the height of the hands. */
+/** The scene, in metres, x to the right, y up (y = 0 the height of the hands), z away from the default camera. */
 export interface JugglerLayout {
   /** One figure's hands: each hand's outer point, where it catches, hand 1 first, on the left. */
   readonly catchX: readonly [number, number];
@@ -92,11 +100,58 @@ export interface JugglerLayout {
   readonly humanAirtimeSeconds: number;
 }
 
+/**
+ * Where the figures stand: `'line'`, side by side along x at z = 0 (the 2D view, and the default
+ * everywhere), or `'ring'`, the 3D view's (v6.8 ruling 2).
+ */
+export type Placement = 'line' | 'ring';
+
 /** Where a part's hand stands: its catch (outer) and throw (inner) points, in scene metres. */
 export interface HandPlace {
   readonly part: PartIndex;
   readonly catchX: number;
   readonly throwX: number;
+  /** The catch point's ground depth: 0 on the line. */
+  readonly catchZ: number;
+  /** The throw point's ground depth: 0 on the line. */
+  readonly throwZ: number;
+}
+
+/** A point on the ground, x across and z away from the default camera. */
+export interface Ground {
+  readonly x: number;
+  readonly z: number;
+}
+
+/** Where a figure of the ring stands: its centre, and the unit direction it faces. */
+export interface FigurePlace {
+  readonly centre: Ground;
+  readonly facing: Ground;
+}
+
+/**
+ * Where each of `figures` figures stands in the ring placement (v6.8 ruling 2). One stands at
+ * the origin facing the camera; two face each other `figureStride` apart, figure 0 on the left
+ * facing +x; three or more stand on a circle about the origin facing its centre, neighbours
+ * `figureStride` apart, figure f at angle θ_f = θ_0 + f·2π/F from the back (θ_0 = 0 for an odd
+ * count, −π/F for an even one, so nobody stands side-on), going round to the viewer's left.
+ */
+export function ringFigures(figures: number, layout: Pick<JugglerLayout, 'figureStride'>): FigurePlace[] {
+  const s = layout.figureStride;
+  if (figures <= 1) return [{ centre: { x: 0, z: 0 }, facing: { x: 0, z: -1 } }];
+  if (figures === 2) {
+    return [
+      { centre: { x: -s / 2, z: 0 }, facing: { x: 1, z: 0 } },
+      { centre: { x: s / 2, z: 0 }, facing: { x: -1, z: 0 } },
+    ];
+  }
+  const R = s / (2 * Math.sin(Math.PI / figures));
+  const theta0 = figures % 2 === 1 ? 0 : -Math.PI / figures;
+  return Array.from({ length: figures }, (_, f) => {
+    const theta = theta0 + (f * 2 * Math.PI) / figures;
+    const centre = { x: -R * Math.sin(theta), z: R * Math.cos(theta) };
+    return { centre, facing: { x: -centre.x / R, z: -centre.z / R } };
+  });
 }
 
 /**
@@ -105,16 +160,42 @@ export interface HandPlace {
  * past the first figure, which is a one-handed figure: hand 1's span, moved to the middle of its
  * figure. One part draws as the pair it always was (ruling on PR 43), so the juggler, the
  * ladder's two lanes and the "two hands" label agree; its ball stays in hand 1.
+ *
+ * That is the line. The ring (`placement` 'ring') stands figure f where `ringFigures` puts it,
+ * its hands on the line through its centre along its viewer's left l = (facing.z, −facing.x):
+ * a point at today's x within the first figure sits at centre − (x − m)·l, m the middle of the
+ * pair's catch points, so hand 1 is on the l side and one figure is today's line moved left by m.
  */
-export function handPlaces(parts: number, layout: Pick<JugglerLayout, 'catchX' | 'throwX' | 'figureStride'>): HandPlace[] {
+export function handPlaces(
+  parts: number,
+  layout: Pick<JugglerLayout, 'catchX' | 'throwX' | 'figureStride'>,
+  placement: Placement = 'line',
+): HandPlace[] {
   const [c0, c1] = layout.catchX;
   const [t0, t1] = layout.throwX;
   const centre = (c0 + c1) / 2 - (c0 + t0) / 2;
   const drawn = Math.max(parts, 2);
+  // Each hand's catch and throw x, figure f drawn `offset` along (the line's sums, in its order).
+  const xs = (part: number, offset: number): [number, number] => {
+    if (part % 2 === 0 && part === drawn - 1) return [offset + c0 + centre, offset + t0 + centre];
+    return part % 2 === 0 ? [offset + c0, offset + t0] : [offset + c1, offset + t1];
+  };
+  if (placement === 'line') {
+    return Array.from({ length: drawn }, (_, part) => {
+      const [catchX, throwX] = xs(part, Math.floor(part / 2) * layout.figureStride);
+      return { part, catchX, throwX, catchZ: 0, throwZ: 0 };
+    });
+  }
+  // The ring: a figure's hands lie on the line through its centre along its viewer's left
+  // l = (facing.z, −facing.x), today's offsets centred on the figure, hand 1 on the l side.
+  const m = (c0 + c1) / 2;
+  const figures = ringFigures(Math.ceil(drawn / 2), layout);
   return Array.from({ length: drawn }, (_, part) => {
-    const offset = Math.floor(part / 2) * layout.figureStride;
-    if (part % 2 === 0 && part === drawn - 1) return { part, catchX: offset + c0 + centre, throwX: offset + t0 + centre };
-    return part % 2 === 0 ? { part, catchX: offset + c0, throwX: offset + t0 } : { part, catchX: offset + c1, throwX: offset + t1 };
+    const [catchX, throwX] = xs(part, 0);
+    const { centre: c, facing: f } = figures[Math.floor(part / 2)] as FigurePlace;
+    const at = (x: number): Ground => ({ x: c.x - (x - m) * f.z, z: c.z + (x - m) * f.x });
+    const [k, t] = [at(catchX), at(throwX)];
+    return { part, catchX: k.x, throwX: t.x, catchZ: k.z, throwZ: t.z };
   });
 }
 
@@ -185,6 +266,10 @@ export type FlightLookup = (schedule: Schedule) => readonly Flight[] | undefined
 export interface FaultArc {
   readonly x0: number;
   readonly x1: number;
+  /** The throw point's ground depth: 0 on the line. */
+  readonly z0: number;
+  /** The catch point's ground depth: 0 on the line. */
+  readonly z1: number;
   readonly apex: number;
   /** Longer than a human throw. */
   readonly inhuman: boolean;
@@ -195,6 +280,8 @@ export interface JugglerBall {
   readonly ball: number;
   readonly x: number;
   readonly y: number;
+  /** Ground depth, away from the default camera: 0 on the line. */
+  readonly z: number;
   /** The part whose hand holds the ball (riding the scoop, or waiting for its first throw); null in the air. */
   readonly held: PartIndex | null;
   /** 0 → 1 through the throw that owns the ball, air then dwell; 0 while waiting. */
@@ -214,6 +301,9 @@ export interface SceneBounds {
   readonly right: number;
   readonly bottom: number;
   readonly top: number;
+  /** The nearest and furthest ground depth of every hand point, a ball radius included: ±radius on the line. */
+  readonly near: number;
+  readonly far: number;
 }
 
 export interface JugglerFrame {
@@ -330,14 +420,17 @@ function owner(schedule: Schedule, ball: number, p: number): Owned | null {
   return null;
 }
 
-const places = new WeakMap<Schedule, Map<JugglerLayout, readonly HandPlace[]>>();
+const places: Record<Placement, WeakMap<Schedule, Map<JugglerLayout, readonly HandPlace[]>>> = {
+  line: new WeakMap(),
+  ring: new WeakMap(),
+};
 
 /** Where part `part`'s hand stands in a picture of the schedule's parts. */
-function place(schedule: Schedule, part: PartIndex, layout: JugglerLayout): HandPlace {
-  let byLayout = places.get(schedule);
-  if (!byLayout) places.set(schedule, (byLayout = new Map()));
+function place(schedule: Schedule, part: PartIndex, layout: JugglerLayout, placement: Placement): HandPlace {
+  let byLayout = places[placement].get(schedule);
+  if (!byLayout) places[placement].set(schedule, (byLayout = new Map()));
   let hands = byLayout.get(layout);
-  if (!hands) byLayout.set(layout, (hands = handPlaces(schedule.grids.length, layout)));
+  if (!hands) byLayout.set(layout, (hands = handPlaces(schedule.grids.length, layout, placement)));
   return hands[part] as HandPlace;
 }
 
@@ -362,6 +455,7 @@ const pulseAt = (s: Segment, t: number): number => (t - s.startTime) / s.pulseLe
 interface Place {
   readonly x: number;
   readonly y: number;
+  readonly z: number;
   readonly held: PartIndex | null;
   readonly progress: number;
 }
@@ -371,23 +465,25 @@ interface Place {
  * air takes the same share of the span as `flight − d` of `flight`, so a flight retimed across
  * a switch is still one parabola, ending in a scoop.
  */
-function along(schedule: Schedule, e: Event, d: number, tLaunch: number, tEnd: number, now: number, layout: JugglerLayout) {
+function along(schedule: Schedule, e: Event, d: number, tLaunch: number, tEnd: number, now: number, layout: JugglerLayout, placement: Placement) {
   const to = catchPart(schedule, e);
-  const from = place(schedule, e.part, layout);
-  const into = place(schedule, to, layout);
+  const from = place(schedule, e.part, layout, placement);
+  const into = place(schedule, to, layout, placement);
   const span = tEnd - tLaunch;
   const air = (span * (e.flight - d)) / e.flight;
   const u = Math.min(Math.max(now - tLaunch, 0), span);
   const progress = u / span;
   if (u < air) {
     const x = from.throwX + ((into.catchX - from.throwX) * u) / air;
+    const z = from.throwZ + ((into.catchZ - from.throwZ) * u) / air;
     // y = v·u − g·u²/2 with v = g·air/2: back to 0 at `air`, apex g·air²/8 at air/2.
-    return { place: { x, y: (layout.g * u * (air - u)) / 2, held: null, progress } as Place, air, span };
+    return { place: { x, y: (layout.g * u * (air - u)) / 2, z, held: null, progress } as Place, air, span };
   }
   const f = (u - air) / (span - air);
   const depth = Math.min(layout.scoopDepth, layout.scoopApexShare * apex(air, layout));
   const x = into.catchX + (into.throwX - into.catchX) * f;
-  return { place: { x, y: -depth * scoop(f), held: to, progress }, air, span };
+  const z = into.catchZ + (into.throwZ - into.catchZ) * f;
+  return { place: { x, y: -depth * scoop(f), z, held: to, progress }, air, span };
 }
 
 // ---------------------------------------------------------------------------------------------
@@ -401,15 +497,16 @@ function along(schedule: Schedule, e: Event, d: number, tLaunch: number, tEnd: n
  * where the one after it waits. Deviates from the plan's "held at its throw point" (ruling
  * 2026-10-29), which overlapped two balls waiting in one hand.
  */
-function waiting(seg: Segment, first: Event, now: number, layout: JugglerLayout): Place {
-  const hand = place(seg.schedule, first.part, layout);
+function waiting(seg: Segment, first: Event, now: number, layout: JugglerLayout, placement: Placement): Place {
+  const hand = place(seg.schedule, first.part, layout, placement);
   const dwell = layout.dwellBeats * spacing(seg.schedule, first.part) * seg.pulseLen;
   const tThrow = seg.startTime + first.pulse * seg.pulseLen;
   const f = dwell > 0 ? clamp01(1 - (tThrow - now) / dwell) : 1;
   const air = (first.flight - dwellPulses(seg.schedule, first, layout)) * seg.pulseLen;
   const depth = Math.min(layout.scoopDepth, layout.scoopApexShare * apex(air, layout));
   const x = hand.catchX + (hand.throwX - hand.catchX) * f;
-  return { x, y: -depth * scoop(f), held: first.part, progress: 0 };
+  const z = hand.catchZ + (hand.throwZ - hand.catchZ) * f;
+  return { x, y: -depth * scoop(f), z, held: first.part, progress: 0 };
 }
 
 /**
@@ -423,12 +520,14 @@ function waiting(seg: Segment, first: Event, now: number, layout: JugglerLayout)
  *   in old time, to its landing at `next.startTime + (land − B) × next.pulseLen` (Retiming). If
  *   the next segment carries its ball, the ball is handed over at that instant, when the new
  *   segment's first throw of it begins; if not, the ball vanishes into the hand at the catch.
+ * - `placement` says where the figures stand (`'line'`, the 2D view's, by default).
  */
 export function jugglerFrame(
   segments: readonly Segment[],
   now: number,
   layout: JugglerLayout,
   lookup: FlightLookup = () => undefined,
+  placement: Placement = 'line',
 ): JugglerFrame {
   const colours = ballColours(segments);
   const balls: JugglerBall[] = [];
@@ -454,7 +553,7 @@ export function jugglerFrame(
       const own = owner(schedule, ball, p);
       if (!own) {
         if (ended || seg.carry.has(ball)) continue;
-        const place = waiting(seg, index.first[ball] as Event, now, layout);
+        const place = waiting(seg, index.first[ball] as Event, now, layout, placement);
         balls.push({ ball: colour.get(ball) as number, ...place, flash: 0, inhuman: false });
         continue;
       }
@@ -465,7 +564,7 @@ export function jugglerFrame(
       const tLaunch = seg.startTime + launch * seg.pulseLen;
       const tEnd = crossing ? next.startTime + (land - B) * next.pulseLen : seg.startTime + land * seg.pulseLen;
       const d = dwellPulses(schedule, e, layout);
-      const { place, air, span } = along(schedule, e, d, tLaunch, tEnd, now, layout);
+      const { place, air, span } = along(schedule, e, d, tLaunch, tEnd, now, layout, placement);
 
       if (crossing) {
         const fresh = onward.get(ball);
@@ -495,10 +594,10 @@ export function jugglerFrame(
   });
 
   const playing = segments.find((s) => s.endTime === null || now < s.endTime);
-  const scene = bounds(segments, now, layout, lookup);
+  const scene = bounds(segments, now, layout, lookup, placement);
   return {
     balls,
-    faults: playing ? faultArcs(playing, layout, lookup) : [],
+    faults: playing ? faultArcs(playing, layout, lookup, placement) : [],
     inhuman: balls.some((b) => b.inhuman && b.held === null),
     bounds: scene.bounds,
     hands: scene.hands,
@@ -541,12 +640,16 @@ function faultedFlights(schedule: Schedule, lookup: FlightLookup): readonly Faul
 }
 
 /** The arcs of a segment's faults, at its pulse length. */
-function faultArcs(seg: Segment, layout: JugglerLayout, lookup: FlightLookup, pulseLen = seg.pulseLen): FaultArc[] {
+function faultArcs(seg: Segment, layout: JugglerLayout, lookup: FlightLookup, placement: Placement, pulseLen = seg.pulseLen): FaultArc[] {
   return faultedFlights(seg.schedule, lookup).map((f) => {
     const d = Math.min(layout.dwellBeats * f.toSpacing, layout.maxDwellShare * f.flight);
+    const from = place(seg.schedule, f.from, layout, placement);
+    const to = place(seg.schedule, f.to, layout, placement);
     return {
-      x0: place(seg.schedule, f.from, layout).throwX,
-      x1: place(seg.schedule, f.to, layout).catchX,
+      x0: from.throwX,
+      x1: to.catchX,
+      z0: from.throwZ,
+      z1: to.catchZ,
       apex: apex((f.flight - d) * pulseLen, layout),
       inhuman: f.flight * pulseLen > layout.humanAirtimeSeconds,
     };
@@ -608,23 +711,32 @@ export function sceneScale(bounds: SceneBounds, width: number, height: number, l
 }
 
 /**
- * The scene: every hand's outer points across, from the deepest scoop to the highest apex up,
- * each widened by a ball radius. The height is the largest of the segments on screen, each
+ * The scene: every hand's outer points across and in depth, from the deepest scoop to the
+ * highest apex up, each widened by a ball radius. The height is the largest of the segments on screen, each
  * weighed in over the `boundsEaseSeconds` before it starts and out over the same after its last
  * flight lands, so a switch never makes the scale jump. A segment's apex is taken at the longer
  * of its own and the next pulse length, which bounds its retimed crossing flights too.
  */
-function bounds(segments: readonly Segment[], now: number, layout: JugglerLayout, lookup: FlightLookup): { bounds: SceneBounds; hands: HandPlace[]; parts: number } {
+function bounds(
+  segments: readonly Segment[],
+  now: number,
+  layout: JugglerLayout,
+  lookup: FlightLookup,
+  placement: Placement,
+): { bounds: SceneBounds; hands: HandPlace[]; parts: number } {
   const ease = layout.boundsEaseSeconds;
   let top = 0;
   // Across, the span of the segment playing now; a segment weighing in or out with a different
   // part count pulls it towards its own span, so a part-count switch never makes the scale jump.
   const playing = segments.find((s) => s.endTime === null || now < s.endTime) ?? segments[segments.length - 1];
-  const [lo, hi] = span(playing ? playing.schedule.grids.length : 2, layout);
-  let [left, right] = [lo, hi];
+  const playingParts = playing ? playing.schedule.grids.length : 2;
+  const [lo, hi] = span(playingParts, layout, placement, 'x');
+  const [nearLo, farHi] = span(playingParts, layout, placement, 'z');
+  let [left, right, near, far] = [lo, hi, nearLo, farHi];
   const hands = new Map<string, HandPlace>();
+  const key = (h: HandPlace) => `${h.part}:${h.catchX}:${h.catchZ}`;
   let most = playing ? 0 : 2;
-  if (!playing) for (const h of handPlaces(2, layout)) hands.set(`${h.part}:${h.catchX}`, h);
+  if (!playing) for (const h of handPlaces(2, layout, placement)) hands.set(key(h), h);
   segments.forEach((seg, i) => {
     const next = segments[i + 1];
     const index = indexOf(seg.schedule);
@@ -636,10 +748,13 @@ function bounds(segments: readonly Segment[], now: number, layout: JugglerLayout
     if (weight === 0) return;
     const parts = seg.schedule.grids.length;
     most = Math.max(most, parts);
-    const [l, r] = span(parts, layout);
+    const [l, r] = span(parts, layout, placement, 'x');
     left = Math.min(left, lo + weight * (l - lo));
     right = Math.max(right, hi + weight * (r - hi));
-    for (const h of handPlaces(parts, layout)) hands.set(`${h.part}:${h.catchX}`, h);
+    const [n, f] = span(parts, layout, placement, 'z');
+    near = Math.min(near, nearLo + weight * (n - nearLo));
+    far = Math.max(far, farHi + weight * (f - farHi));
+    for (const h of handPlaces(parts, layout, placement)) hands.set(key(h), h);
     const pulseLen = Math.max(seg.pulseLen, next?.pulseLen ?? 0);
     for (const e of seg.schedule.events) {
       if (e.ball === null) continue;
@@ -647,18 +762,18 @@ function bounds(segments: readonly Segment[], now: number, layout: JugglerLayout
       top = Math.max(top, weight * apex(air, layout));
     }
     // A faulted group draws its faulted flights instead of balls: the axis fits them too.
-    for (const arc of faultArcs(seg, layout, lookup, pulseLen)) top = Math.max(top, weight * arc.apex);
+    for (const arc of faultArcs(seg, layout, lookup, placement, pulseLen)) top = Math.max(top, weight * arc.apex);
   });
   const r = layout.radius;
   return {
-    bounds: { left: left - r, right: right + r, bottom: -layout.scoopDepth - r, top: top + r },
+    bounds: { left: left - r, right: right + r, bottom: -layout.scoopDepth - r, top: top + r, near: near - r, far: far + r },
     hands: [...hands.values()],
     parts: most,
   };
 }
 
-/** The leftmost and rightmost hand points of a picture of `parts` parts. */
-function span(parts: number, layout: JugglerLayout): [number, number] {
-  const xs = handPlaces(parts, layout).flatMap((h) => [h.catchX, h.throwX]);
-  return [Math.min(...xs), Math.max(...xs)];
+/** The least and greatest x (or z) of every hand point of a picture of `parts` parts. */
+function span(parts: number, layout: JugglerLayout, placement: Placement, axis: 'x' | 'z'): [number, number] {
+  const vs = handPlaces(parts, layout, placement).flatMap((h) => (axis === 'x' ? [h.catchX, h.throwX] : [h.catchZ, h.throwZ]));
+  return [Math.min(...vs), Math.max(...vs)];
 }

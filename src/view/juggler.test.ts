@@ -409,6 +409,8 @@ describe('switches', () => {
       right: layout.catchX[1] + R,
       bottom: -layout.scoopDepth - R,
       top: R,
+      near: -R,
+      far: R,
     });
   });
 });

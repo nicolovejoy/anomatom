@@ -1,0 +1,2194 @@
+{
+ "531": [
+  {
+   "balls": [
+    {
+     "ball": 0,
+     "x": 0.25,
+     "y": 0,
+     "held": null,
+     "progress": 0,
+     "flash": 0,
+     "inhuman": false
+    },
+    {
+     "ball": 1,
+     "x": 0.9,
+     "y": 0,
+     "held": 1,
+     "progress": 0,
+     "flash": 0,
+     "inhuman": false
+    },
+    {
+     "ball": 2,
+     "x": 0,
+     "y": 0,
+     "held": 0,
+     "progress": 0,
+     "flash": 0,
+     "inhuman": false
+    }
+   ],
+   "faults": [],
+   "inhuman": false,
+   "bounds": {
+    "left": -0.035,
+    "right": 0.935,
+    "bottom": -0.115,
+    "top": 1.26125
+   },
+   "hands": [
+    {
+     "part": 0,
+     "catchX": 0,
+     "throwX": 0.25
+    },
+    {
+     "part": 1,
+     "catchX": 0.9,
+     "throwX": 0.65
+    }
+   ],
+   "parts": 2
+  },
+  {
+   "balls": [
+    {
+     "ball": 0,
+     "x": 0.6941666666666666,
+     "y": 1.0613875000000002,
+     "held": null,
+     "progress": 0.5466666666666666,
+     "flash": 0,
+     "inhuman": false
+    },
+    {
+     "ball": 1,
+     "x": 0.08666666666666678,
+     "y": 0.1417000000000002,
+     "held": null,
+     "progress": 0.5777777777777776,
+     "flash": 0,
+     "inhuman": false
+    },
+    {
+     "ball": 2,
+     "x": 0.7833333333333335,
+     "y": -0.009241128030304004,
+     "held": 1,
+     "progress": 0.733333333333333,
+     "flash": 0,
+     "inhuman": false
+    }
+   ],
+   "faults": [],
+   "inhuman": false,
+   "bounds": {
+    "left": -0.035,
+    "right": 0.935,
+    "bottom": -0.115,
+    "top": 1.26125
+   },
+   "hands": [
+    {
+     "part": 0,
+     "catchX": 0,
+     "throwX": 0.25
+    },
+    {
+     "part": 1,
+     "catchX": 0.9,
+     "throwX": 0.65
+    }
+   ],
+   "parts": 2
+  },
+  {
+   "balls": [
+    {
+     "ball": 0,
+     "x": 0.043333333333334334,
+     "y": 0.004768750000000102,
+     "held": null,
+     "progress": 0.4666666666666659,
+     "flash": 0,
+     "inhuman": false
+    },
+    {
+     "ball": 1,
+     "x": 0.7266666666666663,
+     "y": 0.23980000000000024,
+     "held": null,
+     "progress": 0.48888888888888865,
+     "flash": 0,
+     "inhuman": false
+    },
+    {
+     "ball": 2,
+     "x": 0.24916666666666681,
+     "y": 1.1594875000000002,
+     "held": null,
+     "progress": 0.4933333333333332,
+     "flash": 0,
+     "inhuman": false
+    }
+   ],
+   "faults": [],
+   "inhuman": false,
+   "bounds": {
+    "left": -0.035,
+    "right": 0.935,
+    "bottom": -0.115,
+    "top": 1.26125
+   },
+   "hands": [
+    {
+     "part": 0,
+     "catchX": 0,
+     "throwX": 0.25
+    },
+    {
+     "part": 1,
+     "catchX": 0.9,
+     "throwX": 0.65
+    }
+   ],
+   "parts": 2
+  },
+  {
+   "balls": [
+    {
+     "ball": 0,
+     "x": 0.6074999999999999,
+     "y": 1.2139875000000002,
+     "held": null,
+     "progress": 0.43999999999999984,
+     "flash": 0,
+     "inhuman": false
+    },
+    {
+     "ball": 1,
+     "x": 0.26000000000000023,
+     "y": 0.2943000000000001,
+     "held": null,
+     "progress": 0.39999999999999974,
+     "flash": 0,
+     "inhuman": false
+    },
+    {
+     "ball": 2,
+     "x": 0.5099999999999991,
+     "y": 0.01839374999999998,
+     "held": null,
+     "progress": 0.1999999999999993,
+     "flash": 0,
+     "inhuman": false
+    }
+   ],
+   "faults": [],
+   "inhuman": false,
+   "bounds": {
+    "left": -0.035,
+    "right": 0.935,
+    "bottom": -0.115,
+    "top": 1.26125
+   },
+   "hands": [
+    {
+     "part": 0,
+     "catchX": 0,
+     "throwX": 0.25
+    },
+    {
+     "part": 1,
+     "catchX": 0.9,
+     "throwX": 0.65
+    }
+   ],
+   "parts": 2
+  },
+  {
+   "balls": [
+    {
+     "ball": 0,
+     "x": 0.6666666666666671,
+     "y": -0.025305806639989565,
+     "held": 1,
+     "progress": 0.9866666666666664,
+     "flash": 0,
+     "inhuman": false
+    },
+    {
+     "ball": 1,
+     "x": 0.5533333333333328,
+     "y": 0.3051999999999999,
+     "held": null,
+     "progress": 0.3111111111111106,
+     "flash": 0,
+     "inhuman": false
+    },
+    {
+     "ball": 2,
+     "x": 0.3358333333333336,
+     "y": 1.2248875000000001,
+     "held": null,
+     "progress": 0.3866666666666664,
+     "flash": 0,
+     "inhuman": false
+    }
+   ],
+   "faults": [],
+   "inhuman": false,
+   "bounds": {
+    "left": -0.035,
+    "right": 0.935,
+    "bottom": -0.115,
+    "top": 1.26125
+   },
+   "hands": [
+    {
+     "part": 0,
+     "catchX": 0,
+     "throwX": 0.25
+    },
+    {
+     "part": 1,
+     "catchX": 0.9,
+     "throwX": 0.65
+    }
+   ],
+   "parts": 2
+  },
+  {
+   "balls": [
+    {
+     "ball": 0,
+     "x": 0.5208333333333333,
+     "y": 1.1921875,
+     "held": null,
+     "progress": 0.3333333333333332,
+     "flash": 0,
+     "inhuman": false
+    },
+    {
+     "ball": 1,
+     "x": 0.43333333333333357,
+     "y": 0.2724999999999999,
+     "held": null,
+     "progress": 0.22222222222222202,
+     "flash": 0,
+     "inhuman": false
+    },
+    {
+     "ball": 2,
+     "x": 0.16666666666666652,
+     "y": -0.07694083231511964,
+     "held": 0,
+     "progress": 0.9333333333333332,
+     "flash": 0,
+     "inhuman": false
+    }
+   ],
+   "faults": [],
+   "inhuman": false,
+   "bounds": {
+    "left": -0.035,
+    "right": 0.935,
+    "bottom": -0.115,
+    "top": 1.26125
+   },
+   "hands": [
+    {
+     "part": 0,
+     "catchX": 0,
+     "throwX": 0.25
+    },
+    {
+     "part": 1,
+     "catchX": 0.9,
+     "throwX": 0.65
+    }
+   ],
+   "parts": 2
+  },
+  {
+   "balls": [
+    {
+     "ball": 0,
+     "x": 0.8000000000000004,
+     "y": -0.07297351684727069,
+     "held": 1,
+     "progress": 0.8799999999999997,
+     "flash": 0,
+     "inhuman": false
+    },
+    {
+     "ball": 1,
+     "x": 0.37999999999999956,
+     "y": 0.19619999999999949,
+     "held": null,
+     "progress": 0.13333333333333286,
+     "flash": 0,
+     "inhuman": false
+    },
+    {
+     "ball": 2,
+     "x": 0.4225000000000002,
+     "y": 1.1158874999999997,
+     "held": null,
+     "progress": 0.2799999999999997,
+     "flash": 0,
+     "inhuman": false
+    }
+   ],
+   "faults": [],
+   "inhuman": false,
+   "bounds": {
+    "left": -0.035,
+    "right": 0.935,
+    "bottom": -0.115,
+    "top": 1.26125
+   },
+   "hands": [
+    {
+     "part": 0,
+     "catchX": 0,
+     "throwX": 0.25
+    },
+    {
+     "part": 1,
+     "catchX": 0.9,
+     "throwX": 0.65
+    }
+   ],
+   "parts": 2
+  }
+ ],
+ "four parts passing": [
+  {
+   "balls": [
+    {
+     "ball": 0,
+     "x": 0.25,
+     "y": 0,
+     "held": null,
+     "progress": 0,
+     "flash": 0,
+     "inhuman": false
+    },
+    {
+     "ball": 1,
+     "x": 0.9,
+     "y": 0,
+     "held": 1,
+     "progress": 0,
+     "flash": 0,
+     "inhuman": false
+    },
+    {
+     "ball": 2,
+     "x": 1.9,
+     "y": 0,
+     "held": 2,
+     "progress": 0,
+     "flash": 0,
+     "inhuman": false
+    },
+    {
+     "ball": 3,
+     "x": 2.15,
+     "y": 0,
+     "held": null,
+     "progress": 0,
+     "flash": 0,
+     "inhuman": false
+    },
+    {
+     "ball": 4,
+     "x": 2.8,
+     "y": 0,
+     "held": 3,
+     "progress": 0,
+     "flash": 0,
+     "inhuman": false
+    },
+    {
+     "ball": 5,
+     "x": 0,
+     "y": 0,
+     "held": 0,
+     "progress": 0,
+     "flash": 0,
+     "inhuman": false
+    }
+   ],
+   "faults": [],
+   "inhuman": false,
+   "bounds": {
+    "left": -0.035,
+    "right": 2.835,
+    "bottom": -0.115,
+    "top": 0.3415625
+   },
+   "hands": [
+    {
+     "part": 0,
+     "catchX": 0,
+     "throwX": 0.25
+    },
+    {
+     "part": 1,
+     "catchX": 0.9,
+     "throwX": 0.65
+    },
+    {
+     "part": 2,
+     "catchX": 1.9,
+     "throwX": 2.15
+    },
+    {
+     "part": 3,
+     "catchX": 2.8,
+     "throwX": 2.55
+    }
+   ],
+   "parts": 4
+  },
+  {
+   "balls": [
+    {
+     "ball": 0,
+     "x": 0.4766666666666667,
+     "y": 0.23979999999999999,
+     "held": null,
+     "progress": 0.17777777777777773,
+     "flash": 0,
+     "inhuman": false
+    },
+    {
+     "ball": 1,
+     "x": 0.1333333333333333,
+     "y": -0.0796120122849029,
+     "held": 0,
+     "progress": 0.8444444444444444,
+     "flash": 0,
+     "inhuman": false
+    },
+    {
+     "ball": 2,
+     "x": 1.1916666666666667,
+     "y": 0.21936250000000004,
+     "held": null,
+     "progress": 0.5111111111111111,
+     "flash": 0,
+     "inhuman": false
+    },
+    {
+     "ball": 3,
+     "x": 2.3766666666666665,
+     "y": 0.23979999999999999,
+     "held": null,
+     "progress": 0.17777777777777773,
+     "flash": 0,
+     "inhuman": false
+    },
+    {
+     "ball": 4,
+     "x": 2.033333333333333,
+     "y": -0.0796120122849029,
+     "held": 2,
+     "progress": 0.8444444444444444,
+     "flash": 0,
+     "inhuman": false
+    },
+    {
+     "ball": 5,
+     "x": 2.2049999999999996,
+     "y": 0.21936250000000004,
+     "held": null,
+     "progress": 0.5111111111111111,
+     "flash": 0,
+     "inhuman": false
+    }
+   ],
+   "faults": [],
+   "inhuman": false,
+   "bounds": {
+    "left": -0.035,
+    "right": 2.835,
+    "bottom": -0.115,
+    "top": 0.3415625
+   },
+   "hands": [
+    {
+     "part": 0,
+     "catchX": 0,
+     "throwX": 0.25
+    },
+    {
+     "part": 1,
+     "catchX": 0.9,
+     "throwX": 0.65
+    },
+    {
+     "part": 2,
+     "catchX": 1.9,
+     "throwX": 2.15
+    },
+    {
+     "part": 3,
+     "catchX": 2.8,
+     "throwX": 2.55
+    }
+   ],
+   "parts": 4
+  },
+  {
+   "balls": [
+    {
+     "ball": 0,
+     "x": 1.6099999999999997,
+     "y": 0.3052,
+     "held": null,
+     "progress": 0.35555555555555546,
+     "flash": 0,
+     "inhuman": false
+    },
+    {
+     "ball": 1,
+     "x": 0.6283333333333334,
+     "y": 0.03951249999999987,
+     "held": null,
+     "progress": 0.022222222222222143,
+     "flash": 0,
+     "inhuman": false
+    },
+    {
+     "ball": 2,
+     "x": 0.016666666666666607,
+     "y": -0.02501532548517112,
+     "held": 0,
+     "progress": 0.6888888888888888,
+     "flash": 0,
+     "inhuman": false
+    },
+    {
+     "ball": 3,
+     "x": 1.4833333333333334,
+     "y": 0.3052,
+     "held": null,
+     "progress": 0.35555555555555546,
+     "flash": 0,
+     "inhuman": false
+    },
+    {
+     "ball": 4,
+     "x": 2.5283333333333333,
+     "y": 0.03951249999999987,
+     "held": null,
+     "progress": 0.022222222222222143,
+     "flash": 0,
+     "inhuman": false
+    },
+    {
+     "ball": 5,
+     "x": 1.9166666666666665,
+     "y": -0.02501532548517112,
+     "held": 2,
+     "progress": 0.6888888888888888,
+     "flash": 0,
+     "inhuman": false
+    }
+   ],
+   "faults": [],
+   "inhuman": false,
+   "bounds": {
+    "left": -0.035,
+    "right": 2.835,
+    "bottom": -0.115,
+    "top": 0.3415625
+   },
+   "hands": [
+    {
+     "part": 0,
+     "catchX": 0,
+     "throwX": 0.25
+    },
+    {
+     "part": 1,
+     "catchX": 0.9,
+     "throwX": 0.65
+    },
+    {
+     "part": 2,
+     "catchX": 1.9,
+     "throwX": 2.15
+    },
+    {
+     "part": 3,
+     "catchX": 2.8,
+     "throwX": 2.55
+    }
+   ],
+   "parts": 4
+  },
+  {
+   "balls": [
+    {
+     "ball": 0,
+     "x": 2.0300000000000002,
+     "y": 0.19620000000000015,
+     "held": null,
+     "progress": 0.5333333333333332,
+     "flash": 0,
+     "inhuman": false
+    },
+    {
+     "ball": 1,
+     "x": 1.0149999999999995,
+     "y": 0.2575124999999999,
+     "held": null,
+     "progress": 0.19999999999999987,
+     "flash": 0,
+     "inhuman": false
+    },
+    {
+     "ball": 2,
+     "x": 0.7500000000000001,
+     "y": -0.07972706359333377,
+     "held": 1,
+     "progress": 0.8666666666666666,
+     "flash": 0,
+     "inhuman": false
+    },
+    {
+     "ball": 3,
+     "x": 0.13000000000000012,
+     "y": 0.19620000000000015,
+     "held": null,
+     "progress": 0.5333333333333332,
+     "flash": 0,
+     "inhuman": false
+    },
+    {
+     "ball": 4,
+     "x": 1.7750000000000001,
+     "y": 0.2575124999999999,
+     "held": null,
+     "progress": 0.19999999999999987,
+     "flash": 0,
+     "inhuman": false
+    },
+    {
+     "ball": 5,
+     "x": 2.65,
+     "y": -0.07972706359333377,
+     "held": 3,
+     "progress": 0.8666666666666666,
+     "flash": 0,
+     "inhuman": false
+    }
+   ],
+   "faults": [],
+   "inhuman": false,
+   "bounds": {
+    "left": -0.035,
+    "right": 2.835,
+    "bottom": -0.115,
+    "top": 0.3415625
+   },
+   "hands": [
+    {
+     "part": 0,
+     "catchX": 0,
+     "throwX": 0.25
+    },
+    {
+     "part": 1,
+     "catchX": 0.9,
+     "throwX": 0.65
+    },
+    {
+     "part": 2,
+     "catchX": 1.9,
+     "throwX": 2.15
+    },
+    {
+     "part": 3,
+     "catchX": 2.8,
+     "throwX": 2.55
+    }
+   ],
+   "parts": 4
+  },
+  {
+   "balls": [
+    {
+     "ball": 0,
+     "x": 2.7666666666666666,
+     "y": -0.04256555291573325,
+     "held": 3,
+     "progress": 0.7111111111111109,
+     "flash": 0,
+     "inhuman": false
+    },
+    {
+     "ball": 1,
+     "x": 2.1816666666666666,
+     "y": 0.30111250000000006,
+     "held": null,
+     "progress": 0.3777777777777776,
+     "flash": 0,
+     "inhuman": false
+    },
+    {
+     "ball": 2,
+     "x": 0.4199999999999994,
+     "y": 0.07629999999999976,
+     "held": null,
+     "progress": 0.04444444444444429,
+     "flash": 0,
+     "inhuman": false
+    },
+    {
+     "ball": 3,
+     "x": 0.8666666666666668,
+     "y": -0.04256555291573325,
+     "held": 1,
+     "progress": 0.7111111111111109,
+     "flash": 0,
+     "inhuman": false
+    },
+    {
+     "ball": 4,
+     "x": 0.28166666666666684,
+     "y": 0.30111250000000006,
+     "held": null,
+     "progress": 0.3777777777777776,
+     "flash": 0,
+     "inhuman": false
+    },
+    {
+     "ball": 5,
+     "x": 2.066666666666667,
+     "y": 0.07629999999999976,
+     "held": null,
+     "progress": 0.04444444444444429,
+     "flash": 0,
+     "inhuman": false
+    }
+   ],
+   "faults": [],
+   "inhuman": false,
+   "bounds": {
+    "left": -0.035,
+    "right": 2.835,
+    "bottom": -0.115,
+    "top": 0.3415625
+   },
+   "hands": [
+    {
+     "part": 0,
+     "catchX": 0,
+     "throwX": 0.25
+    },
+    {
+     "part": 1,
+     "catchX": 0.9,
+     "throwX": 0.65
+    },
+    {
+     "part": 2,
+     "catchX": 1.9,
+     "throwX": 2.15
+    },
+    {
+     "part": 3,
+     "catchX": 2.8,
+     "throwX": 2.55
+    }
+   ],
+   "parts": 4
+  },
+  {
+   "balls": [
+    {
+     "ball": 0,
+     "x": 2.066666666666667,
+     "y": -0.07694083231511951,
+     "held": 2,
+     "progress": 0.8888888888888893,
+     "flash": 0,
+     "inhuman": false
+    },
+    {
+     "ball": 1,
+     "x": 2.691666666666667,
+     "y": 0.17031249999999953,
+     "held": null,
+     "progress": 0.5555555555555559,
+     "flash": 0,
+     "inhuman": false
+    },
+    {
+     "ball": 2,
+     "x": 2.3333333333333326,
+     "y": 0.27250000000000024,
+     "held": null,
+     "progress": 0.22222222222222263,
+     "flash": 0,
+     "inhuman": false
+    },
+    {
+     "ball": 3,
+     "x": 0.16666666666666696,
+     "y": -0.07694083231511951,
+     "held": 0,
+     "progress": 0.8888888888888893,
+     "flash": 0,
+     "inhuman": false
+    },
+    {
+     "ball": 4,
+     "x": 0.7916666666666671,
+     "y": 0.17031249999999953,
+     "held": null,
+     "progress": 0.5555555555555559,
+     "flash": 0,
+     "inhuman": false
+    },
+    {
+     "ball": 5,
+     "x": 0.43333333333333296,
+     "y": 0.27250000000000024,
+     "held": null,
+     "progress": 0.22222222222222263,
+     "flash": 0,
+     "inhuman": false
+    }
+   ],
+   "faults": [],
+   "inhuman": false,
+   "bounds": {
+    "left": -0.035,
+    "right": 2.835,
+    "bottom": -0.115,
+    "top": 0.3415625
+   },
+   "hands": [
+    {
+     "part": 0,
+     "catchX": 0,
+     "throwX": 0.25
+    },
+    {
+     "part": 1,
+     "catchX": 0.9,
+     "throwX": 0.65
+    },
+    {
+     "part": 2,
+     "catchX": 1.9,
+     "throwX": 2.15
+    },
+    {
+     "part": 3,
+     "catchX": 2.8,
+     "throwX": 2.55
+    }
+   ],
+   "parts": 4
+  },
+  {
+   "balls": [
+    {
+     "ball": 0,
+     "x": 0.5850000000000003,
+     "y": 0.11036249999999966,
+     "held": null,
+     "progress": 0.06666666666666643,
+     "flash": 0,
+     "inhuman": false
+    },
+    {
+     "ball": 1,
+     "x": 1.9499999999999997,
+     "y": -0.05396858100973777,
+     "held": 2,
+     "progress": 0.7333333333333331,
+     "flash": 0,
+     "inhuman": false
+    },
+    {
+     "ball": 2,
+     "x": 2.5399999999999996,
+     "y": 0.2943000000000001,
+     "held": null,
+     "progress": 0.39999999999999974,
+     "flash": 0,
+     "inhuman": false
+    },
+    {
+     "ball": 3,
+     "x": 2.485,
+     "y": 0.11036249999999966,
+     "held": null,
+     "progress": 0.06666666666666643,
+     "flash": 0,
+     "inhuman": false
+    },
+    {
+     "ball": 4,
+     "x": 0.04999999999999982,
+     "y": -0.05396858100973777,
+     "held": 0,
+     "progress": 0.7333333333333331,
+     "flash": 0,
+     "inhuman": false
+    },
+    {
+     "ball": 5,
+     "x": 0.6399999999999998,
+     "y": 0.2943000000000001,
+     "held": null,
+     "progress": 0.39999999999999974,
+     "flash": 0,
+     "inhuman": false
+    }
+   ],
+   "faults": [],
+   "inhuman": false,
+   "bounds": {
+    "left": -0.035,
+    "right": 2.835,
+    "bottom": -0.115,
+    "top": 0.3415625
+   },
+   "hands": [
+    {
+     "part": 0,
+     "catchX": 0,
+     "throwX": 0.25
+    },
+    {
+     "part": 1,
+     "catchX": 0.9,
+     "throwX": 0.65
+    },
+    {
+     "part": 2,
+     "catchX": 1.9,
+     "throwX": 2.15
+    },
+    {
+     "part": 3,
+     "catchX": 2.8,
+     "throwX": 2.55
+    }
+   ],
+   "parts": 4
+  }
+ ],
+ "three parts round a ring": [
+  {
+   "balls": [
+    {
+     "ball": 0,
+     "x": 0.25,
+     "y": 0,
+     "held": null,
+     "progress": 0,
+     "flash": 0,
+     "inhuman": false
+    },
+    {
+     "ball": 1,
+     "x": 2.475,
+     "y": 0,
+     "held": null,
+     "progress": 0,
+     "flash": 0,
+     "inhuman": false
+    },
+    {
+     "ball": 2,
+     "x": 0.65,
+     "y": 0,
+     "held": null,
+     "progress": 0,
+     "flash": 0,
+     "inhuman": false
+    }
+   ],
+   "faults": [],
+   "inhuman": false,
+   "bounds": {
+    "left": -0.035,
+    "right": 2.5100000000000002,
+    "bottom": -0.115,
+    "top": 0.05416015625000001
+   },
+   "hands": [
+    {
+     "part": 0,
+     "catchX": 0,
+     "throwX": 0.25
+    },
+    {
+     "part": 1,
+     "catchX": 0.9,
+     "throwX": 0.65
+    },
+    {
+     "part": 2,
+     "catchX": 2.225,
+     "throwX": 2.475
+    }
+   ],
+   "parts": 3
+  },
+  {
+   "balls": [
+    {
+     "ball": 0,
+     "x": 0.050000000000000044,
+     "y": -0.006462790279608504,
+     "held": 0,
+     "progress": 0.6000000000000001,
+     "flash": 0.3999999999999999,
+     "inhuman": false
+    },
+    {
+     "ball": 1,
+     "x": 2.2750000000000004,
+     "y": -0.006462790279608504,
+     "held": 2,
+     "progress": 0.6000000000000001,
+     "flash": 0.3999999999999999,
+     "inhuman": false
+    },
+    {
+     "ball": 2,
+     "x": 0.85,
+     "y": -0.006462790279608504,
+     "held": 1,
+     "progress": 0.6000000000000001,
+     "flash": 0.3999999999999999,
+     "inhuman": false
+    }
+   ],
+   "faults": [],
+   "inhuman": false,
+   "bounds": {
+    "left": -0.035,
+    "right": 2.5100000000000002,
+    "bottom": -0.115,
+    "top": 0.05416015625000001
+   },
+   "hands": [
+    {
+     "part": 0,
+     "catchX": 0,
+     "throwX": 0.25
+    },
+    {
+     "part": 1,
+     "catchX": 0.9,
+     "throwX": 0.65
+    },
+    {
+     "part": 2,
+     "catchX": 2.225,
+     "throwX": 2.475
+    }
+   ],
+   "parts": 3
+  },
+  {
+   "balls": [
+    {
+     "ball": 0,
+     "x": 1.4849999999999992,
+     "y": 0.018393750000000004,
+     "held": null,
+     "progress": 0.20000000000000018,
+     "flash": 0.7999999999999998,
+     "inhuman": false
+    },
+    {
+     "ball": 1,
+     "x": 1.2800000000000007,
+     "y": 0.018393750000000004,
+     "held": null,
+     "progress": 0.20000000000000018,
+     "flash": 0.7999999999999998,
+     "inhuman": false
+    },
+    {
+     "ball": 2,
+     "x": 0.5100000000000002,
+     "y": 0.018393750000000004,
+     "held": null,
+     "progress": 0.20000000000000018,
+     "flash": 0.7999999999999998,
+     "inhuman": false
+    }
+   ],
+   "faults": [],
+   "inhuman": false,
+   "bounds": {
+    "left": -0.035,
+    "right": 2.5100000000000002,
+    "bottom": -0.115,
+    "top": 0.05416015625000001
+   },
+   "hands": [
+    {
+     "part": 0,
+     "catchX": 0,
+     "throwX": 0.25
+    },
+    {
+     "part": 1,
+     "catchX": 0.9,
+     "throwX": 0.65
+    },
+    {
+     "part": 2,
+     "catchX": 2.225,
+     "throwX": 2.475
+    }
+   ],
+   "parts": 3
+  },
+  {
+   "balls": [
+    {
+     "ball": 0,
+     "x": 2.375,
+     "y": -0.00954739372376226,
+     "held": 2,
+     "progress": 0.7999999999999998,
+     "flash": 0.5999999999999996,
+     "inhuman": false
+    },
+    {
+     "ball": 1,
+     "x": 0.7500000000000001,
+     "y": -0.00954739372376226,
+     "held": 1,
+     "progress": 0.7999999999999998,
+     "flash": 0.5999999999999996,
+     "inhuman": false
+    },
+    {
+     "ball": 2,
+     "x": 0.1499999999999999,
+     "y": -0.00954739372376226,
+     "held": 0,
+     "progress": 0.7999999999999998,
+     "flash": 0.5999999999999996,
+     "inhuman": false
+    }
+   ],
+   "faults": [],
+   "inhuman": false,
+   "bounds": {
+    "left": -0.035,
+    "right": 2.5100000000000002,
+    "bottom": -0.115,
+    "top": 0.05416015625000001
+   },
+   "hands": [
+    {
+     "part": 0,
+     "catchX": 0,
+     "throwX": 0.25
+    },
+    {
+     "part": 1,
+     "catchX": 0.9,
+     "throwX": 0.65
+    },
+    {
+     "part": 2,
+     "catchX": 2.225,
+     "throwX": 2.475
+    }
+   ],
+   "parts": 3
+  },
+  {
+   "balls": [
+    {
+     "ball": 0,
+     "x": 1.9100000000000015,
+     "y": 0.012262499999999968,
+     "held": null,
+     "progress": 0.40000000000000036,
+     "flash": 0.5999999999999996,
+     "inhuman": false
+    },
+    {
+     "ball": 1,
+     "x": 0.7700000000000005,
+     "y": 0.012262499999999968,
+     "held": null,
+     "progress": 0.40000000000000036,
+     "flash": 0.5999999999999996,
+     "inhuman": false
+    },
+    {
+     "ball": 2,
+     "x": 0.49499999999999833,
+     "y": 0.012262499999999968,
+     "held": null,
+     "progress": 0.40000000000000036,
+     "flash": 0.5999999999999996,
+     "inhuman": false
+    }
+   ],
+   "faults": [],
+   "inhuman": false,
+   "bounds": {
+    "left": -0.035,
+    "right": 2.5100000000000002,
+    "bottom": -0.115,
+    "top": 0.05416015625000001
+   },
+   "hands": [
+    {
+     "part": 0,
+     "catchX": 0,
+     "throwX": 0.25
+    },
+    {
+     "part": 1,
+     "catchX": 0.9,
+     "throwX": 0.65
+    },
+    {
+     "part": 2,
+     "catchX": 2.225,
+     "throwX": 2.475
+    }
+   ],
+   "parts": 3
+  },
+  {
+   "balls": [
+    {
+     "ball": 0,
+     "x": 0.65,
+     "y": 0,
+     "held": null,
+     "progress": 0,
+     "flash": 1,
+     "inhuman": false
+    },
+    {
+     "ball": 1,
+     "x": 0.25,
+     "y": 0,
+     "held": null,
+     "progress": 0,
+     "flash": 1,
+     "inhuman": false
+    },
+    {
+     "ball": 2,
+     "x": 2.475,
+     "y": 0,
+     "held": null,
+     "progress": 0,
+     "flash": 1,
+     "inhuman": false
+    }
+   ],
+   "faults": [],
+   "inhuman": false,
+   "bounds": {
+    "left": -0.035,
+    "right": 2.5100000000000002,
+    "bottom": -0.115,
+    "top": 0.05416015625000001
+   },
+   "hands": [
+    {
+     "part": 0,
+     "catchX": 0,
+     "throwX": 0.25
+    },
+    {
+     "part": 1,
+     "catchX": 0.9,
+     "throwX": 0.65
+    },
+    {
+     "part": 2,
+     "catchX": 2.225,
+     "throwX": 2.475
+    }
+   ],
+   "parts": 3
+  },
+  {
+   "balls": [
+    {
+     "ball": 0,
+     "x": 0.8500000000000002,
+     "y": -0.00646279027960849,
+     "held": 1,
+     "progress": 0.5999999999999996,
+     "flash": 0.40000000000000036,
+     "inhuman": false
+    },
+    {
+     "ball": 1,
+     "x": 0.04999999999999982,
+     "y": -0.00646279027960849,
+     "held": 0,
+     "progress": 0.5999999999999996,
+     "flash": 0.40000000000000036,
+     "inhuman": false
+    },
+    {
+     "ball": 2,
+     "x": 2.275,
+     "y": -0.00646279027960849,
+     "held": 2,
+     "progress": 0.5999999999999996,
+     "flash": 0.40000000000000036,
+     "inhuman": false
+    }
+   ],
+   "faults": [],
+   "inhuman": false,
+   "bounds": {
+    "left": -0.035,
+    "right": 2.5100000000000002,
+    "bottom": -0.115,
+    "top": 0.05416015625000001
+   },
+   "hands": [
+    {
+     "part": 0,
+     "catchX": 0,
+     "throwX": 0.25
+    },
+    {
+     "part": 1,
+     "catchX": 0.9,
+     "throwX": 0.65
+    },
+    {
+     "part": 2,
+     "catchX": 2.225,
+     "throwX": 2.475
+    }
+   ],
+   "parts": 3
+  }
+ ],
+ "a switch from two parts to four": [
+  {
+   "balls": [
+    {
+     "ball": 0,
+     "x": 0.325,
+     "y": 0.3065625,
+     "held": null,
+     "progress": 0.3333333333333333,
+     "flash": 0,
+     "inhuman": false
+    },
+    {
+     "ball": 1,
+     "x": 0.9,
+     "y": 0,
+     "held": 1,
+     "progress": 0.6666666666666666,
+     "flash": 0,
+     "inhuman": false
+    },
+    {
+     "ball": 2,
+     "x": 0.25,
+     "y": 0,
+     "held": null,
+     "progress": 0,
+     "flash": 0,
+     "inhuman": false
+    }
+   ],
+   "faults": [],
+   "inhuman": false,
+   "bounds": {
+    "left": -0.035,
+    "right": 0.935,
+    "bottom": -0.115,
+    "top": 0.3415625
+   },
+   "hands": [
+    {
+     "part": 0,
+     "catchX": 0,
+     "throwX": 0.25
+    },
+    {
+     "part": 1,
+     "catchX": 0.9,
+     "throwX": 0.65
+    }
+   ],
+   "parts": 2
+  },
+  {
+   "balls": [
+    {
+     "ball": 0,
+     "x": 0.0625,
+     "y": -0.0598891880589016,
+     "held": 0,
+     "progress": 0.75,
+     "flash": 0,
+     "inhuman": false
+    },
+    {
+     "ball": 1,
+     "x": 0.56875,
+     "y": 0.13412109375,
+     "held": null,
+     "progress": 0.08333333333333333,
+     "flash": 0,
+     "inhuman": false
+    },
+    {
+     "ball": 2,
+     "x": 0.65625,
+     "y": 0.28740234375,
+     "held": null,
+     "progress": 0.4166666666666667,
+     "flash": 0,
+     "inhuman": false
+    }
+   ],
+   "faults": [],
+   "inhuman": false,
+   "bounds": {
+    "left": -0.035,
+    "right": 1.0933333333333333,
+    "bottom": -0.115,
+    "top": 0.3415625
+   },
+   "hands": [
+    {
+     "part": 0,
+     "catchX": 0,
+     "throwX": 0.25
+    },
+    {
+     "part": 1,
+     "catchX": 0.9,
+     "throwX": 0.65
+    },
+    {
+     "part": 2,
+     "catchX": 1.9,
+     "throwX": 2.15
+    },
+    {
+     "part": 3,
+     "catchX": 2.8,
+     "throwX": 2.55
+    }
+   ],
+   "parts": 4
+  },
+  {
+   "balls": [
+    {
+     "ball": 0,
+     "x": 0.4125,
+     "y": 0.229921875,
+     "held": null,
+     "progress": 0.16666666666666666,
+     "flash": 0,
+     "inhuman": false
+    },
+    {
+     "ball": 1,
+     "x": 0.16249999999999998,
+     "y": 0.229921875,
+     "held": null,
+     "progress": 0.5,
+     "flash": 0,
+     "inhuman": false
+    },
+    {
+     "ball": 2,
+     "x": 0.775,
+     "y": -0.07864583807781783,
+     "held": 1,
+     "progress": 0.8333333333333334,
+     "flash": 0,
+     "inhuman": false
+    }
+   ],
+   "faults": [],
+   "inhuman": false,
+   "bounds": {
+    "left": -0.035,
+    "right": 1.885,
+    "bottom": -0.115,
+    "top": 0.3415625
+   },
+   "hands": [
+    {
+     "part": 0,
+     "catchX": 0,
+     "throwX": 0.25
+    },
+    {
+     "part": 1,
+     "catchX": 0.9,
+     "throwX": 0.65
+    },
+    {
+     "part": 2,
+     "catchX": 1.9,
+     "throwX": 2.15
+    },
+    {
+     "part": 3,
+     "catchX": 2.8,
+     "throwX": 2.55
+    }
+   ],
+   "parts": 4
+  },
+  {
+   "balls": [
+    {
+     "ball": 0,
+     "x": 0.81875,
+     "y": 0.13412109375,
+     "held": null,
+     "progress": 0.5833333333333334,
+     "flash": 0,
+     "inhuman": false
+    },
+    {
+     "ball": 2,
+     "x": 0.40625,
+     "y": 0.28740234375,
+     "held": null,
+     "progress": 0.25,
+     "flash": 0,
+     "inhuman": false
+    }
+   ],
+   "faults": [],
+   "inhuman": false,
+   "bounds": {
+    "left": -0.035,
+    "right": 2.6766666666666667,
+    "bottom": -0.115,
+    "top": 0.3415625
+   },
+   "hands": [
+    {
+     "part": 0,
+     "catchX": 0,
+     "throwX": 0.25
+    },
+    {
+     "part": 1,
+     "catchX": 0.9,
+     "throwX": 0.65
+    },
+    {
+     "part": 2,
+     "catchX": 1.9,
+     "throwX": 2.15
+    },
+    {
+     "part": 3,
+     "catchX": 2.8,
+     "throwX": 2.55
+    }
+   ],
+   "parts": 4
+  },
+  {
+   "balls": [
+    {
+     "ball": 3,
+     "x": 0.575,
+     "y": 0.3065625,
+     "held": null,
+     "progress": 0.3333333333333333,
+     "flash": 0,
+     "inhuman": false
+    },
+    {
+     "ball": 4,
+     "x": 0.65,
+     "y": 0,
+     "held": null,
+     "progress": 0,
+     "flash": 0,
+     "inhuman": false
+    },
+    {
+     "ball": 5,
+     "x": 1.9,
+     "y": 0,
+     "held": 2,
+     "progress": 0,
+     "flash": 0,
+     "inhuman": false
+    },
+    {
+     "ball": 6,
+     "x": 2.4749999999999996,
+     "y": 0.3065625,
+     "held": null,
+     "progress": 0.3333333333333333,
+     "flash": 0,
+     "inhuman": false
+    },
+    {
+     "ball": 7,
+     "x": 2.55,
+     "y": 0,
+     "held": null,
+     "progress": 0,
+     "flash": 0,
+     "inhuman": false
+    },
+    {
+     "ball": 8,
+     "x": 0,
+     "y": 0,
+     "held": 0,
+     "progress": 0,
+     "flash": 0,
+     "inhuman": false
+    }
+   ],
+   "faults": [],
+   "inhuman": false,
+   "bounds": {
+    "left": -0.035,
+    "right": 2.835,
+    "bottom": -0.115,
+    "top": 0.3415625
+   },
+   "hands": [
+    {
+     "part": 0,
+     "catchX": 0,
+     "throwX": 0.25
+    },
+    {
+     "part": 1,
+     "catchX": 0.9,
+     "throwX": 0.65
+    },
+    {
+     "part": 2,
+     "catchX": 1.9,
+     "throwX": 2.15
+    },
+    {
+     "part": 3,
+     "catchX": 2.8,
+     "throwX": 2.55
+    }
+   ],
+   "parts": 4
+  },
+  {
+   "balls": [
+    {
+     "ball": 3,
+     "x": 0.8375,
+     "y": -0.0598891880589016,
+     "held": 1,
+     "progress": 0.75,
+     "flash": 0,
+     "inhuman": false
+    },
+    {
+     "ball": 4,
+     "x": 0.24375000000000002,
+     "y": 0.28740234375,
+     "held": null,
+     "progress": 0.4166666666666667,
+     "flash": 0,
+     "inhuman": false
+    },
+    {
+     "ball": 5,
+     "x": 1.99375,
+     "y": 0.13412109375,
+     "held": null,
+     "progress": 0.08333333333333333,
+     "flash": 0,
+     "inhuman": false
+    },
+    {
+     "ball": 6,
+     "x": 2.7375,
+     "y": -0.0598891880589016,
+     "held": 3,
+     "progress": 0.75,
+     "flash": 0,
+     "inhuman": false
+    },
+    {
+     "ball": 7,
+     "x": 2.14375,
+     "y": 0.28740234375,
+     "held": null,
+     "progress": 0.4166666666666667,
+     "flash": 0,
+     "inhuman": false
+    },
+    {
+     "ball": 8,
+     "x": 0.56875,
+     "y": 0.13412109375,
+     "held": null,
+     "progress": 0.08333333333333333,
+     "flash": 0,
+     "inhuman": false
+    }
+   ],
+   "faults": [],
+   "inhuman": false,
+   "bounds": {
+    "left": -0.035,
+    "right": 2.835,
+    "bottom": -0.115,
+    "top": 0.3415625
+   },
+   "hands": [
+    {
+     "part": 0,
+     "catchX": 0,
+     "throwX": 0.25
+    },
+    {
+     "part": 1,
+     "catchX": 0.9,
+     "throwX": 0.65
+    },
+    {
+     "part": 2,
+     "catchX": 1.9,
+     "throwX": 2.15
+    },
+    {
+     "part": 3,
+     "catchX": 2.8,
+     "throwX": 2.55
+    }
+   ],
+   "parts": 4
+  },
+  {
+   "balls": [
+    {
+     "ball": 3,
+     "x": 0.48750000000000004,
+     "y": 0.229921875,
+     "held": null,
+     "progress": 0.16666666666666666,
+     "flash": 0,
+     "inhuman": false
+    },
+    {
+     "ball": 4,
+     "x": 0.125,
+     "y": -0.07864583807781783,
+     "held": 0,
+     "progress": 0.8333333333333334,
+     "flash": 0,
+     "inhuman": false
+    },
+    {
+     "ball": 5,
+     "x": 1.2125,
+     "y": 0.229921875,
+     "held": null,
+     "progress": 0.5,
+     "flash": 0,
+     "inhuman": false
+    },
+    {
+     "ball": 6,
+     "x": 2.3874999999999997,
+     "y": 0.229921875,
+     "held": null,
+     "progress": 0.16666666666666666,
+     "flash": 0,
+     "inhuman": false
+    },
+    {
+     "ball": 7,
+     "x": 2.025,
+     "y": -0.07864583807781783,
+     "held": 2,
+     "progress": 0.8333333333333334,
+     "flash": 0,
+     "inhuman": false
+    },
+    {
+     "ball": 8,
+     "x": 2.1624999999999996,
+     "y": 0.229921875,
+     "held": null,
+     "progress": 0.5,
+     "flash": 0,
+     "inhuman": false
+    }
+   ],
+   "faults": [],
+   "inhuman": false,
+   "bounds": {
+    "left": -0.035,
+    "right": 2.835,
+    "bottom": -0.115,
+    "top": 0.3415625
+   },
+   "hands": [
+    {
+     "part": 0,
+     "catchX": 0,
+     "throwX": 0.25
+    },
+    {
+     "part": 1,
+     "catchX": 0.9,
+     "throwX": 0.65
+    },
+    {
+     "part": 2,
+     "catchX": 1.9,
+     "throwX": 2.15
+    },
+    {
+     "part": 3,
+     "catchX": 2.8,
+     "throwX": 2.55
+    }
+   ],
+   "parts": 4
+  },
+  {
+   "balls": [
+    {
+     "ball": 3,
+     "x": 0.08125000000000004,
+     "y": 0.13412109375,
+     "held": null,
+     "progress": 0.5833333333333334,
+     "flash": 0,
+     "inhuman": false
+    },
+    {
+     "ball": 4,
+     "x": 0.49375,
+     "y": 0.28740234375,
+     "held": null,
+     "progress": 0.25,
+     "flash": 0,
+     "inhuman": false
+    },
+    {
+     "ball": 5,
+     "x": 0.7125,
+     "y": -0.06850386904641136,
+     "held": 1,
+     "progress": 0.9166666666666666,
+     "flash": 0,
+     "inhuman": false
+    },
+    {
+     "ball": 6,
+     "x": 1.98125,
+     "y": 0.13412109375,
+     "held": null,
+     "progress": 0.5833333333333334,
+     "flash": 0,
+     "inhuman": false
+    },
+    {
+     "ball": 7,
+     "x": 2.39375,
+     "y": 0.28740234375,
+     "held": null,
+     "progress": 0.25,
+     "flash": 0,
+     "inhuman": false
+    },
+    {
+     "ball": 8,
+     "x": 2.6125,
+     "y": -0.06850386904641136,
+     "held": 3,
+     "progress": 0.9166666666666666,
+     "flash": 0,
+     "inhuman": false
+    }
+   ],
+   "faults": [],
+   "inhuman": false,
+   "bounds": {
+    "left": -0.035,
+    "right": 2.835,
+    "bottom": -0.115,
+    "top": 0.3415625
+   },
+   "hands": [
+    {
+     "part": 0,
+     "catchX": 0,
+     "throwX": 0.25
+    },
+    {
+     "part": 1,
+     "catchX": 0.9,
+     "throwX": 0.65
+    },
+    {
+     "part": 2,
+     "catchX": 1.9,
+     "throwX": 2.15
+    },
+    {
+     "part": 3,
+     "catchX": 2.8,
+     "throwX": 2.55
+    }
+   ],
+   "parts": 4
+  },
+  {
+   "balls": [
+    {
+     "ball": 3,
+     "x": 0.25,
+     "y": 0,
+     "held": null,
+     "progress": 0,
+     "flash": 0,
+     "inhuman": false
+    },
+    {
+     "ball": 4,
+     "x": 0.9,
+     "y": 0,
+     "held": 1,
+     "progress": 0.6666666666666666,
+     "flash": 0,
+     "inhuman": false
+    },
+    {
+     "ball": 5,
+     "x": 0.325,
+     "y": 0.3065625,
+     "held": null,
+     "progress": 0.3333333333333333,
+     "flash": 0,
+     "inhuman": false
+    },
+    {
+     "ball": 6,
+     "x": 2.15,
+     "y": 0,
+     "held": null,
+     "progress": 0,
+     "flash": 0,
+     "inhuman": false
+    },
+    {
+     "ball": 7,
+     "x": 2.8,
+     "y": 0,
+     "held": 3,
+     "progress": 0.6666666666666666,
+     "flash": 0,
+     "inhuman": false
+    },
+    {
+     "ball": 8,
+     "x": 2.2249999999999996,
+     "y": 0.3065625,
+     "held": null,
+     "progress": 0.3333333333333333,
+     "flash": 0,
+     "inhuman": false
+    }
+   ],
+   "faults": [],
+   "inhuman": false,
+   "bounds": {
+    "left": -0.035,
+    "right": 2.835,
+    "bottom": -0.115,
+    "top": 0.3415625
+   },
+   "hands": [
+    {
+     "part": 0,
+     "catchX": 0,
+     "throwX": 0.25
+    },
+    {
+     "part": 1,
+     "catchX": 0.9,
+     "throwX": 0.65
+    },
+    {
+     "part": 2,
+     "catchX": 1.9,
+     "throwX": 2.15
+    },
+    {
+     "part": 3,
+     "catchX": 2.8,
+     "throwX": 2.55
+    }
+   ],
+   "parts": 4
+  }
+ ],
+ "432, faulted": [
+  {
+   "balls": [],
+   "faults": [
+    {
+     "x0": 0.25,
+     "x1": 0,
+     "apex": 0.6897656249999999,
+     "inhuman": false
+    },
+    {
+     "x0": 0.65,
+     "x1": 0,
+     "apex": 0.3065625,
+     "inhuman": false
+    },
+    {
+     "x0": 0.25,
+     "x1": 0,
+     "apex": 0.076640625,
+     "inhuman": false
+    },
+    {
+     "x0": 0.65,
+     "x1": 0.9,
+     "apex": 0.6897656249999999,
+     "inhuman": false
+    },
+    {
+     "x0": 0.25,
+     "x1": 0.9,
+     "apex": 0.3065625,
+     "inhuman": false
+    },
+    {
+     "x0": 0.65,
+     "x1": 0.9,
+     "apex": 0.076640625,
+     "inhuman": false
+    }
+   ],
+   "inhuman": false,
+   "bounds": {
+    "left": -0.035,
+    "right": 0.935,
+    "bottom": -0.115,
+    "top": 0.724765625
+   },
+   "hands": [
+    {
+     "part": 0,
+     "catchX": 0,
+     "throwX": 0.25
+    },
+    {
+     "part": 1,
+     "catchX": 0.9,
+     "throwX": 0.65
+    }
+   ],
+   "parts": 2
+  },
+  {
+   "balls": [],
+   "faults": [
+    {
+     "x0": 0.25,
+     "x1": 0,
+     "apex": 0.6897656249999999,
+     "inhuman": false
+    },
+    {
+     "x0": 0.65,
+     "x1": 0,
+     "apex": 0.3065625,
+     "inhuman": false
+    },
+    {
+     "x0": 0.25,
+     "x1": 0,
+     "apex": 0.076640625,
+     "inhuman": false
+    },
+    {
+     "x0": 0.65,
+     "x1": 0.9,
+     "apex": 0.6897656249999999,
+     "inhuman": false
+    },
+    {
+     "x0": 0.25,
+     "x1": 0.9,
+     "apex": 0.3065625,
+     "inhuman": false
+    },
+    {
+     "x0": 0.65,
+     "x1": 0.9,
+     "apex": 0.076640625,
+     "inhuman": false
+    }
+   ],
+   "inhuman": false,
+   "bounds": {
+    "left": -0.035,
+    "right": 0.935,
+    "bottom": -0.115,
+    "top": 0.724765625
+   },
+   "hands": [
+    {
+     "part": 0,
+     "catchX": 0,
+     "throwX": 0.25
+    },
+    {
+     "part": 1,
+     "catchX": 0.9,
+     "throwX": 0.65
+    }
+   ],
+   "parts": 2
+  }
+ ]
+}
