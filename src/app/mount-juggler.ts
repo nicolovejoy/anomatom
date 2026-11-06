@@ -1,52 +1,159 @@
-// The juggler region (SPEC §4.1), above the ladder: one canvas, drawn every frame from the
-// player view, and the "not a human throw" label (SPEC §4.1 v2) over it while such a flight is
-// in the air. A faulted group's flights come from the model (`flightsOf` of the parts each
-// derived schedule was built from), since the Schedule keeps only stand-in flights for them.
+// The juggler region (SPEC §4.1), above the ladder, drawn every frame from the player view, and
+// the "not a human throw" label (SPEC §4.1 v2) over it while such a flight is in the air. A
+// faulted group's flights come from the model (`flightsOf` of the parts each derived schedule
+// was built from), since the Schedule keeps only stand-in flights for them.
+//
+// Two views (v6.8 T1): the 2D canvas (today's front view, `juggler-canvas.ts`) draws the first
+// paint; right after, three.js loads in its own chunk and, once a WebGL context is made, the 3D
+// canvas takes the region. If the import fails, no context can be made, or the context is lost
+// later, the 2D view shows and stays, unannounced. A small button on the stage switches between
+// them; the choice is UI state only, never in the link and never stored. The region's
+// `data-view` says which view shows, for the browser tests.
 import { figureSpans } from '../view/juggler';
 import { flightsOf } from '../core';
 import type { Flight, Schedule } from '../core';
 import { JUGGLER } from '../tunables';
 import { copy } from '../ui/copy';
 import { jugglerFrame } from '../view/juggler';
+import { captions, describeScene } from '../view/scene3d';
 import { drawJuggler } from './juggler-canvas';
+import type { Juggler3D } from './juggler-3d.browser';
 import type { Mount } from './mount';
 import './juggler.css';
+
+type View = '2d' | '3d';
 
 export const mountJuggler: Mount = (root, { store }) => {
   const canvas = document.createElement('canvas');
   canvas.className = 'juggler';
   canvas.setAttribute('role', 'img');
+  // The 3D view's captions sit under its (transparent) canvas, so balls and bodies draw over them.
+  const labels = document.createElement('div');
+  labels.className = 'juggler-captions';
+  labels.setAttribute('aria-hidden', 'true');
+  labels.hidden = true;
+  labels.style.background = JUGGLER.background;
   const note = document.createElement('p');
   note.className = 'juggler-note';
   note.textContent = copy.notHumanThrow(JUGGLER.humanAirtimeSeconds);
   note.hidden = true;
-  root.append(canvas, note);
+  const toggle = document.createElement('button');
+  toggle.type = 'button';
+  toggle.className = 'juggler-switch';
+  toggle.hidden = true;
+  root.append(labels, canvas, note, toggle);
+
+  // The reader's choice (3D unless they switched) and the 3D view, once it exists.
+  let wanted: View = '3d';
+  let three: Juggler3D | null = null;
+  const shown = (): View => (three && wanted === '3d' ? '3d' : '2d');
+  const show = () => {
+    const view = shown();
+    root.dataset.view = view;
+    canvas.hidden = view === '3d';
+    if (three) {
+      three.canvas.hidden = view === '2d';
+      three.invalidate();
+    }
+    labels.hidden = view === '2d';
+    toggle.hidden = three === null;
+    const other: View = view === '3d' ? '2d' : '3d';
+    toggle.textContent = copy.viewSwitch.text[other];
+    toggle.setAttribute('aria-label', copy.viewSwitch.label[other]);
+  };
+  show();
+  toggle.addEventListener('click', () => {
+    wanted = shown() === '3d' ? '2d' : '3d';
+    show();
+  });
 
   // Every schedule the store has derived, with the flights of its parts.
   const flights = new WeakMap<Schedule, readonly Flight[]>();
+  let label = '';
   const remember = () => {
     const { schedule } = store.derived();
     const { parts } = store.get();
     if (!flights.has(schedule)) flights.set(schedule, flightsOf(parts));
-    const label = parts.length > 2 ? copy.jugglersLabel(parts.length) : copy.jugglerLabel;
-    if (canvas.getAttribute('aria-label') !== label) canvas.setAttribute('aria-label', label);
+    label = parts.length > 2 ? copy.jugglersLabel(parts.length) : copy.jugglerLabel;
+    for (const c of [canvas, three?.canvas]) if (c && c.getAttribute('aria-label') !== label) c.setAttribute('aria-label', label);
   };
   remember();
   store.subscribe(remember);
 
+  // three.js, after the first paint: any failure leaves the 2D view, with no message.
+  // Test hook: `data-three` is "loading" until the 3D view exists ("ready") or never will ("none").
+  root.dataset.three = 'loading';
+  let loading = false;
+  const load = () => {
+    import('./juggler-3d.browser')
+      .then(({ createJuggler3D }) => {
+        const made = createJuggler3D(() => {
+          made?.canvas.remove();
+          three = null;
+          root.dataset.three = 'none';
+          show();
+        });
+        if (!made) {
+          root.dataset.three = 'none';
+          return;
+        }
+        made.canvas.setAttribute('aria-label', label);
+        made.canvas.hidden = true;
+        canvas.after(made.canvas);
+        three = made;
+        root.dataset.three = 'ready';
+        show();
+      })
+      .catch(() => (root.dataset.three = 'none'));
+  };
+
+  const spans: HTMLSpanElement[] = [];
+  const setHook = (c: HTMLCanvasElement, name: 'balls' | 'figures', value: string) => {
+    if (c.dataset[name] !== value) c.dataset[name] = value;
+  };
+
   return {
     draw(view) {
+      if (!loading) {
+        loading = true;
+        // The first frame has drawn the 2D view by the time this runs: the next frame loads 3D.
+        requestAnimationFrame(load);
+      }
       // Before the first valid edit there is nothing to show; the canvas keeps what it had.
       if (view.segments.length === 0) return;
-      const frame = jugglerFrame(view.segments, view.now, JUGGLER, (s) => flights.get(s));
+      const lookup = (s: Schedule) => flights.get(s);
+      const frame = jugglerFrame(view.segments, view.now, JUGGLER, lookup);
       // Test hook (SPEC §7.1): how many balls are drawn, so the browser tests can compare views.
-      const balls = String(frame.balls.length);
-      if (canvas.dataset.balls !== balls) canvas.dataset.balls = balls;
+      // Kept up while the 2D view is hidden behind the 3D one.
+      setHook(canvas, 'balls', String(frame.balls.length));
       // Test hook: how many figures carry a caption (0 below three parts).
-      const figures = String(frame.parts > 2 ? figureSpans(frame.parts, JUGGLER).length : 0);
-      if (canvas.dataset.figures !== figures) canvas.dataset.figures = figures;
+      setHook(canvas, 'figures', String(frame.parts > 2 ? figureSpans(frame.parts, JUGGLER).length : 0));
       if (note.hidden === frame.inhuman) note.hidden = !frame.inhuman;
-      drawJuggler(canvas, frame);
+      if (!three || shown() === '2d') {
+        drawJuggler(canvas, frame);
+        return;
+      }
+
+      const ring = jugglerFrame(view.segments, view.now, JUGGLER, lookup, 'ring');
+      setHook(three.canvas, 'balls', String(ring.balls.length));
+      setHook(three.canvas, 'figures', String(ring.parts > 2 ? ring.figures.length : 0));
+      const width = root.clientWidth;
+      const height = root.clientHeight;
+      // Hidden (About showing) or not laid out yet: nothing to draw.
+      if (width === 0 || height === 0) return;
+      const scene = describeScene(ring, width / height);
+      three.draw(scene, width, height);
+
+      const boxes = captions(scene, ring.parts, width, height, copy.jugglerCaption);
+      while (spans.length < boxes.length) labels.append((spans[spans.length] = document.createElement('span')));
+      spans.forEach((span, i) => {
+        const box = boxes[i];
+        span.hidden = !box;
+        if (!box) return;
+        if (span.textContent !== box.text) span.textContent = box.text;
+        const style = `left:${box.left.toFixed(1)}px;top:${box.top.toFixed(1)}px;color:${box.colour}`;
+        if (span.getAttribute('style') !== style) span.setAttribute('style', style);
+      });
     },
   };
 };

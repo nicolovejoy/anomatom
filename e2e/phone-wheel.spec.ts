@@ -524,7 +524,10 @@ test.describe('phone upright, 390×844', () => {
     await page.locator('.about-link').focus();
     // The chips the deck has (stream B brings a sixth): counted, not pinned.
     const chips = await page.locator('.deck-filter').count();
-    const expected = ['row', ...Array<string>(chips).fill('chip'), 'play', 'mute', 'volume', 'deck-listen', 'deck-details'];
+    // v6.8 T1: the stage's 2D/3D switch comes first, the stage being before the deck in the page.
+    await expect(page.locator('.region-juggler')).not.toHaveAttribute('data-three', 'loading');
+    const toggle = (await page.locator('.juggler-switch').isVisible()) ? ['juggler-switch'] : [];
+    const expected = [...toggle, 'row', ...Array<string>(chips).fill('chip'), 'play', 'mute', 'volume', 'deck-listen', 'deck-details'];
     const order: string[] = [];
     for (let i = 0; i < expected.length; i += 1) {
       await page.keyboard.press('Tab');

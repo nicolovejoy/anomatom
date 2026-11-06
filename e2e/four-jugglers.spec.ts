@@ -11,7 +11,7 @@ import { PRESETS } from '../src/app/presets';
 import { defaultState } from '../src/app/state';
 import { JUGGLER, MAX_JUGGLERS } from '../src/tunables';
 import { copy } from '../src/ui/copy';
-import { expect, isCdnError, openTab, test, type Page } from './fixtures';
+import { expect, isCdnError, openTab, show2d, test, type Page } from './fixtures';
 
 const SHOTS = process.env.FOUR_SHOTS;
 const cards = PRESETS.filter((p) => p.parts.length === 8);
@@ -53,7 +53,7 @@ for (const card of cards) {
       await expect(strip).toHaveAttribute('data-lanes', '8');
       await expect(strip).toHaveAttribute('data-balls', '12');
       // The canvas inside the viewport, across.
-      const box = (await juggler.boundingBox())!;
+      const box = (await page.locator('.region-juggler canvas:visible').boundingBox())!;
       expect(box.x).toBeGreaterThanOrEqual(0);
       expect(box.x + box.width).toBeLessThanOrEqual(viewport.width);
       await page.waitForTimeout(1500);
@@ -146,6 +146,8 @@ test('a five-juggler pattern typed is refused, naming four', async ({ page }) =>
 test('at 390 wide the caption "Juggler 4", in the canvas font, fits between four figures (ruling 18)', async ({ page }) => {
   await page.setViewportSize({ width: 390, height: 844 });
   await page.goto(`/${hashOf('four-square')}`);
+  // About the 2D picture (v6.8 T1): the 2D view shown.
+  await show2d(page);
   const juggler = page.locator('canvas.juggler');
   await expect(juggler).toHaveAttribute('data-figures', '4');
   const { width, caption } = await juggler.evaluate(

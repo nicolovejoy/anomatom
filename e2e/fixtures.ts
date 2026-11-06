@@ -67,3 +67,14 @@ export async function stopPlaying(page: import('@playwright/test').Page) {
   if ((await page.locator('#play').textContent())?.includes('Pause')) await page.locator('#play').click();
   await page.locator('#stop').click();
 }
+
+/**
+ * Shows the 2D juggler (v6.8 T1), for a test about the 2D picture: waits for the 3D view to load
+ * or fail, then, if it showed, presses the stage's 2D/3D switch.
+ */
+export async function show2d(page: import('@playwright/test').Page) {
+  const region = page.locator('.region-juggler');
+  await expect(region).not.toHaveAttribute('data-three', 'loading');
+  if ((await region.getAttribute('data-view')) === '3d') await page.locator('.juggler-switch').click();
+  await expect(region).toHaveAttribute('data-view', '2d');
+}

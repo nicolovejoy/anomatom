@@ -1,11 +1,29 @@
 /* The juggler region. It fills its region: on a phone, whatever height the sheet leaves; on a
    wide screen, at least JUGGLER.heightPx (style.css). The canvas draws at its laid-out size. */
-.juggler {
+.juggler,
+.juggler-3d,
+.juggler-captions {
   position: absolute;
   inset: 0;
   display: block;
   width: 100%;
   height: 100%;
+}
+.juggler[hidden],
+.juggler-3d[hidden],
+.juggler-captions[hidden] {
+  display: none;
+}
+/* The 3D view's captions (v6.8 ruling 9): under its transparent canvas, so balls and bodies draw
+   over them; placed each frame at their figures' feet. */
+.juggler-captions {
+  overflow: hidden;
+  pointer-events: none;
+}
+.juggler-captions span {
+  position: absolute;
+  font: 12px/1 var(--font-ui);
+  white-space: nowrap;
 }
 /* "Not a human throw" (SPEC §4.1 v2): a quiet label at the top of the juggler while one is up. */
 .juggler-note {
@@ -18,4 +36,35 @@
   color: var(--muted);
   text-align: center;
   pointer-events: none;
+}
+/* With the 2D/3D switch showing, the note keeps clear of it on both sides, still centred. */
+.region-juggler:has(.juggler-switch:not([hidden])) .juggler-note {
+  left: 48px;
+  right: 48px;
+}
+/* The 2D/3D switch (v6.8): a small square in the stage's top-right corner, in the page's 1 px rule. */
+.juggler-switch {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  width: 32px;
+  height: 32px;
+  padding: 0;
+  border: 1px solid var(--rule);
+  border-radius: 0;
+  background: var(--ground);
+  color: var(--text-2);
+  font: 600 12px/1 var(--font-ui);
+  cursor: pointer;
+}
+.juggler-switch:hover {
+  color: var(--text);
+  border-color: var(--chip-edge);
+}
+.juggler-switch:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+.juggler-switch[hidden] {
+  display: none;
 }

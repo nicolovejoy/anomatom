@@ -17,4 +17,14 @@ export default defineConfig({
     __BUILD_TIME__: JSON.stringify(new Date().toISOString()),
     __BUILD_COMMIT__: JSON.stringify(commit()),
   },
+  build: {
+    // three.js alone is about 540 kB before gzip (134 kB after); it loads after the first paint.
+    chunkSizeWarningLimit: 600,
+    rollupOptions: {
+      output: {
+        // three.js in a chunk of its own, `three-<hash>.js`, loaded after the first paint (v6.8 T1).
+        manualChunks: (id) => (id.includes('/node_modules/three/') ? 'three' : undefined),
+      },
+    },
+  },
 });

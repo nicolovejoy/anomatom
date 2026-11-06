@@ -101,6 +101,8 @@ Live changes: a knob changed during play takes effect at the next cycle boundary
 
 (v6.7, 2026-11-06, `docs/plans/v6-7-wheel-loose-ends.md`, stream A.) On a phone held upright, with the sheet open the card shows the chips and its band row alone, so the editor has the room; it grows as before when turned, and goes back to the one row 3 s after; closed, the sheet gives it its three rows back. Past either end of the wheel, wherever it has ends, a short faint line marks the end.
 
+(v6.8, 2026-11-06, `docs/plans/v6-8-orbit-3d.md`, stream T1.) The juggler is drawn in 3D: one juggler from the front, two face to face, three or more on a circle facing its centre, seen from slightly above. Today's front view stays, as the fallback (until 3D has loaded, and where it cannot draw) and behind a 2D/3D switch on the stage; the choice is never in the link.
+
 (v2, 2026-10-29) The model waves rewire today's sheet minimally (`docs/plans/model-rethink.md` §14, option b); the mixer-style layout comes later in its own plan. Play is always on. The Rhythm tab gains, per hand, a phase stepper in pulses and a ball stepper k; on a hand in a manual cross group the ball stepper is replaced by the group's derived count and "reset". A one-line notice shows the result of the last action and clears on the next. The Pattern view accepts `a / b` at 1:1 (two lines, both at phase 0) as well as the vanilla siteswap, `x<n>` for a cross to hand n, and the letters `a`-`z` for heights 10-35. Still two hands on screen.
 
 ### 4.2 Fix state (v2, 2026-10-29)
@@ -123,7 +125,7 @@ The v1 rule that the last valid pattern keeps playing, with the broken one greye
 - **Drum machines**: each juggler on stage plays through a drum machine of their own. The panel lists each juggler with its kit's name, in the juggler's stage colour where the stage has one, read only, and one button, **Change drum machines**, which moves every juggler to the next kit at once (TR-808, LM-2, MFB-512, Roland CR-8000, Casio RZ-1, round again). A solo pattern steps through all five; a passing pattern keeps its jugglers apart.
 - **Also play**: three switches. Catches (a sound on each catch), Downbeat (a clap on a cross caught on a beat every hand shares; on by default), Pad (the Mellotron Dm9 chord at the start of each cycle).
 
-The panel holds, top to bottom: Volume (half by default), Listen for, Tempo, Drum machines, Also play. There is no per-height or per-hand sample, no pan, gain, accent, pass or filter control, no pad instrument or chord, and no kit select: pan comes from the juggler's place on the stage (§6.2). The Mapping is derived from these choices (`mappingOf`), never stored.
+The panel holds, top to bottom: Volume (half by default), Listen for, Tempo, Drum machines, Also play. There is no per-height or per-hand sample, no pan, gain, accent, pass or filter control, no pad instrument or chord, and no kit select: pan comes from the juggler's number (§6.2). The Mapping is derived from these choices (`mappingOf`), never stored.
 
 The share link (`#v3.`) carries the pattern, ratio, tempo and the three choices, each only when it is not the default. A short link names only what the sound follows (`#531~pitch`), and only when the switches and drum machines are the defaults. Old `#v1.`, `#v2.` and short links keep opening: their Mapping is read into the three choices, and one that asked for Voice per part plays by height, with a notice.
 
@@ -206,7 +208,7 @@ What existing things sound like: the five juggling preset cards keep "Height to 
 | --- | --- |
 | per height, by ball | the rule `listen` names: `height` is the v1 table above, `pitch` nine distinct steps (the higher the throw, the lower the sound), `ball` each ball one sound whatever its height |
 | one voice per hand | hand h belongs to juggler floor(h / 2); its kit is `DRUMMER_KITS[(j + kitShift) mod 5]`, its gain 1 |
-| pan | from the stage: for N jugglers, juggler j (juggler 1 drawn on the left) sits at c = 0 for one, else -0.6 + 1.2·j/(N - 1); its hands at c ∓ d, d = 0.6 for one juggler, else min(0.2, 0.6/(N - 1)). One juggler: -0.6, 0.6; two: -0.8, -0.4, 0.4, 0.8; four (v6.6): -0.8, -0.4, -0.4, 0, 0, 0.4, 0.4, 0.8, neighbours' inner hands meeting, the jugglers apart by their drum machines |
+| pan | from the stage: for N jugglers, juggler j (by juggler number) sits at c = 0 for one, else -0.6 + 1.2·j/(N - 1); its hands at c ∓ d, d = 0.6 for one juggler, else min(0.2, 0.6/(N - 1)). One juggler: -0.6, 0.6; two: -0.8, -0.4, 0.4, 0.8; four (v6.6): -0.8, -0.4, -0.4, 0, 0, 0.4, 0.4, 0.8, neighbours' inner hands meeting, the jugglers apart by their drum machines |
 | catches | rimshot, when `also.catches` |
 | cross accent | +20 velocity; a clap on a coincident pulse when `also.downbeat` |
 | pass | +20 velocity, its own sound |
