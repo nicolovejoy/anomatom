@@ -598,6 +598,13 @@ export const DECK = {
   compactRows: 3,
   compactCut: 0,
   /**
+   * Upright with the sheet open (docs/plans/v6-7-wheel-loose-ends.md, ruling 1), the compact card
+   * shows this many rows instead of compactRows: the band row alone, under the chips, so the editor
+   * gets the room. A turn grows it as before; the return delay brings it back to this. 1 has no
+   * blank slots and no dimmed rows. compactRows restores v6.6 exactly.
+   */
+  sheetRows: 1,
+  /**
    * A touch on the compact wheel that turns nothing grows it in place (v6.4 ruling 3; v6.6 ruling 4)
    * this long after the finger lifts, unless a click comes first: a slow tap's click lands on the
    * row it was on.
@@ -620,9 +627,12 @@ export const DECK = {
   sidePx: 300,
   /**
    * Upright with the sheet open, the juggler's floor instead of minFigurePx (v6.6 ruling 7): the
-   * old CSS floor of the juggler's region, which the open sheet never takes.
+   * old CSS floor of the juggler's region (120), which the open sheet never takes. 88 since v6.7
+   * ruling 1 (docs/plans/v6-7-wheel-loose-ends.md): with the card down to its band row the band is
+   * as tall as the side column, and at 375×667 the Pattern tab's hand input and Swap fit the open
+   * panel unscrolled only from 88 down (measured in 8 px steps from 120; the floor is 80).
    */
-  sheetFigurePx: 120,
+  sheetFigurePx: 88,
   /**
    * The upright phone's deck on top (docs/plans/v6-6-deck-on-top-four-jugglers.md, ruling 2): the
    * wheel a card cardMarginPx from the screen's left edge, the top bar and the side column,

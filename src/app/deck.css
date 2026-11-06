@@ -355,6 +355,15 @@
   --dim: color-mix(in srgb, var(--surface) 45%, transparent);
   background: linear-gradient(var(--dim) 0 33.34%, transparent 33.34% 66.66%, var(--dim) 66.66%);
 }
+/* With the sheet open the compact card is the band row alone (docs/plans/v6-7-wheel-loose-ends.md,
+   ruling 1; mount-deck.ts sets .is-one): no outer rows, nothing dimmed. */
+.deck-picker.is-compact.is-one .deck-wheel::after {
+  background: none;
+}
+/* The card's rule over the drum is outside the one row, so the band row is whole, not cut by it. */
+.deck-picker.is-one .deck-wheel {
+  box-sizing: content-box;
+}
 /* Docked, a menu: no fixed band and no fade; the chosen row carries the band (below). */
 #app.deck-docked .deck-wheel::before,
 #app.deck-docked .deck-wheel::after {
@@ -384,6 +393,16 @@
   content: '';
   flex: none;
   height: calc(var(--deck-row) * ((var(--deck-rows) - 1) / 2 - var(--deck-cut, 0)));
+}
+/* The end of the wheel (v6.7 ruling 5): the blank slot next to the first row and the one next to
+   the last draw a short faint line, 24 px by 1 px in the rule colour, centred in the slot's row
+   nearest the end (the foot of the slot above, the top of the slot below). Not a row: nothing to
+   read, announce or tap. A slot of no height (one row shown, the sheet open) draws nothing. */
+.deck-wheel-list::before {
+  background: linear-gradient(var(--rule), var(--rule)) no-repeat center bottom calc(var(--deck-row) / 2 - 0.5px) / 24px 1px;
+}
+.deck-wheel-list::after {
+  background: linear-gradient(var(--rule), var(--rule)) no-repeat center top calc(var(--deck-row) / 2 - 0.5px) / 24px 1px;
 }
 /* Docked, a menu (ruling 3): no blank rows, no snap points; a longer list scrolls natively and the
    scroll only browses. */

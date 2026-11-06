@@ -35,6 +35,8 @@ import {
   filteredPresets,
   filterKeeper,
   grownRows,
+  heldTouches,
+  keyPage,
   sameFilter,
   editorShows,
   type EditorEvent,
@@ -330,18 +332,29 @@ export const mountDeck: Mount = (root, { store, player, sound }) => {
     app.style.setProperty('--wheel-pad-right', `${place.padRight}px`);
   }
 
+  /** The sheet open on a phone (mount-sheet.ts sets the class). */
+  const sheetOpen = () => app.classList.contains('sheet-open');
   /**
    * The upright card's rows (v6.6 rulings 4 and 5): compact, DECK.compactRows cut at the drum's
-   * edges; grown, as many as leave the juggler DECK.minFigurePx above the strip (DECK.sheetFigurePx
-   * with the sheet open, which then keeps its head and tabs and gives the rest), measured.
+   * edges, or DECK.sheetRows (the band row alone) with the sheet open (v6.7 ruling 1); grown,
+   * grownCount.
    */
   function uprightRows(): [number, number, number] {
-    if (phase === 'compact') return [DECK.compactRows, DECK.rowPx, DECK.compactCut];
+    if (phase === 'compact') return [sheetOpen() ? DECK.sheetRows : DECK.compactRows, DECK.rowPx, DECK.compactCut];
+    return [grownCount(), DECK.rowPx, 0];
+  }
+  /**
+   * The rows the upright card shows grown: as many as leave the juggler DECK.minFigurePx above the
+   * strip (DECK.sheetFigurePx with the sheet open, which then keeps its head and tabs and gives the
+   * rest), measured. Nothing measured depends on the card's rows, so it can be asked from compact
+   * (v6.7 ruling 2: a key's page).
+   */
+  function grownCount(): number {
     const view = root.closest('.play-view') as HTMLElement | null;
     const ladder = document.querySelector<HTMLElement>('.region-ladder');
     const sound = root.querySelector<HTMLElement>('.deck-sound');
-    if (!view || !ladder || !sound || !sheet) return [DECK.wheelRows, DECK.rowPx, 0];
-    const open = app.classList.contains('sheet-open');
+    if (!view || !ladder || !sound || !sheet) return DECK.wheelRows;
+    const open = sheetOpen();
     const top = sheet.getBoundingClientRect().top;
     const tabs = sheet.querySelector<HTMLElement>('.sheet-tabs');
     const keep = open && tabs ? tabs.getBoundingClientRect().bottom - top : sheet.offsetHeight;
@@ -349,7 +362,7 @@ export const mountDeck: Mount = (root, { store, player, sound }) => {
     const margin = parseFloat(getComputedStyle(picker).marginTop) || 0;
     const chrome = margin + picker.offsetHeight - wheel.offsetHeight;
     const heights = { view: view.clientHeight, chrome, strip: ladder.offsetHeight, sound: sound.offsetHeight, sheet: keep };
-    return [grownRows(heights, DECK.rowPx, DECK.wheelRows, DECK.compactRows, open ? DECK.sheetFigurePx : DECK.minFigurePx), DECK.rowPx, 0];
+    return grownRows(heights, DECK.rowPx, DECK.wheelRows, DECK.compactRows, open ? DECK.sheetFigurePx : DECK.minFigurePx);
   }
 
   /**
@@ -368,6 +381,8 @@ export const mountDeck: Mount = (root, { store, player, sound }) => {
       wheel.style.setProperty('--deck-rows', String(shown));
       wheel.style.setProperty('--deck-row', `${px}px`);
       wheel.style.setProperty('--deck-cut', String(cut));
+      // One row (the sheet open, v6.7 ruling 1) is the band row alone: nothing to dim (deck.css).
+      picker.classList.toggle('is-one', shown === 1);
     }
   }
 
@@ -462,7 +477,12 @@ export const mountDeck: Mount = (root, { store, player, sound }) => {
     keyTries = 0;
     seekRow = scrollToRow(row, true) ? row : null;
     clearTimeout(seekTimer);
-    if (seekRow !== null) seekTimer = setTimeout(() => (seekRow = null), DECK.settleMs * DECK.keySettleTries);
+    if (seekRow === null) return;
+    seekTimer = setTimeout(() => (seekRow = null), DECK.settleMs * DECK.keySettleTries);
+    // The settle asks for the goal again even if no scroll comes (issue 139): shrunk in the same
+    // task, the drum's re-snap to the row it holds can cancel the smooth scroll before it moves,
+    // and with no scroll event no settle ran, so the band stayed on the cancelled turn's row.
+    armSettle();
   }
 
   function showWheel() {
@@ -544,7 +564,7 @@ export const mountDeck: Mount = (root, { store, player, sound }) => {
     // Under a finger still on the list the scroll would read as a turn and grow the card again
     // (#116): the band goes home when the last finger lifts instead.
     if (event === 'close') {
-      if (touching) bandHome = true;
+      if (touching()) bandHome = true;
       else seekBand(homeRow());
     }
   };
@@ -567,7 +587,7 @@ export const mountDeck: Mount = (root, { store, player, sound }) => {
   const armGrow = () => {
     clearTimeout(growTimer);
     growTimer = setTimeout(() => {
-      if (phase === 'compact' && !touching && !wheel.hidden) grow();
+      if (phase === 'compact' && !touching() && !wheel.hidden) grow();
     }, DECK.growGraceMs);
   };
 
@@ -666,9 +686,14 @@ export const mountDeck: Mount = (root, { store, player, sound }) => {
    * A finger is on the list: a turn that scrolls nothing does not end under it (issue 114), the
    * wheel never closes under it (issue 116), and a scroll under it is the reader's turn even after
    * it held still past the settle (issue 118). Only fingers that landed on the list count: one held
-   * on a chip lifts there, and the list never hears of it (issue 119).
+   * on a chip lifts there and changes nothing (issue 119). They are known by identifier (v6.7
+   * ruling 3): a chip tapped under a held finger rebuilds the list, the finger is then on a
+   * detached row, and its lift reaches neither the list nor the document (issue 121; a detached
+   * node's event path is its own tree). So each held finger's lift is heard on the element it
+   * landed on, attached or not, as well as on the document.
    */
-  let touching = false;
+  let held = new Set<number>();
+  const touching = () => held.size > 0;
   /** A turn scrolled the wheel and its settle has not stopped it yet. */
   let unsettled = false;
   // The card grows on the first real scroll of a turn, not on the touch or the wheel event that
@@ -690,26 +715,57 @@ export const mountDeck: Mount = (root, { store, player, sound }) => {
     turn();
   };
   for (const type of ['wheel', 'touchstart']) list.addEventListener(type, startTurn, { passive: true });
-  list.addEventListener('touchstart', () => (touching = true), { passive: true });
-  for (const type of ['touchend', 'touchcancel'] as const) {
-    list.addEventListener(
-      type,
-      (e) => {
-        touching = [...e.touches].some((t) => list.contains(t.target as Node));
-        if (touching) return;
-        if (bandHome) {
-          bandHome = false;
-          seekBand(homeRow());
-        }
-        // The wheel stopped under the finger: its return delay starts now it lifts.
-        if (returnHeld) armReturn();
-        // A finger held past the turn's lapse: the turn is over now it lifts.
-        if (!turning) lapse();
-        armSettle();
-      },
-      { passive: true },
-    );
-  }
+  const LIFTS = ['touchend', 'touchcancel'] as const;
+  /** Per held touch, the listeners on the element it landed on, removed once it is no longer held. */
+  const liftWatch = new Map<number, () => void>();
+  // Each touch that starts on the list is held (its target is attached at that moment).
+  list.addEventListener(
+    'touchstart',
+    (e) => {
+      for (const t of [...e.changedTouches]) {
+        held.add(t.identifier);
+        // An identifier the browser reuses (Chromium does, after a touch lost without a lift) may
+        // still be watched on the old touch's element: watch the new touch's element instead, or
+        // its lift on a detached row would go unheard again (#121).
+        liftWatch.get(t.identifier)?.();
+        const target = t.target;
+        const onLift = (lift: Event) => recount(lift as TouchEvent, true);
+        for (const type of LIFTS) target.addEventListener(type, onLift, { passive: true });
+        liftWatch.set(t.identifier, () => {
+          for (const type of LIFTS) target.removeEventListener(type, onLift);
+        });
+      }
+    },
+    { passive: true },
+  );
+  const liveIds = (e: TouchEvent) => [...e.touches].map((t) => t.identifier);
+  /** The list's fingers are all up now: what a lift on the list did before issue 121. */
+  const released = () => {
+    if (bandHome) {
+      bandHome = false;
+      seekBand(homeRow());
+    }
+    // The wheel stopped under the finger: its return delay starts now it lifts.
+    if (returnHeld) armReturn();
+    // A finger held past the turn's lapse: the turn is over now it lifts.
+    if (!turning) lapse();
+    armSettle();
+  };
+  /** Keeps the held touches still down; the step from some held to none is the list's release. */
+  const recount = (e: TouchEvent, release: boolean) => {
+    if (!touching()) return;
+    held = heldTouches(held, liveIds(e));
+    for (const [id, unwatch] of liftWatch) {
+      if (held.has(id)) continue;
+      unwatch();
+      liftWatch.delete(id);
+    }
+    if (!touching() && release) released();
+  };
+  for (const type of LIFTS) document.addEventListener(type, (e) => recount(e, true), { capture: true, passive: true });
+  // A lift the page never heard (a touch lost to a system gesture) clears on the next touch. On
+  // the list that touch begins a turn of its own (startTurn), which the release would only undo.
+  document.addEventListener('touchstart', (e) => recount(e, !list.contains(e.target as Node)), { capture: true, passive: true });
 
   /** Turns the phone's wheel to `to` as the reader's turn: the band goes there, and the row loads when it settles. */
   function turnTo(to: number) {
@@ -740,8 +796,9 @@ export const mountDeck: Mount = (root, { store, player, sound }) => {
   list.addEventListener('keydown', (e) => {
     if (!turnsWheel(e.key) || e.ctrlKey || e.metaKey || e.altKey) return;
     e.preventDefault();
-    // From the compact card a key's turn grows it, so it pages by the full drum (DECK.wheelRows).
-    const to = rowAfterKey(e.key, roving, rowCount, phase === 'compact' ? DECK.wheelRows : shownRows);
+    // From the compact card a key's turn grows it, so it pages by the rows the grown card will show
+    // (v6.7 ruling 2): upright as many as fit (grownCount); on its side the full drum, as before.
+    const to = rowAfterKey(e.key, roving, rowCount, keyPage(phase, shownRows, upright() ? grownCount() : DECK.wheelRows));
     if (docked()) {
       // Focus first: the tab stop stays on a focused row (markRows), Make your own included.
       rove(to);
@@ -801,7 +858,7 @@ export const mountDeck: Mount = (root, { store, player, sound }) => {
    */
   function lapse() {
     turning = false;
-    if (touching || scrolled || keyRow !== null || wheel.hidden || docked()) return;
+    if (touching() || scrolled || keyRow !== null || wheel.hidden || docked()) return;
     // Compact, a touch that scrolled nothing and tapped no row (a tap clears this lapse: stopTurn)
     // grows the wheel back, once the last finger is up (v6.4 ruling 3); a mouse wheel does nothing.
     if (phase === 'compact') {
@@ -822,7 +879,7 @@ export const mountDeck: Mount = (root, { store, player, sound }) => {
     if (upright()) {
       setPhase('stop');
       // It may settle under a held finger, but it closes only after the last finger lifts.
-      if (touching) {
+      if (touching()) {
         clearTimeout(returnTimer);
         returnHeld = true;
       } else armReturn();
@@ -872,7 +929,7 @@ export const mountDeck: Mount = (root, { store, player, sound }) => {
     band(rowAt());
     // A scroll the page made itself (re-placing the wheel, a snap) is no turn and grows nothing.
     // Under a finger it is the reader's, though the settle ended the turn while it held still (issue 118).
-    if ((turning || touching) && !mine) {
+    if ((turning || touching()) && !mine) {
       // A turn after all: its settle loads the row it lands on, so the band needs no going home.
       bandHome = false;
       sheetOn();
@@ -934,7 +991,7 @@ export const mountDeck: Mount = (root, { store, player, sound }) => {
         if (phase === 'spinning') setPhase('stop');
         if (phase !== 'compact') {
           clearTimeout(returnTimer);
-          if (touching) returnHeld = true;
+          if (touching()) returnHeld = true;
           else armReturn();
         }
       } else {
@@ -1259,7 +1316,16 @@ export const mountDeck: Mount = (root, { store, player, sound }) => {
     refitRows();
     scrollWanted = true;
   }
-  new MutationObserver(() => upright() !== wasUpright && turned()).observe(app, { attributes: true, attributeFilter: ['class'] });
+  // The sheet opened or closed: upright the compact card's rows follow at once (v6.7 ruling 1: the
+  // band row alone while it is open, three when it closes), the band on the same row.
+  let wasSheetOpen = sheetOpen();
+  new MutationObserver(() => {
+    if (upright() !== wasUpright) turned();
+    if (sheetOpen() === wasSheetOpen) return;
+    wasSheetOpen = sheetOpen();
+    // Upright only: wide, docked and on its side the sheet never changes the wheel's rows.
+    if (upright() && !wheel.hidden) placeWheel();
+  }).observe(app, { attributes: true, attributeFilter: ['class'] });
 
   buildList();
   applyFilter();

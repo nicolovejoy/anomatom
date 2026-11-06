@@ -77,21 +77,34 @@ async function expectCompact(page: Page) {
 /**
  * A touch on the list, made in the page: `fingers` is how many stay down on the list after it,
  * and `away` how many stay down on a filter chip (TouchEvent's `touches`, each with its target:
- * issue 119). WebKit on a laptop has no TouchEvent constructor, so the list is set on an Event.
- * `on: 'chip'` sends the event to the chip instead of the list. Returns when it was sent, in the
- * page's clock.
+ * issue 119). Each finger has an identifier, kept while it is down, and the event names the
+ * fingers it changed (`changedTouches`): the wheel knows its fingers by identifier (v6.7 ruling 3).
+ * WebKit on a laptop has no TouchEvent constructor, so the lists are set on an Event. `on: 'chip'`
+ * sends the event to the chip instead of the list. Returns when it was sent, in the page's clock.
  */
 const list = (page: Page) => page.locator('.deck-wheel-list');
+type Finger = { identifier: number; target: EventTarget };
+type Fingers = { downTouches?: Finger[]; nextTouch?: number };
 const touch = (page: Page, type: 'touchstart' | 'touchend', fingers: number, away = 0, on: 'list' | 'chip' = 'list') =>
   list(page).evaluate(
     (l, [type, fingers, away, on]) => {
       const chip = document.querySelector('.deck-filter')!;
+      const w = window as unknown as Fingers;
+      const before = w.downTouches ?? [];
+      let next = w.nextTouch ?? 1;
+      // The fingers down on `target` after this event: those already there, then new ones.
+      const keep = (target: EventTarget, n: number) => {
+        const there = before.filter((t) => t.target === target).slice(0, n);
+        while (there.length < n) there.push({ identifier: next++, target });
+        return there;
+      };
+      const down = [...keep(l, fingers as number), ...keep(chip, away as number)];
+      w.downTouches = down;
+      w.nextTouch = next;
+      const changed = type === 'touchstart' ? down.filter((t) => !before.includes(t)) : before.filter((t) => !down.includes(t));
       const e = new Event(type as string, { bubbles: true });
-      const touches = [
-        ...Array.from({ length: fingers as number }, () => ({ target: l })),
-        ...Array.from({ length: away as number }, () => ({ target: chip })),
-      ];
-      Object.defineProperty(e, 'touches', { value: touches });
+      Object.defineProperty(e, 'touches', { value: down });
+      Object.defineProperty(e, 'changedTouches', { value: changed });
       (on === 'chip' ? chip : l).dispatchEvent(e);
       return performance.now();
     },
@@ -275,8 +288,11 @@ test.describe('phone upright, 390×844', () => {
     await page.waitForTimeout(400);
     const clicked = await list(page).evaluate(
       (l, [x, y]) => {
+        const w = window as unknown as Fingers;
         const e = new Event('touchend', { bubbles: true });
         Object.defineProperty(e, 'touches', { value: [] });
+        Object.defineProperty(e, 'changedTouches', { value: w.downTouches ?? [] });
+        w.downTouches = [];
         l.dispatchEvent(e);
         const hit = document.elementFromPoint(x as number, y as number)?.closest<HTMLElement>('.deck-row');
         hit?.click();
@@ -549,6 +565,11 @@ test.describe('phone upright, 390×844', () => {
     await expectCompact(page);
     await page.locator('.deck-own').click();
     await expect(page.locator('.deck-own')).toHaveClass(/in-band/);
+    // Make your own opened the sheet, where the card is its band row alone (v6.7 ruling 1): closed
+    // again, the three rows this test turns.
+    await page.keyboard.press('Escape');
+    await expect(page.locator('#app')).not.toHaveClass(/sheet-open/);
+    await expect(page.locator('.deck-own')).toHaveClass(/in-band/);
     await quiet(page);
     // Back to Cascade, the card on stage, by a drag; it settles there and loads nothing new.
     await touch(page, 'touchstart', 1);
@@ -625,8 +646,8 @@ test.describe('phone upright, 390×844', () => {
     await list(page).hover();
     await page.mouse.wheel(0, 64);
     await expect.poll(() => phase(page)).not.toBe('compact');
-    await expect.poll(() => shownRows(page)).toBeGreaterThan(DECK.compactRows);
-    await expectSheetOpen(page);
+    await expect.poll(() => shownRows(page)).toBeGreaterThan(DECK.sheetRows);
+    await expectSheetOpen(page, true);
   });
 
   // Review of #120, finding 2, with v6.6 ruling 11: on its side the wheel is the column's open
@@ -698,9 +719,19 @@ async function expectChipsFit(page: Page) {
   expect(fit).toEqual({ overflow: false, inside: true, oneLine: true, sizes: [`${DECK.cardChipPx}x${DECK.cardChipPx}`] });
 }
 
-/** Ruling 7: the sheet open shares the play view with the band; Play, the band row and the tabs in view, nothing scrolls. */
-async function expectSheetOpen(page: Page) {
+/**
+ * Ruling 7: the sheet open shares the play view with the band; Play, the band row and the tabs in
+ * view, nothing scrolls. At rest (v6.7 ruling 1) the card is the chips and its band row alone
+ * (DECK.sheetRows); `grown`, a turn has grown it.
+ */
+async function expectSheetOpen(page: Page, grown = false) {
   await expect(page.locator('#tab-sound')).toHaveAttribute('aria-selected', 'true');
+  await expect(page.locator('.deck-filters')).toBeVisible();
+  if (!grown) {
+    await expect(page.locator('.deck-wheel')).toHaveAttribute('data-phase', 'compact');
+    // The rows' height: the card's rule over the drum is outside the one row (deck.css).
+    await expect.poll(async () => Math.round((await box(page, '.deck-wheel-list')).height)).toBe(DECK.rowPx * DECK.sheetRows);
+  }
   await expect(page.locator('#play')).toBeInViewport({ ratio: 1 });
   await expect(page.locator('.deck-row.in-band')).toBeInViewport({ ratio: 1 });
   for (const tab of ['pattern', 'rhythm', 'sound']) await expect(page.locator(`#tab-${tab}`)).toBeInViewport({ ratio: 1 });
@@ -753,6 +784,312 @@ for (const size of [
     });
   });
 }
+
+// ---------------------------------------------------------------------------------------------
+// v6.7 (docs/plans/v6-7-wheel-loose-ends.md): the phone wheel's loose ends.
+// ---------------------------------------------------------------------------------------------
+
+/** The drum's height, rounded. */
+const drumPx = async (page: Page) => Math.round((await box(page, '.deck-wheel')).height);
+/** The list's blank slot before the first row (`before`) or after the last: its height and background. */
+const slot = (page: Page, which: 'before' | 'after') =>
+  list(page).evaluate((l, which) => {
+    const c = getComputedStyle(l, `::${which}`);
+    return { display: c.display, height: parseFloat(c.height) || 0, image: c.backgroundImage };
+  }, which);
+
+/** Ruling 1: the sheet open, the card is its chips and the band row; a turn grows it in place, and it goes back to one row. */
+for (const size of [
+  { width: 390, height: 844 },
+  { width: 375, height: 667 },
+]) {
+  test.describe(`v6.7 ruling 1 (#133) at ${size.width}×${size.height}`, () => {
+    test.use({ viewport: size, hasTouch: true });
+
+    test('the sheet open: the chips and the band row, naming the card on stage, undimmed; a turn grows it and it is one row again 3 s after the stop; closed, three rows on the same band row', async ({ page }, info) => {
+      await page.goto('/#3');
+      await expectCompact(page);
+      await quiet(page);
+      await page.locator('.deck-details').click();
+      await expectSheetOpen(page);
+      const band = page.locator('.deck-row.in-band');
+      await expect(band).toHaveAttribute('data-id', 'cascade');
+      await expect(band).toContainText('Cascade');
+      await expect(band.locator('.deck-band-meta')).toHaveText('3 balls');
+      // The band row alone: no blank slots, nothing dimmed over it.
+      expect((await slot(page, 'before')).height).toBe(0);
+      expect((await slot(page, 'after')).height).toBe(0);
+      expect(await page.locator('.deck-wheel').evaluate((w) => getComputedStyle(w, '::after').backgroundImage)).toBe('none');
+      await shot(page, `v67-${size.width}-${info.project.name}-sheet-rest`);
+
+      // A turn grows it in place; it stops, and DECK.returnMs later it is the band row again.
+      const phases = await stampPhases(page);
+      await list(page).hover();
+      await page.mouse.wheel(0, 64);
+      await expect.poll(() => phase(page)).not.toBe('compact');
+      await expect.poll(() => shownRows(page)).toBeGreaterThan(DECK.sheetRows);
+      await expectSheetOpen(page, true);
+      await expect.poll(async () => stopsIn(await phases()).length).toBe(1);
+      await shot(page, `v67-${size.width}-${info.project.name}-sheet-grown`);
+      await expect(page.locator('.deck-wheel')).toHaveAttribute('data-phase', 'compact', { timeout: RETURN + 2000 });
+      const log = await phases();
+      expect(compactIn(log)!.at - stopsIn(log)[0]!.at).toBeGreaterThanOrEqual(RETURN - 20);
+      await expectSheetOpen(page);
+      const row = await bandRow(page);
+      expect(row).toBeGreaterThan(0);
+      await expect(onStage(page)).toHaveText((await bandCode(page))!);
+
+      // Closed (Escape on the compact card closes the sheet): three rows at once, the same band row.
+      await page.keyboard.press('Escape');
+      await expect(page.locator('#app')).not.toHaveClass(/sheet-open/);
+      await expect.poll(() => drumPx(page)).toBe(COMPACT_PX);
+      expect(await bandRow(page)).toBe(row);
+      await expectCompact(page);
+    });
+
+    test('the sheet open: Escape and a tap outside make a grown card one row again; the sheet stays open', async ({ page }) => {
+      await page.goto('/#3');
+      await page.locator('.deck-details').click();
+      await expectSheetOpen(page);
+      for (const how of ['escape', 'tap'] as const) {
+        await touch(page, 'touchstart', 1);
+        await page.waitForTimeout(100);
+        await touch(page, 'touchend', 0);
+        await expect(page.locator('.deck-wheel')).toHaveAttribute('data-phase', 'grown');
+        expect(await shownRows(page)).toBeGreaterThan(DECK.sheetRows);
+        if (how === 'escape') await page.keyboard.press('Escape');
+        else await page.locator('.region-juggler').tap();
+        await expectSheetOpen(page);
+      }
+    });
+  });
+}
+
+test.describe('v6.7 ruling 1, the gate (#133) at 375×667', () => {
+  test.use({ viewport: { width: 375, height: 667 }, hasTouch: true });
+
+  test('the sheet open on the Pattern tab: the hand input and Swap inside the panel, the panel unscrolled, no page scroll', async ({ page }, info) => {
+    await page.goto('/#3');
+    await page.locator('.deck-details').click();
+    await page.locator('#tab-pattern').click();
+    await expect(page.locator('#tab-pattern')).toHaveAttribute('aria-selected', 'true');
+    // The stubbed sample CDN leaves the failed drums' row (and Retry) in the sheet's head; a reader
+    // whose drums load has none (sheet.css: only a failure shows). The gate is the reader's: the row
+    // is taken out of the layout as the loaded state has it.
+    await expect(page.locator('.sound-status')).toHaveAttribute('data-state', 'failed');
+    await page.locator('.sound-status').evaluate((s) => s.removeAttribute('data-held'));
+    await expect.poll(async () => Math.round((await box(page, '.deck-wheel-list')).height)).toBe(DECK.rowPx * DECK.sheetRows);
+    const panels = page.locator('.sheet-panels');
+    await expect.poll(async () => {
+      const p = await box(page, '.sheet-panels');
+      const hand = await box(page, '#hand-0');
+      const swap = await box(page, '#swap');
+      // Edges to the whole pixel: layout boxes come back with fractions.
+      return Math.round(hand.y) >= Math.round(p.y) && Math.round(swap.y + swap.height) <= Math.round(p.y + p.height);
+    }).toBe(true);
+    expect(await panels.evaluate((p) => p.scrollTop)).toBe(0);
+    await expect(page.locator('#swap')).toBeVisible();
+    expect(await noPageScroll(page)).toBe(true);
+    await expect(page.locator('#play')).toBeInViewport({ ratio: 1 });
+    await shot(page, `v67-375-${info.project.name}-gate`);
+  });
+});
+
+/** Ruling 2: PageUp and PageDown page by the rows the card will show. */
+test.describe('v6.7 ruling 2 (#134) at 375×667', () => {
+  test.use({ viewport: { width: 375, height: 667 }, hasTouch: true });
+
+  test('from compact on the band row, PageDown turns as many rows as the grown card shows, fewer than seven; PageUp back the same', async ({ page }) => {
+    await page.goto('/#3');
+    await expectCompact(page);
+    await quiet(page);
+    const from = await bandRow(page);
+    await page.locator('.deck-row.in-band').focus();
+    await page.keyboard.press('PageDown');
+    await expect.poll(() => phase(page)).not.toBe('compact');
+    const shown = await shownRows(page);
+    expect(shown).toBeLessThan(DECK.wheelRows);
+    expect(shown).toBeGreaterThanOrEqual(DECK.compactRows);
+    await expect(page.locator('.deck-row.in-band')).toHaveAttribute('data-row', String(from + shown));
+    await expect(page.locator(`.deck-row[data-row="${from + shown}"]`)).toBeFocused();
+    await page.keyboard.press('PageUp');
+    await expect(page.locator('.deck-row.in-band')).toHaveAttribute('data-row', String(from));
+    expect(await shownRows(page)).toBe(shown);
+  });
+});
+
+/**
+ * Rulings 3 and 4 (#121): finger A held on a row, finger B taps a chip, which rebuilds the list
+ * (A's row is then detached), and the lifts. Chromium by real touch points (CDP, two ids: the
+ * browser hit-tests, clicks the chip and keeps A's target on its detached row); elsewhere by
+ * events made in the page, each finger with its identifier, A's lift sent to its detached row.
+ * The card is grown and settling first (a turn by the mouse wheel), so a lift that is never heard
+ * would leave it grown.
+ */
+type Pt = { x: number; y: number };
+const centre = (b: { x: number; y: number; width: number; height: number }): Pt => ({ x: b.x + b.width / 2, y: b.y + b.height / 2 });
+async function fingersOnRowAndChip(page: Page, browserName: string) {
+  const row = centre(await box(page, '.deck-row.in-band'));
+  const chip = centre(await box(page, '.deck-filter'));
+  // Stamps A's lift on its own row, which the rebuild detaches: the time the page heard it.
+  await page.locator('.deck-row.in-band').evaluate((r) => {
+    (window as unknown as { rowA: Element }).rowA = r;
+    r.addEventListener('touchend', () => ((window as unknown as { liftA: number }).liftA = performance.now()));
+  });
+  const detached = () => page.evaluate(() => !(window as unknown as { rowA: Element }).rowA.isConnected);
+  const liftA = () => page.evaluate(() => (window as unknown as { liftA: number }).liftA);
+  if (browserName === 'chromium') {
+    // CDP's touchStart lists every point down; its touchEnd lists the points that lift. Chromium
+    // makes no click of a second finger's tap, so the chip's click is the browser's own mouse click
+    // where finger B was, after B lifts.
+    const cdp = await page.context().newCDPSession(page);
+    const A = { ...row, id: 1 };
+    const B = { ...chip, id: 2 };
+    const liftB = async () => {
+      await cdp.send('Input.dispatchTouchEvent', { type: 'touchEnd', touchPoints: [B] });
+      await page.mouse.click(chip.x, chip.y);
+    };
+    return {
+      downA: () => cdp.send('Input.dispatchTouchEvent', { type: 'touchStart', touchPoints: [A] }),
+      tapB: async () => {
+        await cdp.send('Input.dispatchTouchEvent', { type: 'touchStart', touchPoints: [A, B] });
+        await page.waitForTimeout(60);
+        await liftB();
+      },
+      downB: () => cdp.send('Input.dispatchTouchEvent', { type: 'touchStart', touchPoints: [A, B] }),
+      liftB,
+      liftA: () => cdp.send('Input.dispatchTouchEvent', { type: 'touchEnd', touchPoints: [A] }),
+      detached,
+      liftedAt: liftA,
+    };
+  }
+  // Events made in the page: A is identifier 1 on its row, B identifier 2 on the chip.
+  const send = (type: string, on: 'A' | 'B', down: ('A' | 'B')[], click = false) =>
+    page.evaluate(
+      ([type, on, down, click]) => {
+        const w = window as unknown as { rowA: Element };
+        const chip = document.querySelector('.deck-filter') as HTMLElement;
+        const t = { A: { identifier: 1, target: w.rowA }, B: { identifier: 2, target: chip } } as const;
+        const e = new Event(type as string, { bubbles: true });
+        Object.defineProperty(e, 'touches', { value: (down as ('A' | 'B')[]).map((k) => t[k]) });
+        Object.defineProperty(e, 'changedTouches', { value: [t[on as 'A' | 'B']] });
+        t[on as 'A' | 'B'].target.dispatchEvent(e);
+        if (click) chip.click();
+      },
+      [type, on, down, click] as const,
+    );
+  return {
+    downA: () => send('touchstart', 'A', ['A']),
+    tapB: async () => {
+      await send('touchstart', 'B', ['A', 'B']);
+      await page.waitForTimeout(60);
+      await send('touchend', 'B', ['A'], true);
+    },
+    downB: () => send('touchstart', 'B', ['A', 'B']),
+    liftB: () => send('touchend', 'B', ['A'], true),
+    liftA: () => send('touchend', 'A', []),
+    detached,
+    liftedAt: liftA,
+  };
+}
+
+test.describe('v6.7 rulings 3 and 4 (#121) at 390×844', () => {
+  test.use({ viewport: { width: 390, height: 844 }, hasTouch: true });
+
+  test('a finger held on a row, a chip tapped with another (the list rebuilt), the first lifts: compact 3 s after that lift, grown just before', async ({ page, browserName }) => {
+    await page.goto('/#3');
+    await expectCompact(page);
+    await quiet(page);
+    await turnAndStop(page);
+    const f = await fingersOnRowAndChip(page, browserName);
+    await f.downA();
+    await f.tapB();
+    // The chip filtered the deck: the list was rebuilt under finger A.
+    await expect(page.locator('.deck-filter').first()).toHaveAttribute('aria-pressed', 'true');
+    expect(await f.detached()).toBe(true);
+    await page.waitForTimeout(PAST_RETURN);
+    expect(await phase(page)).not.toBe('compact');
+    const phases = await stampPhases(page);
+    await f.liftA();
+    await expectCompact(page);
+    const lifted = await f.liftedAt();
+    expect(lifted).toBeGreaterThan(0);
+    expect(compactIn(await phases())!.at - lifted).toBeGreaterThanOrEqual(RETURN - 20);
+  });
+
+  test('issue 116 kept: a finger held on a row, a chip tapped and lifted with another: grown while the first is held', async ({ page, browserName }) => {
+    await page.goto('/#3');
+    await expectCompact(page);
+    await quiet(page);
+    await turnAndStop(page);
+    const f = await fingersOnRowAndChip(page, browserName);
+    const phases = await stampPhases(page);
+    await f.downA();
+    await f.downB();
+    await page.waitForTimeout(100);
+    await f.liftB();
+    await expect(page.locator('.deck-filter').first()).toHaveAttribute('aria-pressed', 'true');
+    expect(await f.detached()).toBe(true);
+    await page.waitForTimeout(PAST_RETURN);
+    expect(compactIn(await phases())).toBeUndefined();
+    expect(await shownRows(page)).toBeGreaterThan(DECK.compactRows);
+    await f.liftA();
+    await expectCompact(page);
+  });
+});
+
+/** Ruling 5: past either end of the wheel a short faint line marks the end; docked, none. */
+test.describe('v6.7 ruling 5 at 390×844', () => {
+  test.use({ viewport: { width: 390, height: 844 }, hasTouch: true });
+
+  test('at rest on Cascade the slot above the first row draws the end mark; on Make your own the slot below the last', async ({ page }, info) => {
+    await page.goto('/#3');
+    await expectCompact(page);
+    await quiet(page);
+    expect(await bandRow(page)).toBe(0);
+    const before = await slot(page, 'before');
+    expect(before.image).not.toBe('none');
+    expect(before.height).toBe(DECK.rowPx * ((DECK.compactRows - 1) / 2));
+    await shot(page, `v67-390-${info.project.name}-rest-cascade`);
+    await page.locator('.deck-own').click();
+    await expect(page.locator('.deck-row.in-band')).toHaveClass(/deck-own/);
+    await page.keyboard.press('Escape');
+    await expectCompact(page);
+    const after = await slot(page, 'after');
+    expect(after.image).not.toBe('none');
+    expect(after.height).toBe(DECK.rowPx * ((DECK.compactRows - 1) / 2));
+    await shot(page, `v67-390-${info.project.name}-rest-own`);
+  });
+});
+
+test.describe('v6.7 ruling 5, screenshots at 375×667', () => {
+  test.use({ viewport: { width: 375, height: 667 }, hasTouch: true });
+
+  test('at rest on Cascade and on Make your own: the end marks', async ({ page }, info) => {
+    await page.goto('/#3');
+    await expectCompact(page);
+    await quiet(page);
+    expect((await slot(page, 'before')).image).not.toBe('none');
+    await shot(page, `v67-375-${info.project.name}-rest-cascade`);
+    await page.locator('.deck-own').click();
+    await expect(page.locator('.deck-row.in-band')).toHaveClass(/deck-own/);
+    await page.keyboard.press('Escape');
+    await expectCompact(page);
+    expect((await slot(page, 'after')).image).not.toBe('none');
+    await shot(page, `v67-375-${info.project.name}-rest-own`);
+  });
+});
+
+test.describe('v6.7 ruling 5, docked at 1280×800', () => {
+  test.use({ viewport: { width: 1280, height: 800 } });
+
+  test('the docked menu has no blank slots and no end marks', async ({ page }) => {
+    await page.goto('/#3');
+    await expect(page.locator('.deck-wheel')).toBeVisible();
+    expect((await slot(page, 'before')).display).toBe('none');
+    expect((await slot(page, 'after')).display).toBe('none');
+  });
+});
 
 test.describe('wide, 1280×800', () => {
   test.use({ viewport: { width: 1280, height: 800 } });
