@@ -119,7 +119,7 @@ export const mountDeck: Mount = (root, { store, player, sound }) => {
         )
         .join('')}</div>
       <div class="deck-wheel" id="deck-wheel" hidden>
-        <ol class="deck-wheel-list" aria-label="${t.wheelLabel}"></ol>
+        <ol class="deck-wheel-list" aria-label="${t.wheelLabel}" tabindex="-1"></ol>
       </div>
     </div>
     <div class="deck-sound">
@@ -557,7 +557,11 @@ export const mountDeck: Mount = (root, { store, player, sound }) => {
     showWheel();
   });
 
-  /** One tab stop in the wheel (roving tabindex): the loaded row, else the row last in the band. */
+  /**
+   * One tab stop in the wheel (roving tabindex): the loaded row, else the row last in the band. The
+   * list itself is none (tabindex -1): Firefox makes a scrolling box a tab stop of its own, which
+   * put a stop before the row (v6.6 ruling 10).
+   */
   let roving = 0;
   const rove = (row: number) => {
     rows[roving]?.setAttribute('tabindex', '-1');
