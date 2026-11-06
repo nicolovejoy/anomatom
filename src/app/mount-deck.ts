@@ -154,7 +154,7 @@ export const mountDeck: Mount = (root, { store, player, sound }) => {
     const attrs = `class="deck-row${p ? '' : ' deck-own'}" tabindex="-1" data-row="${row}"${p ? ` data-id="${p.id}"` : ''}`;
     return p
       ? `<li><button type="button" ${attrs}><code>${cardPattern(p)}</code><span class="deck-row-name">${copy.presets[p.id]?.name ?? ''}</span><em>${groupTag(p.group)}</em></button></li>`
-      : `<li><button type="button" ${attrs}><code class="deck-own-code"></code><span class="deck-row-name deck-own-make">${t.makeYourOwn}</span><span class="deck-row-name deck-own-yours"></span></button></li>`;
+      : `<li><button type="button" ${attrs}><code class="deck-own-code"></code><span class="deck-row-name deck-own-make">${t.makeYourOwn}</span><span class="deck-own-yours"></span></button></li>`;
   };
   /** The wheel's buttons, one a row. */
   let rows: HTMLButtonElement[] = [];
@@ -1086,13 +1086,14 @@ export const mountDeck: Mount = (root, { store, player, sound }) => {
   document.fonts?.addEventListener('loadingdone', fitNotation);
 
   /**
-   * Docked, each wheel row's notation is drawn smaller to fit what its name leaves it (deck.css),
-   * from DECK.dockedNotationPx down to dockedNotationMinPx, measured as the bar's notation is
-   * (fitFontPx, nextFit); past the floor it ellipsizes. Elsewhere the rows keep their CSS size.
+   * Docked, and in the upright card (v6.6), each wheel row's notation is drawn smaller to fit what
+   * its name leaves it (deck.css), from its size (DECK.dockedNotationPx docked, the CSS size upright)
+   * down to dockedNotationMinPx, measured as the bar's notation is (fitFontPx, nextFit); past the
+   * floor it ellipsizes. On its side the rows keep their CSS size.
    */
   let fittedWidth = -1;
   function fitRows() {
-    const on = docked() && !wheel.hidden;
+    const on = (docked() || upright()) && !wheel.hidden;
     const width = on ? wheel.clientWidth : 0;
     if (width === fittedWidth) return;
     fittedWidth = width;
@@ -1103,10 +1104,12 @@ export const mountDeck: Mount = (root, { store, player, sound }) => {
         code.style.removeProperty('font-size');
         continue;
       }
-      code.style.fontSize = `${DECK.dockedNotationPx}px`;
+      code.style.removeProperty('font-size');
+      const full = docked() ? DECK.dockedNotationPx : parseFloat(getComputedStyle(code).fontSize);
+      code.style.fontSize = `${full}px`;
       const room = code.clientWidth;
-      let size = fitFontPx(code.scrollWidth, room, DECK.dockedNotationPx, DECK.dockedNotationMinPx);
-      for (let i = 0; i < DECK.notationFitTries && size !== DECK.dockedNotationPx; i++) {
+      let size = fitFontPx(code.scrollWidth, room, full, DECK.dockedNotationMinPx);
+      for (let i = 0; i < DECK.notationFitTries && size !== full; i++) {
         code.style.fontSize = `${size}px`;
         const next = nextFit(size, code.scrollWidth, room, DECK.dockedNotationMinPx);
         if (next === null) break;
@@ -1215,6 +1218,7 @@ export const mountDeck: Mount = (root, { store, player, sound }) => {
     showWheel();
     dressOwn();
     dressBand();
+    refitRows();
     scrollWanted = true;
   }
   new MutationObserver(() => upright() !== wasUpright && turned()).observe(app, { attributes: true, attributeFilter: ['class'] });

@@ -449,7 +449,8 @@
 .deck-row.on code {
   color: var(--accent);
 }
-.deck-own .deck-row-name {
+.deck-own .deck-row-name,
+.deck-own-yours {
   color: var(--accent);
 }
 /* Docked, the band is the chosen row's own highlight, in gold, and moves with the choice. */
@@ -533,8 +534,18 @@
   gap: 8px;
   padding: 0 10px;
 }
+/* As docked, the name and the meta are always whole; the notation takes what is left and is drawn
+   smaller to fit it (mount-deck.ts, fitRows), down to DECK.dockedNotationMinPx before it ellipsizes. */
 #app:not(.is-wide):not(.is-landscape) .deck-row code {
+  flex: 0 1 auto;
   min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: pre;
+}
+#app:not(.is-wide):not(.is-landscape) .deck-row-name,
+#app:not(.is-wide):not(.is-landscape) .deck-own-yours {
+  flex: none;
 }
 #app:not(.is-wide):not(.is-landscape) .deck-row.in-band em {
   display: none;

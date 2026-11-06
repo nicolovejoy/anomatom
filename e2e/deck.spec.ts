@@ -14,14 +14,21 @@ mkdirSync(SHOTS, { recursive: true });
 const scheduled = async (page: Page) => Number(await page.locator('#app').getAttribute('data-events-scheduled'));
 const notation = (page: Page) => page.locator('.deck-notation');
 
-/** What sits at the middle of each row the open wheel shows: a row's data-row, or null for none (a blank row). */
+/**
+ * What sits at the middle of each row the open wheel shows: a row's data-row, or null for none (a
+ * blank row). Docked a menu, its rows from the top; elsewhere a drum, its rows about the band in
+ * its middle (the compact drum cuts its outer two: v6.4 ruling 1).
+ */
 const wheelRowsShown = (page: Page) =>
   page.locator('.deck-wheel').evaluate((wheel) => {
     const box = wheel.getBoundingClientRect();
     const rowPx = (wheel.querySelector('.deck-row') as HTMLElement).getBoundingClientRect().height;
-    const n = Math.round(box.height / rowPx);
+    const docked = document.querySelector('#app.deck-docked') !== null;
+    const half = Math.floor((box.height / 2 - 1) / rowPx + 0.5);
+    const n = docked ? Math.round(box.height / rowPx) : 2 * half + 1;
+    const y = (i: number) => (docked ? box.top + (i + 0.5) * rowPx : box.top + box.height / 2 + (i - half) * rowPx);
     return Array.from({ length: n }, (_, i) => {
-      const hit = document.elementFromPoint(box.left + box.width / 2, box.top + (i + 0.5) * rowPx);
+      const hit = document.elementFromPoint(box.left + box.width / 2, y(i));
       return hit?.closest('.deck-row')?.getAttribute('data-row') ?? null;
     });
   });
@@ -48,6 +55,8 @@ const SIZES = [
   { name: '667x375', width: 667, height: 375, docked: false, column: true },
   { name: '1280x800', width: 1280, height: 800, docked: true, column: false },
 ];
+/** A phone held upright: the deck on top, no ‹ › and no pattern button (docs/plans/v6-6-deck-on-top-four-jugglers.md). */
+const isUpright = (size: (typeof SIZES)[number]) => !size.docked && !size.column;
 
 for (const size of SIZES) {
   test.describe(size.name, () => {
@@ -86,9 +95,10 @@ for (const size of SIZES) {
         expect(shown.slice(0, mid).every((r) => r === null)).toBe(true);
         expect(shown.slice(mid).every((r) => r !== null)).toBe(true);
       }
-      // Square: nothing in the deck is rounded.
+      // Square: nothing in the deck is rounded, but the upright card (v6.6 ruling 2, DECK.cardRadiusPx).
       const rounded = await page.locator('.region-deck').evaluate((root) =>
         [root, ...root.querySelectorAll('*')].filter((el) => {
+          if (el.classList.contains('deck-picker') && !document.querySelector('#app.is-wide, #app.is-landscape')) return false;
           const s = getComputedStyle(el);
           return [s.borderTopLeftRadius, s.borderTopRightRadius, s.borderBottomLeftRadius, s.borderBottomRightRadius].some((r) => parseFloat(r) > 0);
         }).map((el) => `${el.tagName}.${el.className}`),
@@ -120,8 +130,9 @@ for (const size of SIZES) {
       await expect.poll(() => page.evaluate(() => location.hash)).not.toBe('#3');
       await page.waitForTimeout(800);
       const hash = await page.evaluate(() => location.hash);
-      // No ‹ on the wide layout (v5 ruling 8): ↑ does it (v6.1 ruling 3).
+      // No ‹ on the wide layout (v5 ruling 8): ↑ does it (v6.1 ruling 3); nor upright (v6.6 ruling 1): ←.
       if (size.docked) await page.keyboard.press('ArrowUp');
+      else if (isUpright(size)) await page.keyboard.press('ArrowLeft');
       else await page.locator('.deck-prev').click();
       await expect(notation(page)).toHaveText('51');
       const fresh = await page.context().newPage();
@@ -133,6 +144,8 @@ for (const size of SIZES) {
       if (size.docked) {
         await page.evaluate(() => (document.activeElement as HTMLElement | null)?.blur());
         await page.keyboard.press('ArrowUp');
+      } else if (isUpright(size)) {
+        await page.keyboard.press('ArrowLeft');
       } else {
         await expect(page.locator('.deck-prev')).toHaveAttribute('aria-disabled', 'true');
         await expect(page.locator('.deck-next')).toHaveAttribute('aria-disabled', 'false');
@@ -157,6 +170,7 @@ for (const size of SIZES) {
       await page.locator('#play').click();
       await expect(page.locator('#play')).toHaveText('Pause');
       if (size.docked) await page.keyboard.press('ArrowDown');
+      else if (isUpright(size)) await page.keyboard.press('ArrowRight');
       else await page.locator('.deck-next').click();
       await expect(notation(page)).toHaveText('51');
       await expect(page.locator('#play')).toHaveText('Pause');
@@ -182,7 +196,8 @@ for (const size of SIZES) {
 
     test('clicking a wheel row plays it, from stopped too', async ({ page }) => {
       await page.goto('/#3');
-      if (!size.docked) {
+      // On its side the pattern name opens the wheel; upright it is always shown (v6.6 ruling 4).
+      if (size.column) {
         await expect(page.locator('.deck-wheel')).toBeHidden();
         await page.locator('.deck-pattern').click();
       }
@@ -196,7 +211,7 @@ for (const size of SIZES) {
       await expect(page.locator('.deck-row[aria-current]')).toHaveCount(1);
       // Docked, the band moves to the clicked row (v6.2 ruling 3).
       if (size.docked) await expect(page.locator('.deck-row.in-band')).toHaveAttribute('data-id', 'classic');
-      // On a phone upright the pick leaves the wheel compact (v6.4 ruling 4); on its side it
+      // On a phone upright the pick leaves the card compact (v6.6 ruling 4); on its side it
       // closes; docked, it stays.
       await expect(page.locator('.deck-wheel')).toBeVisible({ visible: !size.column });
       if (!size.docked && !size.column) await expect(page.locator('.deck-wheel')).toHaveAttribute('data-phase', 'compact');
@@ -240,17 +255,18 @@ for (const size of SIZES) {
       expect(await page.evaluate(() => document.documentElement.scrollHeight <= window.innerHeight)).toBe(true);
       await page.screenshot({ path: `${SHOTS}/deck-details-${size.name}.png` });
 
-      if (!size.docked) {
+      if (size.column) {
         await page.keyboard.press('Escape');
         await page.locator('.deck-pattern').click();
-      } else await page.locator('.panel-option[data-panel="patterns"]').click();
+      } else if (size.docked) await page.locator('.panel-option[data-panel="patterns"]').click();
       await page.locator('.deck-own').click();
       await expect(page.locator('#tab-pattern')).toHaveAttribute('aria-selected', 'true');
       await expect(page.locator('#hand-0')).toBeVisible();
       expect(await page.evaluate(() => document.documentElement.scrollHeight <= window.innerHeight)).toBe(true);
     });
 
-    if (!size.docked) {
+    // On a phone on its side; upright nothing opens or closes the card (phone-wheel.spec.ts).
+    if (size.column) {
       test('the pattern name opens and closes the wheel; outside and Escape close it', async ({ page }) => {
         await page.goto('/#3');
         const wheel = page.locator('.deck-wheel');
@@ -260,31 +276,20 @@ for (const size of SIZES) {
         const w = (await wheel.boundingBox())!;
         const bar = (await page.locator('.deck-bar').boundingBox())!;
         const stage = (await page.locator('.stage').boundingBox())!;
-        if (size.column) {
-          // A phone on its side: in the right-hand column, over neither the beat ladder nor Kit and Sound (v4.1 ruling 5).
-          const ladder = (await page.locator('.region-ladder').boundingBox())!;
-          const sound = (await page.locator('.deck-sound').boundingBox())!;
-          expect(overlap(w, ladder)).toBe(0);
-          expect(overlap(w, sound)).toBe(0);
-          expect(overlap(w, bar)).toBe(0);
-          expect(w.x).toBeGreaterThanOrEqual(stage.x + stage.width - 1);
-          expect(w.y + w.height).toBeLessThanOrEqual(size.height + 1);
-          // Cascade in the band, the rows below it filled; above it blank (v6.2 ruling 4).
-          await expect.poll(async () => {
-            const shown = await wheelRowsShown(page);
-            const mid = (shown.length - 1) / 2;
-            return shown[mid] === '0' && shown.slice(mid).every((r) => r !== null) && shown.slice(0, mid).every((r) => r === null);
-          }).toBe(true);
-        } else {
-          // Over the stage, not over the deck, and clear of the juggler, which stays in view (ruling B).
-          expect(w.y + w.height).toBeLessThanOrEqual(Math.max(bar.y, stage.y + stage.height) + 1);
-          expect(w.x).toBeGreaterThanOrEqual(stage.x - 1);
-          // Upright, directly above the ladder strip, the strip and the deck under it (v6.5 ruling 9).
-          const ladder = (await page.locator('.region-ladder').boundingBox())!;
-          expect(w.y + w.height).toBeLessThanOrEqual(ladder.y + 1);
-          expect(ladder.y + ladder.height).toBeLessThanOrEqual(bar.y + 1);
-          await expect(page.locator('.region-ladder')).toBeInViewport();
-        }
+        // A phone on its side: in the right-hand column, over neither the beat ladder nor Kit and Sound (v4.1 ruling 5).
+        const ladder = (await page.locator('.region-ladder').boundingBox())!;
+        const sound = (await page.locator('.deck-sound').boundingBox())!;
+        expect(overlap(w, ladder)).toBe(0);
+        expect(overlap(w, sound)).toBe(0);
+        expect(overlap(w, bar)).toBe(0);
+        expect(w.x).toBeGreaterThanOrEqual(stage.x + stage.width - 1);
+        expect(w.y + w.height).toBeLessThanOrEqual(size.height + 1);
+        // Cascade in the band, the rows below it filled; above it blank (v6.2 ruling 4).
+        await expect.poll(async () => {
+          const shown = await wheelRowsShown(page);
+          const mid = (shown.length - 1) / 2;
+          return shown[mid] === '0' && shown.slice(mid).every((r) => r !== null) && shown.slice(0, mid).every((r) => r === null);
+        }).toBe(true);
         expect(await page.evaluate(() => document.documentElement.scrollHeight <= window.innerHeight)).toBe(true);
         await expect(page.locator('.deck-pattern')).toHaveAttribute('aria-expanded', 'true');
         await expect.poll(async () => {
@@ -327,20 +332,25 @@ test.describe('phone', () => {
     await expect(page.locator('#hand-1')).toBeHidden();
   });
 
-  test('a hand-made pattern: "Your pattern"; › goes to the first preset, ‹ to the last', async ({ page }) => {
+  test('a hand-made pattern: "Your pattern" on Make your own in the band; → goes to the first preset, ← to the last', async ({ page }) => {
     await page.goto('/#753');
     await expect(notation(page)).toHaveText('753');
     await expect(page.locator('.deck-name')).toHaveText('Your pattern');
-    await page.locator('.deck-next').click();
+    // Upright the band row names it (v6.6 ruling 9).
+    const own = page.locator('.deck-own');
+    await expect(own).toHaveClass(/in-band/);
+    await expect(own.locator('.deck-own-code')).toHaveText('753');
+    await expect(own.locator('.deck-own-yours')).toHaveText('Your pattern');
+    await page.keyboard.press('ArrowRight');
     await expect(notation(page)).toHaveText('3');
     // The link follows (debounced) first: before then the address still reads #753, and going
     // there again is no navigation at all (Firefox), so Cascade would stay, ‹ disabled on it.
     await expect(page).toHaveURL(/#3(~|$)/);
     await page.goto('/#753');
     await expect(notation(page)).toHaveText('753');
-    await page.locator('.deck-prev').click();
-    // The last card: Square, four jugglers (v6.6).
-    await expect(page.locator('.deck-meta')).toHaveText('4 jugglers');
+    await page.keyboard.press('ArrowLeft');
+    await expect(page.locator('.deck-meta')).toHaveText('3 jugglers');
+    await expect(page.locator('.deck-row.in-band .deck-band-meta')).toHaveText('3 jugglers');
   });
 
   test('scrolling up from Cascade goes nowhere: Cascade stays in the band, blank rows above it', async ({ page }) => {
@@ -411,22 +421,6 @@ test.describe('phone', () => {
     expect(await scheduled(page)).toBe(0);
   });
 
-  test('the seven-object pass shows whole in the bar', async ({ page }) => {
-    // Cut from the deck in v5 (§4): it still opens as a typed pattern, by its short link.
-    await page.goto('/#7p-1-3-1|3p-3-3-3');
-    // The fit is for the real glyphs: wait until IBM Plex Mono has loaded (the app fits again on each font load).
-    await page.evaluate(() => document.fonts.load('500 16px "IBM Plex Mono"'));
-    await expect.poll(() => page.evaluate(() => [...document.fonts].some((f) => f.family.includes('IBM Plex Mono') && f.status === 'loaded'))).toBe(true);
-    await expect(notation(page)).toHaveText('<7p 1 3 1|3p 3 3 3>');
-    const fit = () => notation(page).evaluate((el) => `${getComputedStyle(el).fontSize} ${el.scrollWidth}/${el.clientWidth}`);
-    await expect.poll(async () => notation(page).evaluate((el) => el.scrollWidth <= el.clientWidth), { message: `not ellipsized (size scrollWidth/clientWidth: ${await fit()})` }).toBe(true);
-    const px = await notation(page).evaluate((el) => parseFloat(getComputedStyle(el).fontSize));
-    expect(px).toBeGreaterThanOrEqual(11);
-    const slider = (await page.locator('#volume').boundingBox())!;
-    expect(slider.width).toBeGreaterThanOrEqual(70);
-    await page.screenshot({ path: `${SHOTS}/deck-seven-pass-390x844.png` });
-  });
-
   test('every wheel row shows its name whole', async ({ page }) => {
     await page.goto('/');
     // The names are measured with the real glyphs: the two faces a wheel row draws (400 Mono for
@@ -454,6 +448,69 @@ test.describe('phone', () => {
     const banded = await page.locator('.deck-row.in-band code').textContent();
     await expect(notation(page)).toHaveText(banded ?? '');
     expect(await scheduled(page)).toBe(0);
+  });
+
+});
+
+test.describe('phone, more', () => {
+  test.use({ viewport: { width: 390, height: 844 } });
+
+  test('a first visit keeps the juggler in view under the compact card; the closed sheet shows no tabs', async ({ page }) => {
+    await page.goto('/');
+    const w = (await page.locator('.deck-picker').boundingBox())!;
+    await expect.poll(async () => {
+      const j = (await page.locator('.region-juggler').boundingBox())!;
+      return j.y >= w.y + w.height - 1 && j.height >= DECK.minFigurePx;
+    }).toBe(true);
+    await expect(page.locator('.sheet-tabs')).toBeHidden();
+    await expect(page.locator('.sheet-grab')).toBeHidden();
+    await page.waitForTimeout(500);
+    await page.screenshot({ path: `${SHOTS}/deck-phone-bare-wheel.png` });
+  });
+
+  test('a change waiting for the next cycle: the band row says so in place of its meta (v6.6 ruling 9)', async ({ page }) => {
+    // As below: the old pattern long (97531, ten beats) and slow (40 bpm, about 7 s).
+    await page.goto('/#97531@40');
+    await page.locator('#play').click();
+    await page.locator('.deck-row:not(.deck-own)').last().click();
+    await expect(page.locator('#play')).toHaveText('Pause');
+    const band = page.locator('.deck-row.in-band');
+    await expect(band.locator('#pending')).toBeVisible({ timeout: 3000 });
+    await expect(band.locator('.deck-band-meta')).toBeHidden();
+    await expect(page.locator('#pending')).toBeInViewport({ ratio: 1 });
+    const row = (await band.boundingBox())!;
+    const pending = (await page.locator('#pending').boundingBox())!;
+    expect(pending.x + pending.width).toBeLessThanOrEqual(row.x + row.width + 1);
+    // Once it plays, the meta is back.
+    await expect(band.locator('.deck-band-meta')).toBeVisible({ timeout: 10000 });
+    await expect(page.locator('#pending')).toBeHidden();
+  });
+
+  test('Details is named Details', async ({ page }) => {
+    await page.goto('/#3');
+    await expect(page.getByRole('button', { name: /^Details/ })).toBeVisible();
+  });
+});
+
+// A phone on its side keeps the transport bar (v6.6 ruling 11): the pattern button, ‹ ›, mute and
+// the volume, and "next cycle" in the bar.
+test.describe('phone on its side, the bar', () => {
+  test.use({ viewport: { width: 844, height: 390 } });
+
+  test('the seven-object pass shows whole in the bar', async ({ page }) => {
+    // Cut from the deck in v5 (§4): it still opens as a typed pattern, by its short link.
+    await page.goto('/#7p-1-3-1|3p-3-3-3');
+    // The fit is for the real glyphs: wait until IBM Plex Mono has loaded (the app fits again on each font load).
+    await page.evaluate(() => document.fonts.load('500 16px "IBM Plex Mono"'));
+    await expect.poll(() => page.evaluate(() => [...document.fonts].some((f) => f.family.includes('IBM Plex Mono') && f.status === 'loaded'))).toBe(true);
+    await expect(notation(page)).toHaveText('<7p 1 3 1|3p 3 3 3>');
+    const fit = () => notation(page).evaluate((el) => `${getComputedStyle(el).fontSize} ${el.scrollWidth}/${el.clientWidth}`);
+    await expect.poll(async () => notation(page).evaluate((el) => el.scrollWidth <= el.clientWidth), { message: `not ellipsized (size scrollWidth/clientWidth: ${await fit()})` }).toBe(true);
+    const px = await notation(page).evaluate((el) => parseFloat(getComputedStyle(el).fontSize));
+    expect(px).toBeGreaterThanOrEqual(11);
+    const slider = (await page.locator('#volume').boundingBox())!;
+    expect(slider.width).toBeGreaterThanOrEqual(70);
+    await page.screenshot({ path: `${SHOTS}/deck-seven-pass-844x390.png` });
   });
 
   test('a mouse wheel over the pattern name steps one pattern a notch', async ({ page }) => {
@@ -485,24 +542,6 @@ test.describe('phone', () => {
     await expect(notation(page)).toHaveText('3');
     await expect(page).toHaveURL(/#3(~|$)/);
   });
-});
-
-test.describe('phone, more', () => {
-  test.use({ viewport: { width: 390, height: 844 } });
-
-  test('a first visit keeps the juggler in view above the open wheel; the closed sheet shows no tabs', async ({ page }) => {
-    await page.goto('/');
-    const w = (await page.locator('.deck-wheel').boundingBox())!;
-    await expect.poll(async () => {
-      const j = (await page.locator('.region-juggler').boundingBox())!;
-      return j.y + j.height <= w.y + 1 && j.height >= 150;
-    }).toBe(true);
-    await expect(page.locator('.sheet-tabs')).toBeHidden();
-    await expect(page.locator('.sheet-grab')).toBeHidden();
-    await page.waitForTimeout(500);
-    await page.screenshot({ path: `${SHOTS}/deck-phone-bare-wheel.png` });
-  });
-
   test('a long pattern is drawn smaller, and next cycle stays on screen', async ({ page }) => {
     // Deterministic (it once flaked on WebKit): "next cycle" shows until the old pattern's cycle
     // ends, so the old one is long (97531, ten beats) and slow (40 bpm, about 7 s), and the switch
@@ -522,10 +561,6 @@ test.describe('phone, more', () => {
     expect(box.width).toBeGreaterThan(20);
   });
 
-  test('Details is named Details', async ({ page }) => {
-    await page.goto('/#3');
-    await expect(page.getByRole('button', { name: /^Details/ })).toBeVisible();
-  });
 });
 
 // v6 W1: the docked rows are taller with a larger notation; a long notation is drawn smaller so
