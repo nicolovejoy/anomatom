@@ -1,6 +1,6 @@
 # v6.7 · the phone wheel's loose ends
 
-Status: planned 2026-11-06. Streams: A (issues #133, #134, #121, and the empty end slots), B (issue #135).
+Status: built 2026-11-06 (A: PR #141, which also fixed #139; B: PR #140; plan PR #136). Open from this wave: #142 Firefox audio-session flake in CI.
 
 ## 0. Decided with Nico, 2026-11-06
 
