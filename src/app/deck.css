@@ -347,14 +347,13 @@
   pointer-events: none;
   background: linear-gradient(var(--surface), transparent 30%, transparent 70%, var(--surface));
 }
-/* The compact phone wheel (docs/plans/v6-4-wheel-shrinks.md, ruling 1): three rows, the band in
-   the middle, the outer two cut at the drum's edges and fading toward them. Upright only, where
-   the chips stay above it (docs/plans/v6-6-deck-on-top-four-jugglers.md, ruling 3). */
-/* The band is the middle 40% of the compact drum; the outer rows are dimmed a fifth at the
-   band's edge and fade out toward the drum's, so the middle row is plainly the chosen one. */
+/* The compact card (docs/plans/v6-4-wheel-shrinks.md, ruling 1; v6.6 ruling 4 as revised by the
+   coordinator, 2026-11-05): three whole rows, the band in the middle, the outer two dimmed (not
+   faded into the card's border), so the middle row is plainly the chosen one. Upright only, where
+   the chips stay above it (v6.6 ruling 3). */
 .deck-picker.is-compact .deck-wheel::after {
-  --dim: color-mix(in srgb, var(--surface) 20%, transparent);
-  background: linear-gradient(var(--surface), var(--dim) 30%, transparent 30%, transparent 70%, var(--dim) 70%, var(--surface));
+  --dim: color-mix(in srgb, var(--surface) 45%, transparent);
+  background: linear-gradient(var(--dim) 0 33.34%, transparent 33.34% 66.66%, var(--dim) 66.66%);
 }
 /* Docked, a menu: no fixed band and no fade; the chosen row carries the band (below). */
 #app.deck-docked .deck-wheel::before,

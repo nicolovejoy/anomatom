@@ -4,6 +4,7 @@
 // corners, no page scroll, no console errors.
 // Screenshots go to e2e/shots/.
 import { mkdirSync } from 'node:fs';
+import { deckPresets, presetMeta } from '../src/app/deck-model';
 import { PRESETS } from '../src/app/presets';
 import { DECK } from '../src/tunables';
 import { expect, isCdnError, openTab, test, type Page } from './fixtures';
@@ -349,8 +350,10 @@ test.describe('phone', () => {
     await page.goto('/#753');
     await expect(notation(page)).toHaveText('753');
     await page.keyboard.press('ArrowLeft');
-    await expect(page.locator('.deck-meta')).toHaveText('3 jugglers');
-    await expect(page.locator('.deck-row.in-band .deck-band-meta')).toHaveText('3 jugglers');
+    // The deck's last card, whatever it is (derived, not pinned: the deck grows).
+    const last = presetMeta(deckPresets().at(-1)!);
+    await expect(page.locator('.deck-meta')).toHaveText(last);
+    await expect(page.locator('.deck-row.in-band .deck-band-meta')).toHaveText(last);
   });
 
   test('scrolling up from Cascade goes nowhere: Cascade stays in the band, blank rows above it', async ({ page }) => {

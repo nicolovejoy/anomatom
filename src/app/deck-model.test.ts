@@ -455,7 +455,8 @@ describe('the upright phone wheel phase (v6.6 ruling 4)', () => {
 });
 
 describe('the upright phone wheel grown in place (v6.6 ruling 5)', () => {
-  // Measured heights: the card's chrome (its 12 px top margin, the border, the chips row) 62 px,
+  // Heights as the mount measures them (illustrative): the card's chrome (its 12 px top margin, the
+  // border, the chips row) 62 px here, about 64 in the page,
   // the strip 120 (100 with the sheet open), the sound row 53; the closed sheet 20 (44 with the
   // sound's status row showing, as the stubbed e2e has it).
   const at = (view: number, sheet = 20, strip = 120) => ({ view, chrome: 62, strip, sound: 53, sheet });

@@ -258,7 +258,7 @@ button:disabled {
   grid-template-rows: auto minmax(min-content, 1fr) auto minmax(0, var(--sheet-open-height, 62dvh));
 }
 #app.sheet-open:not(.is-wide):not(.is-landscape) .region-juggler {
-  min-height: var(--deck-sheet-figure, 120px);
+  min-height: var(--deck-sheet-figure);
 }
 #app.sheet-open:not(.is-wide):not(.is-landscape) .region-sheet {
   overflow: hidden;

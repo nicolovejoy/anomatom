@@ -588,13 +588,15 @@ export const DECK = {
    */
   returnMs: 3000,
   /**
-   * The compact upright phone wheel, where it starts and rests (v6.4 ruling 1; v6.6 ruling 4): this
-   * many rows, odd, the middle one in the band, in the card at the top under the filter chips. The
-   * drum's edges cut compactCut of a row off the top of the top row and the bottom of the bottom
-   * one, and the outer rows fade. Grown, it shows up to wheelRows (v6.6 ruling 5).
+   * The compact upright phone wheel, where it starts and rests (v6.4 ruling 1; v6.6 ruling 4 as
+   * revised by the coordinator, 2026-11-05): this many rows, odd, the middle one in the band, in
+   * the card at the top under the filter chips. compactCut is the part of a row the drum's edges
+   * cut off its outer two: 0 since that revision, so the card holds whole rows, the outer two
+   * dimmed rather than faded into its border (deck.css). Grown, it shows up to wheelRows (v6.6
+   * ruling 5).
    */
   compactRows: 3,
-  compactCut: 0.25,
+  compactCut: 0,
   /**
    * A touch on the compact wheel that turns nothing grows it in place (v6.4 ruling 3; v6.6 ruling 4)
    * this long after the finger lifts, unless a click comes first: a slow tap's click lands on the
@@ -616,6 +618,10 @@ export const DECK = {
    */
   minFigurePx: 200,
   sidePx: 300,
+  /**
+   * Upright with the sheet open, the juggler's floor instead of minFigurePx (v6.6 ruling 7): the
+   * old CSS floor of the juggler's region, which the open sheet never takes.
+   */
   sheetFigurePx: 120,
   /**
    * The upright phone's deck on top (docs/plans/v6-6-deck-on-top-four-jugglers.md, ruling 2): the

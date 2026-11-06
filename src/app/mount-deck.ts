@@ -288,7 +288,7 @@ export const mountDeck: Mount = (root, { store, player, sound }) => {
       app.style.setProperty('--wheel-pad-right', '0px');
     }
     picker.classList.toggle('is-compact', upright() && phase === 'compact');
-    if (upright() && !docked() && !wheel.hidden) return setRows(...uprightRows());
+    if (upright() && !wheel.hidden) return setRows(...uprightRows());
     if (flow) {
       if (wheel.hidden) return setRows(DECK.wheelRows, DECK.rowPx);
       // Docked (v6 ruling 1, v6.2 ruling 3): taller rows, top aligned; while the editor is hidden,
@@ -476,7 +476,7 @@ export const mountDeck: Mount = (root, { store, player, sound }) => {
 
   /** Closes the phone wheel; upright, where it never closes, makes a grown one compact (v6.6 ruling 4). */
   const closeWheel = () => {
-    if (upright() && !docked()) {
+    if (upright()) {
       if (phase !== 'compact') shrink('close');
       return;
     }
@@ -495,7 +495,7 @@ export const mountDeck: Mount = (root, { store, player, sound }) => {
   /** A touch began on the compact wheel: if it neither turns it nor taps a row, it grows it (v6.4 ruling 3). */
   let pressed = false;
   const setPhase = (event: Parameters<typeof nextPhase>[1]) => {
-    phase = nextPhase(phase, event, upright() && !docked());
+    phase = nextPhase(phase, event, upright());
     wheel.dataset.phase = phase;
   };
   wheel.dataset.phase = phase;
@@ -522,6 +522,10 @@ export const mountDeck: Mount = (root, { store, player, sound }) => {
     pressed = false;
     setPhase(event);
     placeWheel();
+    // A turn ended that way leaves the band where it was turned to, on a row that never loaded:
+    // the band row names the pattern (v6.6 ruling 9), so it goes back to the card on stage, or to
+    // Make your own where the band rests there.
+    if (event === 'close') scrollToRow(restOwn || current() === null ? own : (current() as number), true);
   };
   /**
    * A touch on the compact wheel that turned nothing and tapped no row grows it in place (v6.6
@@ -594,7 +598,7 @@ export const mountDeck: Mount = (root, { store, player, sound }) => {
   bandMeta.className = 'deck-band-meta';
   const pendingHome = pending.parentElement as HTMLElement;
   function dressBand() {
-    const row = upright() && !docked() ? rows[banded] : undefined;
+    const row = upright() ? rows[banded] : undefined;
     if (!row) {
       bandMeta.remove();
       if (pending.parentElement !== pendingHome) pendingHome.append(pending);
@@ -613,7 +617,7 @@ export const mountDeck: Mount = (root, { store, player, sound }) => {
   function dressOwn() {
     const row = rows[own];
     if (!row) return;
-    const label = upright() && !docked() && current() === null ? deckLabel(store.get()) : null;
+    const label = upright() && current() === null ? deckLabel(store.get()) : null;
     row.classList.toggle('is-yours', label !== null);
     row.classList.toggle('invalid', label !== null && !label.valid);
     (row.querySelector('.deck-own-code') as HTMLElement).textContent = label?.pattern ?? '';
@@ -808,7 +812,7 @@ export const mountDeck: Mount = (root, { store, player, sound }) => {
     returnHeld = false;
     clearTimeout(returnTimer);
     returnTimer = setTimeout(() => {
-      if (nextPhase(phase, 'return', upright() && !docked()) !== 'compact' || phase === 'compact') return;
+      if (nextPhase(phase, 'return', upright()) !== 'compact' || phase === 'compact') return;
       if (upright()) return shrink('return');
       // Turned on its side mid-settle: there the wheel never shrinks (ruling 6), it closes as before.
       const had = picker.contains(document.activeElement);
@@ -897,7 +901,7 @@ export const mountDeck: Mount = (root, { store, player, sound }) => {
       // Upright a chip neither grows nor shrinks the card (v6.6 ruling 4): the turn ends without a
       // pick, and a grown card goes compact the return delay after the tap (or the last finger's
       // lift on the list).
-      if (upright() && !docked()) {
+      if (upright()) {
         stopTurn();
         if (phase === 'spinning') setPhase('stop');
         if (phase !== 'compact') {
@@ -1199,7 +1203,7 @@ export const mountDeck: Mount = (root, { store, player, sound }) => {
   const filtersEl = $<HTMLDivElement>('.deck-filters');
   function placeParts() {
     const had = picker.contains(document.activeElement) ? (document.activeElement as HTMLElement) : null;
-    if (upright() && !docked()) {
+    if (upright()) {
       if (picker.nextElementSibling !== bar) bar.before(picker);
       if (filtersEl.previousElementSibling !== wheel) wheel.after(filtersEl);
     } else {

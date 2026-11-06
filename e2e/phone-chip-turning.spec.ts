@@ -83,10 +83,14 @@ test.describe('phone, 390×844', () => {
         }).toPass({ timeout: 10_000 });
       } else await clickWhileSpinning(page, ['.deck-details']);
       expect(await phase(page)).toBe('compact');
+      // The band goes back to the pattern on stage: the band row names what plays (v6.6 ruling 9).
+      await expect(page.locator('.deck-row.in-band code')).toHaveText(before!);
+      await expect(page.locator('.deck-row.in-band')).toHaveAttribute('aria-current', 'true');
       await page.waitForTimeout(PAST_RETURN);
       await expect(wheel).toBeVisible();
       expect(await phase(page)).toBe('compact');
       await expect(page.locator('.deck-notation')).toHaveText(before!);
+      await expect(page.locator('.deck-row.in-band code')).toHaveText(before!);
     });
   }
 });

@@ -15,12 +15,10 @@ import { DECK } from '../src/tunables';
  */
 const RETURN = DECK.returnMs;
 const PAST_RETURN = DECK.settleMs + RETURN + 500;
-/** The compact drum's height: three rows less the cut at both edges (DECK.compactRows, compactCut). */
+/** The compact drum's height: three rows less any cut at both edges (DECK.compactRows, compactCut: 0 since v6.6's revised ruling 4). */
 const COMPACT_PX = Math.round(DECK.rowPx * (DECK.compactRows - 2 * DECK.compactCut));
 /** The grown drum where the juggler keeps its room: seven rows (DECK.wheelRows). */
 const GROWN_PX = DECK.rowPx * DECK.wheelRows;
-/** The top bar over the play view. */
-const TOP_BAR = 44;
 
 const SHOTS = process.env.E2E_SHOTS;
 const shot = async (page: Page, name: string) => {
@@ -68,7 +66,8 @@ async function expectCompact(page: Page) {
   await expect(page.locator('.deck-filters')).toBeVisible();
   await expect.poll(async () => Math.round((await box(page, '.deck-wheel')).height)).toBe(COMPACT_PX);
   const card = await box(page, '.deck-picker');
-  expect(Math.abs(card.y - (TOP_BAR + DECK.cardMarginPx))).toBeLessThanOrEqual(1);
+  const top = await box(page, '.topbar');
+  expect(Math.abs(card.y - (top.y + top.height + DECK.cardMarginPx))).toBeLessThanOrEqual(1);
   const strip = await box(page, '.region-ladder');
   expect(strip.y + strip.height).toBeLessThanOrEqual((await box(page, '.deck-sound')).y + 1);
   await expect(page.locator('.region-ladder')).toBeInViewport();
@@ -249,6 +248,7 @@ test.describe('phone upright, 390×844', () => {
     const lifted = await pressAndLift(page);
     expect(await shownRows(page)).toBe(DECK.wheelRows);
     await expect(page.locator('.deck-filters')).toBeVisible();
+    await shot(page, 'upright-grown-pressed');
     // The band stays on its row through both changes of size, and nothing loads.
     expect(await bandRow(page)).toBe(band);
     await expectCompact(page);
@@ -258,7 +258,6 @@ test.describe('phone upright, 390×844', () => {
     expect(compactIn(log)!.at - lifted).toBeLessThan(RETURN + 1000);
     expect(await bandRow(page)).toBe(band);
     await expect(onStage(page)).toHaveText('3');
-    await shot(page, 'upright-grown-pressed');
   });
 
   // Review of #120, finding 1: a tap held past the turn's lapse grew the drum before the tap's
@@ -507,8 +506,11 @@ test.describe('phone upright, 390×844', () => {
     await page.goto('/#3');
     await expectCompact(page);
     await page.locator('.about-link').focus();
+    // The chips the deck has (stream B brings a sixth): counted, not pinned.
+    const chips = await page.locator('.deck-filter').count();
+    const expected = ['row', ...Array<string>(chips).fill('chip'), 'play', 'mute', 'volume', 'deck-listen', 'deck-details'];
     const order: string[] = [];
-    for (let i = 0; i < 12; i += 1) {
+    for (let i = 0; i < expected.length; i += 1) {
       await page.keyboard.press('Tab');
       order.push(
         await page.evaluate(() => {
@@ -517,7 +519,7 @@ test.describe('phone upright, 390×844', () => {
         }),
       );
     }
-    expect(order.slice(0, 11)).toEqual(['row', 'chip', 'chip', 'chip', 'chip', 'chip', 'play', 'mute', 'volume', 'deck-listen', 'deck-details']);
+    expect(order).toEqual(expected);
     await expect(page.locator('.deck-row[aria-current="true"]')).toHaveClass(/in-band/);
   });
 
