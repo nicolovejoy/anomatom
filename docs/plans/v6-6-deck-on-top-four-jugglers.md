@@ -1,6 +1,6 @@
 # v6.6 · the phone deck on top; four jugglers
 
-Status: planned 2026-11-05 (build governor Opus). Two streams, built in parallel in separate worktrees.
+Status: built 2026-11-05 (A: PR #132, B: PR #131; plan PR #130). Follow-ups: #133 editor cramped with the sheet open, #134 PageDown page size, #135 done-means flake.
 
 ## 0. Decided with Nico, 2026-11-05 (after the phone mockups)
 
