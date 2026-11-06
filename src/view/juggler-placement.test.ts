@@ -1,6 +1,6 @@
 // The world frame and the figure placements (v6.8 R1, rulings 1 and 2).
 import { describe, expect, test } from 'vitest';
-import { buildSchedule } from '../core';
+import { buildSchedule, carryOver } from '../core';
 import type { Parts, Schedule } from '../core';
 import { lineFixtures } from '../test/juggler-fixtures';
 import { lineParts, scheduleOf } from '../test/schedules';
@@ -8,7 +8,7 @@ import { JUGGLER } from '../tunables';
 import { ballColours } from './colours';
 import { catchPart } from './grids';
 import golden from './juggler-line.golden.json';
-import { handPlaces, jugglerFrame, ringFigures } from './juggler';
+import { figurePlaces, figureSpans, handPlaces, jugglerFrame, ringFigures } from './juggler';
 import type { HandPlace, JugglerLayout } from './juggler';
 import type { Segment } from './types';
 
@@ -29,7 +29,7 @@ const FOUR: Parts = [manual(0, [[3, 1], [3, 3]]), manual(1, [[3, 0], [3, 0]]), m
 
 /** Drops the world frame's new fields and turns −0 into 0, as JSON does. */
 const today = (value: unknown): unknown =>
-  JSON.parse(JSON.stringify(value, (k, v: unknown) => (['z', 'z0', 'z1', 'catchZ', 'throwZ', 'near', 'far'].includes(k) ? undefined : v)));
+  JSON.parse(JSON.stringify(value, (k, v: unknown) => (['z', 'z0', 'z1', 'catchZ', 'throwZ', 'near', 'far', 'figures'].includes(k) ? undefined : v)));
 
 describe('the line placement is today’s picture', () => {
   const recorded = golden as unknown as Record<string, unknown[]>;
@@ -303,5 +303,97 @@ describe('near and far', () => {
       expect(Math.abs(b.far - prev.far), `at ${t}`).toBeLessThan(0.05);
       prev = b;
     }
+  });
+});
+
+describe('a carried flight across a part-count switch on the ring (R1 review, ruling 13)', () => {
+  const three = () => buildSchedule(lineParts(['1x2', '1x3', '1x1'], { a: 1, b: 1 }));
+  /** A carried switch at a common cycle boundary, as the player builds it. */
+  const carried = (a: Schedule, b: Schedule): Segment[] => {
+    const B = a.cycle * b.cycle * 2;
+    const carry = carryOver(a, b, B);
+    expect(carry.size).toBeGreaterThan(0);
+    return [
+      { schedule: a, startTime: 0, pulseLen: LEN, endTime: B * LEN, carry: new Map() },
+      { schedule: b, startTime: B * LEN, pulseLen: LEN, endTime: null, carry },
+    ];
+  };
+  /** The largest step any ball (by colour) takes between frames 2 ms apart, 3 s either side of the switch. */
+  const worstStep = (segments: Segment[], placement: 'line' | 'ring') => {
+    const t0 = segments[1]!.startTime;
+    let worst = 0;
+    let prev = new Map<number, { x: number; y: number; z: number }>();
+    for (let k = 0; k <= 3000; k++) {
+      const frame = jugglerFrame(segments, t0 - 3 + k * 2e-3, layout, undefined, placement);
+      const now = new Map(frame.balls.map((b) => [b.ball, b]));
+      for (const [ball, b] of now) {
+        const p = prev.get(ball);
+        if (p) worst = Math.max(worst, Math.hypot(b.x - p.x, b.y - p.y, b.z - p.z));
+      }
+      prev = now;
+    }
+    return worst;
+  };
+  // A ball at its fastest (a 5 m/s throw) moves 0.01 m in 2 ms; the bound is five times that,
+  // far under the 0.78 m jump a catch in the old picture made.
+  const BOUND = 0.05;
+
+  test.each([
+    ['2 → 3 parts', () => carried(scheduleOf('3'), three())],
+    ['4 → 2 parts', () => carried(buildSchedule(FOUR), scheduleOf('3'))],
+    ['2 → 4 parts', () => carried(scheduleOf('3'), buildSchedule(FOUR))],
+    ['3 → 2 parts', () => carried(three(), scheduleOf('3'))],
+  ])('%s: no ball jumps, on the ring as on the line', (_, make) => {
+    const segments = make();
+    expect(worstStep(segments, 'line')).toBeLessThan(BOUND);
+    expect(worstStep(segments, 'ring')).toBeLessThan(BOUND);
+  });
+
+  test('every ball inside the ring’s bounds through the switch', () => {
+    for (const segments of [carried(scheduleOf('3'), three()), carried(buildSchedule(FOUR), scheduleOf('3')), carried(scheduleOf('3'), buildSchedule(FOUR))]) {
+      const t0 = segments[1]!.startTime;
+      for (let t = t0 - 4; t < t0 + 4; t += 0.01) {
+        const { balls, bounds } = jugglerFrame(segments, t, layout, undefined, 'ring');
+        for (const b of balls) {
+          expect(b.x).toBeGreaterThanOrEqual(bounds.left - 1e-9);
+          expect(b.x).toBeLessThanOrEqual(bounds.right + 1e-9);
+          expect(b.z).toBeGreaterThanOrEqual(bounds.near - 1e-9);
+          expect(b.z).toBeLessThanOrEqual(bounds.far + 1e-9);
+        }
+      }
+    }
+  });
+});
+
+describe('the figures in the frame (R1 review, ruling 14)', () => {
+  test('the ring: ringFigures, with each figure’s index and first part', () => {
+    expect(figurePlaces(5, layout, 'ring')).toEqual(ringFigures(3, layout).map((f, figure) => ({ ...f, figure, part: figure * 2 })));
+    expect(figurePlaces(1, layout, 'ring')).toEqual([{ ...ringFigures(1, layout)[0]!, figure: 0, part: 0 }]);
+  });
+
+  test('the line: centred on each figure’s hands at today’s x, facing the camera', () => {
+    const line = figurePlaces(5, layout);
+    expect(line.map((f) => f.centre.x)).toEqual(figureSpans(5, layout).map((s) => (s.left + s.right) / 2));
+    expect(line.every((f) => f.centre.z === 0 && f.facing.x === 0 && f.facing.z === -1)).toBe(true);
+    expect(line.map((f) => [f.figure, f.part])).toEqual([[0, 0], [1, 2], [2, 4]]);
+    expect(figurePlaces(2, layout, 'line')).toEqual(line.slice(0, 1));
+  });
+
+  test('the playing picture’s figures, cut over at the boundary', () => {
+    const two = scheduleOf('3');
+    const four = buildSchedule(FOUR);
+    const B = two.cycle * 4;
+    const segments: Segment[] = [
+      { schedule: two, startTime: 0, pulseLen: LEN, endTime: B * LEN, carry: new Map() },
+      { schedule: four, startTime: B * LEN, pulseLen: LEN, endTime: null, carry: new Map() },
+    ];
+    for (const placement of ['line', 'ring'] as const) {
+      expect(jugglerFrame(segments, B * LEN - 1e-6, layout, undefined, placement).figures).toEqual(figurePlaces(2, layout, placement));
+      expect(jugglerFrame(segments, B * LEN, layout, undefined, placement).figures).toEqual(figurePlaces(4, layout, placement));
+      expect(jugglerFrame([], 0, layout, undefined, placement).figures).toEqual(figurePlaces(2, layout, placement));
+    }
+    // Ended and nothing after it: the last picture's.
+    const ended: Segment[] = [{ schedule: four, startTime: 0, pulseLen: LEN, endTime: 1, carry: new Map() }];
+    expect(jugglerFrame(ended, 2, layout, undefined, 'ring').figures).toHaveLength(2);
   });
 });
