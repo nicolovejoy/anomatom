@@ -1,5 +1,5 @@
 // v6.1 stream W5 (docs/plans/v6-1-wheel-feel.md, ruling 4; first built in v6 W2): the filter chips
-// above the wheel in two labelled groups, BALLS 3 4 5 and JUGGLERS 2 3, headless at 1280×800
+// above the wheel in two labelled groups, BALLS 3 4 5 and JUGGLERS 2 3 4 (4 since v6.6), headless at 1280×800
 // (docked) and 390×844 (a phone). Each chip leaves its cards and Make your own (Jugglers 3 exactly
 // the three three-juggler cards, Balls 5 the three five-ball cards), one chip lit across both
 // groups, the lit chip tapped again shows every card, ↓ (› on a phone) stays in the filter, a chip
@@ -21,8 +21,9 @@ const CHIPS = [
   { key: 'balls-5', name: '5 balls', tag: '5', ids: ['five-cascade', 'five-744', 'ramp'] },
   { key: 'jugglers-2', name: '2 jugglers', tag: 'Pass', ids: ['passing', 'ultimates', 'three-count', 'seven-fours', 'rising-passes'] },
   { key: 'jugglers-3', name: '3 jugglers', tag: 'Pass', ids: ['three-feed', 'three-triangle', 'three-ultimates'] },
+  { key: 'jugglers-4', name: '4 jugglers', tag: 'Pass', ids: ['four-typewriter', 'four-square'] },
 ] as const;
-const DECK_SIZE = 21;
+const DECK_SIZE = 23;
 
 const notation = (page: Page) => page.locator('.deck-notation');
 /** A chip by its key, `balls-5` or `jugglers-3`. */
@@ -120,12 +121,12 @@ for (const size of [
       }
     };
 
-    test('two labelled groups, BALLS 3 4 5 and JUGGLERS 2 3, each chip named by its whole phrase', async ({ page }) => {
+    test('two labelled groups, BALLS 3 4 5 and JUGGLERS 2 3 4, each chip named by its whole phrase', async ({ page }) => {
       await page.goto('/');
       const row = page.locator('.deck-filters');
       await expect(row).toBeVisible();
       await expect(page.getByRole('group', { name: 'Balls', exact: true }).getByRole('button')).toHaveText(['3', '4', '5']);
-      await expect(page.getByRole('group', { name: 'Jugglers', exact: true }).getByRole('button')).toHaveText(['2', '3']);
+      await expect(page.getByRole('group', { name: 'Jugglers', exact: true }).getByRole('button')).toHaveText(['2', '3', '4']);
       for (const c of CHIPS) await expect(page.getByRole('button', { name: c.name, exact: true })).toHaveCount(1);
       // Each label reads before its chips, in capitals; Balls before Jugglers, all on the one row.
       await expect(page.locator('.deck-filter-label').first()).toHaveCSS('text-transform', 'uppercase');
@@ -133,7 +134,7 @@ for (const size of [
       const boxes = await page
         .locator('.deck-filter-label, .deck-filter')
         .evaluateAll((els) => els.map((e) => ({ chip: e.classList.contains('deck-filter'), ...(e.getBoundingClientRect().toJSON() as { left: number; right: number; top: number; bottom: number; width: number; height: number }) })));
-      expect(boxes.map((b) => b.chip)).toEqual([false, true, true, true, false, true, true]);
+      expect(boxes.map((b) => b.chip)).toEqual([false, true, true, true, false, true, true, true]);
       for (let i = 1; i < boxes.length; i++) expect(boxes[i]!.left).toBeGreaterThanOrEqual(boxes[i - 1]!.right - 0.5);
       for (const b of boxes) {
         expect(b.left).toBeGreaterThanOrEqual(r.x - 0.5);

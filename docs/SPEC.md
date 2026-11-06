@@ -30,6 +30,8 @@ v2, the model waves (2026-10-29). What a user can do in addition:
 
 (v2 wave 2, 2026-10-30) Passing: `<3p 3|3p 3>` in the pattern box, a passing card, the short link `#3p-3|3p-3`, one kit per juggler and an accent on passes (`docs/plans/v2-share-kits-passing.md` wave 2, `MATH.md` §10). Still not in v2's model waves: the mixer-style interface (`docs/plans/model-rethink.md` §12), more than two hands on screen (lanes plan: now up to four), multiplex, galloped (non-isochronous) grids, MIDI, accounts.
 
+(v6.6, 2026-11-05, `docs/plans/v6-6-deck-on-top-four-jugglers.md` rulings 15 to 22) Up to four jugglers in passing siteswap (`MAX_JUGGLERS`): `<3p2 3|3p3 3|3p4 3|3p1 3>` reads, a fifth `|` group is refused naming four. Two four-juggler cards, Typewriter feed and Square, twelve balls each, under the Jugglers 4 chip; the stage draws four figures and the strip eight lanes; each juggler on a drum machine of their own.
+
 ## 3. Definitions
 
 - **Pulse**: the smallest time unit, the LCM grid of the two hands. In music, the tatum.
@@ -83,7 +85,7 @@ Knob panel, in this order:
 
 Live changes: a knob changed during play takes effect at the next cycle boundary. The indicator shows "next cycle" until then.
 
-(v2 wave 2, 2026-10-30) A juggler is a pair of hands. With three or more hands the juggler draws one figure per pair side by side, a pass as an arc between figures, a caption under each; the Pattern view accepts passing siteswap `<3p 3|3p 3>` (`MATH.md` §10) as one input; the Sound panel's Kit becomes one select per juggler and gains a Passes section. The editor shows a passing set as one input holding `<3p 3|3p 3>` (typing a plain siteswap over it returns to one juggler); the digit pad gains a `p` key under `x` while the input holds a `|`; the first-minute set gains the passing card (`<3p 3|3p 3>`, six balls); the short link is `#3p-3|3p-3` (`-` for a space, `p<n>` names the target among three), written only when it round-trips, so the passing card with its kits writes `#v2.`.
+(v2 wave 2, 2026-10-30) A juggler is a pair of hands. With three or more hands the juggler draws one figure per pair side by side, a pass as an arc between figures, a caption under each; the Pattern view accepts passing siteswap `<3p 3|3p 3>` (`MATH.md` §10) as one input; the Sound panel's Kit becomes one select per juggler and gains a Passes section. The editor shows a passing set as one input holding `<3p 3|3p 3>` (typing a plain siteswap over it returns to one juggler); the digit pad gains a `p` key under `x` while the input holds a `|`; the first-minute set gains the passing card (`<3p 3|3p 3>`, six balls); the short link is `#3p-3|3p-3` (`-` for a space, `p<n>` names the target among three or four), written only when it round-trips, so the passing card with its kits writes `#v2.`.
 
 (v3, 2026-10-31) Sync siteswap, form 5: `(4,2x)(2x,4)` in the pattern box (`MATH.md` §11). Each pair is the left and right hand throwing on the same beat, every height even, `x` crossing to the other hand; a trailing `*` repeats the sequence with the hands exchanged (`(4,2x)*` is the box) and is never written back. A draft starting with `(` reads as form 5; a sync set shows as one input holding its text, as a vanilla pair does; typing a plain siteswap over it returns to the vanilla pair, and an `a / b` draft over it keeps its grids. An odd height is refused with its digit marked. The digit pad gains no `( , )` keys this wave (a card or a hardware keyboard brings sync in), a sync set's link is `#v2.` (no short form), and swapping throws in a sync set waits for a follow-up.
 
@@ -200,7 +202,7 @@ What existing things sound like: the five juggling preset cards keep "Height to 
 | --- | --- |
 | per height, by ball | the rule `listen` names: `height` is the v1 table above, `pitch` nine distinct steps (the higher the throw, the lower the sound), `ball` each ball one sound whatever its height |
 | one voice per hand | hand h belongs to juggler floor(h / 2); its kit is `DRUMMER_KITS[(j + kitShift) mod 5]`, its gain 1 |
-| pan | from the stage: for N jugglers, juggler j (juggler 1 drawn on the left) sits at c = 0 for one, else -0.6 + 1.2·j/(N - 1); its hands at c ∓ d, d = 0.6 for one juggler, else min(0.2, 0.6/(N - 1)). One juggler: -0.6, 0.6; two: -0.8, -0.4, 0.4, 0.8 |
+| pan | from the stage: for N jugglers, juggler j (juggler 1 drawn on the left) sits at c = 0 for one, else -0.6 + 1.2·j/(N - 1); its hands at c ∓ d, d = 0.6 for one juggler, else min(0.2, 0.6/(N - 1)). One juggler: -0.6, 0.6; two: -0.8, -0.4, 0.4, 0.8; four (v6.6): -0.8, -0.4, -0.4, 0, 0, 0.4, 0.4, 0.8, neighbours' inner hands meeting, the jugglers apart by their drum machines |
 | catches | rimshot, when `also.catches` |
 | cross accent | +20 velocity; a clap on a coincident pulse when `also.downbeat` |
 | pass | +20 velocity, its own sound |
