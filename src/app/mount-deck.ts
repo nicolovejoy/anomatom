@@ -451,6 +451,14 @@ export const mountDeck: Mount = (root, { store, player, sound }) => {
     if (seekRow !== null) seekTimer = setTimeout(() => (seekRow = null), DECK.settleMs * DECK.keySettleTries);
   }
 
+  /** Turns the phone's band to `row` as the page's own goal: asked for again until it is there, and never a pick. */
+  function seekBand(row: number) {
+    keyTries = 0;
+    seekRow = scrollToRow(row, true) ? row : null;
+    clearTimeout(seekTimer);
+    if (seekRow !== null) seekTimer = setTimeout(() => (seekRow = null), DECK.settleMs * DECK.keySettleTries);
+  }
+
   function showWheel() {
     const shown = wheelShown();
     const was = !wheel.hidden;
@@ -525,7 +533,9 @@ export const mountDeck: Mount = (root, { store, player, sound }) => {
     // A turn ended that way leaves the band where it was turned to, on a row that never loaded:
     // the band row names the pattern (v6.6 ruling 9), so it goes back to the card on stage, or to
     // Make your own where the band rests there.
-    if (event === 'close') scrollToRow(restOwn || current() === null ? own : (current() as number), true);
+    // A goal the settle asks for again (seekRow), as a scroll the browser still runs (the turn's
+    // own, or its snap) may land after this one.
+    if (event === 'close') seekBand(restOwn || current() === null ? own : (current() as number));
   };
   /**
    * A touch on the compact wheel that turned nothing and tapped no row grows it in place (v6.6
