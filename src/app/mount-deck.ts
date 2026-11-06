@@ -357,7 +357,7 @@ export const mountDeck: Mount = (root, { store, player, sound }) => {
    * two (the compact wheel, v6.4 ruling 1). A new row height, or any change docked, brings the band
    * back to its row when the wheel next draws. On a phone a new count or cut needs nothing: row r
    * sits in the band at r rows down whatever the drum shows (scrollForRow), and a drum that grows
-   * from compact as a turn takes the sheet must not be pulled back to the card on stage.
+   * from compact as a turn grows it must not be pulled back to the card on stage.
    */
   function setRows(shown: number, px: number, cut = 0) {
     if (shown !== shownRows || px !== rowPx || cut !== shownCut) {
@@ -680,7 +680,7 @@ export const mountDeck: Mount = (root, { store, player, sound }) => {
 
   /** Turns the phone's wheel to `to` as the reader's turn: the band goes there, and the row loads when it settles. */
   function turnTo(to: number) {
-    // A key at an end turns nothing: no turn, no sheet taken.
+    // A key at an end turns nothing: no turn, the card not grown.
     if (rowAt() === to) return rove(to);
     scrolled = true;
     sheetOn();
@@ -707,7 +707,7 @@ export const mountDeck: Mount = (root, { store, player, sound }) => {
   list.addEventListener('keydown', (e) => {
     if (!turnsWheel(e.key) || e.ctrlKey || e.metaKey || e.altKey) return;
     e.preventDefault();
-    // From the compact wheel a key's turn takes the sheet, so it pages by the full drum.
+    // From the compact card a key's turn grows it, so it pages by the full drum (DECK.wheelRows).
     const to = rowAfterKey(e.key, roving, rowCount, phase === 'compact' ? DECK.wheelRows : shownRows);
     if (docked()) {
       // Focus first: the tab stop stays on a focused row (markRows), Make your own included.
@@ -762,7 +762,7 @@ export const mountDeck: Mount = (root, { store, player, sound }) => {
   /**
    * A turn's input is over (its timer lapsed, or the finger lifted after it): a turn that scrolled
    * nothing is no turn of its own, so no settle comes to end it (issue 114: a sideways swipe, a
-   * wheel past the last row, a finger lifted without a tap). The sheet may still be the wheel's,
+   * wheel past the last row, a finger lifted without a tap). The card may still be grown,
    * from the turn before, whose return timer this turn cleared or whose settle it swallowed (the
    * issue 109 guard in settle): the wheel stops, picks and closes as that turn would have.
    */
@@ -836,7 +836,7 @@ export const mountDeck: Mount = (root, { store, player, sound }) => {
     const mine = ownTop !== null && Math.abs(list.scrollTop - ownTop) < 1;
     ownTop = null;
     band(rowAt());
-    // A scroll the page made itself (re-placing the wheel, a snap) is no turn and takes no sheet.
+    // A scroll the page made itself (re-placing the wheel, a snap) is no turn and grows nothing.
     // Under a finger it is the reader's, though the settle ended the turn while it held still (issue 118).
     if ((turning || touching) && !mine) {
       sheetOn();

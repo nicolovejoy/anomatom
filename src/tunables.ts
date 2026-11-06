@@ -596,8 +596,9 @@ export const DECK = {
   compactRows: 3,
   compactCut: 0.25,
   /**
-   * A touch on the compact wheel that turns nothing grows it back (v6.4 ruling 3) this long after
-   * the finger lifts, unless a click comes first: a slow tap's click lands on the row it was on.
+   * A touch on the compact wheel that turns nothing grows it in place (v6.4 ruling 3; v6.6 ruling 4)
+   * this long after the finger lifts, unless a click comes first: a slow tap's click lands on the
+   * row it was on.
    */
   growGraceMs: 350,
   /** A mouse wheel over the pattern name steps once per this much scroll (a notch is about 100). */
