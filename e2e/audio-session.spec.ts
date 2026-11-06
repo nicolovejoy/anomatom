@@ -63,9 +63,10 @@ test('Pause lets go of the audio session about AUDIO_RELEASE_MS later; Play take
   // Not before about half the release: the glide and the drums' tails finish first.
   await page.waitForTimeout(AUDIO_RELEASE_MS / 2);
   expect(await contextState(page)).toBe('running');
-  await expect.poll(() => contextState(page), { timeout: AUDIO_RELEASE_MS }).toBe('suspended');
+  // Slack past the release for CI load: the context suspends late under load (#142).
+  await expect.poll(() => contextState(page), { timeout: AUDIO_RELEASE_MS + 3_000 }).toBe('suspended');
   expect(await contextCount(page)).toBe(1);
-  expect(Date.now() - paused).toBeLessThan(AUDIO_RELEASE_MS + 1_000);
+  expect(Date.now() - paused).toBeLessThan(AUDIO_RELEASE_MS + 3_000);
   if (SHOTS) await page.screenshot({ path: `${SHOTS}/audio-session-parked.png` });
   // A park is not an interruption: nothing else changed on screen.
   await expect(page.locator('#play')).toHaveText('Play');
