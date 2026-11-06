@@ -514,6 +514,8 @@ export const mountDeck: Mount = (root, { store, player, sound }) => {
    * stay, and the focused row survives the shrink (v6.4 ruling 7).
    */
   const shrink = (event: 'return' | 'tap' | 'close') => {
+    // A turn still pending ends without a pick (issue 110): Escape or Details mid-turn loads nothing.
+    stopTurn();
     clearTimeout(returnTimer);
     clearTimeout(growTimer);
     returnHeld = false;

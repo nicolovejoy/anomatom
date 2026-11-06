@@ -63,12 +63,9 @@ test('Box sits in the wheel under 3 balls, plays the box, and Make your own show
   await expect(page.locator('canvas.juggler')).toHaveAttribute('data-balls', '3');
   await page.waitForTimeout(1500);
   await page.screenshot({ path: `${SHOTS}/sync-box-card.png` });
-  // The tap left the wheel compact (docs/plans/v6-4-wheel-shrinks.md, ruling 4): the pattern name
-  // closes it, and opens it again at seven rows.
+  // The tap left the card compact (docs/plans/v6-6-deck-on-top-four-jugglers.md, ruling 4); Make
+  // your own is a row of it.
   await expect(page.locator('.deck-wheel')).toHaveAttribute('data-phase', 'compact');
-  await page.locator('.deck-pattern').click();
-  await expect(page.locator('.deck-wheel')).toBeHidden();
-  await page.locator('.deck-pattern').click();
   await page.locator('.deck-own').click();
   await expect(page.locator('#hand-0')).toHaveValue('(4,2x)(2x,4)');
 });

@@ -2,7 +2,7 @@
 // above the wheel in two labelled groups, BALLS 3 4 5 and JUGGLERS 2 3 4 (4 since v6.6), headless at 1280×800
 // (docked) and 390×844 (a phone). Each chip leaves its cards and Make your own (Jugglers 3 exactly
 // the three three-juggler cards, Balls 5 the three five-ball cards), one chip lit across both
-// groups, the lit chip tapped again shows every card, ↓ (› on a phone) stays in the filter, a chip
+// groups, the lit chip tapped again shows every card, ↓ (→ on a phone) stays in the filter, a chip
 // that does not hold the card on stage loads its first card, and the link never carries the
 // filter. Since v6.2 W6 (docs/plans/v6-2-wheel-ends.md) the wheel has ends: Jugglers 3 shows its
 // four rows once each, the docked menu with the band on the chosen card, the phone's drum turning
@@ -55,13 +55,23 @@ const drumBand = (page: Page) =>
     const r = hit?.getBoundingClientRect();
     return { row: hit?.getAttribute('data-row') ?? null, off: r ? Math.max(0, Math.round(Math.abs(r.top + r.height / 2 - mid)) - 1) : null };
   });
-/** The data-row of every row the wheel shows, top to bottom, or null for a blank one. */
+/**
+ * The data-row of every row the wheel shows, top to bottom, or null for a blank one. Docked a menu,
+ * its rows from the top; on a phone a drum, its rows about the band in its middle (the compact
+ * drum cuts its outer two: v6.4 ruling 1).
+ */
 const rowsShown = (page: Page) =>
   page.locator('.deck-wheel').evaluate((w) => {
     const box = w.getBoundingClientRect();
     const px = parseFloat(getComputedStyle(w).getPropertyValue('--deck-row'));
+    const at = (y: number) => document.elementFromPoint(box.left + box.width / 2, y)?.closest('.deck-row')?.getAttribute('data-row') ?? null;
     const out: (string | null)[] = [];
-    for (let y = box.top + px / 2; y < box.bottom - 1; y += px) out.push(document.elementFromPoint(box.left + box.width / 2, y)?.closest('.deck-row')?.getAttribute('data-row') ?? null);
+    if (document.querySelector('#app.deck-docked')) {
+      for (let y = box.top + px / 2; y < box.bottom - 1; y += px) out.push(at(y));
+      return out;
+    }
+    const half = Math.floor((box.height / 2 - 1) / px + 0.5);
+    for (let i = -half; i <= half; i++) out.push(at(box.top + box.height / 2 + i * px));
     return out;
   });
 /**
@@ -102,23 +112,10 @@ for (const size of [
     test.use({ viewport: { width: size.width, height: size.height }, hasTouch: size.phone });
 
     const tap = (page: Page, key: string) => (size.phone ? chip(page, key).tap() : chip(page, key).click());
-    /** One step forward, as the reader would: ↓ on the web (v6.1 ruling 3), › on a phone. */
+    /** One step forward, as the reader would: ↓ on the web (v6.1 ruling 3), → on a phone held upright (no ›: v6.6 ruling 1). */
     const next = async (page: Page) => {
-      if (size.phone) {
-        // Issue 106: the CDN is stubbed, so the drums have failed and the sheet's head shows Retry
-        // (44 px). A card that needs new kits hides it while they load and shows it again when
-        // they fail: the deck moves down and back, and the open wheel follows a frame later. A
-        // click aimed before the move lands on whatever is there after it (Make your own, Listen
-        // for). So wait until no load is in flight, and click as a reader does: on › where it
-        // rests, uncovered (Playwright's own checks). Only aria-disabled on the last card needs
-        // force (Playwright waits on it otherwise); the wheel is shut and nothing loads by then.
-        await expect(page.locator('.sound-status')).not.toHaveAttribute('data-state', 'loading');
-        const button = page.locator('.deck-next');
-        await button.click({ force: (await button.getAttribute('aria-disabled')) === 'true' });
-      } else {
-        await page.evaluate(() => (document.activeElement as HTMLElement | null)?.blur());
-        await page.keyboard.press('ArrowDown');
-      }
+      await page.evaluate(() => (document.activeElement as HTMLElement | null)?.blur());
+      await page.keyboard.press(size.phone ? 'ArrowRight' : 'ArrowDown');
     };
 
     test('two labelled groups, BALLS 3 4 5 and JUGGLERS 2 3 4, each chip named by its whole phrase', async ({ page }) => {
@@ -135,7 +132,12 @@ for (const size of [
         .locator('.deck-filter-label, .deck-filter')
         .evaluateAll((els) => els.map((e) => ({ chip: e.classList.contains('deck-filter'), ...(e.getBoundingClientRect().toJSON() as { left: number; right: number; top: number; bottom: number; width: number; height: number }) })));
       expect(boxes.map((b) => b.chip)).toEqual([false, true, true, true, false, true, true, true]);
-      for (let i = 1; i < boxes.length; i++) expect(boxes[i]!.left).toBeGreaterThanOrEqual(boxes[i - 1]!.right - 0.5);
+      // Docked each label sits before its chips; on a phone upright, over them (v6.6 ruling 3).
+      for (let i = 1; i < boxes.length; i++) {
+        const label = !boxes[i - 1]!.chip && boxes[i]!.chip;
+        if (size.phone && label) expect(boxes[i]!.top).toBeGreaterThanOrEqual(boxes[i - 1]!.bottom - 0.5);
+        else expect(boxes[i]!.left).toBeGreaterThanOrEqual(boxes[i - 1]!.right - 0.5);
+      }
       for (const b of boxes) {
         expect(b.left).toBeGreaterThanOrEqual(r.x - 0.5);
         expect(b.right).toBeLessThanOrEqual(r.x + r.width + 0.5);
@@ -217,7 +219,7 @@ for (const size of [
       await expect(page.locator('#play')).toHaveAttribute('data-state', 'stopped');
     });
 
-    test('↓ (› on a phone) stays in the filter and stops at its last card', async ({ page }) => {
+    test('↓ (→ on a phone) stays in the filter and stops at its last card', async ({ page }) => {
       await page.goto('/');
       await tap(page, 'balls-5');
       const names = await page.locator('.deck-row[data-id] code').allTextContents();
@@ -229,13 +231,12 @@ for (const size of [
         await expect(page.locator('.deck-meta')).toHaveText('5 balls');
       }
       await expect(chip(page, 'balls-5')).toHaveAttribute('aria-pressed', 'true');
-      // On a phone › is disabled on the last card, ‹ not.
+      // On a phone › is disabled on the last card, ‹ not (hidden upright, but kept for the phone on its side).
       if (size.phone) {
         await expect(page.locator('.deck-next')).toHaveAttribute('aria-disabled', 'true');
         await expect(page.locator('.deck-prev')).toHaveAttribute('aria-disabled', 'false');
       }
-      // Jugglers 3: the three three-juggler cards, to the last. (› shut the phone's wheel: the pattern opens it.)
-      if (!(await chip(page, 'jugglers-3').isVisible())) await page.locator('.deck-pattern').click();
+      // Jugglers 3: the three three-juggler cards, to the last.
       await tap(page, 'jugglers-3');
       const three = await page.locator('.deck-row[data-id] code').allTextContents();
       expect(three).toHaveLength(3);
@@ -293,20 +294,20 @@ for (const size of [
         await page.goto('/');
         await tap(page, 'jugglers-3');
         await expect(page.locator('.deck-row')).toHaveCount(4);
-        // The first card in the band, blank rows above it.
+        // The compact card (v6.6 ruling 4): the first card in the band, a blank row above it.
+        const wheel = page.locator('.deck-wheel');
+        await expect(wheel).toHaveAttribute('data-phase', 'compact');
         await expect.poll(() => drumBand(page)).toEqual({ row: '0', off: 0 });
-        const shown = await rowsShown(page);
-        const mid = (shown.length - 1) / 2;
-        expect(shown.slice(0, mid).every((r) => r === null)).toBe(true);
-        expect(shown.slice(mid, mid + 4)).toEqual(['0', '1', '2', '3']);
+        expect(await rowsShown(page)).toEqual([null, '0', '1']);
         await page.waitForTimeout(400);
         await page.screenshot({ path: `${SHOTS}/w6-jugglers-3-first-390x844.png` });
-        // ↑ on the first row: it stays.
+        // ↑ on the first row: it stays, and turns nothing.
         await page.locator('.deck-row[data-row="0"]').focus();
         await page.keyboard.press('ArrowUp');
         await page.waitForTimeout(500);
         expect(await drumBand(page)).toEqual({ row: '0', off: 0 });
-        // ↓ turns to each row in turn: the cards load as it settles, Make your own loads nothing.
+        await expect(wheel).toHaveAttribute('data-phase', 'compact');
+        // ↓ turns to each row in turn, the card grown: the cards load as it settles, Make your own loads nothing.
         const three = await page.locator('.deck-row[data-id] code').allTextContents();
         for (const row of [1, 2, 3]) {
           await page.keyboard.press('ArrowDown');
@@ -315,30 +316,24 @@ for (const size of [
         }
         await page.waitForTimeout(400);
         await expect(notation(page)).toHaveText(three[2]!);
+        // Grown, Make your own in the band and blank rows past it.
+        const grown = await rowsShown(page);
+        const m = (grown.length - 1) / 2;
+        expect(grown.length).toBe(DECK.wheelRows);
+        expect(grown.slice(0, m + 1)).toEqual([null, '0', '1', '2', '3'].slice(-(m + 1)));
+        expect(grown.slice(m + 1).every((r) => r === null)).toBe(true);
         await page.screenshot({ path: `${SHOTS}/w6-jugglers-3-last-390x844.png` });
-        // And no further. Settled, the wheel gives the sheet back and goes compact DECK.returnMs
-        // later (v5 ruling 9, v6.4 ruling 1), so checks timed after the settle raced the return on a
-        // slow runner (issue 106, WebKit on CI). Let it go compact, close it and open it again from
-        // the pattern: at rest nothing turns it and no timer runs; the band is on the card on stage.
-        const wheel = page.locator('.deck-wheel');
+        // And no further. Compact again the return delay after (issue 106: checks timed after the
+        // settle raced the return on a slow runner, so wait for it), Make your own still in the band.
         await expect(wheel).toHaveAttribute('data-phase', 'compact', { timeout: DECK.returnMs + 2000 });
-        await page.locator('.deck-pattern').click();
-        await expect(wheel).toBeHidden();
-        await page.locator('.deck-pattern').click();
-        await expect.poll(() => drumBand(page)).toEqual({ row: '2', off: 0 });
-        // A scroll past the end leaves Make your own in the band, blank rows past it.
-        await page.locator('.deck-wheel-list').evaluate((l) => (l.scrollTop = 10000));
-        await expect.poll(() => drumBand(page)).toEqual({ row: '3', off: 0 });
-        const after = await rowsShown(page);
-        const m = (after.length - 1) / 2;
-        expect(after[m]).toBe('3');
-        expect(after.slice(m + 1).every((r) => r === null)).toBe(true);
-        // ↓ on Make your own turns nothing: the band stays, the sheet is not taken, nothing loads.
+        expect(await drumBand(page)).toEqual({ row: '3', off: 0 });
+        expect(await rowsShown(page)).toEqual(['2', '3', null]);
+        // ↓ on Make your own turns nothing: the band stays, the card stays compact, nothing loads.
         await page.locator('.deck-row[data-row="3"]').focus();
         await page.keyboard.press('ArrowDown');
         await page.waitForTimeout(400);
         expect(await drumBand(page)).toEqual({ row: '3', off: 0 });
-        await expect(wheel).toHaveAttribute('data-phase', 'rest');
+        await expect(wheel).toHaveAttribute('data-phase', 'compact');
         await expect(notation(page)).toHaveText(three[2]!);
       });
 
@@ -379,30 +374,40 @@ for (const size of [
         await expect(page.locator('.deck-wheel')).toHaveAttribute('data-phase', 'settling');
       };
 
-      test('a chip tapped while the wheel settles keeps it open; the wheel goes back to rest', async ({ page }) => {
+      // v6.6 ruling 4: a chip neither grows nor shrinks the card; a grown one goes compact the
+      // return delay after the tap.
+      test('a chip tapped while the card settles: still grown, the chip lit; compact the return delay after', async ({ page }) => {
         await page.goto('/');
         await turnAndSettle(page);
+        const rows = Math.round((await page.locator('.deck-wheel').boundingBox())!.height / DECK.rowPx);
         await tap(page, 'balls-4');
-        await expect(page.locator('.deck-wheel')).toHaveAttribute('data-phase', 'rest');
-        // Past the return delay (DECK.returnMs, 3 s after the settle): still open, the chip lit.
-        await page.waitForTimeout(DECK.settleMs + DECK.returnMs + 500);
-        await expect(page.locator('.deck-wheel')).toBeVisible();
         await expect(chip(page, 'balls-4')).toHaveAttribute('aria-pressed', 'true');
+        await expect(page.locator('.deck-wheel')).toHaveAttribute('data-phase', 'settling');
+        expect(Math.round((await page.locator('.deck-wheel').boundingBox())!.height / DECK.rowPx)).toBe(rows);
+        await expect(page.locator('.deck-wheel')).toHaveAttribute('data-phase', 'compact', { timeout: DECK.returnMs + 2000 });
+        await expect(chip(page, 'balls-4')).toHaveAttribute('aria-pressed', 'true');
+        // On the compact card a chip changes nothing of its size.
+        await tap(page, 'balls-5');
+        await page.waitForTimeout(400);
+        await expect(page.locator('.deck-wheel')).toHaveAttribute('data-phase', 'compact');
       });
 
-      // The compact wheel hides the chips (v6.4 ruling 2): focus on one goes to the wheel's tab stop.
-      test('focus on a chip when the settled wheel goes compact goes to the wheel', async ({ page }) => {
+      // The chips stay on the compact card (v6.6 ruling 3, reversing v6.4 ruling 2): focus on one stays there.
+      test('focus on a chip when the settled card goes compact stays on the chip', async ({ page }) => {
         await page.goto('/');
         await turnAndSettle(page);
         await chip(page, 'jugglers-3').focus();
         await expect(page.locator('.deck-wheel')).toHaveAttribute('data-phase', 'compact', { timeout: DECK.returnMs + 2000 });
-        await expect(page.locator('.deck-filters')).toBeHidden();
-        await expect(page.locator('.deck-row[tabindex="0"]')).toBeFocused();
+        await expect(page.locator('.deck-filters')).toBeVisible();
+        await expect(chip(page, 'jugglers-3')).toBeFocused();
       });
 
-      test('the pattern button controls the picker, chips and wheel', async ({ page }) => {
+      // v6.6 ruling 10: upright nothing opens the wheel, so the hidden pattern button controls nothing.
+      test('the picker holds the chips and the wheel; the hidden pattern button controls nothing', async ({ page }) => {
         await page.goto('/');
-        await expect(page.locator('.deck-pattern')).toHaveAttribute('aria-controls', 'deck-picker');
+        await expect(page.locator('.deck-pattern')).toBeHidden();
+        await expect(page.locator('.deck-pattern')).not.toHaveAttribute('aria-controls');
+        await expect(page.locator('.deck-pattern')).not.toHaveAttribute('aria-expanded');
         await expect(page.locator('#deck-picker .deck-filters')).toBeVisible();
         await expect(page.locator('#deck-picker .deck-wheel')).toBeVisible();
       });
