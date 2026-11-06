@@ -724,7 +724,10 @@ export const mountDeck: Mount = (root, { store, player, sound }) => {
     (e) => {
       for (const t of [...e.changedTouches]) {
         held.add(t.identifier);
-        if (liftWatch.has(t.identifier)) continue;
+        // An identifier the browser reuses (Chromium does, after a touch lost without a lift) may
+        // still be watched on the old touch's element: watch the new touch's element instead, or
+        // its lift on a detached row would go unheard again (#121).
+        liftWatch.get(t.identifier)?.();
         const target = t.target;
         const onLift = (lift: Event) => recount(lift as TouchEvent, true);
         for (const type of LIFTS) target.addEventListener(type, onLift, { passive: true });
@@ -1320,7 +1323,8 @@ export const mountDeck: Mount = (root, { store, player, sound }) => {
     if (upright() !== wasUpright) turned();
     if (sheetOpen() === wasSheetOpen) return;
     wasSheetOpen = sheetOpen();
-    if (!wheel.hidden) placeWheel();
+    // Upright only: wide, docked and on its side the sheet never changes the wheel's rows.
+    if (upright() && !wheel.hidden) placeWheel();
   }).observe(app, { attributes: true, attributeFilter: ['class'] });
 
   buildList();

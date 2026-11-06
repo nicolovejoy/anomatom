@@ -884,7 +884,8 @@ test.describe('v6.7 ruling 1, the gate (#133) at 375×667', () => {
       const p = await box(page, '.sheet-panels');
       const hand = await box(page, '#hand-0');
       const swap = await box(page, '#swap');
-      return hand.y >= p.y && swap.y + swap.height <= p.y + p.height + 0.5;
+      // Edges to the whole pixel: layout boxes come back with fractions.
+      return Math.round(hand.y) >= Math.round(p.y) && Math.round(swap.y + swap.height) <= Math.round(p.y + p.height);
     }).toBe(true);
     expect(await panels.evaluate((p) => p.scrollTop)).toBe(0);
     await expect(page.locator('#swap')).toBeVisible();

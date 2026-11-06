@@ -512,8 +512,8 @@ describe('the touches held on the list, by identifier (v6.7 ruling 3, #121)', ()
     expect(heldTouches(new Set([1, 2]), [2])).toEqual(new Set([2]));
   });
   test('a stranger’s lift (a chip finger): the list finger still held, the stranger never counted', () => {
-    // Finger 1 on the list, finger 7 on a chip; the chip finger lifts: touches holds 1 alone.
-    expect(heldTouches(new Set([1]), [1])).toEqual(new Set([1]));
+    // Finger 1 on the list, finger 7 on a chip, both down: only finger 1 is held.
+    expect(heldTouches(new Set([1]), [1, 7])).toEqual(new Set([1]));
     // The chip finger still down, the list finger lifts: none held, though a touch is down.
     expect(heldTouches(new Set([1]), [7])).toEqual(new Set());
   });
