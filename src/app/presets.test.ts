@@ -37,7 +37,7 @@ describe('the cards', () => {
     expect(ids.indexOf('pause')).toBeLessThan(ids.indexOf('classic'));
     expect(ids.indexOf('polyrhythm')).toBeLessThan(ids.indexOf('ramp'));
   });
-  test('the deck is the 18 of v5 §4 and the three-juggler cards of v6, in this order', () => {
+  test('the deck is the 18 of v5 §4, the three-juggler cards of v6 and the four-juggler cards of v6.6, in this order', () => {
     expect(PRESETS.map((p) => [p.id, p.group, p.texts.join(' / ')])).toEqual([
       ['cascade', '3', '3'],
       ['shower', '3', '51'],
@@ -60,7 +60,10 @@ describe('the cards', () => {
       ['three-feed', 'passing', '<3p2 3 3p3 3|3p1 3 3 3|3 3 3p1 3>'],
       ['three-triangle', 'passing', '<3p2 3 3 3|3p3 3 3 3|3p1 3 3 3>'],
       ['three-ultimates', 'passing', '<3p2 3|3p1 3p3|3 3p2>'],
+      ['four-typewriter', 'passing', '<3p2 3 3p3 3 3p4 3|3p1 3 3 3 3 3|3 3 3p1 3 3 3|3 3 3 3 3p1 3>'],
+      ['four-square', 'passing', '<3p2 3 3 3|3p3 3 3 3|3p4 3 3 3|3p1 3 3 3>'],
     ]);
+    expect(PRESETS).toHaveLength(23);
     expect(Object.keys(copy.presets).sort()).toEqual(PRESETS.map((p) => p.id).sort());
   });
   test('the nine cut cards still read as typed patterns (v5 ruling 10)', () => {
@@ -70,17 +73,18 @@ describe('the cards', () => {
       expect(judge((partsFromPassing(text) as { ok: true; parts: never }).parts).ok, text).toBe(true);
     }
   });
-  test('the passing cards are four hands (two jugglers) or six (three)', () => {
+  test('the passing cards are four hands (two jugglers), six (three) or eight (four)', () => {
     const three = ['three-feed', 'three-triangle', 'three-ultimates'];
-    for (const p of PRESETS.filter((q) => q.group === 'passing')) expect(p.parts.length, p.id).toBe(three.includes(p.id) ? 6 : 4);
+    const four = ['four-typewriter', 'four-square'];
+    for (const p of PRESETS.filter((q) => q.group === 'passing')) expect(p.parts.length, p.id).toBe(four.includes(p.id) ? 8 : three.includes(p.id) ? 6 : 4);
   });
-  test('the three-juggler cards (v6 ruling 5): Juggling Lab basic_passing.jml, "3 jugglers 9 balls", last in the group', () => {
+  test('the three-juggler cards (v6 ruling 5): Juggling Lab basic_passing.jml, "3 jugglers 9 balls", before the four-juggler cards', () => {
     const sourced: Record<string, [string, number, number]> = {
       'three-feed': ['<3p2 3 3p3 3|3p1 3 3 3|3 3 3p1 3>', 9, 4],
       'three-triangle': ['<3p2 3 3 3|3p3 3 3 3|3p1 3 3 3>', 9, 4],
       'three-ultimates': ['<3p2 3|3p1 3p3|3 3p2>', 9, 2],
     };
-    expect(PRESETS.slice(-3).map((q) => q.id)).toEqual(Object.keys(sourced));
+    expect(PRESETS.slice(-5, -2).map((q) => q.id)).toEqual(Object.keys(sourced));
     for (const [id, [text, balls, cycle]] of Object.entries(sourced)) {
       const q = PRESETS.find((x) => x.id === id)!;
       expect([q.group, q.texts, q.balls, q.cycle], id).toEqual(['passing', [text], balls, cycle]);
@@ -90,14 +94,41 @@ describe('the cards', () => {
       expect(new Set(buildSchedule(q.parts).events.map((e) => e.part >> 1)).size, id).toBe(3);
     }
   });
+  test('the four-juggler cards (v6.6 ruling 20): the Compendium\'s shapes, the engine\'s balls and cycle, last in the group', () => {
+    const cards: Record<string, [string, number, number]> = {
+      'four-typewriter': ['<3p2 3 3p3 3 3p4 3|3p1 3 3 3 3 3|3 3 3p1 3 3 3|3 3 3 3 3p1 3>', 12, 6],
+      'four-square': ['<3p2 3 3 3|3p3 3 3 3|3p4 3 3 3|3p1 3 3 3>', 12, 4],
+    };
+    expect(PRESETS.slice(-2).map((q) => q.id)).toEqual(Object.keys(cards));
+    for (const [id, [text, balls, cycle]] of Object.entries(cards)) {
+      const q = PRESETS.find((x) => x.id === id)!;
+      expect([q.group, q.texts, q.balls, q.cycle], id).toEqual(['passing', [text], balls, cycle]);
+      expect(judge(q.parts).ok, id).toBe(true);
+      expect(buildSchedule(q.parts).balls, id).toBe(balls);
+      expect(cycleOf(q.parts), id).toBe(cycle);
+      expect(new Set(buildSchedule(q.parts).events.map((e) => e.part >> 1)).size, id).toBe(4);
+    }
+    const passes = (id: string) => {
+      const s = buildSchedule(PRESETS.find((x) => x.id === id)!.parts);
+      // One cycle of throws (the schedule may hold more than one).
+      return s.events.filter((e) => e.kind === 'throw' && e.pulse < s.cycle && e.part >> 1 !== e.to >> 1).map((e) => [e.part >> 1, e.to >> 1]);
+    };
+    // The typewriter: the feeder (juggler 1) passes to 2, 3, 4 in turn ("C, B, A, C, B, A"), each
+    // feedee once a cycle, to the feeder only; feedees never pass to each other.
+    const feed = passes('four-typewriter');
+    expect(feed.filter(([from]) => from === 0).map(([, to]) => to)).toEqual([1, 2, 3]);
+    for (const j of [1, 2, 3]) expect(feed.filter(([from]) => from === j), String(j)).toEqual([[j, 0]]);
+    // The square: each juggler passes to the next round the box and catches from the one before.
+    expect(new Set(passes('four-square').map(([a, b]) => `${a}>${b}`))).toEqual(new Set(['0>1', '1>2', '2>3', '3>0']));
+  });
   test('the v4 passing cards (ruling 8): sourced notation, the ball count the source states, last in the group', () => {
     const sourced: Record<string, [string, number]> = {
       'seven-fours': ['<4p 4p 3 3|3p 3p 4 4>', 7],
       'rising-passes': ['<3p 4p 5p 3 0 3|3p 3 3p 3 3p 3>', 6],
     };
     const ids = PRESETS.map((q) => q.id);
-    for (const q of PRESETS.filter((x) => x.group === 'passing')) expect([6, 7, 9], q.id).toContain(q.balls);
-    expect(ids.slice(-5, -3)).toEqual(Object.keys(sourced));
+    for (const q of PRESETS.filter((x) => x.group === 'passing')) expect([6, 7, 9, 12], q.id).toContain(q.balls);
+    expect(ids.slice(-7, -5)).toEqual(Object.keys(sourced));
     for (const [id, [text, balls]] of Object.entries(sourced)) {
       const q = PRESETS.find((x) => x.id === id)!;
       expect([q.group, q.texts, q.balls], id).toEqual(['passing', [text], balls]);

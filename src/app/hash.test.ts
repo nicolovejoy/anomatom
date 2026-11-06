@@ -484,6 +484,21 @@ describe('short passing links (ruling 6)', () => {
     expect(encodeHash(state)).toBe('#3p2-3|3p3-3|3p1-3');
     expect(back('#3p2-3|3p3-3|3p1-3')?.parts).toEqual(state.parts);
   });
+  test('four jugglers write p<n> too: both four-juggler cards are short links that round-trip (v6.6)', () => {
+    for (const id of ['four-typewriter', 'four-square']) {
+      const card = PRESETS.find((p) => p.id === id)!;
+      const state = { ...base(), parts: card.parts, ratio: card.ratio };
+      const hash = encodeHash(state);
+      expect(hash, id).toBe(`#${(card.texts[0] as string).slice(1, -1).replace(/ /g, '-')}`);
+      expect(hash.length - 1, id).toBeLessThanOrEqual(64);
+      expect(back(hash)?.parts, id).toEqual(card.parts);
+    }
+    expect(encodeHash({ ...base(), parts: PRESETS.find((p) => p.id === 'four-typewriter')!.parts })).toBe(
+      '#3p2-3-3p3-3-3p4-3|3p1-3-3-3-3-3|3-3-3p1-3-3-3|3-3-3-3-3p1-3',
+    );
+    // Five jugglers are past MAX_JUGGLERS: no short link reads them.
+    expect(decodeState('3p2-3|3p3-3|3p4-3|3p5-3|3p1-3', 'short')).toBeNull();
+  });
   test('a percent-encoded | still reads', () => {
     expect(route('#3p-3%7C3p-3')).toEqual({ view: 'play', state: '3p-3|3p-3', version: 'short' });
   });

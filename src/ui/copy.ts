@@ -441,6 +441,8 @@ export const copy = {
     'three-feed': { name: 'Feed' },
     'three-triangle': { name: 'Triangle' },
     'three-ultimates': { name: 'Ultimates for 3' },
+    'four-typewriter': { name: 'Typewriter feed' },
+    'four-square': { name: 'Square' },
   } as Record<string, { name: string }>,
 };
 

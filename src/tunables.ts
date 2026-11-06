@@ -92,6 +92,8 @@ export const LADDER = {
   lanePaddingPx: 18,
   barPx: 8,
   rowGapPx: 2,
+  /** Eight lanes on a phone's strip leave bands under a bar: bars thin to fit, never under this (v6.6 ruling 17). */
+  minBarHeightPx: 2,
   /** Cross flights are drawn as lines this fraction of the bar height. */
   crossLinePx: 5,
   /** Tick half-lengths and widths: coincident pulses, then ordinary beats. */
@@ -228,20 +230,29 @@ export const MAX_PHASE_REFINEMENT = 64;
  * editor has one input per lane instead (docs/plans/lanes.md ruling 3), up to MAX_LANES.
  */
 export const MAX_EDITOR_PARTS = 2;
-/** Most parts a share link may carry; a link with more falls back to the default pattern. */
+/**
+ * Most parts a share link may carry; a link with more falls back to the default pattern. Exactly
+ * 2 × MAX_JUGGLERS since v6.6 (a unit test holds it at least that), so five jugglers later raise both.
+ */
 export const MAX_PARTS = 8;
 /** Longest cycle, in pulses, a share link may ask for; a longer one falls back to the default pattern. */
 export const MAX_LINK_CYCLE = 4096;
-/** Most jugglers a passing siteswap (`<3p 3|3p 3>`, form 4) may write; juggler j is parts 2j and 2j + 1. */
-export const MAX_JUGGLERS = 3;
+/**
+ * Most jugglers a passing siteswap (`<3p 3|3p 3>`, form 4) may write; juggler j is parts 2j and
+ * 2j + 1. Four since v6.6 (docs/plans/v6-6-deck-on-top-four-jugglers.md ruling 15). The app's cap,
+ * not the model's (MATH.md §10); `p<n>` keeps a one-digit target, so ten would need more than this.
+ */
+export const MAX_JUGGLERS = 4;
 
 // ---------------------------------------------------------------------------------------------
 // Lanes: the Rhythm tab as a mixer (docs/plans/lanes.md)
 // ---------------------------------------------------------------------------------------------
 
 /**
- * Most lanes (parts) on screen and in the editor; "Add a hand" stops here. A link may still
- * carry up to MAX_PARTS, of which the first MAX_LANES are shown.
+ * Most lanes (parts) in the Rhythm tab and per-part inputs in the Pattern tab; "Add a hand" stops
+ * here. Not the stage's cap: the juggler and the ladder strip draw every part (up to MAX_PARTS,
+ * eight for four jugglers), and a passing set is edited as one passing siteswap, so the Rhythm tab
+ * shows only its first MAX_LANES hands (v6.6 ruling 16). A link may carry up to MAX_PARTS.
  */
 export const MAX_LANES = 4;
 /** The rate stepper's top: a lane plays at most this many beats while a lane of rate 1 plays one. As high as a ratio's side. */
@@ -467,6 +478,8 @@ export const DEFAULT_KIT_SHIFT = 0;
  * Pan from the stage (ruling 4). For N jugglers, juggler j (drawn left to right, juggler 1 on the
  * left) sits at `c = N == 1 ? 0 : -edge + 2·edge·j/(N - 1)`, its hands at `c ∓ d` (left hand first),
  * `d = N == 1 ? soloHand : min(handMax, edge/(N - 1))`. One juggler: -0.6, 0.6; two: -0.8, -0.4, 0.4, 0.8.
+ * Four (v6.6 ruling 19): centres -0.6, -0.2, 0.2, 0.6, hands -0.8, -0.4, -0.4, 0, 0, 0.4, 0.4, 0.8;
+ * neighbours' inner hands meet, and the jugglers stay apart by their drum machines.
  */
 export const STAGE_PAN = { edge: 0.6, soloHand: 0.6, handMax: 0.2 } as const;
 

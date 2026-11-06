@@ -34,6 +34,15 @@ describe('drum machines (ruling 3)', () => {
     expect(kitOf(1, 4)).toBe('TR-808');
   });
 
+  test('four jugglers (v6.6 ruling 19): four different kits at every shift, each juggler\'s hands on one', () => {
+    for (let shift = 0; shift < DRUMMER_KITS.length; shift++) {
+      const k = kits(8, shift);
+      expect(new Set(k.filter((_, h) => h % 2 === 0)).size, String(shift)).toBe(4);
+      for (let j = 0; j < 4; j++) expect(k[2 * j + 1], `${shift}:${j}`).toBe(k[2 * j]);
+    }
+    expect(kits(8, 0).filter((_, h) => h % 2 === 0)).toEqual(['TR-808', 'LM-2', 'MFB-512', 'Roland CR-8000']);
+  });
+
   test('five jugglers: five different kits, every one', () => {
     expect(new Set(kits(10, 0).filter((_, h) => h % 2 === 0)).size).toBe(5);
     expect(kits(10, 2).filter((_, h) => h % 2 === 0)).toEqual(['MFB-512', 'Roland CR-8000', 'Casio-RZ1', 'TR-808', 'LM-2']);
@@ -52,6 +61,13 @@ describe('pan from the stage (ruling 4)', () => {
 
   test('two jugglers: -0.8, -0.4, 0.4, 0.8, as the passing card today', () => {
     expect(pans(4)).toEqual([-0.8, -0.4, 0.4, 0.8]);
+  });
+
+  test('four jugglers (v6.6 ruling 19): centres -0.6, -0.2, 0.2, 0.6; neighbours\' inner hands meet; three do not move', () => {
+    const four = pans(8);
+    const want = [-0.8, -0.4, -0.4, 0, 0, 0.4, 0.4, 0.8];
+    four.forEach((p, h) => expect(p, String(h)).toBeCloseTo(want[h] as number, 12));
+    expect(pans(6)).toEqual([-0.8, -0.4, -0.2, 0.2, 0.4, 0.8]);
   });
 
   test('three and five jugglers: centres spread from -0.6 to 0.6, hands closer as they crowd', () => {
