@@ -57,7 +57,7 @@ export async function showEditor(page: import('@playwright/test').Page) {
  *
  * Waits on the transport's state, never a snapshot (issue #135). The player starts at once and
  * `data-events-scheduled` moves with it, but Play's label and Stop's `disabled` follow on the next
- * animation frame (both are written by the mounts' `draw`, deck before knobs, in the same frame).
+ * animation frame (both are written by the mounts' `draw`, deck before knobs, in the same frame; on the Play-click path, since knobs' start() also syncs Stop directly).
  * A read of Play's text before that frame says Play while the page is playing, so Pause was never
  * pressed and Stop stayed hidden. Stop enabled means the frame has drawn, so Play's label is then
  * current.
