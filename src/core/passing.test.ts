@@ -100,7 +100,13 @@ describe('partsFromPassing (ruling 2, MATH.md §10)', () => {
     expect(feed).toHaveLength(8);
     const s = buildSchedule(feed);
     expect([s.verdict.ok, s.balls, s.cycle]).toEqual([true, 12, 6]);
-    // The feeder's right hand (part 0) passes to jugglers 2, 3 and 4; each pass lands in a left hand.
+    // The feeder's right hand (part 0) passes to jugglers 2, 3 and 4 in turn, each pass landing in
+    // that juggler's left hand (parts 3, 5, 7); each feedee's right hand passes back once, at the
+    // pulse it is fed, into the feeder's left hand (part 1). MATH.md §10's worked case.
+    const tos = (p: number) => ((feed[p] as Part).flights as { throws: readonly { to: number | null }[] }).throws.map((t) => t.to);
+    expect(tos(0)).toEqual([3, 5, 7]);
+    expect([tos(2)[0], tos(4)[1], tos(6)[2]]).toEqual([1, 1, 1]);
+    // The square: each right hand passes to the next juggler round, into its left hand.
     const square = parts('<3p2 3 3 3|3p3 3 3 3|3p4 3 3 3|3p1 3 3 3>');
     expect([0, 2, 4, 6].map((p) => landing(square, p))).toEqual([3, 5, 7, 1]);
     expect(buildSchedule(square).balls).toBe(12);

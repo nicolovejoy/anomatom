@@ -92,8 +92,9 @@ export interface LaneGeometry {
  * was. Three or more: the strip between the paddings split into one band per part, each lane's
  * line at its band's top and its rows growing down, as many rows as fit in the band (at least one).
  * A band smaller than a bar and its gap (eight parts on a phone, v6.6 ruling 17) draws its bars
- * `band - rowGapPx` tall, never under `minBarHeightPx`, one row per lane, so no bar crosses into
- * the next lane.
+ * `band - rowGapPx` tall, one row per lane, its bar ending on the next lane's line and never
+ * past it, down to `minBarHeightPx` (under that, a strip under about 68 px for eight parts, a bar
+ * may overrun).
  */
 export function laneGeometry(parts: number, height: number, layout: LaneLayout, colours: number): LaneGeometry {
   const pad = layout.lanePaddingPx;
@@ -104,7 +105,8 @@ export function laneGeometry(parts: number, height: number, layout: LaneLayout, 
   const band = (height - 2 * pad) / parts;
   const barPx = Math.max(layout.minBarHeightPx, Math.min(layout.barPx, band - layout.rowGapPx));
   const step = barPx + layout.rowGapPx;
-  // A row fits when its bar ends a row gap short of the next lane's line.
+  // A further row fits when its bar ends a row gap short of the next lane's line; the first row is
+  // always drawn, its (thinned) bar at most reaching that line.
   const rows = Math.max(1, Math.floor((band - barPx - 2 * layout.rowGapPx) / step) + 1);
   return {
     step,

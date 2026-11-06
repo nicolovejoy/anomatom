@@ -533,7 +533,9 @@
   flex: 0 1 auto;
   min-width: 0;
 }
+/* The name, dot and meta never give way: a long notation (the four-juggler cards, v6.6) ellipsizes first. */
 .topbar-pattern .deck-line {
+  flex: none;
   font-size: 14px;
 }
 .topbar-pattern .deck-name {

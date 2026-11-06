@@ -99,6 +99,24 @@ for (const [name, viewport] of SIZES) {
   });
 }
 
+for (const width of [1280, 1024]) {
+  test(`at ${width}x800 the top bar keeps the Typewriter feed's name whole; its long notation gives way`, async ({ page }) => {
+    await page.setViewportSize({ width, height: 800 });
+    await page.goto(`/${hashOf('four-typewriter')}`);
+    const name = page.locator('.topbar-pattern .deck-name');
+    await expect(name).toHaveText('Typewriter feed');
+    await page.evaluate(() => document.fonts.ready);
+    const fit = await name.evaluate((el) => ({ scroll: el.scrollWidth, client: el.clientWidth }));
+    expect(fit.client).toBeGreaterThan(0);
+    expect(fit.scroll).toBeLessThanOrEqual(fit.client);
+    await expect(page.locator('.topbar-pattern .deck-meta')).toHaveText('4 jugglers');
+    // The whole label inside the top bar.
+    const label = (await page.locator('.topbar-pattern .deck-pattern').boundingBox())!;
+    expect(label.x + label.width).toBeLessThanOrEqual(width);
+    if (SHOTS) await page.screenshot({ path: `${SHOTS}/four-typewriter-topbar-${width}x800.png` });
+  });
+}
+
 test('the short links round-trip: the stage and the address the card wrote', async ({ page }) => {
   for (const card of cards) {
     const hash = hashOf(card.id);
@@ -141,6 +159,8 @@ test('at 390 wide the caption "Juggler 4", in the canvas font, fits between four
   );
   // The unit test's caption estimate (0.6 em a character) holds the real one.
   expect(caption).toBeLessThanOrEqual(copy.jugglerCaption(3).length * 0.6 * JUGGLER.captionFontPx);
+  // A glyph-width check only: the scene is recomputed from the tunables here, not read from
+  // jugglerFrame / sceneScale, whose layout src/view/juggler.test.ts owns.
   // Width-bound, figures stand figureStride apart in a scene 3 strides and one figure (plus a
   // ball either side) across the canvas less its margins.
   const scene = 3 * JUGGLER.figureStride + JUGGLER.catchX[1] + 2 * JUGGLER.radius;
