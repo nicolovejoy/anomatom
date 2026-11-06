@@ -52,8 +52,18 @@ export async function showEditor(page: import('@playwright/test').Page) {
   if (await page.locator('#app.deck-editor-hidden.panel-patterns').count()) await page.locator('.deck-own').click();
 }
 
-/** Stop lives beside the time slider, shown while paused: pause first if playing, then stop. */
+/**
+ * Stop lives beside the time slider, shown while paused: pause first if playing, then stop.
+ *
+ * Waits on the transport's state, never a snapshot (issue #135). The player starts at once and
+ * `data-events-scheduled` moves with it, but Play's label and Stop's `disabled` follow on the next
+ * animation frame (both are written by the mounts' `draw`, deck before knobs, in the same frame; on the Play-click path, since knobs' start() also syncs Stop directly).
+ * A read of Play's text before that frame says Play while the page is playing, so Pause was never
+ * pressed and Stop stayed hidden. Stop enabled means the frame has drawn, so Play's label is then
+ * current.
+ */
 export async function stopPlaying(page: import('@playwright/test').Page) {
+  await expect(page.locator('#stop')).toBeEnabled();
   if ((await page.locator('#play').textContent())?.includes('Pause')) await page.locator('#play').click();
   await page.locator('#stop').click();
 }
