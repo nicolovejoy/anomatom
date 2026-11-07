@@ -3,8 +3,9 @@
 // lanes in the strip, and the Sound panel lists five jugglers on the five drum machines, which
 // Change drum machines moves together and keeps apart. The Jugglers 5 chip holds the two cards,
 // both links round-trip, and a six-juggler pattern typed is refused naming five. `data-figures`
-// and `data-balls` are the 2D hooks on canvas.juggler, set whichever view shows. Screenshots go to
-// FIVE_SHOTS when it names a directory.
+// and `data-balls` are the 2D hooks on canvas.juggler, set whichever view shows. In 3D (v6.8 T1,
+// the default) the five stand on the ring, five captions shown. Screenshots go to FIVE_SHOTS when
+// it names a directory.
 import { mkdirSync } from 'node:fs';
 import { buildSchedule } from '../src/core';
 import { encodeHash } from '../src/app/hash';
@@ -12,7 +13,7 @@ import { PRESETS } from '../src/app/presets';
 import { defaultState } from '../src/app/state';
 import { DRUMMER_KITS, JUGGLER, MAX_JUGGLERS } from '../src/tunables';
 import { copy } from '../src/ui/copy';
-import { expect, isCdnError, openTab, test, type Page } from './fixtures';
+import { expect, hasWebGL, isCdnError, NO_WEBGL, openTab, show2d, test, type Page } from './fixtures';
 
 const SHOTS = process.env.FIVE_SHOTS;
 const cards = PRESETS.filter((p) => p.parts.length === 10);
@@ -56,7 +57,7 @@ for (const card of cards) {
       const strip = page.locator('canvas.ladder');
       await expect(strip).toHaveAttribute('data-lanes', '10');
       await expect(strip).toHaveAttribute('data-balls', String(card.balls));
-      const box = (await juggler.boundingBox())!;
+      const box = (await page.locator('.region-juggler canvas:visible').boundingBox())!;
       expect(box.x).toBeGreaterThanOrEqual(0);
       expect(box.x + box.width).toBeLessThanOrEqual(viewport.width);
       await page.waitForTimeout(1500);
@@ -134,6 +135,8 @@ test('a six-juggler pattern typed is refused, naming five; five is read', async 
 test('at 390 wide the caption "Juggler 5", in the canvas font, fits between five figures, the outer ones on the canvas', async ({ page }) => {
   await page.setViewportSize({ width: 390, height: 844 });
   await page.goto(`/${hashOf('five-star')}`);
+  // About the 2D picture (v6.8 T1): the 2D view shown.
+  await show2d(page);
   const juggler = page.locator('canvas.juggler');
   await expect(juggler).toHaveAttribute('data-figures', '5');
   const { width, caption } = await juggler.evaluate(
@@ -156,3 +159,47 @@ test('at 390 wide the caption "Juggler 5", in the canvas font, fits between five
   // The canvas is symmetric, so the last caption ends as far from the right edge.
   expect(firstCentre + 4 * stride + caption / 2).toBeLessThanOrEqual(width + 1e-6);
 });
+
+for (const card of cards) {
+  for (const [name, viewport] of SIZES) {
+    test(`${card.id} at ${name} in 3D: five on the ring, fifteen balls, five captions`, async ({ page, browserName }) => {
+      // Chromium always has WebGL here: there a missing context fails rather than skips.
+      test.skip(!(await hasWebGL(page)) && browserName !== 'chromium', NO_WEBGL);
+      const errors = watchErrors(page);
+      await page.setViewportSize(viewport);
+      await page.goto(`/${hashOf(card.id)}`);
+      await expect(page.locator('#play')).toBeEnabled();
+      const region = page.locator('.region-juggler');
+      await expect(region).toHaveAttribute('data-view', '3d');
+      await page.locator('#play').click();
+      await expect(page.locator('#play')).toHaveText('Pause');
+      const three = page.locator('canvas.juggler-3d');
+      await expect(three).toBeVisible();
+      await expect(three).toHaveAttribute('data-balls', String(card.balls));
+      await expect(three).toHaveAttribute('data-figures', '5');
+      const captions = page.locator('.juggler-captions span:not([hidden])');
+      await expect(captions).toHaveCount(5);
+      await expect(captions).toHaveText(['Juggler 1', 'Juggler 2', 'Juggler 3', 'Juggler 4', 'Juggler 5']);
+      // Inside the viewport.
+      const box = (await three.boundingBox())!;
+      expect(box.x).toBeGreaterThanOrEqual(0);
+      expect(box.x + box.width).toBeLessThanOrEqual(viewport.width + 0.5);
+      // No two captions overlap.
+      const rects = await captions.evaluateAll((els) => els.map((e) => e.getBoundingClientRect().toJSON() as { left: number; right: number; top: number; bottom: number }));
+      for (let i = 0; i < rects.length; i++) {
+        for (let j = i + 1; j < rects.length; j++) {
+          const a = rects[i]!;
+          const b = rects[j]!;
+          const apart = a.right <= b.left || b.right <= a.left || a.bottom <= b.top || b.bottom <= a.top;
+          expect(apart, `captions ${i + 1} and ${j + 1}`).toBe(true);
+        }
+      }
+      await page.waitForTimeout(1500);
+      if (SHOTS) {
+        mkdirSync(SHOTS, { recursive: true });
+        await page.screenshot({ path: `${SHOTS}/3d-${card.id}-${name}.png` });
+      }
+      expect(errors).toEqual([]);
+    });
+  }
+}
