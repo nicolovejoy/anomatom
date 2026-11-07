@@ -92,6 +92,8 @@ export function createJuggler3D(onLost: () => void): Juggler3D | null {
   canvas.addEventListener(
     'webglcontextlost',
     () => {
+      // The controls' listeners (on the canvas and the document) go with the view.
+      controls.dispose();
       try {
         renderer.dispose();
       } catch {
@@ -111,6 +113,7 @@ export function createJuggler3D(onLost: () => void): Juggler3D | null {
   const controls = new FrameOrbit(camera, canvas);
   controls.enablePan = false;
   controls.enableDamping = false;
+  controls.rotateSpeed = VIEW3D.rotateSpeed;
   controls.minDistance = VIEW3D.minDistance;
   controls.maxDistance = VIEW3D.maxDistance;
   const polar = polarLimits();

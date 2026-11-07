@@ -121,10 +121,12 @@ test.describe('at 1280×800, by mouse', () => {
 
   test('a drag far down or far up stops at 80° and at 5°', async ({ page }) => {
     await open(page, 'cascade', CASCADE);
-    await mouseDrag(page, 0, 300);
+    // Far: at rotateSpeed a drag the canvas's height turns about 160°; three drags of half its
+    // height each way (each inside the canvas) go past either limit.
+    const half = (await three(page).boundingBox())!.height * 0.45;
+    for (let i = 0; i < 3; i++) await mouseDrag(page, 0, half);
     await expect.poll(async () => (await camera(page)).elevation).toBe(VIEW3D.maxElevationDeg);
-    await mouseDrag(page, 0, -300);
-    await mouseDrag(page, 0, -300);
+    for (let i = 0; i < 3; i++) await mouseDrag(page, 0, -half);
     await expect.poll(async () => (await camera(page)).elevation).toBe(VIEW3D.minElevationDeg);
     await page.locator('.juggler-reset').click();
     await expect(three(page)).toHaveAttribute('data-camera', CASCADE);

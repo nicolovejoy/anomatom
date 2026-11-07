@@ -239,6 +239,8 @@ export const VIEW3D = {
   maxDistance: 16,
   minElevationDeg: 5,
   maxElevationDeg: 80,
+  /** OrbitControls' rotateSpeed: a drag the canvas's height turns the view 2π × this (0.45: about 160°). */
+  rotateSpeed: 0.45,
   /** The camera's clipping planes. */
   near: 0.5,
   far: 40,

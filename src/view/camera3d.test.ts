@@ -21,6 +21,8 @@ describe('the limits', () => {
     expect(VIEW3D.minDistance).toBeLessThan(VIEW3D.cameraMetres);
     expect(VIEW3D.cameraMetres).toBeLessThan(VIEW3D.maxDistance);
     expect([VIEW3D.minElevationDeg, VIEW3D.maxElevationDeg]).toEqual([5, 80]);
+    // A drag the canvas's height turns about 160°, not a full turn.
+    expect(VIEW3D.rotateSpeed * 360).toBeCloseTo(162, 0);
     expect(VIEW3D.minElevationDeg).toBeLessThan(VIEW3D.elevationDeg);
     expect(VIEW3D.elevationDeg).toBeLessThan(VIEW3D.maxElevationDeg);
     // The far plane holds the whole scene from the farthest camera.
