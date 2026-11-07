@@ -8,7 +8,7 @@ import { encodeHash } from '../src/app/hash';
 import { PRESETS } from '../src/app/presets';
 import { defaultState } from '../src/app/state';
 import { JUGGLER } from '../src/tunables';
-import { expect, isCdnError, test, type Page } from './fixtures';
+import { expect, hasWebGL, isCdnError, NO_WEBGL, test, type Page } from './fixtures';
 
 const SHOTS = process.env.E2E_SHOTS;
 const CARDS = [
@@ -44,6 +44,7 @@ const region = (page: Page) => page.locator('.region-juggler');
 for (const [id, jugglers] of CARDS) {
   for (const [name, viewport] of SIZES) {
     test(`${id} at ${name}: drawn in 3D, ${jugglers} juggler${jugglers > 1 ? 's' : ''}, the 2D hooks’ balls`, async ({ page }) => {
+      test.skip(!(await hasWebGL(page)), NO_WEBGL);
       const errors = watchErrors(page);
       await page.setViewportSize(viewport);
       await page.goto(`/${hashOf(id)}`);
@@ -96,6 +97,7 @@ for (const [id, jugglers] of CARDS) {
 }
 
 test('the switch: 3D to 2D and back, the link unchanged', async ({ page }) => {
+  test.skip(!(await hasWebGL(page)), NO_WEBGL);
   await page.setViewportSize({ width: 390, height: 844 });
   await page.goto(`/${hashOf('three-triangle')}`);
   await expect(region(page)).toHaveAttribute('data-view', '3d');
@@ -122,6 +124,7 @@ test('the switch: 3D to 2D and back, the link unchanged', async ({ page }) => {
 });
 
 test('a reload opens in 3D again', async ({ page }) => {
+  test.skip(!(await hasWebGL(page)), NO_WEBGL);
   await page.goto(`/${hashOf('cascade')}`);
   await expect(region(page)).toHaveAttribute('data-view', '3d');
   await page.locator('.juggler-switch').click();
@@ -171,6 +174,7 @@ test('three.js failing to load: the 2D view stays, with no switch', async ({ pag
 });
 
 test('a flight longer than a human throw draws dimmed in 3D, as the note says', async ({ page }) => {
+  test.skip(!(await hasWebGL(page)), NO_WEBGL);
   // One ball, one hit in 16 steps at 120 bpm: its flight is over HUMAN_AIRTIME_SECONDS.
   const parts = [{ s: 1, f: 0, u: 1, o: '1000000000000000', k: 1 }];
   const link = '/#v3.' + Buffer.from(JSON.stringify({ p: parts, r: [1, 1], t: 120, l: 'height' })).toString('base64url');
@@ -194,6 +198,7 @@ test('a flight longer than a human throw draws dimmed in 3D, as the note says', 
 });
 
 test('the WebGL context lost mid-play: the 2D view takes over and keeps counting', async ({ page }) => {
+  test.skip(!(await hasWebGL(page)), NO_WEBGL);
   const errors = watchErrors(page);
   await page.goto(`/${hashOf('three-triangle')}`);
   await expect(region(page)).toHaveAttribute('data-view', '3d');
@@ -217,4 +222,27 @@ test('the WebGL context lost mid-play: the 2D view takes over and keeps counting
   const first = await pixels();
   await expect.poll(pixels).not.toBe(first);
   expect(errors.filter((e) => !/WebGL|context/i.test(e))).toEqual([]);
+});
+
+test('a browser without WebGL 2: the 2D view, and no switch', async ({ page }) => {
+  test.skip(await hasWebGL(page), 'this browser has WebGL: the 3D tests above run instead');
+  // Forced (E2E_NO_WEBGL) where WebGL exists: the browser is made to lack it, as CI's headless Firefox does.
+  if (process.env.E2E_NO_WEBGL) {
+    await page.addInitScript(() => {
+      const original = HTMLCanvasElement.prototype.getContext;
+      HTMLCanvasElement.prototype.getContext = function (this: HTMLCanvasElement, kind: string, ...rest: unknown[]) {
+        if (kind === 'webgl' || kind === 'webgl2' || kind === 'experimental-webgl') return null;
+        return (original as (...a: unknown[]) => RenderingContext | null).call(this, kind, ...rest);
+      } as typeof original;
+    });
+  }
+  await page.goto(`/${hashOf('three-triangle')}`);
+  await expect(region(page)).toHaveAttribute('data-three', 'none');
+  await page.locator('#play').click();
+  await expect(page.locator('#play')).toHaveText('Pause');
+  await expect(region(page)).toHaveAttribute('data-view', '2d');
+  await expect(page.locator('canvas.juggler')).toBeVisible();
+  await expect(page.locator('canvas.juggler')).toHaveAttribute('data-balls', '9');
+  await expect(page.locator('canvas.juggler-3d')).toHaveCount(0);
+  await expect(page.locator('.juggler-switch')).toBeHidden();
 });
