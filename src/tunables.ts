@@ -207,6 +207,12 @@ export const VIEW3D = {
   twoAzimuthDeg: 30,
   /** The scene's box fills the view but for this share of each half-extent. */
   fitMargin: 0.1,
+  /**
+   * The camera's framing (its aim, fit and turn) follows the scene with this time constant on the
+   * audio clock, so a switch never pops the view; within `framingSnap` it settles on the target.
+   */
+  framingEaseSeconds: 0.75,
+  framingSnap: 1e-4,
   /** The camera's clipping planes. */
   near: 0.5,
   far: 40,
@@ -226,6 +232,7 @@ export const VIEW3D = {
   bodyColour: '#5a6270',
   bodyOpacity: 0.55,
   bodySegments: 16,
+  bodyCapSegments: 4,
   /** A hand: a flat disc along its catch-to-throw span, a ball radius past each end, this wide and thick, this far under a held ball. */
   discWidthMetres: 0.12,
   discThicknessMetres: 0.012,
@@ -239,6 +246,10 @@ export const VIEW3D = {
   /** A fault arc (exactly 16 segments, as the plan rules) as a tube this thick. */
   faultSegments: 16,
   faultTubeMetres: 0.012,
+  faultTubeSegments: 32,
+  faultTubeSides: 6,
+  /** Fault arcs glow in their own colour this much, so they read under any light. */
+  faultGlow: 0.4,
   /** Plain light (ruling 8): sky and ground of one hemisphere light, and one directional light from above front left. */
   skyLight: '#ffffff',
   groundLight: '#3a404b',

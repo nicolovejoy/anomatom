@@ -9,7 +9,7 @@ import { copy } from '../ui/copy';
 import { partColour } from './colours';
 import { figurePlaces, handPlaces, jugglerFrame } from './juggler';
 import type { JugglerFrame } from './juggler';
-import { captions, defaultCamera, describeScene, overlaps, project, sceneBox, signature, toRender } from './scene3d';
+import { ballRadius, cameraFor, captions, defaultCamera, describeScene, easeFraming, floorOf, overlaps, project, sceneBox, signature, targetFraming, toRender } from './scene3d';
 import type { Camera3D, Vec3 } from './scene3d';
 import type { Segment } from './types';
 
@@ -27,19 +27,104 @@ describe('render space', () => {
 });
 
 describe('the box the camera frames', () => {
-  test('the frame’s bounds, widened by a body’s reach, from the floor to the shoulders or the apex', () => {
-    const frame = frameOf(2);
-    const box = sceneBox(frame);
-    const reach = VIEW3D.bodyBackMetres + VIEW3D.bodyRadius;
-    expect(box.left).toBeCloseTo(frame.bounds.left - reach, 12);
-    expect(box.right).toBeCloseTo(frame.bounds.right + reach, 12);
-    expect(box.near).toBeCloseTo(frame.bounds.near - reach, 12);
-    expect(box.far).toBeCloseTo(frame.bounds.far + reach, 12);
-    expect(box.bottom).toBe(-VIEW3D.floorMetres);
-    expect(box.top).toBe(Math.max(frame.bounds.top, VIEW3D.shoulderMetres));
+  test('the frame’s bounds, widened by a body’s reach and to hold the floor, from the floor to the shoulders or the apex', () => {
+    for (const parts of [2, 4, 6, 8]) {
+      const frame = frameOf(parts);
+      const box = sceneBox(frame);
+      const reach = VIEW3D.bodyBackMetres + VIEW3D.bodyRadius;
+      const floor = floorOf(frame);
+      const [fx, , fz] = floor.centre;
+      expect(box.left).toBeCloseTo(Math.min(frame.bounds.left - reach, fx - floor.radius), 12);
+      expect(box.right).toBeCloseTo(Math.max(frame.bounds.right + reach, fx + floor.radius), 12);
+      expect(box.near).toBeCloseTo(Math.min(frame.bounds.near - reach, -fz - floor.radius), 12);
+      expect(box.far).toBeCloseTo(Math.max(frame.bounds.far + reach, -fz + floor.radius), 12);
+      expect(box.left).toBeLessThanOrEqual(frame.bounds.left - reach);
+      expect(box.far).toBeGreaterThanOrEqual(frame.bounds.far + reach);
+      expect(box.bottom).toBe(-VIEW3D.floorMetres);
+      expect(box.top).toBe(Math.max(frame.bounds.top, VIEW3D.shoulderMetres));
+    }
     // A low pattern: the shoulders are the top.
     const low = jugglerFrame([single(scheduleOf('1'))], 1, JUGGLER, undefined, 'ring');
     expect(sceneBox(low).top).toBe(VIEW3D.shoulderMetres);
+  });
+
+  // Two-count (two figures face to face) and Square (four on a ring): the whole floor circle on the canvas, inside the margin.
+  test.each([4, 8].flatMap((parts) => [[390, 300], [390, 200], [1280, 520], [320, 360]].map(([w, h]) => [parts, w!, h!] as const)))(
+    '%i parts at %i × %i: the floor circle inside the view, the margin to spare',
+    (parts, w, h) => {
+      const scene = describeScene(frameOf(parts), w / h);
+      const { centre, radius } = scene.floor;
+      for (let k = 0; k < 64; k++) {
+        const a = (k / 64) * 2 * Math.PI;
+        const { x, y } = project(scene.camera, [centre[0] + radius * Math.cos(a), centre[1], centre[2] + radius * Math.sin(a)], w, h);
+        expect(Math.abs(x / w - 0.5) * 2).toBeLessThanOrEqual(1 - VIEW3D.fitMargin + 1e-9);
+        expect(Math.abs(y / h - 0.5) * 2).toBeLessThanOrEqual(1 - VIEW3D.fitMargin + 1e-9);
+      }
+    },
+  );
+});
+
+describe('the eased framing (fix round 1)', () => {
+  const a = targetFraming(frameOf(4));
+  const b = targetFraming(frameOf(8));
+
+  test('the frame’s own: its box, turned for two figures only', () => {
+    expect(a).toEqual({ box: sceneBox(frameOf(4)), azimuthDeg: VIEW3D.twoAzimuthDeg });
+    expect(b.azimuthDeg).toBe(0);
+    expect(targetFraming(frameOf(2)).azimuthDeg).toBe(0);
+    expect(cameraFor(a, 1.5)).toEqual(defaultCamera(frameOf(4), 1.5));
+  });
+
+  test('none before: the target; no step or a step back: unchanged', () => {
+    expect(easeFraming(null, b, 0)).toBe(b);
+    expect(easeFraming(a, b, 0)).toBe(a);
+    expect(easeFraming(a, b, -1)).toBe(a);
+  });
+
+  test('a step of dt moves 1 − e^(−dt/τ) of the way, box and turn alike', () => {
+    const dt = 0.1;
+    const k = 1 - Math.exp(-dt / VIEW3D.framingEaseSeconds);
+    const e = easeFraming(a, b, dt);
+    for (const key of ['left', 'right', 'bottom', 'top', 'near', 'far'] as const) expect(e.box[key]).toBeCloseTo(a.box[key] + (b.box[key] - a.box[key]) * k, 12);
+    expect(e.azimuthDeg).toBeCloseTo(VIEW3D.twoAzimuthDeg * (1 - k), 12);
+  });
+
+  test('frame by frame the camera never pops, and it settles exactly on the target', () => {
+    let f = a;
+    let cam = cameraFor(f, 1.5);
+    for (let i = 0; i < 600; i++) {
+      f = easeFraming(f, b, 1 / 60);
+      const next = cameraFor(f, 1.5);
+      expect(Math.hypot(...next.position.map((v, j) => v - cam.position[j]!))).toBeLessThan(0.1);
+      expect(Math.abs(next.fovDeg - cam.fovDeg)).toBeLessThan(0.5);
+      cam = next;
+    }
+    expect(f).toBe(b);
+    // A long step (a hidden tab) lands at once.
+    expect(easeFraming(a, b, 100)).toBe(b);
+  });
+
+  test('describeScene takes the framing for its camera', () => {
+    const half = easeFraming(a, b, VIEW3D.framingEaseSeconds);
+    expect(describeScene(frameOf(8), 1.5, VIEW3D, half).camera).toEqual(cameraFor(half, 1.5));
+    expect(describeScene(frameOf(8), 1.5).camera).toEqual(defaultCamera(frameOf(8), 1.5));
+  });
+});
+
+describe('a ball never drawn under minRadiusPx (fix round 1)', () => {
+  test('far or on a small canvas: grown to exactly the minimum on screen; near on a large one: its own radius', () => {
+    const scene = describeScene(frameOf(8), 390 / 200);
+    const c = scene.camera;
+    const at = scene.balls[0]!.at;
+    const small = ballRadius(c, at, JUGGLER.radius, 200);
+    expect(small).toBeGreaterThan(JUGGLER.radius);
+    // Seen from the front, a step along x at the ball's depth is a step across the screen.
+    const p0 = project(c, at, 390, 200);
+    const p1 = project(c, [at[0] + small, at[1], at[2]], 390, 200);
+    expect(Math.abs(p1.x - p0.x)).toBeCloseTo(JUGGLER.minRadiusPx, 1);
+    const big = describeScene(frameOf(2), 1);
+    expect(ballRadius(big.camera, big.balls[0]!.at, JUGGLER.radius, 4000)).toBe(JUGGLER.radius);
+    expect(ballRadius(c, at, JUGGLER.radius, 200, 1)).toBe(JUGGLER.radius);
   });
 });
 
@@ -249,6 +334,8 @@ describe('the captions (ruling 9)', () => {
     for (const [i, c] of cs.entries()) {
       const foot = project(scene.camera, scene.bodies[i]!.base, 390, 300);
       expect(c.left + c.width / 2).toBeCloseTo(foot.x, 9);
+      // The text is centred on the foot; the box, an over-estimate of it, is centred there too.
+      expect(c.centre).toBeCloseTo(foot.x, 9);
       expect(c.top).toBeCloseTo(foot.y + VIEW3D.captionOffsetPx, 9);
       expect([c.width, c.height]).toEqual([label(i).length * VIEW3D.captionCharPx, JUGGLER.captionFontPx]);
     }
@@ -281,7 +368,7 @@ describe('the captions (ruling 9)', () => {
   );
 
   test('overlaps: boxes that share area, not boxes that only touch', () => {
-    const box = { figure: 0, part: 0, colour: '', text: '', left: 0, top: 0, width: 10, height: 10 };
+    const box = { figure: 0, part: 0, colour: '', text: '', centre: 5, left: 0, top: 0, width: 10, height: 10 };
     expect(overlaps(box, { ...box, left: 5, top: 5 })).toBe(true);
     expect(overlaps(box, { ...box, left: 10 })).toBe(false);
     expect(overlaps(box, { ...box, top: 10 })).toBe(false);

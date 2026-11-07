@@ -4,7 +4,7 @@ import { buildSchedule, carryOver } from '../core';
 import type { Parts, Schedule } from '../core';
 import { lineFixtures } from '../test/juggler-fixtures';
 import { lineParts, scheduleOf } from '../test/schedules';
-import { JUGGLER } from '../tunables';
+import { JUGGLER, LOOKAHEAD_SECONDS } from '../tunables';
 import { ballColours } from './colours';
 import { catchPart } from './grids';
 import golden from './juggler-line.golden.json';
@@ -306,54 +306,78 @@ describe('near and far', () => {
   });
 });
 
-describe('a carried flight across a part-count switch on the ring (R1 review, ruling 13)', () => {
+describe('a carried flight across a part-count switch on the ring (ruling 13, fix round 1)', () => {
   const three = () => buildSchedule(lineParts(['1x2', '1x3', '1x1'], { a: 1, b: 1 }));
-  /** A carried switch at a common cycle boundary, as the player builds it. */
-  const carried = (a: Schedule, b: Schedule): Segment[] => {
+  /**
+   * The segments as the player shows them at `t`: the next segment exists only from
+   * LOOKAHEAD_SECONDS before its boundary (`player.queue` lands a change at the first cycle
+   * boundary at or after the scheduled window); before that, the old one plays on, open-ended.
+   */
+  const queued = (a: Schedule, b: Schedule) => {
     const B = a.cycle * b.cycle * 2;
+    const tB = B * LEN;
     const carry = carryOver(a, b, B);
     expect(carry.size).toBeGreaterThan(0);
-    return [
-      { schedule: a, startTime: 0, pulseLen: LEN, endTime: B * LEN, carry: new Map() },
-      { schedule: b, startTime: B * LEN, pulseLen: LEN, endTime: null, carry },
+    const both: Segment[] = [
+      { schedule: a, startTime: 0, pulseLen: LEN, endTime: tB, carry: new Map() },
+      { schedule: b, startTime: tB, pulseLen: LEN, endTime: null, carry },
     ];
+    const alone: Segment[] = [{ ...both[0]!, endTime: null }];
+    return { tB, at: (t: number) => (t < tB - LOOKAHEAD_SECONDS ? alone : both) };
   };
-  /** The largest step any ball (by colour) takes between frames 2 ms apart, 3 s either side of the switch. */
-  const worstStep = (segments: Segment[], placement: 'line' | 'ring') => {
-    const t0 = segments[1]!.startTime;
+  /** The largest step any ball (by colour) takes between frames 2 ms apart, 3 s either side of the switch, but for the step onto the boundary. */
+  const worstStep = ({ tB, at }: ReturnType<typeof queued>, placement: 'line' | 'ring') => {
     let worst = 0;
     let prev = new Map<number, { x: number; y: number; z: number }>();
+    let prevT = -Infinity;
     for (let k = 0; k <= 3000; k++) {
-      const frame = jugglerFrame(segments, t0 - 3 + k * 2e-3, layout, undefined, placement);
+      const t = tB - 3 + k * 2e-3;
+      const frame = jugglerFrame(at(t), t, layout, undefined, placement);
       const now = new Map(frame.balls.map((b) => [b.ball, b]));
+      const cut = prevT < tB && t >= tB;
       for (const [ball, b] of now) {
         const p = prev.get(ball);
-        if (p) worst = Math.max(worst, Math.hypot(b.x - p.x, b.y - p.y, b.z - p.z));
+        if (p && !cut) worst = Math.max(worst, Math.hypot(b.x - p.x, b.y - p.y, b.z - p.z));
       }
       prev = now;
+      prevT = t;
     }
     return worst;
   };
   // A ball at its fastest (a 5 m/s throw) moves 0.01 m in 2 ms; the bound is five times that,
-  // far under the 0.78 m jump a catch in the old picture made.
+  // far under the 0.78 m a retarget mid-air or a catch in the old picture moved a ball.
   const BOUND = 0.05;
 
   test.each([
-    ['2 → 3 parts', () => carried(scheduleOf('3'), three())],
-    ['4 → 2 parts', () => carried(buildSchedule(FOUR), scheduleOf('3'))],
-    ['2 → 4 parts', () => carried(scheduleOf('3'), buildSchedule(FOUR))],
-    ['3 → 2 parts', () => carried(three(), scheduleOf('3'))],
-  ])('%s: no ball jumps, on the ring as on the line', (_, make) => {
-    const segments = make();
-    expect(worstStep(segments, 'line')).toBeLessThan(BOUND);
-    expect(worstStep(segments, 'ring')).toBeLessThan(BOUND);
+    ['2 → 3 parts', () => queued(scheduleOf('3'), three())],
+    ['4 → 2 parts', () => queued(buildSchedule(FOUR), scheduleOf('3'))],
+    ['2 → 4 parts', () => queued(scheduleOf('3'), buildSchedule(FOUR))],
+    ['3 → 2 parts', () => queued(three(), scheduleOf('3'))],
+  ])('%s, queued as late as the player queues it: no ball jumps but at the boundary', (_, make) => {
+    const sw = make();
+    expect(worstStep(sw, 'line')).toBeLessThan(BOUND);
+    expect(worstStep(sw, 'ring')).toBeLessThan(BOUND);
+  });
+
+  test('before the boundary a crossing flight aims at the thrower’s picture; from it, at the new one’s', () => {
+    const { tB, at } = queued(scheduleOf('3'), three());
+    const before = jugglerFrame(at(tB - 1e-3), tB - 1e-3, layout, undefined, 'ring');
+    const early = jugglerFrame(at(tB - 0.5), tB - 0.5, layout, undefined, 'ring');
+    const after = jugglerFrame(at(tB), tB, layout, undefined, 'ring');
+    const two = handPlaces(2, layout, 'ring');
+    const threes = handPlaces(3, layout, 'ring');
+    // Before: every ball on the old picture's hands' lines (z = 0 for one figure facing the camera).
+    for (const f of [early, before]) expect(f.balls.every((b) => Math.abs(b.z) < 1e-9)).toBe(true);
+    expect(two.every((h) => h.catchZ === 0)).toBe(true);
+    // From the boundary: some ball has left the old picture's line, toward a hand of the new one.
+    expect(after.balls.some((b) => Math.abs(b.z) > 1e-6)).toBe(true);
+    expect(threes.some((h) => Math.abs(h.catchZ) > 0.1)).toBe(true);
   });
 
   test('every ball inside the ring’s bounds through the switch', () => {
-    for (const segments of [carried(scheduleOf('3'), three()), carried(buildSchedule(FOUR), scheduleOf('3')), carried(scheduleOf('3'), buildSchedule(FOUR))]) {
-      const t0 = segments[1]!.startTime;
-      for (let t = t0 - 4; t < t0 + 4; t += 0.01) {
-        const { balls, bounds } = jugglerFrame(segments, t, layout, undefined, 'ring');
+    for (const sw of [queued(scheduleOf('3'), three()), queued(buildSchedule(FOUR), scheduleOf('3')), queued(scheduleOf('3'), buildSchedule(FOUR))]) {
+      for (let t = sw.tB - 4; t < sw.tB + 4; t += 0.01) {
+        const { balls, bounds } = jugglerFrame(sw.at(t), t, layout, undefined, 'ring');
         for (const b of balls) {
           expect(b.x).toBeGreaterThanOrEqual(bounds.left - 1e-9);
           expect(b.x).toBeLessThanOrEqual(bounds.right + 1e-9);

@@ -492,8 +492,8 @@ interface Place {
  * Where a ball is at `now` on throw `e`, launched at `tLaunch` and thrown again at `tEnd`. The
  * air takes the same share of the span as `flight − d` of `flight`, so a flight retimed across
  * a switch is still one parabola, ending in a scoop. The catch and the dwell after it are in
- * `catching`'s picture: the next segment's for a flight that lands across a switch on the ring
- * (v6.8 R1 review, ruling 13), so a carried ball is caught where the new picture's hand is.
+ * `catching`'s picture: on the ring, the next segment's for a flight landing across a switch,
+ * from the boundary on (v6.8 R1 review ruling 13, as ruled again in T1's fix round 1).
  */
 function along(
   schedule: Schedule,
@@ -604,9 +604,13 @@ export function jugglerFrame(
       const tLaunch = seg.startTime + launch * seg.pulseLen;
       const tEnd = crossing ? next.startTime + (land - B) * next.pulseLen : seg.startTime + land * seg.pulseLen;
       const d = dwellPulses(schedule, e, layout);
-      // On the ring a flight landing across the switch is caught in the new picture, if that
-      // picture has the catching part. The line keeps the thrower's picture, so it is unchanged.
-      const catching = crossing && placement === 'ring' && catchPart(schedule, e) < next.schedule.grids.length ? next.schedule : schedule;
+      // On the ring a flight landing across the switch aims at the thrower's picture's hand until
+      // the boundary and at the new picture's from it on (if that picture has the catching part):
+      // figures, hands and those balls all cut together at the boundary, so nothing retargets
+      // before it, however late the switch was queued (fix round 1). The line keeps the
+      // thrower's picture throughout, so it is unchanged.
+      const catching =
+        crossing && placement === 'ring' && now >= next.startTime && catchPart(schedule, e) < next.schedule.grids.length ? next.schedule : schedule;
       const { place, air, span } = along(schedule, e, d, tLaunch, tEnd, now, layout, placement, catching);
 
       if (crossing) {
@@ -789,21 +793,15 @@ function bounds(
       i === 0 ? 1 : clamp01((now - seg.startTime + ease) / ease),
       clamp01(1 - (now - end) / ease),
     );
-    // On the ring a flight landing across the switch flies to the new picture's hand (ruling 13),
-    // so there a segment's span is weighed in before the earliest such flight is thrown.
-    const previous = segments[i - 1];
-    const lead = placement === 'ring' && previous ? indexOf(previous.schedule).maxFlight * previous.pulseLen : 0;
-    const across = i === 0 ? weight : Math.min(clamp01((now - seg.startTime + lead + ease) / ease), clamp01(1 - (now - end) / ease));
-    if (weight === 0 && across === 0) return;
-    const parts = seg.schedule.grids.length;
-    const [l, r] = span(parts, layout, placement, 'x');
-    left = Math.min(left, lo + across * (l - lo));
-    right = Math.max(right, hi + across * (r - hi));
-    const [n, f] = span(parts, layout, placement, 'z');
-    near = Math.min(near, nearLo + across * (n - nearLo));
-    far = Math.max(far, farHi + across * (f - farHi));
     if (weight === 0) return;
+    const parts = seg.schedule.grids.length;
     most = Math.max(most, parts);
+    const [l, r] = span(parts, layout, placement, 'x');
+    left = Math.min(left, lo + weight * (l - lo));
+    right = Math.max(right, hi + weight * (r - hi));
+    const [n, f] = span(parts, layout, placement, 'z');
+    near = Math.min(near, nearLo + weight * (n - nearLo));
+    far = Math.max(far, farHi + weight * (f - farHi));
     for (const h of handPlaces(parts, layout, placement)) hands.set(key(h), h);
     const pulseLen = Math.max(seg.pulseLen, next?.pulseLen ?? 0);
     for (const e of seg.schedule.events) {

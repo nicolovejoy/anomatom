@@ -12,10 +12,11 @@
 import { figureSpans } from '../view/juggler';
 import { flightsOf } from '../core';
 import type { Flight, Schedule } from '../core';
-import { JUGGLER } from '../tunables';
+import { JUGGLER, VIEW3D } from '../tunables';
 import { copy } from '../ui/copy';
 import { jugglerFrame } from '../view/juggler';
-import { captions, describeScene } from '../view/scene3d';
+import { captions, describeScene, easeFraming, targetFraming, type Framing } from '../view/scene3d';
+import type { PlayerView } from '../view/types';
 import { drawJuggler } from './juggler-canvas';
 import type { Juggler3D } from './juggler-3d.browser';
 import type { Mount } from './mount';
@@ -41,11 +42,22 @@ export const mountJuggler: Mount = (root, { store }) => {
   toggle.type = 'button';
   toggle.className = 'juggler-switch';
   toggle.hidden = true;
-  root.append(labels, canvas, note, toggle);
+  root.append(labels, canvas, note);
+  // The switch sits after the deck in the page (fix round 1, keeping v6.6 ruling 10: Tab from
+  // About reaches the wheel first), placed over the juggler region's top-right corner by CSS: it
+  // shares the stage's grid area, whose top is the juggler region's.
+  const deck = root.closest('.play-view')?.querySelector(':scope > .region-deck');
+  if (deck) deck.after(toggle);
+  else root.append(toggle);
+  // The captions' size is the 2D caption's.
+  root.style.setProperty('--juggler-caption-px', `${JUGGLER.captionFontPx}px`);
 
   // The reader's choice (3D unless they switched) and the 3D view, once it exists.
   let wanted: View = '3d';
   let three: Juggler3D | null = null;
+  // The 3D camera's framing, eased on the audio clock (fix round 1); none until 3D draws.
+  let framing: Framing | null = null;
+  let framedAt = 0;
   const shown = (): View => (three && wanted === '3d' ? '3d' : '2d');
   const show = () => {
     const view = shown();
@@ -55,6 +67,8 @@ export const mountJuggler: Mount = (root, { store }) => {
       three.canvas.hidden = view === '2d';
       three.invalidate();
     }
+    // Shown again, the camera starts at the scene's own framing.
+    framing = null;
     labels.hidden = view === '2d';
     toggle.hidden = three === null;
     const other: View = view === '3d' ? '2d' : '3d';
@@ -114,46 +128,56 @@ export const mountJuggler: Mount = (root, { store }) => {
 
   return {
     draw(view) {
+      paint(view);
+      // The import is asynchronous: started after the first 2D draw, it lands after that paint.
       if (!loading) {
         loading = true;
-        // The first frame has drawn the 2D view by the time this runs: the next frame loads 3D.
-        requestAnimationFrame(load);
+        load();
       }
-      // Before the first valid edit there is nothing to show; the canvas keeps what it had.
-      if (view.segments.length === 0) return;
-      const lookup = (s: Schedule) => flights.get(s);
-      const frame = jugglerFrame(view.segments, view.now, JUGGLER, lookup);
-      // Test hook (SPEC §7.1): how many balls are drawn, so the browser tests can compare views.
-      // Kept up while the 2D view is hidden behind the 3D one.
-      setHook(canvas, 'balls', String(frame.balls.length));
-      // Test hook: how many figures carry a caption (0 below three parts).
-      setHook(canvas, 'figures', String(frame.parts > 2 ? figureSpans(frame.parts, JUGGLER).length : 0));
-      if (note.hidden === frame.inhuman) note.hidden = !frame.inhuman;
-      if (!three || shown() === '2d') {
-        drawJuggler(canvas, frame);
-        return;
-      }
-
-      const ring = jugglerFrame(view.segments, view.now, JUGGLER, lookup, 'ring');
-      setHook(three.canvas, 'balls', String(ring.balls.length));
-      setHook(three.canvas, 'figures', String(ring.parts > 2 ? ring.figures.length : 0));
-      const width = root.clientWidth;
-      const height = root.clientHeight;
-      // Hidden (About showing) or not laid out yet: nothing to draw.
-      if (width === 0 || height === 0) return;
-      const scene = describeScene(ring, width / height);
-      three.draw(scene, width, height);
-
-      const boxes = captions(scene, ring.parts, width, height, copy.jugglerCaption);
-      while (spans.length < boxes.length) labels.append((spans[spans.length] = document.createElement('span')));
-      spans.forEach((span, i) => {
-        const box = boxes[i];
-        span.hidden = !box;
-        if (!box) return;
-        if (span.textContent !== box.text) span.textContent = box.text;
-        const style = `left:${box.left.toFixed(1)}px;top:${box.top.toFixed(1)}px;color:${box.colour}`;
-        if (span.getAttribute('style') !== style) span.setAttribute('style', style);
-      });
     },
   };
+
+  function paint(view: PlayerView) {
+    // Before the first valid edit there is nothing to show; the canvas keeps what it had.
+    if (view.segments.length === 0) return;
+    const lookup = (s: Schedule) => flights.get(s);
+    const frame = jugglerFrame(view.segments, view.now, JUGGLER, lookup);
+    // Test hook (SPEC §7.1): how many balls are drawn, so the browser tests can compare views.
+    // Kept up while the 2D view is hidden behind the 3D one.
+    setHook(canvas, 'balls', String(frame.balls.length));
+    // Test hook: how many figures carry a caption (0 below three parts).
+    setHook(canvas, 'figures', String(frame.parts > 2 ? figureSpans(frame.parts, JUGGLER).length : 0));
+    if (note.hidden === frame.inhuman) note.hidden = !frame.inhuman;
+    if (!three || shown() === '2d') {
+      drawJuggler(canvas, frame);
+      return;
+    }
+
+    const ring = jugglerFrame(view.segments, view.now, JUGGLER, lookup, 'ring');
+    setHook(three.canvas, 'balls', String(ring.balls.length));
+    setHook(three.canvas, 'figures', String(ring.parts > 2 ? ring.figures.length : 0));
+    const width = root.clientWidth;
+    const height = root.clientHeight;
+    // Hidden (About showing) or not laid out yet: nothing to draw.
+    if (width === 0 || height === 0) return;
+    // Eased by the shown time's steps: playing, the audio clock's; paused, a scrub's, either way;
+    // stopped, the picture itself cuts (a card picked), and the camera with it.
+    const dt = view.state === 'stopped' ? Infinity : view.state === 'paused' ? Math.abs(view.now - framedAt) : view.now - framedAt;
+    framing = easeFraming(framing, targetFraming(ring), dt);
+    framedAt = view.now;
+    const scene = describeScene(ring, width / height, VIEW3D, framing);
+    three.draw(scene, width, height);
+
+    const boxes = captions(scene, ring.parts, width, height, copy.jugglerCaption);
+    while (spans.length < boxes.length) labels.append((spans[spans.length] = document.createElement('span')));
+    spans.forEach((span, i) => {
+      const box = boxes[i];
+      span.hidden = !box;
+      if (!box) return;
+      if (span.textContent !== box.text) span.textContent = box.text;
+      // Centred on its foot by the stylesheet (translateX(−50%)).
+      const style = `left:${box.centre.toFixed(1)}px;top:${box.top.toFixed(1)}px;color:${box.colour}`;
+      if (span.getAttribute('style') !== style) span.setAttribute('style', style);
+    });
+  }
 };

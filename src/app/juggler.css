@@ -22,8 +22,10 @@
 }
 .juggler-captions span {
   position: absolute;
-  font: 12px/1 var(--font-ui);
+  /* JUGGLER.captionFontPx, set by the mount; centred on its figure's foot. */
+  font: var(--juggler-caption-px, 12px) / 1 var(--font-ui);
   white-space: nowrap;
+  transform: translateX(-50%);
 }
 /* "Not a human throw" (SPEC §4.1 v2): a quiet label at the top of the juggler while one is up. */
 .juggler-note {
@@ -37,16 +39,21 @@
   text-align: center;
   pointer-events: none;
 }
-/* With the 2D/3D switch showing, the note keeps clear of it on both sides, still centred. */
-.region-juggler:has(.juggler-switch:not([hidden])) .juggler-note {
+/* With the 2D/3D switch showing (3D ready), the note keeps clear of it on both sides, still centred. */
+.region-juggler[data-three='ready'] .juggler-note {
   left: 48px;
   right: 48px;
 }
-/* The 2D/3D switch (v6.8): a small square in the stage's top-right corner, in the page's 1 px rule. */
+/* The 2D/3D switch (v6.8): a small square in the stage's top-right corner, in the page's 1 px rule.
+   Its node follows the deck in the page (Tab reaches the wheel first, v6.6 ruling 10); it shares
+   the stage's grid area, whose top is the juggler region's, in every layout (style.css). */
 .juggler-switch {
-  position: absolute;
-  top: 8px;
-  right: 8px;
+  grid-area: stage;
+  align-self: start;
+  justify-self: end;
+  position: relative;
+  z-index: 2;
+  margin: 8px 8px 0 0;
   width: 32px;
   height: 32px;
   padding: 0;
@@ -67,4 +74,8 @@
 }
 .juggler-switch[hidden] {
   display: none;
+}
+/* The open phone wheel keeps the stage's right side clear (mount-deck.ts): so does the switch. */
+#app.wheel-open .juggler-switch {
+  margin-right: calc(8px + var(--wheel-pad-right, 0px));
 }

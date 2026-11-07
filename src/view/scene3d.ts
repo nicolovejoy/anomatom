@@ -96,21 +96,67 @@ export interface Box3D {
 }
 
 /**
+ * The floor circle (ruling 8): centred among the figures' bodies, reaching `floorMarginMetres`
+ * past the outermost one; in render space, at the floor's height.
+ */
+export function floorOf(frame: JugglerFrame, view: View3DLayout = VIEW3D): Floor3D {
+  const bases = frame.figures.map((f) => [f.centre.x - f.facing.x * view.bodyBackMetres, f.centre.z - f.facing.z * view.bodyBackMetres] as const);
+  const n = Math.max(bases.length, 1);
+  const cx = bases.reduce((s, b) => s + b[0], 0) / n;
+  const cz = bases.reduce((s, b) => s + b[1], 0) / n;
+  const reach = Math.max(0, ...bases.map((b) => Math.hypot(b[0] - cx, b[1] - cz)));
+  return { centre: toRender(cx, -view.floorMetres, cz), radius: reach + view.bodyRadius + view.floorMarginMetres };
+}
+
+/**
  * What the camera frames: the frame's bounds (every hand and ball, eased over a switch), widened
- * across and in depth by a body's reach behind its hands, from the floor up to the shoulders or
- * the highest apex. Every widening is a constant, so the box eases as the bounds do.
+ * across and in depth by a body's reach behind its hands and to hold the floor circle, from the
+ * floor up to the shoulders or the highest apex. The floor cuts at a switch with the figures; the
+ * camera's own easing (`easeFraming`) keeps the view from popping.
  */
 export function sceneBox(frame: JugglerFrame, view: View3DLayout = VIEW3D): Box3D {
   const { left, right, near, far, top } = frame.bounds;
   const reach = view.bodyBackMetres + view.bodyRadius;
+  const floor = floorOf(frame, view);
+  const [fx, , fz] = floor.centre;
+  // The floor's centre in frame depth (away from the camera) is −fz.
   return {
-    left: left - reach,
-    right: right + reach,
-    near: near - reach,
-    far: far + reach,
+    left: Math.min(left - reach, fx - floor.radius),
+    right: Math.max(right + reach, fx + floor.radius),
+    near: Math.min(near - reach, -fz - floor.radius),
+    far: Math.max(far + reach, -fz + floor.radius),
     bottom: -view.floorMetres,
     top: Math.max(top, view.shoulderMetres),
   };
+}
+
+/** What the default camera is aimed and fitted from: a box, and how far it is turned round toward juggler 1. */
+export interface Framing {
+  readonly box: Box3D;
+  readonly azimuthDeg: number;
+}
+
+/** The framing a frame asks for: its box, and `twoAzimuthDeg` for two figures, else 0 (ruling 4). */
+export function targetFraming(frame: JugglerFrame, view: View3DLayout = VIEW3D): Framing {
+  return { box: sceneBox(frame, view), azimuthDeg: frame.figures.length === 2 ? view.twoAzimuthDeg : 0 };
+}
+
+/**
+ * The camera's framing, eased (fix round 1, "the camera never pops"): `prev` moves toward
+ * `target` by 1 − e^(−dt/framingEaseSeconds), dt the audio clock's step since `prev` was
+ * eased. None before: the target. No step (paused) or a step back: `prev` unchanged. Within
+ * `framingSnap` of the target everywhere: the target, so a still scene settles exactly.
+ */
+export function easeFraming(prev: Framing | null, target: Framing, dt: number, view: View3DLayout = VIEW3D): Framing {
+  if (!prev) return target;
+  if (!(dt > 0)) return prev;
+  const k = 1 - Math.exp(-dt / view.framingEaseSeconds);
+  const keys = ['left', 'right', 'bottom', 'top', 'near', 'far'] as const;
+  const box = Object.fromEntries(keys.map((key) => [key, prev.box[key] + (target.box[key] - prev.box[key]) * k])) as unknown as Box3D;
+  const eased = { box, azimuthDeg: prev.azimuthDeg + (target.azimuthDeg - prev.azimuthDeg) * k };
+  const settled =
+    keys.every((key) => Math.abs(eased.box[key] - target.box[key]) < view.framingSnap) && Math.abs(eased.azimuthDeg - target.azimuthDeg) < view.framingSnap;
+  return settled ? target : eased;
 }
 
 const RAD = Math.PI / 180;
@@ -137,9 +183,14 @@ function axes(camera: Pick<Camera3D, 'position' | 'target'>): { right: Vec3; up:
  * the box at the canvas's aspect, with `fitMargin` to spare.
  */
 export function defaultCamera(frame: JugglerFrame, aspect: number, view: View3DLayout = VIEW3D): Camera3D {
-  const box = sceneBox(frame, view);
+  return cameraFor(targetFraming(frame, view), aspect, view);
+}
+
+/** The camera for a framing: aimed at its box's centre, turned `azimuthDeg`, the fov fitted to the box (see `defaultCamera`). */
+export function cameraFor(framing: Framing, aspect: number, view: View3DLayout = VIEW3D): Camera3D {
+  const { box } = framing;
   const target = toRender((box.left + box.right) / 2, (box.bottom + box.top) / 2, (box.near + box.far) / 2);
-  const az = (frame.figures.length === 2 ? view.twoAzimuthDeg : 0) * RAD;
+  const az = framing.azimuthDeg * RAD;
   const el = view.elevationDeg * RAD;
   const d = view.cameraMetres;
   // Toward the front (render +z), turned toward −x by az, raised by el.
@@ -174,8 +225,8 @@ export function project(camera: Camera3D, p: Vec3, width: number, height: number
   return { x: ((ndcX + 1) / 2) * width, y: ((1 - ndcY) / 2) * height, depth };
 }
 
-/** The scene of `frame` on a canvas of aspect `aspect` (width / height). */
-export function describeScene(frame: JugglerFrame, aspect: number, view: View3DLayout = VIEW3D): Scene3D {
+/** The scene of `frame` on a canvas of aspect `aspect` (width / height), seen with `framing` (the frame's own, unless eased). */
+export function describeScene(frame: JugglerFrame, aspect: number, view: View3DLayout = VIEW3D, framing: Framing = targetFraming(frame, view)): Scene3D {
   const r = JUGGLER.radius;
   const balls = frame.balls.map((b) => ({
     ball: b.ball,
@@ -208,12 +259,7 @@ export function describeScene(frame: JugglerFrame, aspect: number, view: View3DL
     radius: view.bodyRadius,
     height: view.floorMetres + view.shoulderMetres,
   }));
-  // The floor: centred among the figures, reaching past the outermost body.
-  const n = Math.max(bodies.length, 1);
-  const cx = bodies.reduce((s, b) => s + b.base[0], 0) / n;
-  const cz = bodies.reduce((s, b) => s + b.base[2], 0) / n;
-  const reach = Math.max(0, ...bodies.map((b) => Math.hypot(b.base[0] - cx, b.base[2] - cz)));
-  const floor = { centre: [cx, floorY, cz] as Vec3, radius: reach + view.bodyRadius + view.floorMarginMetres };
+  const floor = floorOf(frame, view);
   const faults = frame.faults.map((a) => ({
     points: Array.from({ length: view.faultSegments + 1 }, (_, k) => {
       const s = k / view.faultSegments;
@@ -221,7 +267,18 @@ export function describeScene(frame: JugglerFrame, aspect: number, view: View3DL
     }),
     opacity: a.inhuman ? JUGGLER.inhumanAlpha : 1,
   }));
-  return { balls, hands, bodies, floor, faults, camera: defaultCamera(frame, aspect, view) };
+  return { balls, hands, bodies, floor, faults, camera: cameraFor(framing, aspect, view) };
+}
+
+/**
+ * A ball's drawn radius (fix round 1): its own `radius`, but never under `minPx` on a canvas
+ * `height` pixels tall, as the 2D view's `JUGGLER.minRadiusPx`: at depth D a metre spans
+ * height / (2·D·tan(fov/2)) pixels.
+ */
+export function ballRadius(camera: Camera3D, at: Vec3, radius: number, height: number, minPx: number = JUGGLER.minRadiusPx): number {
+  const { depth } = project(camera, at, 1, height);
+  const pxPerMetre = height / (2 * depth * Math.tan((camera.fovDeg / 2) * RAD));
+  return Math.max(radius, minPx / pxPerMetre);
 }
 
 /** A caption's box on the canvas, in pixels, with its figure, its first part and that part's colour. */
@@ -230,6 +287,8 @@ export interface Caption3D {
   readonly part: PartIndex;
   readonly colour: string;
   readonly text: string;
+  /** The x its text is centred on (the box's middle): the foot's, unless pulled inside the canvas. */
+  readonly centre: number;
   readonly left: number;
   readonly top: number;
   readonly width: number;
@@ -238,7 +297,7 @@ export interface Caption3D {
 
 /**
  * The captions (ruling 9), for more than two parts as in 2D: each figure's `label`, centred
- * under its projected foot, `captionOffsetPx` down, as tall as the 2D caption's font
+ * (the mount centres the text on `centre`) under its projected foot, `captionOffsetPx` down, as tall as the 2D caption's font
  * (`JUGGLER.captionFontPx`) and `captionCharPx` a character wide (an estimate for the UI font at
  * 12 px, whose widest caption, "Juggler 5", measures about 52 px against 63 here). Kept inside
  * the canvas. None for two parts or fewer.
@@ -259,7 +318,7 @@ export function captions(
     const w = text.length * view.captionCharPx;
     const left = Math.min(Math.max(foot.x - w / 2, 0), width - w);
     const top = Math.min(Math.max(foot.y + view.captionOffsetPx, 0), height - h);
-    return { figure: b.figure, part: b.part, colour: partColour(b.part), text, left, top, width: w, height: h };
+    return { figure: b.figure, part: b.part, colour: partColour(b.part), text, centre: left + w / 2, left, top, width: w, height: h };
   });
 }
 

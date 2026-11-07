@@ -24,7 +24,7 @@ import {
   WebGLRenderer,
 } from 'three';
 import { JUGGLER, VIEW3D } from '../tunables';
-import { signature, type Scene3D } from '../view/scene3d';
+import { ballRadius, signature, type Scene3D } from '../view/scene3d';
 
 export interface Juggler3D {
   readonly canvas: HTMLCanvasElement;
@@ -48,12 +48,29 @@ export function createJuggler3D(onLost: () => void): Juggler3D | null {
     // Transparent, so the captions under it show where nothing is drawn (ruling 9).
     const context = canvas.getContext('webgl2', { antialias: true, alpha: true });
     if (!context) return null;
-    renderer = new WebGLRenderer({ canvas, context, antialias: true, alpha: true });
+    try {
+      renderer = new WebGLRenderer({ canvas, context, antialias: true, alpha: true });
+    } catch {
+      // The context was made but three could not use it: let it go rather than leave it alive.
+      context.getExtension('WEBGL_lose_context')?.loseContext();
+      return null;
+    }
   } catch {
     return null;
   }
   renderer.setClearColor(new Color(JUGGLER.background), 0);
-  canvas.addEventListener('webglcontextlost', () => onLost(), { once: true });
+  canvas.addEventListener(
+    'webglcontextlost',
+    () => {
+      try {
+        renderer.dispose();
+      } catch {
+        // A lost context may refuse its own clean-up; the canvas goes anyway.
+      }
+      onLost();
+    },
+    { once: true },
+  );
 
   const scene = new Scene();
   scene.add(new HemisphereLight(VIEW3D.skyLight, VIEW3D.groundLight, VIEW3D.hemisphereIntensity));
@@ -66,10 +83,16 @@ export function createJuggler3D(onLost: () => void): Juggler3D | null {
   // A unit cylinder, scaled to an elliptical disc: x the length, z the width, y the thickness.
   const disc = new CylinderGeometry(0.5, 0.5, 1, VIEW3D.discSegments);
   const bodyHeight = VIEW3D.floorMetres + VIEW3D.shoulderMetres;
-  const body = new CapsuleGeometry(VIEW3D.bodyRadius, bodyHeight - 2 * VIEW3D.bodyRadius, 4, VIEW3D.bodySegments);
+  const body = new CapsuleGeometry(VIEW3D.bodyRadius, bodyHeight - 2 * VIEW3D.bodyRadius, VIEW3D.bodyCapSegments, VIEW3D.bodySegments);
   const bodyMaterial = new MeshLambertMaterial({ color: VIEW3D.bodyColour, transparent: true, opacity: VIEW3D.bodyOpacity, depthWrite: false });
-  const faultMaterial = new MeshLambertMaterial({ color: JUGGLER.fault, emissive: JUGGLER.fault, emissiveIntensity: 0.4 });
-  const faultDim = new MeshLambertMaterial({ color: JUGGLER.fault, emissive: JUGGLER.fault, emissiveIntensity: 0.4, transparent: true, opacity: JUGGLER.inhumanAlpha });
+  const faultMaterial = new MeshLambertMaterial({ color: JUGGLER.fault, emissive: JUGGLER.fault, emissiveIntensity: VIEW3D.faultGlow });
+  const faultDim = new MeshLambertMaterial({
+    color: JUGGLER.fault,
+    emissive: JUGGLER.fault,
+    emissiveIntensity: VIEW3D.faultGlow,
+    transparent: true,
+    opacity: JUGGLER.inhumanAlpha,
+  });
 
   const circle = new BufferGeometry().setFromPoints(
     Array.from({ length: VIEW3D.floorSegments }, (_, k) => {
@@ -93,7 +116,10 @@ export function createJuggler3D(onLost: () => void): Juggler3D | null {
       return meshes.slice(0, n);
     };
   };
-  const balls = pool(() => new Mesh(sphere, new MeshLambertMaterial()));
+  // Every ball's material is transparent from the start, at opacity 1 unless dimmed: three
+  // compiles an opaque material with alpha forced to 1, and a later flag flip alone would not
+  // recompile it (fix round 1), so a ball on an inhuman flight would never dim.
+  const balls = pool(() => new Mesh(sphere, new MeshLambertMaterial({ transparent: true })));
   const hands = pool(() => new Mesh(disc, new MeshLambertMaterial()));
   const bodies = pool(() => new Mesh(body, bodyMaterial));
   const white = new Color(0xffffff);
@@ -130,11 +156,19 @@ export function createJuggler3D(onLost: () => void): Juggler3D | null {
         const mat = m.material as MeshLambertMaterial;
         mat.color.set(b.colour);
         mat.emissive.copy(white).multiplyScalar(b.flash * VIEW3D.flashGlow);
-        mat.transparent = b.opacity < 1;
         mat.opacity = b.opacity;
         m.position.set(...b.at);
-        m.scale.setScalar(b.radius);
+        // Never under JUGGLER.minRadiusPx on screen, as in 2D.
+        m.scale.setScalar(ballRadius(c, b.at, b.radius, height));
       });
+      // Test hook: how many ball meshes draw see-through now, read off their materials.
+      const dimmed = String(
+        balls(s.balls.length).filter((m) => {
+          const mat = m.material as MeshLambertMaterial;
+          return mat.transparent && mat.opacity < 1;
+        }).length,
+      );
+      if (canvas.dataset.dimmed !== dimmed) canvas.dataset.dimmed = dimmed;
       hands(s.hands.length).forEach((m, i) => {
         const h = s.hands[i] as Scene3D['hands'][number];
         (m.material as MeshLambertMaterial).color.set(h.colour);
@@ -159,7 +193,7 @@ export function createJuggler3D(onLost: () => void): Juggler3D | null {
         }
         faults = s.faults.map((f) => {
           const curve = new CatmullRomCurve3(f.points.map((p) => new Vector3(...p)));
-          const m = new Mesh(new TubeGeometry(curve, VIEW3D.faultSegments * 2, VIEW3D.faultTubeMetres, 6), f.opacity < 1 ? faultDim : faultMaterial);
+          const m = new Mesh(new TubeGeometry(curve, VIEW3D.faultTubeSegments, VIEW3D.faultTubeMetres, VIEW3D.faultTubeSides), f.opacity < 1 ? faultDim : faultMaterial);
           scene.add(m);
           return m;
         });

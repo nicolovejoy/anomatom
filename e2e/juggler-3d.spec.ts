@@ -7,6 +7,7 @@ import { mkdirSync } from 'node:fs';
 import { encodeHash } from '../src/app/hash';
 import { PRESETS } from '../src/app/presets';
 import { defaultState } from '../src/app/state';
+import { JUGGLER } from '../src/tunables';
 import { expect, isCdnError, test, type Page } from './fixtures';
 
 const SHOTS = process.env.E2E_SHOTS;
@@ -76,8 +77,17 @@ for (const [id, jugglers] of CARDS) {
       expect(box.width).toBeGreaterThan(100);
       expect(box.height).toBeGreaterThan(100);
       await expect.poll(() => three.evaluate((c: HTMLCanvasElement) => c.width > 0 && c.height > 0)).toBe(true);
-      // The switch shows, naming 2D.
-      await expect(page.locator('.juggler-switch')).toHaveText('2D');
+      // The switch shows, naming 2D, in the juggler region's top-right corner (its node is after the deck).
+      const toggle = page.locator('.juggler-switch');
+      await expect(toggle).toHaveText('2D');
+      const area = (await region(page).boundingBox())!;
+      const corner = (await toggle.boundingBox())!;
+      expect(corner.x + corner.width).toBeLessThanOrEqual(area.x + area.width + 0.5);
+      expect(area.x + area.width - (corner.x + corner.width)).toBeLessThan(24);
+      expect(corner.y).toBeGreaterThanOrEqual(area.y - 0.5);
+      expect(corner.y - area.y).toBeLessThan(24);
+      expect(corner.y + corner.height).toBeLessThanOrEqual(area.y + area.height);
+      expect(await toggle.evaluate((t) => !t.closest('.region-juggler') && !!t.previousElementSibling?.matches('.region-deck'))).toBe(true);
       await page.waitForTimeout(800);
       await shot(page, `3d-${id}-${name}`);
       expect(errors).toEqual([]);
@@ -158,4 +168,53 @@ test('three.js failing to load: the 2D view stays, with no switch', async ({ pag
   await expect(page.locator('canvas.juggler')).toBeVisible();
   await expect(page.locator('canvas.juggler-3d')).toHaveCount(0);
   await expect(page.locator('.juggler-switch')).toBeHidden();
+});
+
+test('a flight longer than a human throw draws dimmed in 3D, as the note says', async ({ page }) => {
+  // One ball, one hit in 16 steps at 120 bpm: its flight is over HUMAN_AIRTIME_SECONDS.
+  const parts = [{ s: 1, f: 0, u: 1, o: '1000000000000000', k: 1 }];
+  const link = '/#v3.' + Buffer.from(JSON.stringify({ p: parts, r: [1, 1], t: 120, l: 'height' })).toString('base64url');
+  // A card first, so the ball meshes are made and drawn undimmed before the long flight.
+  await page.goto(`/${hashOf('cascade')}`);
+  await expect(region(page)).toHaveAttribute('data-view', '3d');
+  await page.locator('#play').click();
+  const three = page.locator('canvas.juggler-3d');
+  await expect(three).toHaveAttribute('data-dimmed', '0');
+  await page.goto('about:blank');
+  await page.goto(link);
+  await expect(region(page)).toHaveAttribute('data-view', '3d');
+  await page.locator('#play').click();
+  await expect(page.locator('.juggler-note')).toBeVisible();
+  // While the note shows, the ball in the air draws see-through, at JUGGLER.inhumanAlpha.
+  await expect
+    .poll(() => page.evaluate(() => !(document.querySelector('.juggler-note') as HTMLElement).hidden && document.querySelector('canvas.juggler-3d')!.getAttribute('data-dimmed') === '1'))
+    .toBe(true);
+  expect(JUGGLER.inhumanAlpha).toBeLessThan(1);
+  await shot(page, '3d-not-human-1280x720');
+});
+
+test('the WebGL context lost mid-play: the 2D view takes over and keeps counting', async ({ page }) => {
+  const errors = watchErrors(page);
+  await page.goto(`/${hashOf('three-triangle')}`);
+  await expect(region(page)).toHaveAttribute('data-view', '3d');
+  await page.locator('#play').click();
+  await expect(page.locator('#play')).toHaveText('Pause');
+  await expect(page.locator('canvas.juggler-3d')).toHaveAttribute('data-balls', '9');
+  await page.evaluate(() => {
+    const gl = (document.querySelector('canvas.juggler-3d') as HTMLCanvasElement).getContext('webgl2')!;
+    gl.getExtension('WEBGL_lose_context')!.loseContext();
+  });
+  await expect(region(page)).toHaveAttribute('data-view', '2d');
+  await expect(region(page)).toHaveAttribute('data-three', 'none');
+  await expect(page.locator('canvas.juggler-3d')).toHaveCount(0);
+  await expect(page.locator('.juggler-switch')).toBeHidden();
+  const flat = page.locator('canvas.juggler');
+  await expect(flat).toBeVisible();
+  await expect(flat).toHaveAttribute('data-balls', '9');
+  await expect(flat).toHaveAttribute('data-figures', '3');
+  // Still drawing: the 2D canvas's pixels change from frame to frame.
+  const pixels = () => flat.evaluate((c: HTMLCanvasElement) => c.toDataURL());
+  const first = await pixels();
+  await expect.poll(pixels).not.toBe(first);
+  expect(errors.filter((e) => !/WebGL|context/i.test(e))).toEqual([]);
 });
