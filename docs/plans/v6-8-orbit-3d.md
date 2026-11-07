@@ -1,6 +1,22 @@
 # v6.8 · a juggler you can orbit, in 3D by default
 
-Status: proposed 2026-11-06. Nico's four decisions are taken (section 0); the build rulings in section 2 wait for his read of this plan. Issues #7 and #143.
+Status: built 2026-11-07 by SDD (R1: PR #145; T1: PR #147; T2: PR #149; F: PR #148; plan PR #137; the #142 flake fix PR #144). Open from this wave: #146 (CI e2e has no timeout), #150 (WebKit flake in phone-chip-turning.spec.ts:67), Nico's iPhone check of T2.
+
+## Build rulings (coordinator, 2026-11-06/07)
+
+Each reversible; each with what it costs if wrong.
+
+- Ring numbering runs counter-clockwise seen from above (+x right, +z back), which is what section 2 ruling 2's listed positions are. Cost: one sign.
+- The R1 review found ring balls jumping at a part-count switch. Final rule (T1 fix round 1): on the ring, a flight crossing the switch aims at the thrower's picture's hand before the boundary and the catcher's from the boundary on, so figures, hands and those balls cut together at the boundary; the 3D camera's framing eases on audio-clock deltas (`VIEW3D.framingEaseSeconds`), snapping when stopped. Cost: one visible cut when a card changes the juggler count.
+- `JugglerFrame` carries `figures` (the playing picture's places). Cost: one field.
+- The 2D/3D switch (and Reset view) sit after the deck in the DOM, placed over the stage by CSS, so the wheel stays the first tab stop after About (v6.6 ruling 10 kept). Cost: none visible.
+- 3D balls are never under `JUGGLER.minRadiusPx` on screen, as in 2D. Cost: far balls slightly large.
+- Half-see-through capsules and an outline floor, so captions under the canvas stay legible. Look for Nico's eye.
+- `@types/three` brings `@dimforge/rapier3d-compat` (Apache-2.0) into dev dependencies only; never shipped. Nico's call if he wants it gone.
+- The 3D e2e skip where the browser has no WebGL 2 (CI's Linux Firefox) and fail instead of skip on Chromium; fallback tests run everywhere. Cost: 3D untested on Firefox in CI (tested locally).
+- Orbit: `VIEW3D.rotateSpeed` 0.45 (about 160° per canvas height); a drag on the 3D canvas still counts as the deck's "tap outside" and compacts a grown card, as any stage tap does. Cost: one condition if it annoys on the phone.
+- Five jugglers: `PART_COLOURS` grows to ten (pale butter `#f0e68c`, sand `#d6c3a5`); the five-juggler feed is "Typewriter feed for 5" (as "Ultimates for 3"); `MAX_PATTERN_CHARS` stays 64, so that card's link is `#v3.`. F was built in parallel with T2, not after the iPhone check. Cost: a longer link for one card.
+- The Star's pentagram shows in motion and from above (orbit), not in a still from the default camera: there are no pass trails.
 
 ## 0. Decided with Nico, 2026-11-06
 
