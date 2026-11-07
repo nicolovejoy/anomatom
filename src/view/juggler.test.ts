@@ -566,20 +566,25 @@ describe('figureSpans', () => {
   });
 });
 
-describe('four figures on a phone (v6.6 ruling 18)', () => {
+describe('four figures on a phone (v6.6 ruling 18), five at 390 (v6.8)', () => {
   const J = JUGGLER;
   // The caption's width, generously: 0.6 em a character is wider than IBM Plex Sans' "Juggler 4"
   // (the e2e measures the real one against this).
   const captionPx = copy.jugglerCaption(3).length * 0.6 * J.captionFontPx;
-  const square = partsFromPassing('<3p2 3 3 3|3p3 3 3 3|3p4 3 3 3|3p1 3 3 3>');
-  if (!square.ok) throw new Error('square');
-  const seg = single(buildSchedule(square.parts));
+  const segOf = (text: string) => {
+    const r = partsFromPassing(text);
+    if (!r.ok) throw new Error(text);
+    return single(buildSchedule(r.parts));
+  };
+  const square = segOf('<3p2 3 3 3|3p3 3 3 3|3p4 3 3 3|3p1 3 3 3>');
+  const star = segOf('<3p3 3|3p4 3|3p5 3|3p1 3|3p2 3>');
   // A tall canvas, so the scale is width-bound: the worst case across, where figures are closest.
   const HEIGHT = 2000;
+  const cases = [...[320, 375, 390].map((w) => [4, w, square] as const), [5, 390, star] as const];
 
-  test.each([320, 375, 390])('at %i px wide, captions a caption and 8 px apart, each hand bar inside its figure', (width) => {
+  test.each(cases)('%i figures at %i px wide, captions a caption and 8 px apart, each hand bar inside its figure', (figures, width, seg) => {
     const f = jugglerFrame([seg], at(seg, 1), J);
-    expect(f.parts).toBe(8);
+    expect(f.parts).toBe(2 * figures);
     const room = captionRoom(HEIGHT, J);
     const { sx, sy, x0 } = sceneScale(f.bounds, width, HEIGHT - room, J);
     // Width-bound: the scale across is what the width allows.
@@ -587,7 +592,7 @@ describe('four figures on a phone (v6.6 ruling 18)', () => {
     const px = (x: number) => x0 + (x - f.bounds.left) * sx;
     const r = Math.max(J.radius * Math.min(sx, sy), J.minRadiusPx);
     const spans = figureSpans(f.parts, J);
-    expect(spans).toHaveLength(4);
+    expect(spans).toHaveLength(figures);
     const centres = spans.map((s) => (px(s.left) + px(s.right)) / 2);
     for (let i = 1; i < centres.length; i++) expect((centres[i] as number) - (centres[i - 1] as number)).toBeGreaterThanOrEqual(captionPx + 8);
     // Each hand's bar inside its own figure's span (widened by a ball), so neighbours never touch.

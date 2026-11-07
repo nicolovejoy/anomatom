@@ -481,7 +481,7 @@ describe('a passing set in the editor (ruling 7)', () => {
     expect(analyse(s).inputs).toEqual(['<3p 3|3p 3>']);
   });
   test('an error under the one input', () => {
-    const a = analyse(passing('<3p 3|3p 3|3p 3|3p 3|3p 3>'));
+    const a = analyse(passing('<3p 3|3p 3|3p 3|3p 3|3p 3|3p 3>'));
     expect(a.errors[0]).toEqual({ kind: 'too-many-jugglers', max: MAX_JUGGLERS });
     expect(a.inputs).toHaveLength(1);
     const b = analyse(passing('<3p 3|3? 3>'));

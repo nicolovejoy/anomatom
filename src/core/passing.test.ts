@@ -82,7 +82,7 @@ describe('parsePassing', () => {
   });
 
   test(`more than ${MAX_JUGGLERS} jugglers is too-many-jugglers`, () => {
-    expect(parsePassing('<3p 3|3p 3|3p 3|3p 3|3p 3>')).toEqual({
+    expect(parsePassing('<3p 3|3p 3|3p 3|3p 3|3p 3|3p 3>')).toEqual({
       ok: false,
       juggler: 0,
       error: { kind: 'too-many-jugglers', max: MAX_JUGGLERS },
@@ -91,8 +91,17 @@ describe('parsePassing', () => {
 });
 
 describe('partsFromPassing (ruling 2, MATH.md §10)', () => {
-  test(`MAX_PARTS holds every hand of ${MAX_JUGGLERS} jugglers, so five later raises both`, () => {
+  test(`MAX_PARTS holds every hand of ${MAX_JUGGLERS} jugglers (five since v6.8, ten parts)`, () => {
     expect(MAX_PARTS).toBeGreaterThanOrEqual(2 * MAX_JUGGLERS);
+    expect([MAX_JUGGLERS, MAX_PARTS]).toEqual([5, 10]);
+  });
+
+  test('five jugglers (v6.8): the star and the typewriter feed, 15 balls; p5 names the fifth juggler, a sixth is refused naming five', () => {
+    const star = parts('<3p3 3|3p4 3|3p5 3|3p1 3|3p2 3>');
+    expect(star).toHaveLength(10);
+    const s = buildSchedule(star);
+    expect([s.verdict.ok, s.balls, s.cycle]).toEqual([true, 15, 2]);
+    expect(parsePassing('<3p2 3|3p3 3|3p4 3|3p5 3|3p6 3|3p1 3>')).toEqual({ ok: false, juggler: 0, error: { kind: 'too-many-jugglers', max: 5 } });
   });
 
   test('four jugglers (v6.6 ruling 15): the typewriter feed and the square, 12 balls; p4 names the fourth juggler', () => {
@@ -179,7 +188,7 @@ describe('partsFromPassing (ruling 2, MATH.md §10)', () => {
   });
 
   test('too many jugglers is refused at part 0, an input the editor has', () => {
-    expect(partsFromPassing('<3p 3|3p 3|3p 3|3p 3|3p 3>')).toEqual({
+    expect(partsFromPassing('<3p 3|3p 3|3p 3|3p 3|3p 3|3p 3>')).toEqual({
       ok: false,
       part: 0,
       error: { kind: 'too-many-jugglers', max: MAX_JUGGLERS },
@@ -235,7 +244,9 @@ describe('passingText and isPassingSet', () => {
     expect(isPassingSet(ps.slice(0, 3))).toBe(false);
     const eight = parts('<3p2 3|3p1 3|3p4 3|3p3 3>');
     expect(isPassingSet(eight)).toBe(true);
-    expect(isPassingSet([...eight, ...ps.slice(0, 2)])).toBe(false);
+    const ten = parts('<3p3 3|3p4 3|3p5 3|3p1 3|3p2 3>');
+    expect(isPassingSet(ten)).toBe(true);
+    expect(isPassingSet([...ten, ...ps.slice(0, 2)])).toBe(false);
     expect(isPassingSet([ps[0] as Part, { ...(ps[1] as Part), phase: 0 }, ...ps.slice(2)])).toBe(false);
     expect(isPassingSet([{ ...(ps[0] as Part), spacing: 4 }, ...ps.slice(1)])).toBe(false);
     expect(isPassingSet([{ ...(ps[0] as Part), unit: 2 }, ...ps.slice(1)])).toBe(false);

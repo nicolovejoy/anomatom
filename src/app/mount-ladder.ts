@@ -25,7 +25,7 @@ export const mountLadder: Mount = (root) => {
       // Test hook (SPEC §7.1): how many distinct balls the strip draws, to compare with the juggler.
       const balls = String(new Set(frame.bars.flatMap((b) => (b.colour === null ? [] : [b.colour]))).size);
       if (canvas.dataset.balls !== balls) canvas.dataset.balls = balls;
-      // And how many lanes it draws (eight for four jugglers, v6.6 ruling 17).
+      // And how many lanes it draws (eight for four jugglers, v6.6 ruling 17; ten for five, v6.8).
       const lanes = String(frame.parts);
       if (canvas.dataset.lanes !== lanes) canvas.dataset.lanes = lanes;
       drawLadder(canvas, frame, { accents: accents(frame) });

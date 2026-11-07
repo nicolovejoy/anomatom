@@ -449,6 +449,8 @@ export const copy = {
     'three-ultimates': { name: 'Ultimates for 3' },
     'four-typewriter': { name: 'Typewriter feed' },
     'four-square': { name: 'Square' },
+    'five-star': { name: 'Star' },
+    'five-typewriter': { name: 'Typewriter feed' },
   } as Record<string, { name: string }>,
 };
 

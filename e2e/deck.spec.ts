@@ -73,8 +73,8 @@ for (const size of SIZES) {
       // v5 ruling 8: the wide layout has no sound row (Listen for is in the Sound panel and on ↑ ↓).
       await expect(page.locator('.deck-sound')).toBeVisible({ visible: !size.docked });
       await expect(page.locator('.deck-wheel')).toBeVisible();
-      // Every preset (the 18 of v5 §4, the three-juggler cards of v6, the four-juggler cards of v6.6) and Make your own.
-      expect(PRESETS.length).toBe(23);
+      // Every preset (the 18 of v5 §4, the three-juggler cards of v6, the four-juggler cards of v6.6, the five-juggler cards of v6.8) and Make your own.
+      expect(PRESETS.length).toBe(25);
       await expect(page.locator('.deck-row')).toHaveCount(PRESETS.length + 1);
       await expect(page.locator('.deck-row').last()).toHaveText('Make your own');
       await expect(notation(page)).toHaveText('3');

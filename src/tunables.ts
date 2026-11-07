@@ -300,17 +300,20 @@ export const MAX_PHASE_REFINEMENT = 64;
 export const MAX_EDITOR_PARTS = 2;
 /**
  * Most parts a share link may carry; a link with more falls back to the default pattern. Exactly
- * 2 × MAX_JUGGLERS since v6.6 (a unit test holds it at least that), so five jugglers later raise both.
+ * 2 × MAX_JUGGLERS since v6.6 (a unit test holds it at least that): ten for five jugglers since v6.8
+ * (docs/plans/v6-8-orbit-3d.md §4).
  */
-export const MAX_PARTS = 8;
+export const MAX_PARTS = 10;
 /** Longest cycle, in pulses, a share link may ask for; a longer one falls back to the default pattern. */
 export const MAX_LINK_CYCLE = 4096;
 /**
  * Most jugglers a passing siteswap (`<3p 3|3p 3>`, form 4) may write; juggler j is parts 2j and
- * 2j + 1. Four since v6.6 (docs/plans/v6-6-deck-on-top-four-jugglers.md ruling 15). The app's cap,
- * not the model's (MATH.md §10); `p<n>` keeps a one-digit target, so ten would need more than this.
+ * 2j + 1. Four since v6.6 (docs/plans/v6-6-deck-on-top-four-jugglers.md ruling 15), five since v6.8
+ * (docs/plans/v6-8-orbit-3d.md §4). The app's cap, not the model's (MATH.md §10); `p<n>` keeps a
+ * one-digit target, fine up to nine. DRUMMER_KITS has five kits, so a sixth juggler would need a
+ * sixth kit or a repeat.
  */
-export const MAX_JUGGLERS = 4;
+export const MAX_JUGGLERS = 5;
 
 // ---------------------------------------------------------------------------------------------
 // Lanes: the Rhythm tab as a mixer (docs/plans/lanes.md)
@@ -319,7 +322,7 @@ export const MAX_JUGGLERS = 4;
 /**
  * Most lanes (parts) in the Rhythm tab and per-part inputs in the Pattern tab; "Add a hand" stops
  * here. Not the stage's cap: the juggler and the ladder strip draw every part (up to MAX_PARTS,
- * eight for four jugglers), and a passing set is edited as one passing siteswap, so the Rhythm tab
+ * ten for five jugglers), and a passing set is edited as one passing siteswap, so the Rhythm tab
  * shows only its first MAX_LANES hands (v6.6 ruling 16). A link may carry up to MAX_PARTS.
  */
 export const MAX_LANES = 4;

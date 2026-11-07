@@ -43,7 +43,13 @@ describe('drum machines (ruling 3)', () => {
     expect(kits(8, 0).filter((_, h) => h % 2 === 0)).toEqual(['TR-808', 'LM-2', 'MFB-512', 'Roland CR-8000']);
   });
 
-  test('five jugglers: five different kits, every one', () => {
+  test('five jugglers (v6.8): five different kits at every shift, every one of the five; there is no sixth', () => {
+    expect(DRUMMER_KITS).toHaveLength(5);
+    for (let shift = 0; shift < DRUMMER_KITS.length; shift++) {
+      const k = kits(10, shift);
+      expect(new Set(k.filter((_, h) => h % 2 === 0)), String(shift)).toEqual(new Set(DRUMMER_KITS));
+      for (let j = 0; j < 5; j++) expect(k[2 * j + 1], `${shift}:${j}`).toBe(k[2 * j]);
+    }
     expect(new Set(kits(10, 0).filter((_, h) => h % 2 === 0)).size).toBe(5);
     expect(kits(10, 2).filter((_, h) => h % 2 === 0)).toEqual(['MFB-512', 'Roland CR-8000', 'Casio-RZ1', 'TR-808', 'LM-2']);
   });
