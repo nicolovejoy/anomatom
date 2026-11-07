@@ -8,7 +8,7 @@ import { encodeHash } from '../src/app/hash';
 import { PRESETS } from '../src/app/presets';
 import { defaultState } from '../src/app/state';
 import { JUGGLER } from '../src/tunables';
-import { expect, hasWebGL, isCdnError, NO_WEBGL, test, type Page } from './fixtures';
+import { expect, hasWebGL, isCdnError, needWebGL, test, type Page } from './fixtures';
 
 const SHOTS = process.env.E2E_SHOTS;
 const CARDS = [
@@ -43,8 +43,8 @@ const region = (page: Page) => page.locator('.region-juggler');
 
 for (const [id, jugglers] of CARDS) {
   for (const [name, viewport] of SIZES) {
-    test(`${id} at ${name}: drawn in 3D, ${jugglers} juggler${jugglers > 1 ? 's' : ''}, the 2D hooks’ balls`, async ({ page }) => {
-      test.skip(!(await hasWebGL(page)), NO_WEBGL);
+    test(`${id} at ${name}: drawn in 3D, ${jugglers} juggler${jugglers > 1 ? 's' : ''}, the 2D hooks’ balls`, async ({ page, browserName }) => {
+      await needWebGL(page, browserName);
       const errors = watchErrors(page);
       await page.setViewportSize(viewport);
       await page.goto(`/${hashOf(id)}`);
@@ -96,8 +96,8 @@ for (const [id, jugglers] of CARDS) {
   }
 }
 
-test('the switch: 3D to 2D and back, the link unchanged', async ({ page }) => {
-  test.skip(!(await hasWebGL(page)), NO_WEBGL);
+test('the switch: 3D to 2D and back, the link unchanged', async ({ page, browserName }) => {
+  await needWebGL(page, browserName);
   await page.setViewportSize({ width: 390, height: 844 });
   await page.goto(`/${hashOf('three-triangle')}`);
   await expect(region(page)).toHaveAttribute('data-view', '3d');
@@ -123,8 +123,8 @@ test('the switch: 3D to 2D and back, the link unchanged', async ({ page }) => {
   expect(await page.evaluate(() => location.hash)).toBe(hash);
 });
 
-test('a reload opens in 3D again', async ({ page }) => {
-  test.skip(!(await hasWebGL(page)), NO_WEBGL);
+test('a reload opens in 3D again', async ({ page, browserName }) => {
+  await needWebGL(page, browserName);
   await page.goto(`/${hashOf('cascade')}`);
   await expect(region(page)).toHaveAttribute('data-view', '3d');
   await page.locator('.juggler-switch').click();
@@ -173,8 +173,8 @@ test('three.js failing to load: the 2D view stays, with no switch', async ({ pag
   await expect(page.locator('.juggler-switch')).toBeHidden();
 });
 
-test('a flight longer than a human throw draws dimmed in 3D, as the note says', async ({ page }) => {
-  test.skip(!(await hasWebGL(page)), NO_WEBGL);
+test('a flight longer than a human throw draws dimmed in 3D, as the note says', async ({ page, browserName }) => {
+  await needWebGL(page, browserName);
   // One ball, one hit in 16 steps at 120 bpm: its flight is over HUMAN_AIRTIME_SECONDS.
   const parts = [{ s: 1, f: 0, u: 1, o: '1000000000000000', k: 1 }];
   const link = '/#v3.' + Buffer.from(JSON.stringify({ p: parts, r: [1, 1], t: 120, l: 'height' })).toString('base64url');
@@ -197,8 +197,8 @@ test('a flight longer than a human throw draws dimmed in 3D, as the note says', 
   await shot(page, '3d-not-human-1280x720');
 });
 
-test('the WebGL context lost mid-play: the 2D view takes over and keeps counting', async ({ page }) => {
-  test.skip(!(await hasWebGL(page)), NO_WEBGL);
+test('the WebGL context lost mid-play: the 2D view takes over and keeps counting', async ({ page, browserName }) => {
+  await needWebGL(page, browserName);
   const errors = watchErrors(page);
   await page.goto(`/${hashOf('three-triangle')}`);
   await expect(region(page)).toHaveAttribute('data-view', '3d');

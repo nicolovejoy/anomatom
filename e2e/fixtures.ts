@@ -91,3 +91,18 @@ export async function hasWebGL(page: import('@playwright/test').Page): Promise<b
   if (process.env.E2E_NO_WEBGL) return false;
   return page.evaluate(() => !!document.createElement('canvas').getContext('webgl2'));
 }
+
+/**
+ * Skips a test that needs the real 3D view where the browser has no WebGL 2 (v6.8 T1 ruling,
+ * carried into T2): off Chromium only (CI's headless Firefox). On Chromium and Edge, which have
+ * it in CI, a missing WebGL 2 fails the test instead of skipping it green; E2E_NO_WEBGL, which
+ * forces the skip path on purpose, still skips there.
+ */
+export async function needWebGL(page: import('@playwright/test').Page, browserName: string) {
+  const has = await hasWebGL(page);
+  if (browserName === 'chromium' && !process.env.E2E_NO_WEBGL) {
+    expect(has, 'Chromium must have WebGL 2: losing it is a failure, not a skip').toBe(true);
+    return;
+  }
+  test.skip(!has, NO_WEBGL);
+}

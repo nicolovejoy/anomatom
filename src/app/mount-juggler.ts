@@ -9,13 +9,20 @@
 // later, the 2D view shows and stays, unannounced. A small button on the stage switches between
 // them; the choice is UI state only, never in the link and never stored. The region's
 // `data-view` says which view shows, for the browser tests.
+//
+// The orbit (v6.8 T2, ruling 10): in 3D a drag turns the camera round the scene's centre, a pinch
+// or the wheel moves it nearer or farther; Reset view, beside the switch in 3D, returns it to the
+// default camera. A reader who never moved it follows the default (its framing eased as in T1);
+// once moved it is theirs, kept over a change of card unless the number of jugglers changes. UI
+// state only, never in the link.
 import { figureSpans } from '../view/juggler';
 import { flightsOf } from '../core';
 import type { Flight, Schedule } from '../core';
 import { JUGGLER, VIEW3D } from '../tunables';
 import { copy } from '../ui/copy';
 import { jugglerFrame } from '../view/juggler';
-import { captions, describeScene, easeFraming, targetFraming, type Framing } from '../view/scene3d';
+import { cameraHook, defaultOrbit, keepOrbit, type Orbit } from '../view/camera3d';
+import { captions, describeScene, easeFraming, framingCentre, targetFraming, type Framing } from '../view/scene3d';
 import type { PlayerView } from '../view/types';
 import { drawJuggler } from './juggler-canvas';
 import type { Juggler3D } from './juggler-3d.browser';
@@ -42,13 +49,21 @@ export const mountJuggler: Mount = (root, { store }) => {
   toggle.type = 'button';
   toggle.className = 'juggler-switch';
   toggle.hidden = true;
+  // Reset view (T2): a small square beside the switch, in 3D only; after it in the page.
+  const reset = document.createElement('button');
+  reset.type = 'button';
+  reset.className = 'juggler-reset';
+  reset.hidden = true;
+  reset.textContent = copy.resetView.text;
+  reset.setAttribute('aria-label', copy.resetView.label);
+  reset.title = copy.resetView.label;
   root.append(labels, canvas, note);
   // The switch sits after the deck in the page (fix round 1, keeping v6.6 ruling 10: Tab from
   // About reaches the wheel first), placed over the juggler region's top-right corner by CSS: it
   // shares the stage's grid area, whose top is the juggler region's.
   const deck = root.closest('.play-view')?.querySelector(':scope > .region-deck');
-  if (deck) deck.after(toggle);
-  else root.append(toggle);
+  if (deck) deck.after(toggle, reset);
+  else root.append(toggle, reset);
   // The captions' size is the 2D caption's.
   root.style.setProperty('--juggler-caption-px', `${JUGGLER.captionFontPx}px`);
 
@@ -58,6 +73,9 @@ export const mountJuggler: Mount = (root, { store }) => {
   // The 3D camera's framing, eased on the audio clock (fix round 1); none until 3D draws.
   let framing: Framing | null = null;
   let framedAt = 0;
+  // The reader's camera, once they move it (T2); null follows the default. The figures it was moved round.
+  let orbit: Orbit | null = null;
+  let figures = -1;
   const shown = (): View => (three && wanted === '3d' ? '3d' : '2d');
   const show = () => {
     const view = shown();
@@ -71,6 +89,7 @@ export const mountJuggler: Mount = (root, { store }) => {
     framing = null;
     labels.hidden = view === '2d';
     toggle.hidden = three === null;
+    reset.hidden = view === '2d';
     const other: View = view === '3d' ? '2d' : '3d';
     toggle.textContent = copy.viewSwitch.text[other];
     toggle.setAttribute('aria-label', copy.viewSwitch.label[other]);
@@ -79,6 +98,11 @@ export const mountJuggler: Mount = (root, { store }) => {
   toggle.addEventListener('click', () => {
     wanted = shown() === '3d' ? '2d' : '3d';
     show();
+  });
+  // Back to the default camera for the figures on stage, at once: the next draw shows it.
+  reset.addEventListener('click', () => {
+    orbit = null;
+    three?.discard();
   });
 
   // Every schedule the store has derived, with the flights of its parts.
@@ -122,7 +146,7 @@ export const mountJuggler: Mount = (root, { store }) => {
   };
 
   const spans: HTMLSpanElement[] = [];
-  const setHook = (c: HTMLCanvasElement, name: 'balls' | 'figures', value: string) => {
+  const setHook = (c: HTMLCanvasElement, name: 'balls' | 'figures' | 'camera' | 'cameraMoved', value: string) => {
     if (c.dataset[name] !== value) c.dataset[name] = value;
   };
 
@@ -165,8 +189,19 @@ export const mountJuggler: Mount = (root, { store }) => {
     const dt = view.state === 'stopped' ? Infinity : view.state === 'paused' ? Math.abs(view.now - framedAt) : view.now - framedAt;
     framing = easeFraming(framing, targetFraming(ring), dt);
     framedAt = view.now;
-    const scene = describeScene(ring, width / height, VIEW3D, framing);
+    // A change in the number of jugglers resets the reader's camera; anything else keeps it.
+    if (ring.figures.length !== figures) {
+      orbit = keepOrbit(orbit, figures, ring.figures.length);
+      figures = ring.figures.length;
+    }
+    const aspect = width / height;
+    const turned = three.orbit(framingCentre(framing), orbit ?? defaultOrbit(framing));
+    if (turned) orbit = turned;
+    const scene = describeScene(ring, aspect, VIEW3D, framing, orbit ?? undefined);
     three.draw(scene, width, height);
+    // Test hooks (T2): the camera shown, and whether the reader moved it.
+    setHook(three.canvas, 'camera', cameraHook(orbit ?? defaultOrbit(framing)));
+    setHook(three.canvas, 'cameraMoved', String(orbit !== null));
 
     const boxes = captions(scene, ring.parts, width, height, copy.jugglerCaption);
     while (spans.length < boxes.length) labels.append((spans[spans.length] = document.createElement('span')));

@@ -14,6 +14,11 @@
 .juggler-captions[hidden] {
   display: none;
 }
+/* The orbit (v6.8 T2): a drag on the 3D canvas turns the view and never scrolls the page. The 2D
+   canvas keeps the page's own touch behaviour. */
+.juggler-3d {
+  touch-action: none;
+}
 /* The 3D view's captions (v6.8 ruling 9): under its transparent canvas, so balls and bodies draw
    over them; placed each frame at their figures' feet. */
 .juggler-captions {
@@ -39,15 +44,22 @@
   text-align: center;
   pointer-events: none;
 }
-/* With the 2D/3D switch showing (3D ready), the note keeps clear of it on both sides, still centred. */
+/* With the 2D/3D switch showing (3D ready), the note keeps clear of it on both sides, still centred;
+   in 3D, of Reset view beside it too. */
 .region-juggler[data-three='ready'] .juggler-note {
   left: 48px;
   right: 48px;
 }
+.region-juggler[data-three='ready'][data-view='3d'] .juggler-note {
+  left: 88px;
+  right: 88px;
+}
 /* The 2D/3D switch (v6.8): a small square in the stage's top-right corner, in the page's 1 px rule.
    Its node follows the deck in the page (Tab reaches the wheel first, v6.6 ruling 10); it shares
-   the stage's grid area, whose top is the juggler region's, in every layout (style.css). */
-.juggler-switch {
+   the stage's grid area, whose top is the juggler region's, in every layout (style.css). Reset
+   view (T2) is the same square, just left of it, in 3D only; its node follows the switch's. */
+.juggler-switch,
+.juggler-reset {
   grid-area: stage;
   align-self: start;
   justify-self: end;
@@ -64,18 +76,28 @@
   font: 600 12px/1 var(--font-ui);
   cursor: pointer;
 }
-.juggler-switch:hover {
+.juggler-reset {
+  margin-right: 48px;
+  font-size: 16px;
+}
+.juggler-switch:hover,
+.juggler-reset:hover {
   color: var(--text);
   border-color: var(--chip-edge);
 }
-.juggler-switch:focus-visible {
+.juggler-switch:focus-visible,
+.juggler-reset:focus-visible {
   outline: 2px solid var(--accent);
   outline-offset: 2px;
 }
-.juggler-switch[hidden] {
+.juggler-switch[hidden],
+.juggler-reset[hidden] {
   display: none;
 }
 /* The open phone wheel keeps the stage's right side clear (mount-deck.ts): so does the switch. */
 #app.wheel-open .juggler-switch {
   margin-right: calc(8px + var(--wheel-pad-right, 0px));
+}
+#app.wheel-open .juggler-reset {
+  margin-right: calc(48px + var(--wheel-pad-right, 0px));
 }
