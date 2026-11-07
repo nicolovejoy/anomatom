@@ -80,8 +80,25 @@ export const BALL_COLOURS: readonly string[] = [
  * three or more parts, its ladder lane line and its hand bar in the juggler. Two parts draw as
  * they always have (grey lanes and hands; the bars carry the ball colours), so a two-part picture
  * never changes. Kept apart from BALL_COLOURS' strongest hues, so a lane never reads as a ball.
+ * At least MAX_PARTS of them (a unit test holds it), so no two hands on stage share a colour: ten
+ * since v6.8, juggler 5's two added. Each new one is at least 25 ΔE (CIELAB) from every other
+ * part colour and every ball colour, and over 11:1 against --ground (#0e1013); the first eight
+ * are at least 13 ΔE from the balls and 7:1 against the ground.
  */
-export const PART_COLOURS: readonly string[] = ['#8c96ff', '#ff8fb1', '#62d2b4', '#f2b872', '#c5a3ff', '#9fd36a', '#7fc8f5', '#e8a0a0'];
+export const PART_COLOURS: readonly string[] = [
+  '#8c96ff',
+  '#ff8fb1',
+  '#62d2b4',
+  '#f2b872',
+  '#c5a3ff',
+  '#9fd36a',
+  '#7fc8f5',
+  '#e8a0a0',
+  // Pale butter: lighter and greener than the ball yellow #f0c33c (ΔE 29), apart from the peach (25).
+  '#f0e68c',
+  // Sand: a muted warm grey-beige, far from every ball (ΔE 48) and from the peach and rose (27).
+  '#d6c3a5',
+];
 
 /** The ladder strip. */
 export const LADDER = {
@@ -550,7 +567,9 @@ export const DEFAULT_KIT_SHIFT = 0;
  * left) sits at `c = N == 1 ? 0 : -edge + 2·edge·j/(N - 1)`, its hands at `c ∓ d` (left hand first),
  * `d = N == 1 ? soloHand : min(handMax, edge/(N - 1))`. One juggler: -0.6, 0.6; two: -0.8, -0.4, 0.4, 0.8.
  * Four (v6.6 ruling 19): centres -0.6, -0.2, 0.2, 0.6, hands -0.8, -0.4, -0.4, 0, 0, 0.4, 0.4, 0.8;
- * neighbours' inner hands meet, and the jugglers stay apart by their drum machines.
+ * neighbours' inner hands meet, and the jugglers stay apart by their drum machines. Five (v6.8):
+ * centres -0.6, -0.3, 0, 0.3, 0.6, d = 0.15, hands -0.75, -0.45, -0.45, -0.15, -0.15, 0.15, 0.15,
+ * 0.45, 0.45, 0.75.
  */
 export const STAGE_PAN = { edge: 0.6, soloHand: 0.6, handMax: 0.2 } as const;
 

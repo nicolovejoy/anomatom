@@ -99,6 +99,7 @@ for (const [name, viewport] of SIZES) {
     await expect(five).toHaveAttribute('aria-pressed', 'true');
     await expect(page.locator('.deck-row[data-id]')).toHaveCount(2);
     expect(await page.locator('.deck-row[data-id]').evaluateAll((rs) => rs.map((r) => r.getAttribute('data-id')))).toEqual(cards.map((c) => c.id));
+    await expect(page.locator('.deck-row[data-id] .deck-row-name')).toHaveText(['Star', 'Typewriter feed for 5']);
     await expect(page.locator('canvas.juggler')).toHaveAttribute('data-figures', '5');
     if (SHOTS) await page.screenshot({ path: `${SHOTS}/jugglers-5-chip-${name}.png` });
     expect(errors).toEqual([]);

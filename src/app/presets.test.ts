@@ -178,6 +178,12 @@ describe('the cards', () => {
   test('ids are unique', () => {
     expect(new Set(PRESETS.map((p) => p.id)).size).toBe(PRESETS.length);
   });
+  test('the passing cards\' names are unique: the five-juggler feed is "Typewriter feed for 5" (as "Ultimates for 3")', () => {
+    // Solo cards may share a name across ball groups (Cascade in 3 and 5); the passing cards share one group.
+    const passing = PRESETS.filter((p) => p.group === 'passing');
+    expect(new Set(passing.map((p) => copy.presets[p.id]?.name)).size).toBe(passing.length);
+    expect([copy.presets['four-typewriter']?.name, copy.presets['five-typewriter']?.name, copy.presets['five-star']?.name]).toEqual(['Typewriter feed', 'Typewriter feed for 5', 'Star']);
+  });
 });
 
 describe('isPresetParts', () => {

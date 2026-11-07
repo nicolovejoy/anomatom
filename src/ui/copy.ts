@@ -450,7 +450,7 @@ export const copy = {
     'four-typewriter': { name: 'Typewriter feed' },
     'four-square': { name: 'Square' },
     'five-star': { name: 'Star' },
-    'five-typewriter': { name: 'Typewriter feed' },
+    'five-typewriter': { name: 'Typewriter feed for 5' },
   } as Record<string, { name: string }>,
 };
 
