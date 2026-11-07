@@ -195,6 +195,74 @@ export const JUGGLER = {
   humanAirtimeSeconds: HUMAN_AIRTIME_SECONDS,
 } as const;
 
+/**
+ * The juggler in 3D (v6.8, rulings 4, 8 and 9; `src/view/scene3d.ts` describes the scene, the
+ * three.js glue draws it). Metres unless named otherwise. Hands are at y = 0 as in the frame.
+ */
+export const VIEW3D = {
+  /** The default camera (ruling 4): this far from the scene's centre, raised this much. */
+  cameraMetres: 8,
+  elevationDeg: 20,
+  /** Two figures face to face: the camera turned this far round toward juggler 1, so neither is side-on. */
+  twoAzimuthDeg: 30,
+  /** The scene's box fills the view but for this share of each half-extent. */
+  fitMargin: 0.1,
+  /**
+   * The camera's framing (its aim, fit and turn) follows the scene with this time constant on the
+   * audio clock, so a switch never pops the view; within `framingSnap` it settles on the target.
+   */
+  framingEaseSeconds: 0.75,
+  framingSnap: 1e-4,
+  /** The camera's clipping planes. */
+  near: 0.5,
+  far: 40,
+  /** The floor is this far under the hands. */
+  floorMetres: 1,
+  /** The floor circle reaches this far past the outermost figure's body. */
+  floorMarginMetres: 0.4,
+  floorSegments: 96,
+  floorColour: '#2a2f38',
+  /**
+   * A figure: a plain capsule, floor to this far above the hands, this thick, its axis this far
+   * behind its hands. Half see-through, so a figure seen from behind does not hide its own balls.
+   */
+  shoulderMetres: 0.45,
+  bodyRadius: 0.17,
+  bodyBackMetres: 0.24,
+  bodyColour: '#5a6270',
+  bodyOpacity: 0.55,
+  bodySegments: 16,
+  bodyCapSegments: 4,
+  /** A hand: a flat disc along its catch-to-throw span, a ball radius past each end, this wide and thick, this far under a held ball. */
+  discWidthMetres: 0.12,
+  discThicknessMetres: 0.012,
+  discGapMetres: 0.012,
+  discSegments: 24,
+  /** A ball's sphere: this many segments round and up. */
+  sphereWidthSegments: 24,
+  sphereHeightSegments: 16,
+  /** The flash: the sphere glows white, up to this share, with the frame's flash. */
+  flashGlow: 0.85,
+  /** A fault arc (exactly 16 segments, as the plan rules) as a tube this thick. */
+  faultSegments: 16,
+  faultTubeMetres: 0.012,
+  faultTubeSegments: 32,
+  faultTubeSides: 6,
+  /** Fault arcs glow in their own colour this much, so they read under any light. */
+  faultGlow: 0.4,
+  /** Plain light (ruling 8): sky and ground of one hemisphere light, and one directional light from above front left. */
+  skyLight: '#ffffff',
+  groundLight: '#3a404b',
+  hemisphereIntensity: 2.2,
+  sunIntensity: 1.6,
+  sunFrom: [-2, 6, 4] as readonly [number, number, number],
+  /** `renderer.setPixelRatio(Math.min(devicePixelRatio, maxPixelRatio))`. */
+  maxPixelRatio: 2,
+  /** A caption ("Juggler n"): its top this many pixels under its figure's projected foot, its width estimated at this many pixels a character. */
+  captionOffsetPx: 4,
+  captionCharPx: 7,
+} as const;
+
 // ---------------------------------------------------------------------------------------------
 // B: Player and fixes
 // ---------------------------------------------------------------------------------------------

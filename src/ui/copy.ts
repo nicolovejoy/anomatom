@@ -90,6 +90,11 @@ export const copy = {
   },
   /** The caption under juggler `j` (0-based) of three or more parts. */
   jugglerCaption: (j: number) => `Juggler ${j + 1}`,
+  /** The stage's 2D/3D switch (v6.8): its text names the view it switches to; its name says so. */
+  viewSwitch: {
+    text: { '2d': '2D', '3d': '3D' } as Record<'2d' | '3d', string>,
+    label: { '2d': 'Show the juggler in 2D, from the front', '3d': 'Show the juggler in 3D' } as Record<'2d' | '3d', string>,
+  },
   /** SPEC §4.1 (v2): shown while a flight longer than `seconds` is in the air. */
   notHumanThrow: (seconds: number) => `Not a human throw: I keep this one up for more than ${seconds} seconds.`,
 
@@ -155,6 +160,7 @@ export const copy = {
   aboutCredits: [
     { name: 'sani.js', url: 'https://github.com/monkape/sani.js', note: 'whose motion model my juggler ports. MIT.' },
     { name: 'smplr', url: 'https://github.com/danigb/smplr', note: 'which plays the sampled drums. MIT.' },
+    { name: 'three.js', url: 'https://github.com/mrdoob/three.js', note: 'which draws my juggler in 3D. MIT.' },
     { name: 'L6', url: 'https://github.com/nicolovejoy/l6-music', note: 'whose audio code I reuse.' },
   ] as const,
   aboutRepo: 'My source is on GitHub',

@@ -32,7 +32,7 @@ for (const [name, viewport] of [
     const juggler = page.locator('canvas.juggler');
     await expect(juggler).toHaveAttribute('data-balls', /^[1-9]\d*$/);
     await expect(juggler).toHaveAttribute('data-figures', '3');
-    const box = await juggler.boundingBox();
+    const box = await page.locator('.region-juggler canvas:visible').boundingBox();
     expect(box?.width ?? Infinity).toBeLessThanOrEqual(viewport.width);
     await page.waitForTimeout(1500);
     if (SHOTS) await page.screenshot({ path: `${SHOTS}/six-parts-${name}.png` });

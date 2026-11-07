@@ -199,6 +199,29 @@ export function handPlaces(
   });
 }
 
+/** A figure of the picture now playing (v6.8 R1 review, ruling 14): where it stands, which figure it is, and its first part. */
+export interface FrameFigure extends FigurePlace {
+  readonly figure: number;
+  /** The figure's first part, 2 × figure: the part whose colour names it. */
+  readonly part: PartIndex;
+}
+
+/**
+ * Where each figure of a picture of `parts` parts stands. The ring: `ringFigures`. The line: each
+ * figure's centre at the middle of its hands' span (`figureSpans`), at z = 0, facing the camera.
+ */
+export function figurePlaces(
+  parts: number,
+  layout: Pick<JugglerLayout, 'catchX' | 'throwX' | 'figureStride'>,
+  placement: Placement = 'line',
+): FrameFigure[] {
+  const spans = figureSpans(parts, layout);
+  if (placement === 'line') {
+    return spans.map((f) => ({ figure: f.figure, part: f.part, centre: { x: (f.left + f.right) / 2, z: 0 }, facing: { x: 0, z: -1 } }));
+  }
+  return ringFigures(spans.length, layout).map((place, figure) => ({ ...place, figure, part: figure * 2 }));
+}
+
 /** One figure (a juggler): its index, its first part, and the x extent of its hands. */
 export interface FigureSpan {
   readonly figure: number;
@@ -317,6 +340,11 @@ export interface JugglerFrame {
   readonly hands: readonly HandPlace[];
   /** The most parts of any segment on screen (2 with none), as the ladder's `Frame.parts`: above 2 the hands take their part colours. */
   readonly parts: number;
+  /**
+   * The figures of the picture playing now (`figurePlaces`; two parts' with none). At a switch
+   * they cut to the new picture's at the boundary: no easing.
+   */
+  readonly figures: readonly FrameFigure[];
 }
 
 // ---------------------------------------------------------------------------------------------
@@ -463,12 +491,24 @@ interface Place {
 /**
  * Where a ball is at `now` on throw `e`, launched at `tLaunch` and thrown again at `tEnd`. The
  * air takes the same share of the span as `flight − d` of `flight`, so a flight retimed across
- * a switch is still one parabola, ending in a scoop.
+ * a switch is still one parabola, ending in a scoop. The catch and the dwell after it are in
+ * `catching`'s picture: on the ring, the next segment's for a flight landing across a switch,
+ * from the boundary on (v6.8 R1 review ruling 13, as ruled again in T1's fix round 1).
  */
-function along(schedule: Schedule, e: Event, d: number, tLaunch: number, tEnd: number, now: number, layout: JugglerLayout, placement: Placement) {
+function along(
+  schedule: Schedule,
+  e: Event,
+  d: number,
+  tLaunch: number,
+  tEnd: number,
+  now: number,
+  layout: JugglerLayout,
+  placement: Placement,
+  catching: Schedule = schedule,
+) {
   const to = catchPart(schedule, e);
   const from = place(schedule, e.part, layout, placement);
-  const into = place(schedule, to, layout, placement);
+  const into = place(catching, to, layout, placement);
   const span = tEnd - tLaunch;
   const air = (span * (e.flight - d)) / e.flight;
   const u = Math.min(Math.max(now - tLaunch, 0), span);
@@ -564,7 +604,14 @@ export function jugglerFrame(
       const tLaunch = seg.startTime + launch * seg.pulseLen;
       const tEnd = crossing ? next.startTime + (land - B) * next.pulseLen : seg.startTime + land * seg.pulseLen;
       const d = dwellPulses(schedule, e, layout);
-      const { place, air, span } = along(schedule, e, d, tLaunch, tEnd, now, layout, placement);
+      // On the ring a flight landing across the switch aims at the thrower's picture's hand until
+      // the boundary and at the new picture's from it on (if that picture has the catching part):
+      // figures, hands and those balls all cut together at the boundary, so nothing retargets
+      // before it, however late the switch was queued (fix round 1). The line keeps the
+      // thrower's picture throughout, so it is unchanged.
+      const catching =
+        crossing && placement === 'ring' && now >= next.startTime && catchPart(schedule, e) < next.schedule.grids.length ? next.schedule : schedule;
+      const { place, air, span } = along(schedule, e, d, tLaunch, tEnd, now, layout, placement, catching);
 
       if (crossing) {
         const fresh = onward.get(ball);
@@ -602,6 +649,7 @@ export function jugglerFrame(
     bounds: scene.bounds,
     hands: scene.hands,
     parts: scene.parts,
+    figures: figurePlaces((playing ?? segments[segments.length - 1])?.schedule.grids.length ?? 2, layout, placement),
   };
 }
 
