@@ -32,6 +32,8 @@ v2, the model waves (2026-10-29). What a user can do in addition:
 
 (v6.6, 2026-11-05, `docs/plans/v6-6-deck-on-top-four-jugglers.md` rulings 15 to 22) Up to four jugglers in passing siteswap (`MAX_JUGGLERS`): `<3p2 3|3p3 3|3p4 3|3p1 3>` reads, a fifth `|` group is refused naming four. Two four-juggler cards, Typewriter feed and Square, twelve balls each, under the Jugglers 4 chip; the stage draws four figures and the strip eight lanes; each juggler on a drum machine of their own.
 
+(v6.8, 2026-11-06, `docs/plans/v6-8-orbit-3d.md` §4) Up to five jugglers (`MAX_JUGGLERS` 5, `MAX_PARTS` 10; `MAX_LANES` stays 4): `<3p3 3|3p4 3|3p5 3|3p1 3|3p2 3>` reads, a sixth `|` group is refused naming five. Two five-juggler cards, Star (each juggler passing two to the right on a 2-count) and Typewriter feed for 5 (one feeder, four feedees), fifteen balls each, under the Jugglers 5 chip; in 3D the five stand on the ring and the star's passes draw a pentagram, the 2D line (the fallback) draws five figures, and the strip ten lanes; the five jugglers on the five drum machines. A short link holds at most 64 characters, so the Star is `#3p3-3|3p4-3|3p5-3|3p1-3|3p2-3` and Typewriter feed for 5, at 103, writes `#v3.`. Ten part colours, so juggler 5's hands are not juggler 1's.
+
 ## 3. Definitions
 
 - **Pulse**: the smallest time unit, the LCM grid of the two hands. In music, the tatum.
@@ -207,8 +209,8 @@ What existing things sound like: the five juggling preset cards keep "Height to 
 | Field | v5 rule |
 | --- | --- |
 | per height, by ball | the rule `listen` names: `height` is the v1 table above, `pitch` nine distinct steps (the higher the throw, the lower the sound), `ball` each ball one sound whatever its height |
-| one voice per hand | hand h belongs to juggler floor(h / 2); its kit is `DRUMMER_KITS[(j + kitShift) mod 5]`, its gain 1 |
-| pan | from the stage: for N jugglers, juggler j (by juggler number) sits at c = 0 for one, else -0.6 + 1.2·j/(N - 1); its hands at c ∓ d, d = 0.6 for one juggler, else min(0.2, 0.6/(N - 1)). One juggler: -0.6, 0.6; two: -0.8, -0.4, 0.4, 0.8; four (v6.6): -0.8, -0.4, -0.4, 0, 0, 0.4, 0.4, 0.8, neighbours' inner hands meeting, the jugglers apart by their drum machines |
+| one voice per hand | hand h belongs to juggler floor(h / 2); its kit is `DRUMMER_KITS[(j + kitShift) mod 5]`, its gain 1. Five kits, so up to five jugglers (`MAX_JUGGLERS`, v6.8) are on five distinct drum machines at every shift; a sixth would need a sixth kit or a repeat |
+| pan | from the stage: for N jugglers, juggler j (by juggler number) sits at c = 0 for one, else -0.6 + 1.2·j/(N - 1); its hands at c ∓ d, d = 0.6 for one juggler, else min(0.2, 0.6/(N - 1)). One juggler: -0.6, 0.6; two: -0.8, -0.4, 0.4, 0.8; four (v6.6): -0.8, -0.4, -0.4, 0, 0, 0.4, 0.4, 0.8, neighbours' inner hands meeting, the jugglers apart by their drum machines; five (v6.8): centres -0.6, -0.3, 0, 0.3, 0.6, d = 0.15, so -0.75, -0.45, -0.45, -0.15, -0.15, 0.15, 0.15, 0.45, 0.45, 0.75 |
 | catches | rimshot, when `also.catches` |
 | cross accent | +20 velocity; a clap on a coincident pulse when `also.downbeat` |
 | pass | +20 velocity, its own sound |

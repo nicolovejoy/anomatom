@@ -317,8 +317,8 @@ describe('the filter chips in two groups (v6.1 ruling 4)', () => {
   const ids = (ps: readonly { id: string }[]) => ps.map((p) => p.id);
   const balls = (n: number) => ({ by: 'balls' as const, n });
   const jugglers = (n: number) => ({ by: 'jugglers' as const, n });
-  test('the chips come from the deck: Balls 3 4 5, Jugglers 2 3 4', () => {
-    expect(filterChips(list)).toEqual({ balls: [3, 4, 5], jugglers: [2, 3, 4] });
+  test('the chips come from the deck: Balls 3 4 5, Jugglers 2 3 4 5', () => {
+    expect(filterChips(list)).toEqual({ balls: [3, 4, 5], jugglers: [2, 3, 4, 5] });
     expect(filterChips()).toEqual(filterChips(list));
     // A deck of other cards brings its own chips, ascending, with no repeats.
     const some = [list[12]!, list[0]!, list[1]!, list[20]!];
@@ -340,7 +340,9 @@ describe('the filter chips in two groups (v6.1 ruling 4)', () => {
     // A passing card of six balls is not a six-ball solo card; no chip holds nothing.
     expect(filteredPresets(list, balls(6))).toEqual([]);
     expect(ids(filteredPresets(list, jugglers(4)))).toEqual(['four-typewriter', 'four-square']);
-    expect(filteredPresets(list, jugglers(5))).toEqual([]);
+    expect(ids(filteredPresets(list, jugglers(5)))).toEqual(['five-star', 'five-typewriter']);
+    expect(cardJugglers(list.find((p) => p.id === 'five-star')!)).toBe(5);
+    expect(filteredPresets(list, jugglers(6))).toEqual([]);
     // Every card is under exactly one chip.
     const chips = filterChips(list);
     const all = [...chips.balls.map(balls), ...chips.jugglers.map(jugglers)].flatMap((f) => ids(filteredPresets(list, f)));

@@ -2,7 +2,7 @@ import { expect, test } from 'vitest';
 import { buildSchedule, partsFromOnsets } from '../core';
 import type { Parts } from '../core';
 import { lineParts, scheduleOf } from '../test/schedules';
-import { BALL_COLOURS, JUGGLER, LADDER, PART_COLOURS } from '../tunables';
+import { BALL_COLOURS, JUGGLER, LADDER, MAX_PARTS, PART_COLOURS } from '../tunables';
 import { accents } from './accents';
 import { partColour } from './colours';
 import { catchPart } from './grids';
@@ -165,6 +165,16 @@ test('partColour: one per part, the palette repeating past its end', () => {
   expect(partColour(1)).not.toBe(partColour(0));
   expect(partColour(PART_COLOURS.length + 2)).toBe(partColour(2));
   expect(new Set(PART_COLOURS).size).toBe(PART_COLOURS.length);
+});
+
+test('PART_COLOURS has a colour for every part a link may carry (MAX_PARTS, ten for five jugglers), so no two hands share one', () => {
+  expect(PART_COLOURS.length).toBeGreaterThanOrEqual(MAX_PARTS);
+  expect(new Set(Array.from({ length: MAX_PARTS }, (_, p) => partColour(p))).size).toBe(MAX_PARTS);
+  // Juggler 5's hands are not juggler 1's.
+  expect([partColour(8), partColour(9)]).not.toContain(partColour(0));
+  expect([partColour(8), partColour(9)]).not.toContain(partColour(1));
+  // No part colour is a ball colour.
+  for (const c of PART_COLOURS) expect(BALL_COLOURS, c).not.toContain(c);
 });
 
 test('a switch from one part to two never tints the hands: one part is the pair, as the ladder\'s two lanes', () => {

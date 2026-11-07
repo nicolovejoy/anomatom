@@ -245,14 +245,16 @@ describe('a faulted group still draws its bars, grey, with no ball (design §6)'
   });
 });
 
-describe('eight lanes (four jugglers, v6.6 ruling 17)', () => {
+describe('eight lanes (four jugglers, v6.6 ruling 17) and ten (five jugglers, v6.8)', () => {
   const heights = [SHEET.ladderPx.open, SHEET.ladderPx.closed, SHEET.landscape.ladderPx, LADDER.heightPx];
-  test.each(heights)('at %i px no bar of any row crosses the next lane\'s line, and none is under the least bar', (height) => {
-    const g = laneGeometry(8, height, LADDER, BALL_COLOURS.length);
+  const cases = [8, 10].flatMap((lanes) => heights.map((height) => [lanes, height] as const));
+  test.each(cases)('%i lanes at %i px: no bar of any row crosses the next lane\'s line, and none is under the least bar', (lanes, height) => {
+    const g = laneGeometry(lanes, height, LADDER, BALL_COLOURS.length);
+    expect(g.y).toHaveLength(lanes);
     expect(g.barPx).toBeGreaterThanOrEqual(LADDER.minBarHeightPx);
     expect(g.barPx).toBeLessThanOrEqual(LADDER.barPx);
-    for (let part = 0; part < 8; part++) {
-      const next = part < 7 ? (g.y[part + 1] as number) : height - LADDER.lanePaddingPx;
+    for (let part = 0; part < lanes; part++) {
+      const next = part < lanes - 1 ? (g.y[part + 1] as number) : height - LADDER.lanePaddingPx;
       for (let colour = 0; colour < BALL_COLOURS.length; colour++) {
         const mid = rowY(g, part, colour);
         expect(mid - g.barPx / 2, `${part}:${colour}`).toBeGreaterThanOrEqual(g.y[part] as number);
@@ -267,6 +269,14 @@ describe('eight lanes (four jugglers, v6.6 ruling 17)', () => {
     expect(laneGeometry(8, LADDER.heightPx, LADDER, BALL_COLOURS.length).barPx).toBe(LADDER.barPx);
     // A strip too small for even the least bar keeps the least bar.
     expect(laneGeometry(8, 2 * LADDER.lanePaddingPx + 8, LADDER, BALL_COLOURS.length).barPx).toBe(LADDER.minBarHeightPx);
+  });
+  test('ten lanes on the phone\'s open strip (92 px): bands of 5.6 px, the bar thinned to 3.6, one row a lane', () => {
+    const ten = laneGeometry(10, SHEET.ladderPx.open, LADDER, BALL_COLOURS.length);
+    const band = (SHEET.ladderPx.open - 2 * LADDER.lanePaddingPx) / 10;
+    expect(band).toBeCloseTo(5.6, 9);
+    expect(ten.barPx).toBeCloseTo(band - LADDER.rowGapPx, 9);
+    expect(ten.barPx).toBeGreaterThanOrEqual(LADDER.minBarHeightPx);
+    expect(ten.rows).toBe(1);
   });
   test('two to five parts on the phone strips, and six on the closed strip, keep the whole bar', () => {
     for (const height of [SHEET.ladderPx.open, SHEET.ladderPx.closed, LADDER.heightPx]) {

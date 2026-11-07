@@ -496,8 +496,25 @@ describe('short passing links (ruling 6)', () => {
     expect(encodeHash({ ...base(), parts: PRESETS.find((p) => p.id === 'four-typewriter')!.parts })).toBe(
       '#3p2-3-3p3-3-3p4-3|3p1-3-3-3-3-3|3-3-3p1-3-3-3|3-3-3-3-3p1-3',
     );
-    // Five jugglers are past MAX_JUGGLERS: no short link reads them.
-    expect(decodeState('3p2-3|3p3-3|3p4-3|3p5-3|3p1-3', 'short')).toBeNull();
+    // Six jugglers are past MAX_JUGGLERS: no short link reads them.
+    expect(decodeState('3p2-3|3p3-3|3p4-3|3p5-3|3p6-3|3p1-3', 'short')).toBeNull();
+  });
+  test('five jugglers (v6.8): both five-juggler cards round-trip; the star is a short link, the long feed a #v3. one', () => {
+    for (const id of ['five-star', 'five-typewriter']) {
+      const card = PRESETS.find((p) => p.id === id)!;
+      expect(card.parts, id).toHaveLength(10);
+      const state = { ...base(), parts: card.parts, ratio: card.ratio };
+      const hash = encodeHash(state);
+      const short = `#${(card.texts[0] as string).slice(1, -1).replace(/ /g, '-')}`;
+      // A short passing link holds at most 64 characters (MAX_PATTERN_CHARS); the five-juggler
+      // typewriter is 103, so it writes the full form, which round-trips as well.
+      expect(hash, id).toBe(short.length - 1 <= 64 ? short : encodeState(state));
+      const r = route(hash);
+      expect(decodeState(r.state as string, r.version ?? undefined)?.parts, id).toEqual(card.parts);
+    }
+    expect(encodeHash({ ...base(), parts: PRESETS.find((p) => p.id === 'five-star')!.parts })).toBe('#3p3-3|3p4-3|3p5-3|3p1-3|3p2-3');
+    expect(encodeHash({ ...base(), parts: PRESETS.find((p) => p.id === 'five-typewriter')!.parts }).startsWith('#v3.')).toBe(true);
+    expect(decodeState('3p3-3|3p4-3|3p5-3|3p1-3|3p2-3', 'short')?.parts).toHaveLength(10);
   });
   test('a percent-encoded | still reads', () => {
     expect(route('#3p-3%7C3p-3')).toEqual({ view: 'play', state: '3p-3|3p-3', version: 'short' });

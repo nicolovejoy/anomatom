@@ -86,7 +86,7 @@ export const mountDeck: Mount = (root, { store, player, sound }) => {
   // filter chip (v6.1 ruling 4) the order is that filter's cards alone (applyFilter).
   let order: readonly Preset[] = filteredPresets(deckPresets(), store.get().deckFilter);
   let rowCount = order.length + 1;
-  /** The chips, from the deck (filterChips): Balls 3 4 5, Jugglers 2 3 today. */
+  /** The chips, from the deck (filterChips): Balls 3 4 5, Jugglers 2 3 4 5 today. */
   const chips = filterChips();
   let own = order.length;
 

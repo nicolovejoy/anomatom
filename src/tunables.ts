@@ -80,8 +80,25 @@ export const BALL_COLOURS: readonly string[] = [
  * three or more parts, its ladder lane line and its hand bar in the juggler. Two parts draw as
  * they always have (grey lanes and hands; the bars carry the ball colours), so a two-part picture
  * never changes. Kept apart from BALL_COLOURS' strongest hues, so a lane never reads as a ball.
+ * At least MAX_PARTS of them (a unit test holds it), so no two hands on stage share a colour: ten
+ * since v6.8, juggler 5's two added. Each new one is at least 25 ΔE (CIELAB) from every other
+ * part colour and every ball colour, and over 11:1 against --ground (#0e1013); the first eight
+ * are at least 13 ΔE from the balls and 7:1 against the ground.
  */
-export const PART_COLOURS: readonly string[] = ['#8c96ff', '#ff8fb1', '#62d2b4', '#f2b872', '#c5a3ff', '#9fd36a', '#7fc8f5', '#e8a0a0'];
+export const PART_COLOURS: readonly string[] = [
+  '#8c96ff',
+  '#ff8fb1',
+  '#62d2b4',
+  '#f2b872',
+  '#c5a3ff',
+  '#9fd36a',
+  '#7fc8f5',
+  '#e8a0a0',
+  // Pale butter: lighter and greener than the ball yellow #f0c33c (ΔE 29), apart from the peach (25).
+  '#f0e68c',
+  // Sand: a muted warm grey-beige, far from every ball (ΔE 48) and from the peach and rose (27).
+  '#d6c3a5',
+];
 
 /** The ladder strip. */
 export const LADDER = {
@@ -300,17 +317,20 @@ export const MAX_PHASE_REFINEMENT = 64;
 export const MAX_EDITOR_PARTS = 2;
 /**
  * Most parts a share link may carry; a link with more falls back to the default pattern. Exactly
- * 2 × MAX_JUGGLERS since v6.6 (a unit test holds it at least that), so five jugglers later raise both.
+ * 2 × MAX_JUGGLERS since v6.6 (a unit test holds it at least that): ten for five jugglers since v6.8
+ * (docs/plans/v6-8-orbit-3d.md §4).
  */
-export const MAX_PARTS = 8;
+export const MAX_PARTS = 10;
 /** Longest cycle, in pulses, a share link may ask for; a longer one falls back to the default pattern. */
 export const MAX_LINK_CYCLE = 4096;
 /**
  * Most jugglers a passing siteswap (`<3p 3|3p 3>`, form 4) may write; juggler j is parts 2j and
- * 2j + 1. Four since v6.6 (docs/plans/v6-6-deck-on-top-four-jugglers.md ruling 15). The app's cap,
- * not the model's (MATH.md §10); `p<n>` keeps a one-digit target, so ten would need more than this.
+ * 2j + 1. Four since v6.6 (docs/plans/v6-6-deck-on-top-four-jugglers.md ruling 15), five since v6.8
+ * (docs/plans/v6-8-orbit-3d.md §4). The app's cap, not the model's (MATH.md §10); `p<n>` keeps a
+ * one-digit target, fine up to nine. DRUMMER_KITS has five kits, so a sixth juggler would need a
+ * sixth kit or a repeat.
  */
-export const MAX_JUGGLERS = 4;
+export const MAX_JUGGLERS = 5;
 
 // ---------------------------------------------------------------------------------------------
 // Lanes: the Rhythm tab as a mixer (docs/plans/lanes.md)
@@ -319,7 +339,7 @@ export const MAX_JUGGLERS = 4;
 /**
  * Most lanes (parts) in the Rhythm tab and per-part inputs in the Pattern tab; "Add a hand" stops
  * here. Not the stage's cap: the juggler and the ladder strip draw every part (up to MAX_PARTS,
- * eight for four jugglers), and a passing set is edited as one passing siteswap, so the Rhythm tab
+ * ten for five jugglers), and a passing set is edited as one passing siteswap, so the Rhythm tab
  * shows only its first MAX_LANES hands (v6.6 ruling 16). A link may carry up to MAX_PARTS.
  */
 export const MAX_LANES = 4;
@@ -547,7 +567,9 @@ export const DEFAULT_KIT_SHIFT = 0;
  * left) sits at `c = N == 1 ? 0 : -edge + 2·edge·j/(N - 1)`, its hands at `c ∓ d` (left hand first),
  * `d = N == 1 ? soloHand : min(handMax, edge/(N - 1))`. One juggler: -0.6, 0.6; two: -0.8, -0.4, 0.4, 0.8.
  * Four (v6.6 ruling 19): centres -0.6, -0.2, 0.2, 0.6, hands -0.8, -0.4, -0.4, 0, 0, 0.4, 0.4, 0.8;
- * neighbours' inner hands meet, and the jugglers stay apart by their drum machines.
+ * neighbours' inner hands meet, and the jugglers stay apart by their drum machines. Five (v6.8):
+ * centres -0.6, -0.3, 0, 0.3, 0.6, d = 0.15, hands -0.75, -0.45, -0.45, -0.15, -0.15, 0.15, 0.15,
+ * 0.45, 0.45, 0.75.
  */
 export const STAGE_PAN = { edge: 0.6, soloHand: 0.6, handMax: 0.2 } as const;
 

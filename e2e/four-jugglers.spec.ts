@@ -1,15 +1,15 @@
 // Four jugglers (docs/plans/v6-6-deck-on-top-four-jugglers.md, rulings 15 to 21): each four-juggler
 // card at desktop and phone sizes plays with four figures, twelve balls and eight lanes in the
 // strip, and the Sound panel lists four jugglers on four drum machines, which Change drum machines
-// moves together and keeps apart. The Jugglers 4 chip holds the two cards, a short link
-// round-trips, and a five-juggler pattern typed is refused naming four. These tests assert
+// moves together and keeps apart. The Jugglers 4 chip holds the two cards and a short link
+// round-trips (since v6.8 five jugglers read: e2e/five-jugglers.spec.ts). These tests assert
 // figures, widths and counts, never heights, so they hold under either phone deck layout (stream
 // A moves it). Screenshots go to FOUR_SHOTS when it names a directory.
 import { mkdirSync } from 'node:fs';
 import { encodeHash } from '../src/app/hash';
 import { PRESETS } from '../src/app/presets';
 import { defaultState } from '../src/app/state';
-import { JUGGLER, MAX_JUGGLERS } from '../src/tunables';
+import { JUGGLER } from '../src/tunables';
 import { copy } from '../src/ui/copy';
 import { expect, isCdnError, openTab, show2d, test, type Page } from './fixtures';
 
@@ -31,9 +31,9 @@ const hashOf = (id: string) => {
   return encodeHash({ ...defaultState(), parts: card.parts, ratio: card.ratio });
 };
 
-test('there are two four-juggler cards, last in the deck', () => {
+test('there are two four-juggler cards, just before the five-juggler cards', () => {
   expect(cards.map((c) => c.id)).toEqual(['four-typewriter', 'four-square']);
-  expect(PRESETS.slice(-2)).toEqual(cards);
+  expect(PRESETS.slice(-4, -2)).toEqual(cards);
 });
 
 for (const card of cards) {
@@ -88,7 +88,7 @@ for (const [name, viewport] of SIZES) {
     const four = page.locator('.deck-filter[data-by="jugglers"][data-n="4"]');
     // Before v6.6 stream A the phone shows the chips with the wheel open; after it, always.
     if (!(await four.isVisible())) await page.locator('.deck-pattern').click();
-    await expect(page.getByRole('group', { name: 'Jugglers', exact: true }).getByRole('button')).toHaveText(['2', '3', '4']);
+    await expect(page.getByRole('group', { name: 'Jugglers', exact: true }).getByRole('button')).toHaveText(['2', '3', '4', '5']);
     await four.click();
     await expect(four).toHaveAttribute('aria-pressed', 'true');
     await expect(page.locator('.deck-row[data-id]')).toHaveCount(2);
@@ -128,19 +128,6 @@ test('the short links round-trip: the stage and the address the card wrote', asy
     await expect(page.locator('canvas.juggler')).toHaveAttribute('data-balls', '12');
     await expect.poll(() => page.evaluate(() => location.hash)).toBe(hash);
   }
-});
-
-test('a five-juggler pattern typed is refused, naming four', async ({ page }) => {
-  await page.setViewportSize({ width: 1280, height: 800 });
-  await page.goto('/');
-  await openTab(page, 'pattern');
-  await page.locator('#hand-0').fill('<3p2 3|3p3 3|3p4 3|3p5 3|3p1 3>');
-  await expect(page.locator('#status')).toContainText(copy.parseError({ kind: 'too-many-jugglers', max: MAX_JUGGLERS }));
-  await expect(page.locator('#status')).toContainText(`at most ${MAX_JUGGLERS} jugglers`);
-  expect(MAX_JUGGLERS).toBe(4);
-  // Four is read.
-  await page.locator('#hand-0').fill('<3p2 3 3 3|3p3 3 3 3|3p4 3 3 3|3p1 3 3 3>');
-  await expect(page.locator('canvas.juggler')).toHaveAttribute('data-figures', '4');
 });
 
 test('at 390 wide the caption "Juggler 4", in the canvas font, fits between four figures (ruling 18)', async ({ page }) => {
