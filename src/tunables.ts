@@ -230,6 +230,17 @@ export const VIEW3D = {
    */
   framingEaseSeconds: 0.75,
   framingSnap: 1e-4,
+  /**
+   * The reader's orbit (v6.8 T2, ruling 10): a drag turns the camera round the scene's centre, a
+   * pinch or the wheel moves it between these distances (the default `cameraMetres` lies between),
+   * and its elevation stays between these angles (the default `elevationDeg` lies between).
+   */
+  minDistance: 3,
+  maxDistance: 16,
+  minElevationDeg: 5,
+  maxElevationDeg: 80,
+  /** OrbitControls' rotateSpeed: a drag the canvas's height turns the view 2π × this (0.45: about 160°). */
+  rotateSpeed: 0.45,
   /** The camera's clipping planes. */
   near: 0.5,
   far: 40,

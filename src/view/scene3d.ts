@@ -9,6 +9,7 @@
 // height of the hands, as in the frame; the floor is `floorMetres` under it.
 import type { PartIndex } from '../core/types';
 import { BALL_COLOURS, JUGGLER, VIEW3D } from '../tunables';
+import { defaultOrbit, orbitPosition, type Orbit } from './camera3d';
 import { partColour } from './colours';
 import type { JugglerFrame } from './juggler';
 
@@ -186,21 +187,27 @@ export function defaultCamera(frame: JugglerFrame, aspect: number, view: View3DL
   return cameraFor(targetFraming(frame, view), aspect, view);
 }
 
-/** The camera for a framing: aimed at its box's centre, turned `azimuthDeg`, the fov fitted to the box (see `defaultCamera`). */
-export function cameraFor(framing: Framing, aspect: number, view: View3DLayout = VIEW3D): Camera3D {
+/** The centre of a framing's box, in render space: what every camera, the default or the reader's, looks at and turns round. */
+export function framingCentre({ box }: Framing): Vec3 {
+  return toRender((box.left + box.right) / 2, (box.bottom + box.top) / 2, (box.near + box.far) / 2);
+}
+
+/**
+ * The camera for a framing: aimed at its box's centre, turned `azimuthDeg`, the fov fitted to the
+ * box (see `defaultCamera`). With the reader's `orbit` (v6.8 T2) it is placed there instead, round
+ * the same centre, with the default camera's fov, so a pinch moves it nearer or farther.
+ */
+export function cameraFor(framing: Framing, aspect: number, view: View3DLayout = VIEW3D, orbit?: Orbit): Camera3D {
   const { box } = framing;
-  const target = toRender((box.left + box.right) / 2, (box.bottom + box.top) / 2, (box.near + box.far) / 2);
-  const az = framing.azimuthDeg * RAD;
-  const el = view.elevationDeg * RAD;
-  const d = view.cameraMetres;
-  // Toward the front (render +z), turned toward −x by az, raised by el.
-  const position: Vec3 = [target[0] - d * Math.sin(az) * Math.cos(el), target[1] + d * Math.sin(el), target[2] + d * Math.cos(az) * Math.cos(el)];
-  const { right, up, back } = axes({ position, target });
+  const target = framingCentre(framing);
+  const fitted = orbitPosition(target, defaultOrbit(framing, view));
+  const position = orbit ? orbitPosition(target, orbit) : fitted;
+  const { right, up, back } = axes({ position: fitted, target });
   let tan = 0;
   for (const x of [box.left, box.right]) {
     for (const y of [box.bottom, box.top]) {
       for (const z of [box.near, box.far]) {
-        const v = sub(toRender(x, y, z), position);
+        const v = sub(toRender(x, y, z), fitted);
         const depth = -dot(v, back);
         tan = Math.max(tan, Math.abs(dot(v, up)) / depth, Math.abs(dot(v, right)) / (depth * aspect));
       }
@@ -225,8 +232,14 @@ export function project(camera: Camera3D, p: Vec3, width: number, height: number
   return { x: ((ndcX + 1) / 2) * width, y: ((1 - ndcY) / 2) * height, depth };
 }
 
-/** The scene of `frame` on a canvas of aspect `aspect` (width / height), seen with `framing` (the frame's own, unless eased). */
-export function describeScene(frame: JugglerFrame, aspect: number, view: View3DLayout = VIEW3D, framing: Framing = targetFraming(frame, view)): Scene3D {
+/** The scene of `frame` on a canvas of aspect `aspect` (width / height), seen with `framing` (the frame's own, unless eased), from the reader's `orbit` if they moved the camera. */
+export function describeScene(
+  frame: JugglerFrame,
+  aspect: number,
+  view: View3DLayout = VIEW3D,
+  framing: Framing = targetFraming(frame, view),
+  orbit?: Orbit,
+): Scene3D {
   const r = JUGGLER.radius;
   const balls = frame.balls.map((b) => ({
     ball: b.ball,
@@ -267,7 +280,7 @@ export function describeScene(frame: JugglerFrame, aspect: number, view: View3DL
     }),
     opacity: a.inhuman ? JUGGLER.inhumanAlpha : 1,
   }));
-  return { balls, hands, bodies, floor, faults, camera: cameraFor(framing, aspect, view) };
+  return { balls, hands, bodies, floor, faults, camera: cameraFor(framing, aspect, view, orbit) };
 }
 
 /**

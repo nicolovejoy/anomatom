@@ -95,6 +95,8 @@ export const copy = {
     text: { '2d': '2D', '3d': '3D' } as Record<'2d' | '3d', string>,
     label: { '2d': 'Show the juggler in 2D, from the front', '3d': 'Show the juggler in 3D' } as Record<'2d' | '3d', string>,
   },
+  /** v6.8 T2: beside the switch in 3D, back to the default camera. The glyph shows; the label is its name. */
+  resetView: { text: '\u21BA', label: 'Reset view' },
   /** SPEC §4.1 (v2): shown while a flight longer than `seconds` is in the air. */
   notHumanThrow: (seconds: number) => `Not a human throw: I keep this one up for more than ${seconds} seconds.`,
 

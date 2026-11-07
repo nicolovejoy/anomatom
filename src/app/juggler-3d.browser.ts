@@ -3,6 +3,11 @@
 // the one requestAnimationFrame loop of src/main.ts: never `setAnimationLoop`, no rAF or timer of
 // its own. It renders only when the picture or the canvas size changed (`signature`), so a paused
 // juggler costs nothing. Loaded by a dynamic import after the first paint, three.js in its own chunk.
+//
+// The orbit (v6.8 T2, ruling 10): three's OrbitControls on the canvas, in the same chunk. Its
+// pointer and wheel handlers only gather the reader's turn and zoom (their own `update()` calls do
+// nothing here); `orbit` applies what was gathered, once a frame, from the mount's `draw`, so the
+// camera moves on the one loop and the next `draw` renders it. No damping, no keys, no pan.
 import {
   CapsuleGeometry,
   CatmullRomCurve3,
@@ -23,8 +28,10 @@ import {
   Vector3,
   WebGLRenderer,
 } from 'three';
+import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
 import { JUGGLER, VIEW3D } from '../tunables';
-import { ballRadius, signature, type Scene3D } from '../view/scene3d';
+import { orbitOf, orbitPosition, polarLimits, sameOrbit, type Orbit } from '../view/camera3d';
+import { ballRadius, signature, type Scene3D, type Vec3 } from '../view/scene3d';
 
 export interface Juggler3D {
   readonly canvas: HTMLCanvasElement;
@@ -32,6 +39,29 @@ export interface Juggler3D {
   draw(scene: Scene3D, width: number, height: number): void;
   /** Forgets the last picture, so the next `draw` renders (the canvas shown again). */
   invalidate(): void;
+  /**
+   * Applies the reader's drag, pinch or wheel since the last call to the camera at `current`
+   * round `target`, within the limits: the new orbit, or null when they did nothing.
+   */
+  orbit(target: Vec3, current: Orbit): Orbit | null;
+  /** Drops whatever the reader's input has gathered and not yet applied (Reset view). */
+  discard(): void;
+}
+
+/**
+ * OrbitControls whose `update()` only notes that input is waiting: its event handlers call it on
+ * every pointer move and wheel tick, and the turn they gather is applied by `step()`, from `draw`.
+ */
+class FrameOrbit extends OrbitControls {
+  waiting = false;
+  override update(): boolean {
+    this.waiting = true;
+    return false;
+  }
+  step(): void {
+    this.waiting = false;
+    super.update();
+  }
 }
 
 /**
@@ -62,6 +92,8 @@ export function createJuggler3D(onLost: () => void): Juggler3D | null {
   canvas.addEventListener(
     'webglcontextlost',
     () => {
+      // The controls' listeners (on the canvas and the document) go with the view.
+      controls.dispose();
       try {
         renderer.dispose();
       } catch {
@@ -78,6 +110,17 @@ export function createJuggler3D(onLost: () => void): Juggler3D | null {
   sun.position.set(...VIEW3D.sunFrom);
   scene.add(sun);
   const camera = new PerspectiveCamera();
+  const controls = new FrameOrbit(camera, canvas);
+  controls.enablePan = false;
+  controls.enableDamping = false;
+  controls.rotateSpeed = VIEW3D.rotateSpeed;
+  controls.minDistance = VIEW3D.minDistance;
+  controls.maxDistance = VIEW3D.maxDistance;
+  const polar = polarLimits();
+  controls.minPolarAngle = polar.min;
+  controls.maxPolarAngle = polar.max;
+  // A drag that starts here never scrolls the page (the stylesheet says so too).
+  canvas.style.touchAction = 'none';
 
   const sphere = new SphereGeometry(1, VIEW3D.sphereWidthSegments, VIEW3D.sphereHeightSegments);
   // A unit cylinder, scaled to an elliptical disc: x the length, z the width, y the thickness.
@@ -132,6 +175,17 @@ export function createJuggler3D(onLost: () => void): Juggler3D | null {
     canvas,
     invalidate() {
       last = '';
+    },
+    orbit(target, current) {
+      if (!controls.waiting) return null;
+      controls.target.set(...target);
+      camera.position.set(...orbitPosition(target, current));
+      controls.step();
+      const next = orbitOf([camera.position.x, camera.position.y, camera.position.z], target);
+      return sameOrbit(next, current) ? null : next;
+    },
+    discard() {
+      if (controls.waiting) controls.step();
     },
     draw(s, width, height) {
       const ratio = Math.min(window.devicePixelRatio || 1, VIEW3D.maxPixelRatio);
