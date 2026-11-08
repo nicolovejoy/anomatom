@@ -97,6 +97,8 @@ export const copy = {
   },
   /** v6.8 T2: beside the switch in 3D, back to the default camera. The glyph shows; the label is its name. */
   resetView: { text: '\u21BA', label: 'Reset view' },
+  /** v6.9: the third square beside Reset view. Full view gives the jugglers the screen; the same button leaves it. */
+  fullView: { enter: '\u2922', leave: '\u2921', enterLabel: 'Full view', leaveLabel: 'Leave full view' },
   /** SPEC §4.1 (v2): shown while a flight longer than `seconds` is in the air. */
   notHumanThrow: (seconds: number) => `Not a human throw: I keep this one up for more than ${seconds} seconds.`,
 
@@ -340,6 +342,8 @@ export const copy = {
   listenHeading: 'Listen for',
   /** The choices, read after "Listen for", by Listen. */
   listenNames: { height: 'the height of each throw', ball: 'each ball', pitch: 'the height, as a pitch' },
+  /** Listen for as three tap buttons (v6.9, a finger's main pointer): the short words. */
+  listenShort: { height: 'Height', ball: 'Each ball', pitch: 'Pitch' },
   /** The ⓘ beside Listen for, and its lines: one plain line per choice. */
   listenInfoGlyph: 'ⓘ',
   listenInfoLabel: 'What each choice means',
@@ -413,6 +417,12 @@ export const copy = {
       { caps: ['space'], does: 'play' },
       { caps: ['↑', '↓'], does: 'pattern' },
       { caps: ['←', '→'], does: 'listen for' },
+    ],
+    /** Full view's row (v6.9), at its right end on a keyboard device; ← → sit beside the Listen for readout. */
+    fullKeys: [
+      { caps: ['space'], does: 'play' },
+      { caps: ['↑', '↓'], does: 'pattern' },
+      { caps: ['esc'], does: 'back' },
     ],
   },
 

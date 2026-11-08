@@ -1,0 +1,261 @@
+/* Full view (docs/plans/v6-9-full-view.md): the jugglers take the screen. mount-layout.ts sets
+   `.is-full` on the app while AppState.full holds, `.is-coarse` for a finger as the main pointer,
+   and from the width (full-view-model.ts) `.is-full-two-rows`, `.is-full-no-balls`, `.is-full-caps`.
+   Under it: the stage, a thin strip, and the deck bar re-laid as the one row of controls (one Play,
+   one ‹ ›: the same elements, shown, hidden and ordered here). The top bar, the right column, the
+   phone's wheel card, Play square, volume and bottom bar are hidden, not reset, so leaving brings
+   them back as they were. `.is-full.is-full` outbids the layout rules' `:not()` chains in style.css
+   and deck.css, whichever sheet loads last. */
+
+/* Parts that exist for full view alone. */
+.deck-full-name,
+.deck-listen,
+.deck-full-listen,
+.deck-full-keys {
+  display: none;
+}
+
+/* Hidden: the top bar, the column (list, filters, Sound panel, sheet), the phone's bottom bar, the
+   pattern button (it opens a list; .deck-full-name stands in), the key bar and the volume. */
+#app.is-full .topbar,
+#app.is-full .region-sheet,
+#app.is-full .deck-picker,
+#app.is-full .deck-sound,
+#app.is-full .deck-keys,
+#app.is-full .deck-volume,
+#app.is-full .deck-pattern {
+  display: none !important;
+}
+
+#app.is-full.is-full {
+  display: block;
+  height: auto;
+  min-height: 0;
+}
+#app.is-full.is-full .play-view {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  grid-template-rows: minmax(0, 1fr) auto;
+  grid-template-areas: 'stage' 'bar';
+  column-gap: 0;
+  height: calc(100dvh - env(safe-area-inset-top));
+  min-height: 0;
+  padding: 0 0 env(safe-area-inset-bottom);
+}
+#app.is-full.is-full .region-deck {
+  display: contents;
+}
+
+/* The stage: the jugglers over a thin strip. */
+#app.is-full.is-full .stage {
+  grid-area: stage;
+  min-width: 0;
+  min-height: 0;
+  padding: 0;
+}
+#app.is-full.is-full .region-juggler {
+  min-height: 0;
+}
+#app.is-full.is-full .region-ladder {
+  padding: 0 8px;
+}
+#app.is-full.is-full .ladder {
+  height: var(--full-strip-phone);
+}
+#app.is-full.is-web .ladder {
+  height: var(--full-strip-wide);
+}
+
+/* The row: Play, ‹ name ›, Listen for. */
+#app.is-full.is-full .deck-bar {
+  grid-area: bar;
+  align-self: stretch;
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  justify-content: flex-start;
+  /* A keyboard's row has more at its right end (the readout, the keys): where it does not fit it wraps. */
+  flex-wrap: wrap;
+  gap: 8px;
+  width: auto;
+  min-height: var(--full-row);
+  margin: 0;
+  padding: 6px 12px;
+  border-top: 1px solid var(--rule);
+  background: var(--surface);
+}
+#app.is-full.is-coarse .deck-bar {
+  min-height: var(--full-row-coarse);
+}
+#app.is-full.is-full .deck-play {
+  order: 1;
+  align-self: center;
+  width: 44px;
+  height: 48px;
+  margin: 0;
+  padding: 0;
+  grid-auto-flow: column;
+  gap: 8px;
+}
+/* A keyboard's Play has its word; a finger's is the icon alone. */
+#app.is-full.is-full:not(.is-coarse) .deck-play {
+  width: auto;
+  padding: 0 22px 0 18px;
+  font-weight: 600;
+}
+#app.is-full.is-full.is-coarse .deck-play {
+  width: 56px;
+}
+#app.is-full.is-full.is-coarse .deck-play .play-label {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+}
+#app.is-full.is-full .deck-arrow {
+  display: grid;
+  width: 44px;
+  height: 48px;
+}
+#app.is-full.is-full .deck-prev {
+  order: 2;
+}
+#app.is-full.is-full .deck-next {
+  order: 4;
+}
+#app.is-full.is-full .deck-full-name {
+  order: 3;
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  min-width: 0;
+  flex: 0 1 auto;
+}
+.deck-full-notation {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: pre;
+  font: 500 16px var(--font-mono);
+}
+.deck-full-name.invalid .deck-full-notation {
+  color: var(--warn);
+}
+.deck-full-title {
+  flex: none;
+  display: flex;
+  white-space: pre;
+  font-size: 14px;
+  color: var(--text);
+}
+.deck-full-label {
+  font-weight: 600;
+}
+.deck-full-balls {
+  display: flex;
+  color: var(--muted);
+}
+.deck-full-meta {
+  color: var(--valid);
+}
+.deck-full-name.invalid .deck-full-meta {
+  color: var(--warn-text);
+}
+#app.is-full-no-balls .deck-full-balls {
+  display: none;
+}
+
+/* Listen for on a finger: three buttons at the row's right end. */
+#app.is-full.is-full.is-coarse .deck-listen {
+  order: 5;
+  display: flex;
+  gap: 1px;
+  margin-left: auto;
+}
+.deck-listen-option {
+  height: 48px;
+  padding: 0 18px;
+  border: 1px solid var(--rule) !important;
+  background: transparent;
+  color: var(--text-2) !important;
+  font-size: 14px;
+  font-weight: 500;
+  white-space: nowrap;
+}
+.deck-listen-option[aria-pressed='true'] {
+  background: var(--raised) !important;
+  color: var(--text) !important;
+  font-weight: 600;
+  box-shadow: inset 0 -2px var(--accent);
+}
+.deck-listen-option:hover {
+  color: var(--text) !important;
+}
+
+/* Listen for on a keyboard: ← → beside the readout, and the keys at the right. */
+#app.is-full.is-full.is-full-caps .deck-full-listen {
+  order: 5;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-left: 20px;
+  font-size: 13px;
+  color: var(--muted);
+}
+.deck-full-listen-keys {
+  display: flex;
+  gap: 2px;
+}
+.deck-full-readout {
+  color: var(--text);
+  font-weight: 600;
+}
+#app.is-full.is-full.is-full-caps .deck-full-keys {
+  order: 6;
+  display: flex;
+  align-items: center;
+  gap: 20px;
+  margin-left: auto;
+  font-size: 13px;
+  color: var(--muted);
+}
+
+/* Two rows (the phone upright): Play and the name on the first, Listen for across the second. */
+#app.is-full.is-full.is-full-two-rows .deck-bar {
+  display: grid;
+  grid-template-columns: auto auto minmax(0, 1fr) auto;
+  grid-auto-rows: var(--full-row-stacked);
+  align-items: center;
+  gap: 0 8px;
+  min-height: 0;
+  padding: 0 12px;
+}
+#app.is-full.is-full.is-full-two-rows .deck-play {
+  grid-area: 1 / 1;
+}
+#app.is-full.is-full.is-full-two-rows .deck-prev {
+  grid-area: 1 / 2;
+}
+#app.is-full.is-full.is-full-two-rows .deck-full-name {
+  grid-area: 1 / 3;
+}
+#app.is-full.is-full.is-full-two-rows .deck-next {
+  grid-area: 1 / 4;
+}
+#app.is-full.is-full.is-full-two-rows .deck-listen,
+#app.is-full.is-full.is-full-two-rows .deck-full-listen {
+  grid-column: 1 / -1;
+  margin: 0;
+}
+#app.is-full.is-full.is-full-two-rows .deck-full-keys {
+  grid-column: 1 / -1;
+  margin: 0;
+  justify-content: space-between;
+}
+#app.is-full.is-full.is-full-two-rows .deck-listen-option {
+  flex: 1 1 0;
+  min-width: 0;
+  padding: 0 4px;
+}

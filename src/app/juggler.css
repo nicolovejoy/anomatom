@@ -44,22 +44,27 @@
   text-align: center;
   pointer-events: none;
 }
-/* With the 2D/3D switch showing (3D ready), the note keeps clear of it on both sides, still centred;
-   in 3D, of Reset view beside it too. */
-.region-juggler[data-three='ready'] .juggler-note {
+/* The note keeps clear of the squares on both sides, still centred: full view's always shows; with
+   the 2D/3D switch (3D ready) there are two, and in 3D Reset view makes three. */
+.juggler-note {
   left: 48px;
   right: 48px;
 }
-.region-juggler[data-three='ready'][data-view='3d'] .juggler-note {
+.region-juggler[data-three='ready'] .juggler-note {
   left: 88px;
   right: 88px;
+}
+.region-juggler[data-three='ready'][data-view='3d'] .juggler-note {
+  left: 128px;
+  right: 128px;
 }
 /* The 2D/3D switch (v6.8): a small square in the stage's top-right corner, in the page's 1 px rule.
    Its node follows the deck in the page (Tab reaches the wheel first, v6.6 ruling 10); it shares
    the stage's grid area, whose top is the juggler region's, in every layout (style.css). Reset
    view (T2) is the same square, just left of it, in 3D only; its node follows the switch's. */
 .juggler-switch,
-.juggler-reset {
+.juggler-reset,
+.juggler-full {
   grid-area: stage;
   align-self: start;
   justify-self: end;
@@ -76,17 +81,26 @@
   font: 600 12px/1 var(--font-ui);
   cursor: pointer;
 }
-.juggler-reset {
+/* Full view (v6.9) is the third square, rightmost: ⤢ 2D ↺ read left to right as ↺ 2D ⤢. */
+.juggler-switch {
   margin-right: 48px;
+}
+.juggler-reset {
+  margin-right: 88px;
   font-size: 16px;
 }
+.juggler-full {
+  font-size: 18px;
+}
 .juggler-switch:hover,
-.juggler-reset:hover {
+.juggler-reset:hover,
+.juggler-full:hover {
   color: var(--text);
   border-color: var(--chip-edge);
 }
 .juggler-switch:focus-visible,
-.juggler-reset:focus-visible {
+.juggler-reset:focus-visible,
+.juggler-full:focus-visible {
   outline: 2px solid var(--accent);
   outline-offset: 2px;
 }
@@ -95,9 +109,12 @@
   display: none;
 }
 /* The open phone wheel keeps the stage's right side clear (mount-deck.ts): so does the switch. */
-#app.wheel-open .juggler-switch {
+#app.wheel-open .juggler-full {
   margin-right: calc(8px + var(--wheel-pad-right, 0px));
 }
-#app.wheel-open .juggler-reset {
+#app.wheel-open .juggler-switch {
   margin-right: calc(48px + var(--wheel-pad-right, 0px));
+}
+#app.wheel-open .juggler-reset {
+  margin-right: calc(88px + var(--wheel-pad-right, 0px));
 }

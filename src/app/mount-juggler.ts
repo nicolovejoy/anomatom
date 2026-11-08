@@ -18,12 +18,13 @@
 import { figureSpans } from '../view/juggler';
 import { flightsOf } from '../core';
 import type { Flight, Schedule } from '../core';
-import { JUGGLER, VIEW3D } from '../tunables';
+import { FULL, JUGGLER, VIEW3D } from '../tunables';
 import { copy } from '../ui/copy';
 import { jugglerFrame } from '../view/juggler';
 import { cameraHook, defaultOrbit, keepOrbit, type Orbit } from '../view/camera3d';
 import { captions, describeScene, easeFraming, framingCentre, targetFraming, type Framing } from '../view/scene3d';
 import type { PlayerView } from '../view/types';
+import { createGesture, fullViewEntry, type EntryKind } from './full-view-model';
 import { drawJuggler } from './juggler-canvas';
 import type { Juggler3D } from './juggler-3d.browser';
 import type { Mount } from './mount';
@@ -57,13 +58,17 @@ export const mountJuggler: Mount = (root, { store }) => {
   reset.textContent = copy.resetView.text;
   reset.setAttribute('aria-label', copy.resetView.label);
   reset.title = copy.resetView.label;
+  // Full view (v6.9): the third square, after Reset view; shown in both views.
+  const full = document.createElement('button');
+  full.type = 'button';
+  full.className = 'juggler-full';
   root.append(labels, canvas, note);
   // The switch sits after the deck in the page (fix round 1, keeping v6.6 ruling 10: Tab from
   // About reaches the wheel first), placed over the juggler region's top-right corner by CSS: it
   // shares the stage's grid area, whose top is the juggler region's.
   const deck = root.closest('.play-view')?.querySelector(':scope > .region-deck');
-  if (deck) deck.after(toggle, reset);
-  else root.append(toggle, reset);
+  if (deck) deck.after(toggle, reset, full);
+  else root.append(toggle, reset, full);
   // The captions' size is the 2D caption's.
   root.style.setProperty('--juggler-caption-px', `${JUGGLER.captionFontPx}px`);
 
@@ -99,6 +104,38 @@ export const mountJuggler: Mount = (root, { store }) => {
     wanted = shown() === '3d' ? '2d' : '3d';
     show();
   });
+  // Full view (v6.9): ⤢ gives the jugglers the screen, ⤡ gives it back; the same button, in both views.
+  const enter = (kind: EntryKind) => {
+    if (!store.get().full && fullViewEntry(kind, shown())) store.set({ full: true });
+  };
+  const dressFull = () => {
+    const on = store.get().full;
+    const text = on ? copy.fullView.leave : copy.fullView.enter;
+    const label = on ? copy.fullView.leaveLabel : copy.fullView.enterLabel;
+    if (full.textContent !== text) full.textContent = text;
+    full.setAttribute('aria-label', label);
+    full.title = label;
+    full.setAttribute('aria-pressed', String(on));
+  };
+  dressFull();
+  full.addEventListener('click', () => store.set({ full: !store.get().full }));
+  store.subscribe((state, previous) => state.full !== previous.full && dressFull());
+  // A drag, a second finger or a wheel tick on the 3D canvas enters full view and still turns or
+  // zooms (OrbitControls hears the same events); a pointerdown or a tap alone changes nothing.
+  const gesture = createGesture(FULL.dragThresholdPx);
+  const watch = (c: HTMLCanvasElement) => {
+    c.addEventListener('pointerdown', (e) => {
+      const g = gesture.down(e.pointerId, e.clientX, e.clientY);
+      if (g) enter(g);
+    });
+    c.addEventListener('wheel', () => enter('wheel'), { passive: true });
+  };
+  // Moves can be captured by the canvas or not; the document hears them either way.
+  document.addEventListener('pointermove', (e) => {
+    const g = gesture.move(e.pointerId, e.clientX, e.clientY);
+    if (g) enter(g);
+  });
+  for (const type of ['pointerup', 'pointercancel'] as const) document.addEventListener(type, (e) => gesture.up(e.pointerId));
   // Back to the default camera for the figures on stage, at once: the next draw shows it.
   reset.addEventListener('click', () => {
     orbit = null;
@@ -137,6 +174,7 @@ export const mountJuggler: Mount = (root, { store }) => {
         }
         made.canvas.setAttribute('aria-label', label);
         made.canvas.hidden = true;
+        watch(made.canvas);
         canvas.after(made.canvas);
         three = made;
         root.dataset.three = 'ready';

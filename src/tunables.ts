@@ -792,8 +792,15 @@ export const FULL = {
   /** The row of controls under the strip: a keyboard's, and a finger's. */
   rowPx: 68,
   rowCoarsePx: 72,
-  /** Under this width the row splits in two: Play and the pattern over the Listen for buttons. Measured at build. */
-  twoRowsBelowPx: 800,
+  /** Each of the two rows when the row splits (the phone upright). */
+  rowStackedPx: 64,
+  /**
+   * Under this width the row splits in two: Play and the pattern over the Listen for buttons.
+   * Measured at build (v6.9 S3): one row holding Play, ‹ the name with its "· n balls" ›, and the three
+   * buttons needs 718 px for the longest card name (notation 10 characters or fewer; a longer notation
+   * ellipsizes), so 720.
+   */
+  twoRowsBelowPx: 720,
   /** A pointer that moves further than this after going down is a drag, not a tap. */
   dragThresholdPx: 6,
 } as const;
