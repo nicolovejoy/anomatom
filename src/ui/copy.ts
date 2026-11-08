@@ -339,6 +339,8 @@ export const copy = {
    */
   listenHeading: 'Listen for',
   /** The choices, read after "Listen for", by Listen. */
+  /** The short names on the touch layout's Listen for buttons (docs/plans/v6-9-full-view.md, ruling 3). */
+  listenShort: { height: 'Height', ball: 'Each ball', pitch: 'Pitch' },
   listenNames: { height: 'the height of each throw', ball: 'each ball', pitch: 'the height, as a pitch' },
   /** The ⓘ beside Listen for, and its lines: one plain line per choice. */
   listenInfoGlyph: 'ⓘ',

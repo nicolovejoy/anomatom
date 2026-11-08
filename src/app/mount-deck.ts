@@ -100,6 +100,11 @@ export const mountDeck: Mount = (root, { store, player, sound }) => {
       <div class="deck-keys" role="group" aria-label="${t.keysLabel}">${t.keys
         .map((k) => `<span class="deck-key">${k.caps.map((c) => `<kbd>${c}</kbd>`).join('')}<span>${k.does}</span></span>`)
         .join('')}</div>
+      <div class="deck-listen" role="group" aria-label="${t.listen}">
+        <span class="deck-listen-label" aria-hidden="true">${t.listen}</span>${LISTENS.map(
+          (l) => `<button type="button" class="deck-listen-option" data-listen="${l}" aria-pressed="false">${copy.listenShort[l]}</button>`,
+        ).join('')}
+      </div>
       <button type="button" class="deck-arrow deck-prev" aria-label="${t.previous}">${chevron(true)}</button>
       <button type="button" class="deck-pattern">
         <code class="deck-notation"></code>
@@ -149,6 +154,7 @@ export const mountDeck: Mount = (root, { store, player, sound }) => {
   const list = $<HTMLOListElement>('.deck-wheel-list');
   const listenSelect = $<HTMLSelectElement>('#deck-listen');
   const details = $<HTMLButtonElement>('.deck-details');
+  const listenOptions = [...root.querySelectorAll<HTMLButtonElement>('.deck-listen-option')];
 
   /** One list item a row: a card (data-id), or Make your own (.deck-own), last. */
   const rowHtml = (row: number) => {
@@ -1080,6 +1086,9 @@ export const mountDeck: Mount = (root, { store, player, sound }) => {
   volume.addEventListener('input', () => store.set(volumePatch(Number(volume.value))));
   mute.addEventListener('click', () => store.set({ muted: !store.get().muted }));
 
+  for (const option of listenOptions) {
+    option.addEventListener('click', () => store.dispatch({ type: 'setListen', listen: option.dataset.listen as Listen }));
+  }
   listenSelect.addEventListener('change', () => {
     store.dispatch({ type: 'setListen', listen: listenSelect.value as Listen });
     playButton.focus();
@@ -1257,6 +1266,7 @@ export const mountDeck: Mount = (root, { store, player, sound }) => {
     dressOwn();
     dressBand();
     listenSelect.value = state.listen;
+    for (const option of listenOptions) option.setAttribute('aria-pressed', String(option.dataset.listen === state.listen));
     volume.value = String(state.volume);
     volume.style.setProperty('--fill', `${fillPercent(state.volume, 0, 1)}%`);
     mute.setAttribute('aria-pressed', String(state.muted));
