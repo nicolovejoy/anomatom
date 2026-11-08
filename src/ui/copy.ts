@@ -99,6 +99,8 @@ export const copy = {
   resetView: { text: '\u21BA', label: 'Reset view' },
   /** v6.9: the third square beside Reset view. Full view gives the jugglers the screen; the same button leaves it. */
   fullView: { enter: '\u2922', leave: '\u2921', enterLabel: 'Full view', leaveLabel: 'Leave full view' },
+  /** v6.9: under the buttons in 3D until the first turn; by the main pointer (a finger zooms by pinching). */
+  turnHint: { mouse: 'Drag to turn, scroll to zoom', touch: 'Drag to turn, pinch to zoom' },
   /** SPEC §4.1 (v2): shown while a flight longer than `seconds` is in the air. */
   notHumanThrow: (seconds: number) => `Not a human throw: I keep this one up for more than ${seconds} seconds.`,
 

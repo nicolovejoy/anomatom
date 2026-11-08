@@ -112,6 +112,8 @@ export function createJuggler3D(onLost: () => void): Juggler3D | null {
   const camera = new PerspectiveCamera();
   const controls = new FrameOrbit(camera, canvas);
   controls.enablePan = false;
+  // grab over the canvas, grabbing mid-drag (v6.9): the controls set it inline, which beats the stylesheet.
+  controls.cursorStyle = 'grab';
   controls.enableDamping = false;
   controls.rotateSpeed = VIEW3D.rotateSpeed;
   controls.minDistance = VIEW3D.minDistance;

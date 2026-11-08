@@ -25,6 +25,7 @@ import { cameraHook, defaultOrbit, keepOrbit, type Orbit } from '../view/camera3
 import { captions, describeScene, easeFraming, framingCentre, targetFraming, type Framing } from '../view/scene3d';
 import type { PlayerView } from '../view/types';
 import { createGesture, fullViewEntry, type EntryKind } from './full-view-model';
+import { hintShows, hintStart, hintStep, type HintEvent } from './turn-hint-model';
 import { drawJuggler } from './juggler-canvas';
 import type { Juggler3D } from './juggler-3d.browser';
 import type { Mount } from './mount';
@@ -62,13 +63,24 @@ export const mountJuggler: Mount = (root, { store }) => {
   const full = document.createElement('button');
   full.type = 'button';
   full.className = 'juggler-full';
+  // The turn hint (v6.9): text, not a control, under the buttons; its life is `turn-hint-model.ts`.
+  const hint = document.createElement('p');
+  hint.className = 'juggler-hint';
+  hint.setAttribute('aria-hidden', 'true');
+  hint.hidden = true;
+  hint.textContent = window.matchMedia('(pointer: coarse)').matches ? copy.turnHint.touch : copy.turnHint.mouse;
+  let hinting = hintStart;
+  const hintNote = (event: HintEvent) => {
+    hinting = hintStep(hinting, event);
+    hint.hidden = !hintShows(hinting);
+  };
   root.append(labels, canvas, note);
   // The switch sits after the deck in the page (fix round 1, keeping v6.6 ruling 10: Tab from
   // About reaches the wheel first), placed over the juggler region's top-right corner by CSS: it
   // shares the stage's grid area, whose top is the juggler region's.
   const deck = root.closest('.play-view')?.querySelector(':scope > .region-deck');
-  if (deck) deck.after(toggle, reset, full);
-  else root.append(toggle, reset, full);
+  if (deck) deck.after(toggle, reset, full, hint);
+  else root.append(toggle, reset, full, hint);
   // The captions' size is the 2D caption's.
   root.style.setProperty('--juggler-caption-px', `${JUGGLER.captionFontPx}px`);
 
@@ -95,6 +107,7 @@ export const mountJuggler: Mount = (root, { store }) => {
     labels.hidden = view === '2d';
     toggle.hidden = three === null;
     reset.hidden = view === '2d';
+    hintNote(view === '3d' ? 'shown3d' : 'hidden3d');
     const other: View = view === '3d' ? '2d' : '3d';
     toggle.textContent = copy.viewSwitch.text[other];
     toggle.setAttribute('aria-label', copy.viewSwitch.label[other]);
@@ -105,7 +118,10 @@ export const mountJuggler: Mount = (root, { store }) => {
     show();
   });
   // Full view (v6.9): ⤢ gives the jugglers the screen, ⤡ gives it back; the same button, in both views.
+  // The same gesture is the reader's first turn, so the hint and full view agree on what a turn is:
+  // a move past FULL.dragThresholdPx, a second finger or a wheel tick, never a tap's jitter.
   const enter = (kind: EntryKind) => {
+    if (shown() === '3d') hintNote('turned');
     if (!store.get().full && fullViewEntry(kind, shown())) store.set({ full: true });
   };
   const dressFull = () => {
