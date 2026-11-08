@@ -49,6 +49,10 @@ export function createGesture(thresholdPx: number) {
     up(id: number): void {
       starts.delete(id);
     },
+    /** Forget every pointer: a context menu can swallow the pointerup. */
+    clear(): void {
+      starts.clear();
+    },
   };
 }
 

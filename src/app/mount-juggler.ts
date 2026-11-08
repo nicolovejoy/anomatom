@@ -141,9 +141,12 @@ export const mountJuggler: Mount = (root, { store }) => {
   const gesture = createGesture(FULL.dragThresholdPx);
   const watch = (c: HTMLCanvasElement) => {
     c.addEventListener('pointerdown', (e) => {
+      // Only the button that turns the view (pan is off): a right or middle drag turns nothing.
+      if (e.pointerType === 'mouse' && e.button !== 0) return;
       const g = gesture.down(e.pointerId, e.clientX, e.clientY);
       if (g) enter(g);
     });
+    c.addEventListener('contextmenu', () => gesture.clear());
     c.addEventListener('wheel', () => enter('wheel'), { passive: true });
   };
   // Moves can be captured by the canvas or not; the document hears them either way.

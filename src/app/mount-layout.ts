@@ -1,5 +1,5 @@
-// The wide layout (docs/plans/v5-sound-model.md, ruling 8): the top bar's Patterns / Sound / Stage
-// choice and the classes the page's CSS lays out by. `.is-web` marks the wide layout (wide and tall
+// The wide layout (docs/plans/v5-sound-model.md, ruling 8): the top bar's Patterns / Sound
+// choice (v6.9 removed Stage) and the classes the page's CSS lays out by. `.is-web` marks the wide layout (wide and tall
 // enough; a phone on its side keeps the phone's deck); `.panel-<name>` the panel beside the stage.
 // The logic, and how the panel keeps in step with the sheet's tab, is in layout-model.ts.
 //

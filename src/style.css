@@ -325,9 +325,9 @@ button:disabled {
 
 /* -------------------------------------------------------------------------------------------
    The wide layout (docs/plans/v5-sound-model.md, ruling 8; .is-web, set by mount-layout.ts when
-   wide and tall enough). The top bar: the mark, the pattern's name, the Patterns / Sound / Stage
+   wide and tall enough). The top bar: the mark, the pattern's name, the Patterns / Sound
    choice, Share and About. Below it the stage, with Play and the key caps under it, and one panel
-   beside it: Patterns (the wheel, then the Pattern and Rhythm tabs) or Sound; Stage shows none.
+   beside it: Patterns (the wheel, then the Pattern and Rhythm tabs) or Sound (v6.9: no Stage panel; full view gives the stage the screen).
    ------------------------------------------------------------------------------------------- */
 
 /* A key cap, wherever one shows (the bar, the Sound panel). Square, as the deck is. */

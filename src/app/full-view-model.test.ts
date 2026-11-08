@@ -80,6 +80,17 @@ describe('rowLayout', () => {
   });
 });
 
+describe('createGesture.clear', () => {
+  test('a pointer whose pointerup was lost does not keep the next drag from entering', () => {
+    const g = createGesture(6);
+    g.down(1, 0, 0);
+    expect(g.move(1, 10, 0)).toBe('drag');
+    g.clear(); // the context menu took the pointerup
+    expect(g.down(1, 0, 0)).toBeNull();
+    expect(g.move(1, 10, 0)).toBe('drag');
+  });
+});
+
 describe('leaveKey', () => {
   test('Escape leaves when neither the wheel nor a sheet is open', () => {
     expect(leaveKey('Escape', false, false)).toBe(true);
