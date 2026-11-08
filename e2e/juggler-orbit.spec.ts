@@ -201,10 +201,13 @@ test.describe('at 390×844, by real touch', () => {
     expect(await page.evaluate(() => window.scrollY)).toBe(scrollY);
     await page.waitForTimeout(600);
     expect(await page.evaluate(() => [...(window as unknown as { seen: Set<string> }).seen])).toEqual([]);
+    // v6.9: the drag also enters full view, which hides the card; ⤡ brings it back as it was, compact.
+    await expect(page.locator('#app')).toHaveClass(/(^|\s)is-full(\s|$)/);
+    await shot(page, 'orbit-turned-390x844');
+    await page.locator('.juggler-full').click();
     await expect(wheel).toHaveAttribute('data-phase', 'compact');
     const after = (await page.locator('.deck-picker').boundingBox())!;
     expect(after.height).toBeCloseTo(card.height, 0);
-    await shot(page, 'orbit-turned-390x844');
 
     await page.locator('.juggler-reset').click();
     await expect(three(page)).toHaveAttribute('data-camera', CASCADE);
