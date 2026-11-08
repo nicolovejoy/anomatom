@@ -24,6 +24,7 @@ import { jugglerFrame } from '../view/juggler';
 import { cameraHook, defaultOrbit, keepOrbit, type Orbit } from '../view/camera3d';
 import { captions, describeScene, easeFraming, framingCentre, targetFraming, type Framing } from '../view/scene3d';
 import type { PlayerView } from '../view/types';
+import { hintShows, hintStart, hintStep, type HintEvent } from './turn-hint-model';
 import { drawJuggler } from './juggler-canvas';
 import type { Juggler3D } from './juggler-3d.browser';
 import type { Mount } from './mount';
@@ -57,13 +58,24 @@ export const mountJuggler: Mount = (root, { store }) => {
   reset.textContent = copy.resetView.text;
   reset.setAttribute('aria-label', copy.resetView.label);
   reset.title = copy.resetView.label;
+  // The turn hint (v6.9): text, not a control, under the buttons; its life is `turn-hint-model.ts`.
+  const hint = document.createElement('p');
+  hint.className = 'juggler-hint';
+  hint.setAttribute('aria-hidden', 'true');
+  hint.hidden = true;
+  hint.textContent = window.matchMedia('(pointer: coarse)').matches ? copy.turnHint.touch : copy.turnHint.mouse;
+  let hinting = hintStart;
+  const hintNote = (event: HintEvent) => {
+    hinting = hintStep(hinting, event);
+    hint.hidden = !hintShows(hinting);
+  };
   root.append(labels, canvas, note);
   // The switch sits after the deck in the page (fix round 1, keeping v6.6 ruling 10: Tab from
   // About reaches the wheel first), placed over the juggler region's top-right corner by CSS: it
   // shares the stage's grid area, whose top is the juggler region's.
   const deck = root.closest('.play-view')?.querySelector(':scope > .region-deck');
-  if (deck) deck.after(toggle, reset);
-  else root.append(toggle, reset);
+  if (deck) deck.after(toggle, reset, hint);
+  else root.append(toggle, reset, hint);
   // The captions' size is the 2D caption's.
   root.style.setProperty('--juggler-caption-px', `${JUGGLER.captionFontPx}px`);
 
@@ -90,6 +102,7 @@ export const mountJuggler: Mount = (root, { store }) => {
     labels.hidden = view === '2d';
     toggle.hidden = three === null;
     reset.hidden = view === '2d';
+    hintNote(view === '3d' ? 'shown3d' : 'hidden3d');
     const other: View = view === '3d' ? '2d' : '3d';
     toggle.textContent = copy.viewSwitch.text[other];
     toggle.setAttribute('aria-label', copy.viewSwitch.label[other]);
@@ -196,7 +209,10 @@ export const mountJuggler: Mount = (root, { store }) => {
     }
     const aspect = width / height;
     const turned = three.orbit(framingCentre(framing), orbit ?? defaultOrbit(framing));
-    if (turned) orbit = turned;
+    if (turned) {
+      orbit = turned;
+      hintNote('turned');
+    }
     const scene = describeScene(ring, aspect, VIEW3D, framing, orbit ?? undefined);
     three.draw(scene, width, height);
     // Test hooks (T2): the camera shown, and whether the reader moved it.
