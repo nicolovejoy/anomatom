@@ -699,3 +699,48 @@
 .topbar-pattern .deck-pattern.invalid .deck-notation {
   color: var(--warn);
 }
+
+/* Listen for as buttons (docs/plans/v6-9-full-view.md, ruling 3): a touch screen has no ← →, so on
+   the wide layout with a coarse pointer the buttons take the key bar's place. Always in the DOM. */
+.deck-listen {
+  display: none;
+}
+#app.is-web.is-coarse .deck-keys {
+  display: none;
+}
+#app.is-web.is-coarse .deck-listen {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin: 0;
+}
+.deck-listen-label {
+  font-size: 10px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+.deck-listen-option {
+  min-height: 44px;
+  padding: 0 14px;
+  font-size: 13px;
+}
+/* Specific enough to beat the deck's generic button rule, so no !important. */
+#app.is-web.is-coarse .deck-bar .deck-listen-option {
+  border: 1px solid var(--rule);
+  background: transparent;
+  color: var(--text);
+}
+.deck-listen-option + .deck-listen-option {
+  margin-left: -1px;
+}
+#app.is-web.is-coarse .deck-bar .deck-listen-option:hover {
+  background: var(--raised);
+}
+.deck-listen-option:focus-visible {
+  outline-offset: -2px;
+}
+#app.is-web.is-coarse .deck-bar .deck-listen-option[aria-pressed='true'] {
+  background: var(--raised);
+  color: var(--accent);
+}

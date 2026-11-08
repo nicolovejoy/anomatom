@@ -19,7 +19,10 @@ export const mountLayout: Mount = (app, { store }) => {
   }
 
   const web = window.matchMedia(webMedia(SHEET.wideMinWidthPx, DECK.dockedMinHeightPx));
+  // A touch screen (primary pointer coarse) shows Listen for as buttons in place of the key caps.
+  const coarse = window.matchMedia('(pointer: coarse)');
   function render() {
+    app.classList.toggle('is-coarse', coarse.matches);
     const panel = store.get().panel;
     app.classList.toggle('is-web', web.matches);
     for (const p of PANELS) app.classList.toggle(`panel-${p}`, p === panel);
@@ -30,6 +33,7 @@ export const mountLayout: Mount = (app, { store }) => {
     store.set(layoutPatch(web.matches));
     render();
   });
+  coarse.addEventListener('change', render);
   store.set(layoutPatch(web.matches));
   store.subscribe((state, previous) => {
     if (state.panel !== previous.panel) render();
