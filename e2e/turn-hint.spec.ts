@@ -78,8 +78,8 @@ test.describe('at 1440×900, by mouse', () => {
 test.describe('at 390×844, by touch', () => {
   // isMobile + hasTouch makes (pointer: coarse) match in headless Chromium and Edge.
   test.use({ viewport: { width: 390, height: 844 }, isMobile: true, hasTouch: true });
+  test.skip(({ browserName }) => browserName === 'firefox', 'Firefox has no mobile emulation');
   test('the hint sits under the buttons, it reads pinch to zoom', async ({ page, browserName }) => {
-    await page.setViewportSize({ width: 390, height: 844 });
     await needWebGL(page, browserName);
     await open(page);
     await expect(hint(page)).toBeVisible();
