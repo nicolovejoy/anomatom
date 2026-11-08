@@ -779,3 +779,21 @@ export const DECK = {
   phoneSliderPx: 80,
   sliderPx: 76,
 } as const;
+
+// ---------------------------------------------------------------------------------------------
+// v6.9: full view (docs/plans/v6-9-full-view.md)
+// ---------------------------------------------------------------------------------------------
+
+export const FULL = {
+  /** The strip's height in full view on the wide layout, as a fraction of LADDER.heightPx (220 becomes about 73). */
+  stripFractionWide: 1 / 3,
+  /** The strip's height in full view elsewhere (the phone). */
+  stripPhonePx: 56,
+  /** The row of controls under the strip: a keyboard's, and a finger's. */
+  rowPx: 68,
+  rowCoarsePx: 72,
+  /** Under this width the row splits in two: Play and the pattern over the Listen for buttons. Measured at build. */
+  twoRowsBelowPx: 800,
+  /** A pointer that moves further than this after going down is a drag, not a tap. */
+  dragThresholdPx: 6,
+} as const;
