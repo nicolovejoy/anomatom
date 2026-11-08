@@ -19,6 +19,7 @@
 .juggler-3d {
   touch-action: none;
 }
+/* Its cursor (grab, grabbing mid-drag) is OrbitControls' own, set inline in juggler-3d.browser.ts. */
 /* The 3D view's captions (v6.8 ruling 9): under its transparent canvas, so balls and bodies draw
    over them; placed each frame at their figures' feet. */
 .juggler-captions {
@@ -100,4 +101,24 @@
 }
 #app.wheel-open .juggler-reset {
   margin-right: calc(48px + var(--wheel-pad-right, 0px));
+}
+/* The turn hint (v6.9): muted text right-aligned under the buttons (room beside them for the full-view
+   button later), over the stage's top-right corner; the clicks pass through it. */
+.juggler-hint {
+  grid-area: stage;
+  align-self: start;
+  justify-self: end;
+  position: relative;
+  z-index: 2;
+  margin: 44px 8px 0 0;
+  font: 12px/1.2 var(--font-ui);
+  color: var(--muted);
+  text-align: right;
+  pointer-events: none;
+}
+.juggler-hint[hidden] {
+  display: none;
+}
+#app.wheel-open .juggler-hint {
+  margin-right: calc(8px + var(--wheel-pad-right, 0px));
 }
