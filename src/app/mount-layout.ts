@@ -55,6 +55,7 @@ export const mountLayout: Mount = (app, { store }) => {
     store.set(layoutPatch(web.matches));
     render();
   });
+  coarse.addEventListener('change', render);
   store.set(layoutPatch(web.matches));
   store.subscribe((state, previous) => {
     if (state.panel !== previous.panel) render();

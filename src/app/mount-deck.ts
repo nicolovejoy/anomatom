@@ -101,6 +101,11 @@ export const mountDeck: Mount = (root, { store, player, sound }) => {
       <div class="deck-keys" role="group" aria-label="${t.keysLabel}">${t.keys
         .map((k) => `<span class="deck-key">${k.caps.map((c) => `<kbd>${c}</kbd>`).join('')}<span>${k.does}</span></span>`)
         .join('')}</div>
+      <div class="deck-listen" role="group" aria-label="${t.listen}">
+        <span class="deck-listen-label" aria-hidden="true">${t.listen}</span>${LISTENS.map(
+          (l) => `<button type="button" class="deck-listen-option" data-listen="${l}" aria-pressed="false">${copy.listenShort[l]}</button>`,
+        ).join('')}
+      </div>
       <button type="button" class="deck-arrow deck-prev" aria-label="${t.previous}">${chevron(true)}</button>
       <span class="deck-full-name"><code class="deck-full-notation"></code><span class="deck-full-title"><span class="deck-full-label"></span><span class="deck-full-balls"><span class="deck-full-dot">${t.dot}</span><span class="deck-full-meta"></span></span></span></span>
       <button type="button" class="deck-pattern">
@@ -108,9 +113,6 @@ export const mountDeck: Mount = (root, { store, player, sound }) => {
         <span class="deck-line"><span class="deck-sub"><span class="deck-name"></span><span class="deck-dot">${t.dot}</span><span class="deck-meta"></span></span><span id="pending" class="deck-pending" hidden>${copy.nextCycle}</span></span>
       </button>
       <button type="button" class="deck-arrow deck-next" aria-label="${t.next}">${chevron(false)}</button>
-      <span class="deck-listen" role="group" aria-label="${t.listen}">${LISTENS.map(
-        (l) => `<button type="button" class="deck-listen-option" data-listen="${l}" aria-pressed="false">${copy.listenShort[l]}</button>`,
-      ).join('')}</span>
       <span class="deck-full-listen"><span class="deck-full-listen-keys">${copy.listenKeys.map((c) => `<kbd>${c}</kbd>`).join('')}</span><span class="deck-k">${t.listen}</span><strong class="deck-full-readout"></strong></span>
       <div class="deck-full-keys" role="group" aria-label="${t.keysLabel}">${t.fullKeys
         .map((k) => `<span class="deck-key">${k.caps.map((c) => `<kbd>${c}</kbd>`).join('')}<span>${k.does}</span></span>`)
