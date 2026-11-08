@@ -723,13 +723,24 @@
 .deck-listen-option {
   min-height: 44px;
   padding: 0 14px;
-  border: 1px solid var(--rule) !important;
   font-size: 13px;
+}
+/* Specific enough to beat the deck's generic button rule, so no !important. */
+#app.is-web.is-coarse .deck-bar .deck-listen-option {
+  border: 1px solid var(--rule);
+  background: transparent;
+  color: var(--text);
 }
 .deck-listen-option + .deck-listen-option {
   margin-left: -1px;
 }
-.deck-listen-option[aria-pressed='true'] {
-  background: var(--raised) !important;
-  color: var(--accent) !important;
+#app.is-web.is-coarse .deck-bar .deck-listen-option:hover {
+  background: var(--raised);
+}
+.deck-listen-option:focus-visible {
+  outline-offset: -2px;
+}
+#app.is-web.is-coarse .deck-bar .deck-listen-option[aria-pressed='true'] {
+  background: var(--raised);
+  color: var(--accent);
 }

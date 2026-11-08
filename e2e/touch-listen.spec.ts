@@ -27,10 +27,18 @@ test.describe('a coarse pointer, wide layout', () => {
     await expect(page.locator('#deck-listen')).toHaveValue('pitch');
     await expect(page.locator('.sp-choice[aria-pressed="true"]')).toHaveAttribute('data-listen', 'pitch');
 
-    // The keys still work, and the lit button follows.
+    // The keys still work, and the lit button follows: ← from pitch, then → back.
     await page.locator('#play').focus();
     await page.keyboard.press('ArrowLeft');
     await expect(options(page).nth(1)).toHaveAttribute('aria-pressed', 'true');
+    await page.keyboard.press('ArrowRight');
+    await expect(options(page).nth(2)).toHaveAttribute('aria-pressed', 'true');
+
+    // And the other way: the Sound panel's choice lights the matching button.
+    await page.locator('.panel-option[data-panel="sound"]').tap();
+    await page.locator('.sp-choice[data-listen="height"]').tap();
+    await expect(options(page).nth(0)).toHaveAttribute('aria-pressed', 'true');
+    await expect(options(page).nth(2)).toHaveAttribute('aria-pressed', 'false');
     await page.screenshot({ path: 'e2e/shots/touch-listen-1180x820.png' });
   });
 });
@@ -54,5 +62,6 @@ test.describe('the phone layout', () => {
     test.skip(browserName !== 'chromium', 'one engine is enough');
     await page.goto('/');
     await expect(options(page).first()).toBeHidden();
+    await expect(page.locator('#deck-listen')).toBeVisible();
   });
 });
