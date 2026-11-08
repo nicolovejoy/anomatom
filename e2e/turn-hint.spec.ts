@@ -61,7 +61,7 @@ test.describe('at 1440×900, by mouse', () => {
     await page.locator('.juggler-switch').click();
     await expect(page.locator('.region-juggler')).toHaveAttribute('data-view', '2d');
     await expect(hint(page)).toBeHidden();
-    await expect(page.locator('canvas.juggler:not(.juggler-3d)')).not.toHaveCSS('cursor', 'grab');
+    await expect(page.locator('canvas.juggler:not(.juggler-3d)')).toHaveCSS('cursor', 'auto');
     await page.locator('.juggler-switch').click();
     await expect(hint(page)).toBeVisible();
   });
@@ -76,15 +76,15 @@ test.describe('at 1440×900, by mouse', () => {
 });
 
 test.describe('at 390×844, by touch', () => {
-  test.use({ hasTouch: true });
-  test('the hint sits under the buttons, its text chosen by the main pointer', async ({ page, browserName }) => {
+  // isMobile + hasTouch makes (pointer: coarse) match in headless Chromium and Edge.
+  test.use({ viewport: { width: 390, height: 844 }, isMobile: true, hasTouch: true });
+  test('the hint sits under the buttons, it reads pinch to zoom', async ({ page, browserName }) => {
     await page.setViewportSize({ width: 390, height: 844 });
     await needWebGL(page, browserName);
     await open(page);
     await expect(hint(page)).toBeVisible();
-    // Headless Edge reports a fine pointer even with touch on; the copy is chosen by (pointer: coarse).
-    const coarse = await page.evaluate(() => matchMedia('(pointer: coarse)').matches);
-    await expect(hint(page)).toHaveText(coarse ? 'Drag to turn, pinch to zoom' : 'Drag to turn, scroll to zoom');
+    expect(await page.evaluate(() => matchMedia('(pointer: coarse)').matches)).toBe(true);
+    await expect(hint(page)).toHaveText('Drag to turn, pinch to zoom');
     const h = (await hint(page).boundingBox())!;
     const r = (await page.locator('.juggler-reset').boundingBox())!;
     expect(h.y).toBeGreaterThanOrEqual(r.y + r.height);
