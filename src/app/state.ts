@@ -50,6 +50,11 @@ export interface AppState {
   /** UI state: the deck's mute (docs/plans/v4-deck.md, ruling 4); the master gain is 0 while it holds. Never in the share hash. */
   readonly muted: boolean;
   /**
+   * UI state: full view (docs/plans/v6-9-full-view.md), the jugglers given the screen: one row of
+   * controls and a thin strip under the stage. `panel` is untouched by it. Never in the share hash.
+   */
+  readonly full: boolean;
+  /**
    * UI state: the lit filter chip above the wheel (docs/plans/v6-wheel-filters-three.md, ruling 4;
    * docs/plans/v6-1-wheel-feel.md, ruling 4), or null for every card. Kept across panel changes;
    * never in the share hash.
@@ -61,8 +66,8 @@ export interface AppState {
 
 export type SheetTab = 'pattern' | 'rhythm' | 'sound';
 
-/** The wide screen's top-bar choice: the patterns (wheel, Pattern and Rhythm), the Sound panel, or the stage alone. */
-export type Panel = 'patterns' | 'sound' | 'stage';
+/** The wide screen's top-bar choice: the patterns (wheel, Pattern and Rhythm) or the Sound panel. */
+export type Panel = 'patterns' | 'sound';
 
 /** The default pattern's parts: vanilla `3`, which always parses. */
 export function defaultParts(): Parts {
@@ -87,6 +92,7 @@ export function defaultState(): AppState {
     sheetTab: null,
     panel: DEFAULT_PANEL,
     muted: false,
+    full: false,
     deckFilter: null,
     notice: null,
   };

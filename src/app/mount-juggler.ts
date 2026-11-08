@@ -18,12 +18,13 @@
 import { figureSpans } from '../view/juggler';
 import { flightsOf } from '../core';
 import type { Flight, Schedule } from '../core';
-import { JUGGLER, VIEW3D } from '../tunables';
+import { FULL, JUGGLER, VIEW3D } from '../tunables';
 import { copy } from '../ui/copy';
 import { jugglerFrame } from '../view/juggler';
 import { cameraHook, defaultOrbit, keepOrbit, type Orbit } from '../view/camera3d';
 import { captions, describeScene, easeFraming, framingCentre, targetFraming, type Framing } from '../view/scene3d';
 import type { PlayerView } from '../view/types';
+import { createGesture, fullViewEntry, type EntryKind } from './full-view-model';
 import { hintShows, hintStart, hintStep, type HintEvent } from './turn-hint-model';
 import { drawJuggler } from './juggler-canvas';
 import type { Juggler3D } from './juggler-3d.browser';
@@ -58,6 +59,10 @@ export const mountJuggler: Mount = (root, { store }) => {
   reset.textContent = copy.resetView.text;
   reset.setAttribute('aria-label', copy.resetView.label);
   reset.title = copy.resetView.label;
+  // Full view (v6.9): the third square, after Reset view; shown in both views.
+  const full = document.createElement('button');
+  full.type = 'button';
+  full.className = 'juggler-full';
   // The turn hint (v6.9): text, not a control, under the buttons; its life is `turn-hint-model.ts`.
   const hint = document.createElement('p');
   hint.className = 'juggler-hint';
@@ -74,8 +79,8 @@ export const mountJuggler: Mount = (root, { store }) => {
   // About reaches the wheel first), placed over the juggler region's top-right corner by CSS: it
   // shares the stage's grid area, whose top is the juggler region's.
   const deck = root.closest('.play-view')?.querySelector(':scope > .region-deck');
-  if (deck) deck.after(toggle, reset, hint);
-  else root.append(toggle, reset, hint);
+  if (deck) deck.after(toggle, reset, full, hint);
+  else root.append(toggle, reset, full, hint);
   // The captions' size is the 2D caption's.
   root.style.setProperty('--juggler-caption-px', `${JUGGLER.captionFontPx}px`);
 
@@ -112,6 +117,44 @@ export const mountJuggler: Mount = (root, { store }) => {
     wanted = shown() === '3d' ? '2d' : '3d';
     show();
   });
+  // Full view (v6.9): ⤢ gives the jugglers the screen, ⤡ gives it back; the same button, in both views.
+  // The same gesture is the reader's first turn, so the hint and full view agree on what a turn is:
+  // a move past FULL.dragThresholdPx, a second finger or a wheel tick, never a tap's jitter.
+  const enter = (kind: EntryKind) => {
+    if (shown() === '3d') hintNote('turned');
+    if (!store.get().full && fullViewEntry(kind, shown())) store.set({ full: true });
+  };
+  const dressFull = () => {
+    const on = store.get().full;
+    const text = on ? copy.fullView.leave : copy.fullView.enter;
+    const label = on ? copy.fullView.leaveLabel : copy.fullView.enterLabel;
+    if (full.textContent !== text) full.textContent = text;
+    full.setAttribute('aria-label', label);
+    full.title = label;
+    full.setAttribute('aria-pressed', String(on));
+  };
+  dressFull();
+  full.addEventListener('click', () => store.set({ full: !store.get().full }));
+  store.subscribe((state, previous) => state.full !== previous.full && dressFull());
+  // A drag, a second finger or a wheel tick on the 3D canvas enters full view and still turns or
+  // zooms (OrbitControls hears the same events); a pointerdown or a tap alone changes nothing.
+  const gesture = createGesture(FULL.dragThresholdPx);
+  const watch = (c: HTMLCanvasElement) => {
+    c.addEventListener('pointerdown', (e) => {
+      // Only the button that turns the view (pan is off): a right or middle drag turns nothing.
+      if (e.pointerType === 'mouse' && e.button !== 0) return;
+      const g = gesture.down(e.pointerId, e.clientX, e.clientY);
+      if (g) enter(g);
+    });
+    c.addEventListener('contextmenu', () => gesture.clear());
+    c.addEventListener('wheel', () => enter('wheel'), { passive: true });
+  };
+  // Moves can be captured by the canvas or not; the document hears them either way.
+  document.addEventListener('pointermove', (e) => {
+    const g = gesture.move(e.pointerId, e.clientX, e.clientY);
+    if (g) enter(g);
+  });
+  for (const type of ['pointerup', 'pointercancel'] as const) document.addEventListener(type, (e) => gesture.up(e.pointerId));
   // Back to the default camera for the figures on stage, at once: the next draw shows it.
   reset.addEventListener('click', () => {
     orbit = null;
@@ -150,6 +193,7 @@ export const mountJuggler: Mount = (root, { store }) => {
         }
         made.canvas.setAttribute('aria-label', label);
         made.canvas.hidden = true;
+        watch(made.canvas);
         canvas.after(made.canvas);
         three = made;
         root.dataset.three = 'ready';
@@ -209,10 +253,7 @@ export const mountJuggler: Mount = (root, { store }) => {
     }
     const aspect = width / height;
     const turned = three.orbit(framingCentre(framing), orbit ?? defaultOrbit(framing));
-    if (turned) {
-      orbit = turned;
-      hintNote('turned');
-    }
+    if (turned) orbit = turned;
     const scene = describeScene(ring, aspect, VIEW3D, framing, orbit ?? undefined);
     three.draw(scene, width, height);
     // Test hooks (T2): the camera shown, and whether the reader moved it.

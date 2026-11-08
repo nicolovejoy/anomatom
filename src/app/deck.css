@@ -734,8 +734,10 @@
 .deck-listen-option + .deck-listen-option {
   margin-left: -1px;
 }
-#app.is-web.is-coarse .deck-bar .deck-listen-option:hover {
-  background: var(--raised);
+@media (hover: hover) {
+  #app.is-web.is-coarse .deck-bar .deck-listen-option:hover {
+    background: var(--raised);
+  }
 }
 .deck-listen-option:focus-visible {
   outline-offset: -2px;

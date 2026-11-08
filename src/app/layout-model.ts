@@ -3,7 +3,7 @@
 // DOM, no timers. mount-layout.ts and mount-deck.ts are the elements.
 //
 // The top bar's choice is `AppState.panel`: Patterns (the wheel, then the Pattern and Rhythm
-// tabs), Sound (the Sound panel alone), or Stage (no panel). The sheet's tab and the panel move
+// tabs) or Sound (the Sound panel alone). The sheet's tab and the panel move
 // together: a tab opened from anywhere (Make your own, a phone's Details) picks its panel, and a
 // panel picked in the top bar opens its tab.
 import { LISTENS, type Listen } from '../sound/drummers';
@@ -11,17 +11,14 @@ import { stepKey, type KeyTarget, type Modifiers } from './deck-model';
 import type { AppState, Deriver, Panel, SheetTab } from './state';
 
 /** The top bar's choices, in order. */
-export const PANELS: readonly Panel[] = ['patterns', 'sound', 'stage'];
+export const PANELS: readonly Panel[] = ['patterns', 'sound'];
 
 /** The panel a sheet tab lives in: Sound in Sound, Pattern and Rhythm under Patterns. */
 export const panelOfTab = (tab: SheetTab): Panel => (tab === 'sound' ? 'sound' : 'patterns');
 
-/** Whether the right-hand column shows at all: every panel but Stage. */
-export const columnShown = (panel: Panel): boolean => panel !== 'stage';
-
 /**
  * Keeps `panel` and `sheetTab` in step, as a store deriver. A new panel opens its tab (Patterns
- * goes back to Pattern or Rhythm, whichever was open last; Stage leaves the tab be); else a newly
+ * goes back to Pattern or Rhythm, whichever was open last); else a newly
  * opened tab picks its panel. A closed phone sheet (a null tab) moves nothing.
  */
 export function createPanelSync(): Deriver {

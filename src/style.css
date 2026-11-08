@@ -325,9 +325,9 @@ button:disabled {
 
 /* -------------------------------------------------------------------------------------------
    The wide layout (docs/plans/v5-sound-model.md, ruling 8; .is-web, set by mount-layout.ts when
-   wide and tall enough). The top bar: the mark, the pattern's name, the Patterns / Sound / Stage
+   wide and tall enough). The top bar: the mark, the pattern's name, the Patterns / Sound
    choice, Share and About. Below it the stage, with Play and the key caps under it, and one panel
-   beside it: Patterns (the wheel, then the Pattern and Rhythm tabs) or Sound; Stage shows none.
+   beside it: Patterns (the wheel, then the Pattern and Rhythm tabs) or Sound (v6.9: no Stage panel; full view gives the stage the screen).
    ------------------------------------------------------------------------------------------- */
 
 /* A key cap, wherever one shows (the bar, the Sound panel). Square, as the deck is. */
@@ -389,15 +389,6 @@ kbd {
   grid-template-rows: auto minmax(0, 1fr) auto;
   grid-template-areas: 'stage wheel' 'stage sheet' 'bar sheet';
   height: auto;
-}
-/* Stage: the stage alone, the whole width. */
-#app.is-web.panel-stage .play-view {
-  grid-template-columns: minmax(0, 1fr);
-  grid-template-areas: 'stage' 'stage' 'bar';
-  padding-right: 8px;
-}
-#app.is-web.panel-stage .region-sheet {
-  display: none;
 }
 /* Patterns with the editor hidden (docs/plans/v6-wheel-filters-three.md, ruling 2; mount-deck.ts
    sets .deck-editor-hidden): no Pattern and Rhythm tabs. The sheet keeps its head (Stop and the

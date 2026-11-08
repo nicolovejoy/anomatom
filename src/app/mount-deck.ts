@@ -66,6 +66,7 @@ import {
 } from './deck-model';
 import { cardPattern, presetPatch } from './first-minute';
 import type { Preset } from './presets';
+import { leaveKey } from './full-view-model';
 import { deckKey, nextListen, webMedia } from './layout-model';
 import type { Mount } from './mount';
 import { route } from './route';
@@ -106,11 +107,16 @@ export const mountDeck: Mount = (root, { store, player, sound }) => {
         ).join('')}
       </div>
       <button type="button" class="deck-arrow deck-prev" aria-label="${t.previous}">${chevron(true)}</button>
+      <span class="deck-full-name"><code class="deck-full-notation"></code><span class="deck-full-title"><span class="deck-full-label"></span><span class="deck-full-balls"><span class="deck-full-dot">${t.dot}</span><span class="deck-full-meta"></span></span></span></span>
       <button type="button" class="deck-pattern">
         <code class="deck-notation"></code>
         <span class="deck-line"><span class="deck-sub"><span class="deck-name"></span><span class="deck-dot">${t.dot}</span><span class="deck-meta"></span></span><span id="pending" class="deck-pending" hidden>${copy.nextCycle}</span></span>
       </button>
       <button type="button" class="deck-arrow deck-next" aria-label="${t.next}">${chevron(false)}</button>
+      <span class="deck-full-listen"><span class="deck-full-listen-keys">${copy.listenKeys.map((c) => `<kbd>${c}</kbd>`).join('')}</span><span class="deck-k">${t.listen}</span><strong class="deck-full-readout"></strong></span>
+      <div class="deck-full-keys" role="group" aria-label="${t.keysLabel}">${t.fullKeys
+        .map((k) => `<span class="deck-key">${k.caps.map((c) => `<kbd>${c}</kbd>`).join('')}<span>${k.does}</span></span>`)
+        .join('')}</div>
       <span class="deck-volume">
         <button type="button" id="mute" class="deck-mute" aria-pressed="false" aria-label="${t.mute}">${SPEAKER}</button>
         <input id="volume" class="slider" type="range" min="0" max="1" step="${KNOBS.volumeStep}" aria-label="${copy.volumeLabel}" />
@@ -141,6 +147,14 @@ export const mountDeck: Mount = (root, { store, player, sound }) => {
   const playButton = $<HTMLButtonElement>('#play');
   const playLabel = $<HTMLSpanElement>('.play-label');
   const patternButton = $<HTMLButtonElement>('.deck-pattern');
+  // Full view (v6.9): the same name as a label, since the button opens a list the view hides.
+  const fullName = $<HTMLElement>('.deck-full-name');
+  const fullNotation = $<HTMLElement>('.deck-full-notation');
+  const fullLabel = $<HTMLElement>('.deck-full-label');
+  const fullDot = $<HTMLElement>('.deck-full-dot');
+  const fullMeta = $<HTMLElement>('.deck-full-meta');
+  const fullReadout = $<HTMLElement>('.deck-full-readout');
+  const listenOptions = [...root.querySelectorAll<HTMLButtonElement>('.deck-listen-option')];
   const notation = $<HTMLElement>('.deck-notation');
   const nameEl = $<HTMLSpanElement>('.deck-name');
   const dot = $<HTMLSpanElement>('.deck-dot');
@@ -154,7 +168,6 @@ export const mountDeck: Mount = (root, { store, player, sound }) => {
   const list = $<HTMLOListElement>('.deck-wheel-list');
   const listenSelect = $<HTMLSelectElement>('#deck-listen');
   const details = $<HTMLButtonElement>('.deck-details');
-  const listenOptions = [...root.querySelectorAll<HTMLButtonElement>('.deck-listen-option')];
 
   /** One list item a row: a card (data-id), or Make your own (.deck-own), last. */
   const rowHtml = (row: number) => {
@@ -225,18 +238,16 @@ export const mountDeck: Mount = (root, { store, player, sound }) => {
   $<HTMLButtonElement>('.deck-next').addEventListener('click', () => step(1));
 
   let notchAcc = 0;
-  patternButton.addEventListener(
-    'wheel',
-    (e) => {
-      e.preventDefault();
-      // Lines or pages (Firefox): one notch an event.
-      const px = e.deltaMode === 0 ? e.deltaY : Math.sign(e.deltaY) * DECK.notchPx;
-      const r = wheelNotch(notchAcc, px, DECK.notchPx);
-      notchAcc = r.acc;
-      if (r.step) step(r.step);
-    },
-    { passive: false },
-  );
+  const turnWheel = (e: WheelEvent) => {
+    e.preventDefault();
+    // Lines or pages (Firefox): one notch an event.
+    const px = e.deltaMode === 0 ? e.deltaY : Math.sign(e.deltaY) * DECK.notchPx;
+    const r = wheelNotch(notchAcc, px, DECK.notchPx);
+    notchAcc = r.acc;
+    if (r.step) step(r.step);
+  };
+  patternButton.addEventListener('wheel', turnWheel, { passive: false });
+  fullName.addEventListener('wheel', turnWheel, { passive: false });
 
   // -------------------------------------------------------------------------------------------
   // The wheel
@@ -1044,6 +1055,17 @@ export const mountDeck: Mount = (root, { store, player, sound }) => {
     }
     if (wheelOpen && !patternButton.contains(target)) closeWheel();
   });
+  // Full view hides the wheel and the sheet, so nothing is open to take Escape first: it leaves
+  // (leaveKey). Before the wheel's own handler below, which it keeps from running.
+  document.addEventListener(
+    'keydown',
+    (e) => {
+      if (!store.get().full || !leaveKey(e.key, false, false)) return;
+      e.stopImmediatePropagation();
+      store.set({ full: false });
+    },
+    { capture: true },
+  );
   // Escape closes the wheel first, and only the wheel. Upright it makes a grown card compact, and
   // on a compact one passes on (the sheet's Escape closes the sheet); focus stays where it is.
   document.addEventListener(
@@ -1256,6 +1278,11 @@ export const mountDeck: Mount = (root, { store, player, sound }) => {
     dot.hidden = label.name === '';
     metaEl.textContent = label.meta;
     patternButton.classList.toggle('invalid', !label.valid);
+    fullName.classList.toggle('invalid', !label.valid);
+    fullNotation.textContent = label.pattern;
+    fullLabel.textContent = label.name;
+    fullDot.hidden = label.name === '';
+    fullMeta.textContent = label.meta;
     // Only a new text needs a new fit; a new width comes through the ResizeObserver.
     if (label.pattern !== fittedText) {
       fittedText = label.pattern;
@@ -1266,6 +1293,7 @@ export const mountDeck: Mount = (root, { store, player, sound }) => {
     dressOwn();
     dressBand();
     listenSelect.value = state.listen;
+    fullReadout.textContent = copy.listenNames[state.listen];
     for (const option of listenOptions) option.setAttribute('aria-pressed', String(option.dataset.listen === state.listen));
     volume.value = String(state.volume);
     volume.style.setProperty('--fill', `${fillPercent(state.volume, 0, 1)}%`);

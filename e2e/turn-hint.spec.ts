@@ -30,10 +30,11 @@ test.describe('at 1440×900, by mouse', () => {
     await expect(hint(page)).toHaveAttribute('aria-hidden', 'true');
     const h = (await hint(page).boundingBox())!;
     const r = (await page.locator('.juggler-reset').boundingBox())!;
-    const s = (await page.locator('.juggler-switch').boundingBox())!;
+    // ⤢ (v6.9 S3) is the rightmost square; the hint is right-aligned under the row of three.
+    const f = (await page.locator('.juggler-full').boundingBox())!;
     expect(h.y).toBeGreaterThanOrEqual(r.y + r.height);
-    expect(h.x + h.width).toBeLessThanOrEqual(s.x + s.width + 1);
-    expect(await hint(page).evaluate((e) => !!e.previousElementSibling?.matches('.juggler-reset'))).toBe(true);
+    expect(h.x + h.width).toBeLessThanOrEqual(f.x + f.width + 1);
+    expect(await hint(page).evaluate((e) => !!e.previousElementSibling?.matches('.juggler-full'))).toBe(true);
     await expect(three(page)).toHaveCSS('cursor', 'grab');
     await shot(page, 'turn-hint-1440x900');
 
@@ -72,6 +73,20 @@ test.describe('at 1440×900, by mouse', () => {
     await page.mouse.move(b.x + b.width / 2, b.y + b.height / 2);
     await page.mouse.wheel(0, 200);
     await expect(hint(page)).toBeHidden();
+  });
+
+  test('a click that slips a pixel or two is not a turn: the hint stays', async ({ page }) => {
+    await open(page);
+    const b = (await three(page).boundingBox())!;
+    const x = b.x + b.width / 2;
+    const y = b.y + b.height / 2;
+    await page.mouse.move(x, y);
+    await page.mouse.down();
+    await page.mouse.move(x + 2, y + 1);
+    await page.mouse.up();
+    await page.waitForTimeout(300);
+    await expect(hint(page)).toBeVisible();
+    await expect(page.locator('#app')).not.toHaveClass(/(^|\s)is-full(\s|$)/);
   });
 });
 

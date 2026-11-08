@@ -84,7 +84,8 @@ for (const [id, jugglers] of CARDS) {
       const area = (await region(page).boundingBox())!;
       const corner = (await toggle.boundingBox())!;
       expect(corner.x + corner.width).toBeLessThanOrEqual(area.x + area.width + 0.5);
-      expect(area.x + area.width - (corner.x + corner.width)).toBeLessThan(24);
+      // v6.9: ⤢ takes the corner square; the switch is the next one in.
+      expect(area.x + area.width - (corner.x + corner.width)).toBeLessThan(64);
       expect(corner.y).toBeGreaterThanOrEqual(area.y - 0.5);
       expect(corner.y - area.y).toBeLessThan(24);
       expect(corner.y + corner.height).toBeLessThanOrEqual(area.y + area.height);

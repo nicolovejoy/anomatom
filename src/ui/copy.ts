@@ -97,6 +97,8 @@ export const copy = {
   },
   /** v6.8 T2: beside the switch in 3D, back to the default camera. The glyph shows; the label is its name. */
   resetView: { text: '\u21BA', label: 'Reset view' },
+  /** v6.9: the third square beside Reset view. Full view gives the jugglers the screen; the same button leaves it. */
+  fullView: { enter: '\u2922', leave: '\u2921', enterLabel: 'Full view', leaveLabel: 'Leave full view' },
   /** v6.9: under the buttons in 3D until the first turn; by the main pointer (a finger zooms by pinching). */
   turnHint: { mouse: 'Drag to turn, scroll to zoom', touch: 'Drag to turn, pinch to zoom' },
   /** SPEC §4.1 (v2): shown while a flight longer than `seconds` is in the air. */
@@ -140,6 +142,7 @@ export const copy = {
     'Pick a pattern from the wheel, or type your own.',
     'Tap Play. Space plays and pauses too.',
     'With a keyboard, ↑ and ↓ change the pattern, and ← and → change what you listen for.',
+    'Drag the jugglers to turn them, or tap ⤢, and they take the screen; ⤡ or Esc brings the rest back.',
     'Share copies a link that opens the same pattern, at the same tempo, with the same sounds.',
   ],
   aboutGlossaryHeading: 'Words',
@@ -418,11 +421,17 @@ export const copy = {
       { caps: ['↑', '↓'], does: 'pattern' },
       { caps: ['←', '→'], does: 'listen for' },
     ],
+    /** Full view's row (v6.9), at its right end on a keyboard device; ← → sit beside the Listen for readout. */
+    fullKeys: [
+      { caps: ['space'], does: 'play' },
+      { caps: ['↑', '↓'], does: 'pattern' },
+      { caps: ['esc'], does: 'back' },
+    ],
   },
 
   /** The wide layout's top bar: one panel beside the stage at a time (ruling 8). */
   panelLabel: 'Beside the stage',
-  panelNames: { patterns: 'Patterns', sound: 'Sound', stage: 'Stage' },
+  panelNames: { patterns: 'Patterns', sound: 'Sound' },
   /** The key caps beside Listen for in the Sound panel, on the wide layout. */
   listenKeys: ['←', '→'],
 

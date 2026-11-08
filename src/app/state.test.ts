@@ -19,6 +19,7 @@ test('the defaults come from the tunables', () => {
     sheetTab: null,
     panel: DEFAULT_PANEL,
     muted: false,
+    full: false,
     deckFilter: null,
     notice: null,
   });

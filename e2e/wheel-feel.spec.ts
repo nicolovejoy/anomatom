@@ -91,9 +91,9 @@ test('a click on Make your own shows the editor; so do Enter and Space on it', a
 
 test('↓ steps to the next card, ↑ back, the band with them; → and ← change Listen for; the key caps say so', async ({ page }) => {
   await page.goto('/#3');
-  await expect(page.locator('.deck-key kbd')).toHaveText(['space', '↑', '↓', '←', '→']);
-  await expect(page.locator('.deck-key').nth(1)).toContainText('pattern');
-  await expect(page.locator('.deck-key').nth(2)).toContainText('listen for');
+  await expect(page.locator('.deck-keys .deck-key kbd')).toHaveText(['space', '↑', '↓', '←', '→']);
+  await expect(page.locator('.deck-keys .deck-key').nth(1)).toContainText('pattern');
+  await expect(page.locator('.deck-keys .deck-key').nth(2)).toContainText('listen for');
   await page.locator('body').click({ position: { x: 600, y: 200 } });
   await page.keyboard.press('ArrowDown');
   await expect(notation(page)).toHaveText('51');
