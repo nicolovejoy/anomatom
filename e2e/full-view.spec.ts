@@ -18,8 +18,8 @@ const three = (page: Page) => page.locator('canvas.juggler-3d');
 const full = (page: Page) => page.locator('.juggler-full');
 const camera = (page: Page) => three(page).getAttribute('data-camera');
 const box = async (page: Page, selector: string) => (await page.locator(selector).first().boundingBox())!;
-const inFull = (page: Page) => expect(app(page)).toHaveClass(/\bis-full\b/);
-const outOfFull = (page: Page) => expect(app(page)).not.toHaveClass(/\bis-full\b/);
+const inFull = (page: Page) => expect(app(page)).toHaveClass(/(^|\s)is-full(\s|$)/);
+const outOfFull = (page: Page) => expect(app(page)).not.toHaveClass(/(^|\s)is-full(\s|$)/);
 const STRIP = Math.round(LADDER.heightPx * FULL.stripFractionWide);
 
 /** Opens `#3` with the 3D view drawn. */
@@ -75,12 +75,12 @@ test.describe('at 1440×900, a keyboard and a mouse', () => {
     await expect(page.locator('#play')).toContainText('Play');
     await expect(page.locator('.deck-prev')).toBeVisible();
     await expect(page.locator('.deck-next')).toBeVisible();
-    await expect(page.locator('.deck-full-name')).toHaveText('3 Cascade · 3 balls');
+    await expect(page.locator('.deck-full-notation')).toHaveText('3');
+    await expect(page.locator('.deck-full-title')).toHaveText('Cascade · 3 balls');
     await expect(page.locator('.deck-full-readout')).toHaveText('each ball');
     await expect(page.locator('.deck-full-listen kbd')).toHaveText(['←', '→']);
-    await expect(page.locator('.deck-full-keys')).toContainText('esc back');
-    await expect(page.locator('.deck-full-keys')).toContainText('space play');
-    await expect(page.locator('.deck-full-keys')).toContainText('↑↓ pattern');
+    // Each key: its caps, then what it does (textContent has no space between them).
+    await expect(page.locator('.deck-full-keys .deck-key')).toHaveText(['spaceplay', '↑↓pattern', 'escback']);
     await expect(page.locator('.deck-listen')).toBeHidden();
     // One row.
     const row = await box(page, '.deck-bar');
@@ -233,7 +233,8 @@ test.describe('at 1180×820, a finger (iPad landscape)', () => {
     expect((await box(page, '.region-juggler')).height).toBeGreaterThanOrEqual(0.8 * vh);
     await expect.poll(async () => (await box(page, '.ladder')).height).toBe(STRIP);
     expect((await box(page, '.deck-bar')).height).toBeCloseTo(FULL.rowCoarsePx, 0);
-    await expect(page.locator('.deck-full-name')).toHaveText('3 Cascade · 3 balls');
+    await expect(page.locator('.deck-full-notation')).toHaveText('3');
+    await expect(page.locator('.deck-full-title')).toHaveText('Cascade · 3 balls');
     await expect(page.locator('.deck-full-keys')).toBeHidden();
     await expect(page.locator('.deck-full-listen')).toBeHidden();
     // The word is not drawn beside the icon.
@@ -317,7 +318,9 @@ test.describe('at 390×844, a phone upright', () => {
     expect((await box(page, '.region-juggler')).height).toBeGreaterThanOrEqual(0.75 * vh);
     await expect.poll(async () => (await box(page, '.ladder')).height).toBe(FULL.stripPhonePx);
     // The name drops its ball count where the row splits.
-    await expect(page.locator('.deck-full-name')).toHaveText('3 Cascade');
+    await expect(page.locator('.deck-full-notation')).toHaveText('3');
+    await expect(page.locator('.deck-full-label')).toHaveText('Cascade');
+    await expect(page.locator('.deck-full-balls')).toBeHidden();
     const play = await box(page, '#play');
     const options = await page.locator('.deck-listen-option').evaluateAll((els) => els.map((e) => e.getBoundingClientRect()));
     expect(options).toHaveLength(3);
