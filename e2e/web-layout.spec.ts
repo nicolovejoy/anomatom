@@ -1,5 +1,5 @@
 // v5 stream B1 (docs/plans/v5-sound-model.md, ruling 8): the wide layout, headless at 1280×800.
-// One panel at a time beside the stage, picked in the top bar (Patterns / Sound / Stage); the
+// One panel at a time beside the stage, picked in the top bar (Patterns / Sound); the
 // pattern's name in the top bar; the bar under the stage is Play alone with key caps; no ‹ ›
 // anywhere; one volume slider. Each key: ← → pattern, ↑ ↓ Listen for, Space play, none of them
 // in a text field. Screenshots go to e2e/shots/, or to WEB_LAYOUT_SHOTS when it names a directory.
@@ -31,7 +31,7 @@ test('a bare address: the mark, the pattern’s name and the panel choice in the
   await expect(top.locator('.deck-name')).toHaveText('Cascade');
   await expect(top.locator('.deck-notation')).toHaveText('3');
   await expect(option(page, 'patterns')).toHaveAttribute('aria-pressed', 'true');
-  await expect(page.locator('.panel-option')).toHaveText(['Patterns', 'Sound', 'Stage']);
+  await expect(page.locator('.panel-option')).toHaveText(['Patterns', 'Sound']);
   // The name sits beside the mark, left of the panel choice.
   const mark = (await top.locator('.wordmark').boundingBox())!;
   const name = (await top.locator('.deck-pattern').boundingBox())!;
@@ -61,9 +61,9 @@ test('a bare address: the mark, the pattern’s name and the panel choice in the
   expect(errors).toEqual([]);
 });
 
-test('Sound: the Sound panel alone, with the one volume slider; Stage: the stage alone, the whole width', async ({ page }) => {
+test('Sound: the Sound panel alone, with the one volume slider; the top bar holds two tabs', async ({ page }) => {
   await page.goto('/#3');
-  const stageWide = (await page.locator('.stage').boundingBox())!.width;
+  await expect(page.locator('.panel-option')).toHaveText(['Patterns', 'Sound']);
 
   await option(page, 'sound').click();
   await expect(option(page, 'sound')).toHaveAttribute('aria-pressed', 'true');
@@ -78,15 +78,6 @@ test('Sound: the Sound panel alone, with the one volume slider; Stage: the stage
   await noCarets(page);
   await page.screenshot({ path: `${SHOTS}/web-sound-1280x800.png` });
 
-  await option(page, 'stage').click();
-  await expect(option(page, 'stage')).toHaveAttribute('aria-pressed', 'true');
-  await expect(page.locator('.region-sheet')).toBeHidden();
-  await expect(page.locator('.deck-wheel')).toBeHidden();
-  await expect(page.locator('#play')).toBeVisible();
-  await expect.poll(async () => (await page.locator('.stage').boundingBox())!.width).toBeGreaterThan(stageWide + 300);
-  await noCarets(page);
-  await page.screenshot({ path: `${SHOTS}/web-stage-1280x800.png` });
-
   // Back to Patterns: the wheel and the Pattern tab again, the wheel on the loaded pattern.
   await option(page, 'patterns').click();
   await expect(page.locator('.deck-wheel')).toBeVisible();
@@ -96,7 +87,7 @@ test('Sound: the Sound panel alone, with the one volume slider; Stage: the stage
 
 test('the pattern’s name in the top bar shows the patterns from another panel', async ({ page }) => {
   await page.goto('/#3');
-  await option(page, 'stage').click();
+  await option(page, 'sound').click();
   await page.locator('.topbar .deck-pattern').click();
   await expect(option(page, 'patterns')).toHaveAttribute('aria-pressed', 'true');
   await expect(page.locator('.deck-wheel')).toBeVisible();
@@ -105,7 +96,7 @@ test('the pattern’s name in the top bar shows the patterns from another panel'
 
 test('each key: ↑ ↓ the pattern, ← → Listen for, Space plays; from every panel', async ({ page }) => {
   await page.goto('/#3');
-  for (const panel of ['patterns', 'sound', 'stage']) {
+  for (const panel of ['patterns', 'sound']) {
     await option(page, panel).click();
     await page.locator('body').click({ position: { x: 600, y: 200 } });
     await page.keyboard.press('ArrowDown');

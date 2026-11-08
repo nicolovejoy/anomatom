@@ -1,21 +1,20 @@
 import { describe, expect, test } from 'vitest';
 import { DEFAULT_PANEL } from '../tunables';
-import { columnShown, createPanelSync, deckKey, layoutPatch, nextListen, PANELS, panelOfTab, webMedia } from './layout-model';
+import { createPanelSync, deckKey, layoutPatch, nextListen, PANELS, panelOfTab, webMedia } from './layout-model';
 import { createStore } from './state';
 
 const none = { ctrl: false, meta: false, alt: false, shift: false };
 
 describe('panels', () => {
-  test('three choices, in the top bar’s order; a first visit opens on the patterns', () => {
-    expect(PANELS).toEqual(['patterns', 'sound', 'stage']);
+  test('two choices, in the top bar’s order; a first visit opens on the patterns', () => {
+    expect(PANELS).toEqual(['patterns', 'sound']);
     expect(DEFAULT_PANEL).toBe('patterns');
     expect(createStore().get().panel).toBe('patterns');
   });
-  test('a tab’s panel; the column shows for every panel but Stage', () => {
+  test('a tab’s panel', () => {
     expect(panelOfTab('pattern')).toBe('patterns');
     expect(panelOfTab('rhythm')).toBe('patterns');
     expect(panelOfTab('sound')).toBe('sound');
-    expect(PANELS.map(columnShown)).toEqual([true, true, false]);
   });
   test('the wide layout clears a mute, since it has no mute button; the phone keeps it', () => {
     expect(layoutPatch(true)).toEqual({ muted: false });
@@ -44,18 +43,22 @@ describe('createPanelSync', () => {
   });
   test('Patterns from a closed sheet opens Pattern; from an open Pattern tab, stays', () => {
     const s = store();
-    s.set({ panel: 'stage' });
-    expect(s.get().sheetTab).toBeNull();
+    s.set({ sheetTab: 'sound' });
+    s.set({ sheetTab: null });
+    expect(s.get().panel).toBe('sound');
     s.set({ panel: 'patterns' });
-    expect(s.get().sheetTab).toBe('pattern');
-    s.set({ panel: 'stage' });
     expect(s.get().sheetTab).toBe('pattern');
     s.set({ panel: 'patterns' });
     expect(s.get().sheetTab).toBe('pattern');
   });
-  test('a tab opened from elsewhere picks its panel, from Stage too; a closed sheet moves nothing', () => {
+  test('Patterns with a Pattern or Rhythm tab already chosen along with it leaves that tab', () => {
     const s = store();
-    s.set({ panel: 'stage' });
+    s.set({ panel: 'sound' });
+    s.set({ panel: 'patterns', sheetTab: 'rhythm' });
+    expect(s.get().sheetTab).toBe('rhythm');
+  });
+  test('a tab opened from elsewhere picks its panel; a closed sheet moves nothing', () => {
+    const s = store();
     s.set({ sheetTab: 'sound' });
     expect(s.get().panel).toBe('sound');
     s.set({ sheetTab: 'pattern' });

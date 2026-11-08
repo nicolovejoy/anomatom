@@ -418,7 +418,7 @@ export const copy = {
 
   /** The wide layout's top bar: one panel beside the stage at a time (ruling 8). */
   panelLabel: 'Beside the stage',
-  panelNames: { patterns: 'Patterns', sound: 'Sound', stage: 'Stage' },
+  panelNames: { patterns: 'Patterns', sound: 'Sound' },
   /** The key caps beside Listen for in the Sound panel, on the wide layout. */
   listenKeys: ['←', '→'],
 

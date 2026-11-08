@@ -390,15 +390,6 @@ kbd {
   grid-template-areas: 'stage wheel' 'stage sheet' 'bar sheet';
   height: auto;
 }
-/* Stage: the stage alone, the whole width. */
-#app.is-web.panel-stage .play-view {
-  grid-template-columns: minmax(0, 1fr);
-  grid-template-areas: 'stage' 'stage' 'bar';
-  padding-right: 8px;
-}
-#app.is-web.panel-stage .region-sheet {
-  display: none;
-}
 /* Patterns with the editor hidden (docs/plans/v6-wheel-filters-three.md, ruling 2; mount-deck.ts
    sets .deck-editor-hidden): no Pattern and Rhythm tabs. The sheet keeps its head (Stop and the
    time slider while paused, the sound's status) at the foot of the column, as tall as it needs;
