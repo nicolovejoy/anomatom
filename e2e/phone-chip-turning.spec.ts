@@ -61,6 +61,52 @@ test.describe('phone, 390×844', () => {
     await expect(balls5(page)).toHaveAttribute('aria-pressed', 'true');
   });
 
+  // Issues 150 and 157: Escape or Details in the first half row of a turn, while the band is still
+  // on the card on stage. The drum's own scroll goes on past the band after it (a real wheel's
+  // animation does; here the test makes that scroll itself, so the order is the same on every
+  // machine, not a race with a slow runner), and the band must still come home: a band left on a
+  // row that never loaded names a pattern that is not playing. Everything runs in one task, from
+  // the turn's first scroll event: no timer can fire between the turn and the key.
+  test('Escape within the first half row of a turn: the drum carries on past the band, and the band still goes home', async ({ page }) => {
+    await page.goto('/');
+    const wheel = page.locator('.deck-wheel');
+    await expect(wheel).toBeVisible();
+    const before = await page.locator('.deck-notation').textContent();
+    const pressed = await page.evaluate(
+      () =>
+        new Promise<{ phase: string | null; atRow: string | null }>(async (resolve) => {
+          // The page's own placement scroll has been heard by now: the first scroll below is the turn's.
+          await new Promise((frame) => requestAnimationFrame(() => requestAnimationFrame(frame)));
+          const list = document.querySelector<HTMLElement>('.deck-wheel-list')!;
+          const wheelEl = document.querySelector('.deck-wheel')!;
+          const home = list.scrollTop;
+          // The drum's snap would take a scroll of a few pixels back at once; a wheel's animation
+          // passes through those pixels on its way to the next row, so the test holds them.
+          list.style.scrollSnapType = 'none';
+          // Registered after the app's own, so it runs once the app has taken the scroll as a turn's.
+          list.addEventListener(
+            'scroll',
+            () => {
+              const phase = wheelEl.getAttribute('data-phase');
+              document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
+              // The scroll the turn had still to run: two rows on, as the wheel of the failing runs ended.
+              list.scrollTop = home + 65;
+              resolve({ phase, atRow: document.querySelector('.deck-row.in-band code')?.textContent ?? null });
+            },
+            { once: true },
+          );
+          list.dispatchEvent(new WheelEvent('wheel', { deltaY: 64, bubbles: true }));
+          list.scrollTop = home + 8;
+        }),
+    );
+    // The key found the turn spinning, with the band still on the card on stage.
+    expect(pressed).toEqual({ phase: 'spinning', atRow: before });
+    expect(await phase(page)).toBe('compact');
+    await expect(page.locator('.deck-row.in-band code')).toHaveText(before!);
+    await expect(page.locator('.deck-row.in-band')).toHaveAttribute('aria-current', 'true');
+    await expect(page.locator('.deck-notation')).toHaveText(before!);
+  });
+
   // The pattern button that issue 110 was found with is gone upright (v6.6 ruling 1); Escape and
   // Details end the phase in its place.
   for (const how of ['Escape', 'Details'] as const) {

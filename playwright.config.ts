@@ -8,6 +8,9 @@ export default defineConfig({
   testDir: 'e2e',
   forbidOnly: !!process.env.CI,
   retries: process.env.CI ? 1 : 0,
+  // A backstop under the CI job's own timeout (.github/workflows/ci.yml, 50 minutes): a hung run
+  // ends here with the specs that finished reported, not cancelled blind (#146). A run takes 20 to 26.
+  globalTimeout: process.env.CI ? 40 * 60_000 : 0,
   reporter: process.env.CI ? 'github' : 'list',
   use: {
     baseURL: `http://localhost:${port}`,
