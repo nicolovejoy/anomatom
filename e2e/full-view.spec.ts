@@ -149,6 +149,33 @@ test.describe('at 1440×900, a keyboard and a mouse', () => {
     await inFull(page);
   });
 
+  test('the name is a button: a click leaves full view and shows the Patterns list, the row focused', async ({ page, browserName }) => {
+    await open(page, browserName);
+    // From the Sound tab: the name brings the Patterns panel, as the top bar's pattern button does.
+    await page.locator('.panel-option[data-panel="sound"]').click();
+    await full(page).click();
+    await inFull(page);
+    const name = page.locator('button.deck-full-name');
+    await expect(name).toBeVisible();
+    await expect(name).toHaveAccessibleName('3, Cascade. Leave full view and choose a pattern');
+    await name.click();
+    await outOfFull(page);
+    await expect(page.locator('.topbar')).toBeVisible();
+    await expect(page.locator('.panel-option[data-panel="patterns"]')).toHaveAttribute('aria-pressed', 'true');
+    await expect(page.locator('.deck-wheel')).toBeVisible();
+    await expect(page.locator('.deck-row:focus')).toHaveCount(1);
+  });
+
+  test('the name is reachable by keyboard: Enter on it leaves full view and opens the list', async ({ page, browserName }) => {
+    await open(page, browserName);
+    await full(page).click();
+    await inFull(page);
+    await page.locator('button.deck-full-name').focus();
+    await page.keyboard.press('Enter');
+    await outOfFull(page);
+    await expect(page.locator('.deck-row:focus')).toHaveCount(1);
+  });
+
   test('a drag on the 3D view enters full view and still turns it', async ({ page, browserName }) => {
     await open(page, browserName);
     await expect(three(page)).toHaveAttribute('data-camera-moved', 'false');
@@ -340,5 +367,23 @@ test.describe('at 390×844, a phone upright', () => {
     await expect(page.locator('.deck-picker')).toBeVisible();
     await expect(page.locator('.deck-wheel')).toHaveAttribute('data-phase', 'compact');
     await expect(page.locator('.deck-details')).toBeVisible();
+  });
+
+  test('the name is a button: a tap leaves full view and grows the wheel card', async ({ page, browserName }) => {
+    await page.goto('/#3');
+    await needWebGL(page, browserName);
+    await full(page).tap();
+    await inFull(page);
+    await expect(page.locator('.deck-picker')).toBeHidden();
+    await page.waitForTimeout(500);
+    await shot(page, 'full-name-390x844-before');
+    const name = page.locator('button.deck-full-name');
+    await expect(name).toHaveAccessibleName('3, Cascade. Leave full view and choose a pattern');
+    await name.tap();
+    await outOfFull(page);
+    await expect(page.locator('.deck-picker')).toBeVisible();
+    await expect(page.locator('.deck-wheel')).toHaveAttribute('data-phase', 'grown');
+    await page.waitForTimeout(300);
+    await shot(page, 'full-name-390x844-after');
   });
 });

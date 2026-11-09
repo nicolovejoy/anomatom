@@ -1,6 +1,6 @@
 import { describe, expect, test } from 'vitest';
 import { FULL } from '../tunables';
-import { createGesture, fullViewEntry, isDrag, leaveKey, rowLayout } from './full-view-model';
+import { createGesture, fullViewEntry, isDrag, leaveKey, nameTap, rowLayout } from './full-view-model';
 
 describe('fullViewEntry', () => {
   test('the button enters from either view', () => {
@@ -101,5 +101,17 @@ describe('leaveKey', () => {
   });
   test('no other key leaves', () => {
     expect(leaveKey('Enter', false, false)).toBe(false);
+  });
+});
+
+describe('nameTap', () => {
+  test('docked, it takes the reader to the Patterns list', () => {
+    expect(nameTap(true, false)).toBe('focus-list');
+  });
+  test('upright, it grows the wheel card', () => {
+    expect(nameTap(false, true)).toBe('grow-card');
+  });
+  test('on a phone on its side, it opens the wheel', () => {
+    expect(nameTap(false, false)).toBe('open-wheel');
   });
 });

@@ -16,7 +16,8 @@
 }
 
 /* Hidden: the top bar, the column (list, filters, Sound panel, sheet), the phone's bottom bar, the
-   pattern button (it opens a list; .deck-full-name stands in), the key bar and the volume. */
+   pattern button (it opens a list, which full view hides; .deck-full-name is its twin: a button
+   that leaves full view, then does what the pattern button does), the key bar and the volume. */
 #app.is-full .topbar,
 #app.is-full .region-sheet,
 #app.is-full .deck-picker,
@@ -132,6 +133,14 @@
   gap: 10px;
   min-width: 0;
   flex: 0 1 auto;
+  min-height: 40px;
+  padding: 2px 8px;
+  border-radius: 8px;
+  text-align: left;
+  cursor: pointer;
+}
+#app.is-full.is-full .deck-full-name:hover {
+  background: var(--raised) !important;
 }
 .deck-full-notation {
   min-width: 0;

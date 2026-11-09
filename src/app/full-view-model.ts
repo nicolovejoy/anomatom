@@ -72,3 +72,13 @@ export function rowLayout(width: number, coarse: boolean): RowLayout {
 
 /** Whether a key leaves full view: Escape, once no wheel or sheet is open to take it first. */
 export const leaveKey = (key: string, wheelOpen: boolean, sheetOpen: boolean): boolean => key === 'Escape' && !wheelOpen && !sheetOpen;
+
+/** What tapping the pattern name in full view does once full view is off (ruling 2.3, reversed 2026-11-08). */
+export type NameTap = 'focus-list' | 'grow-card' | 'open-wheel';
+
+/**
+ * The name is the pattern button's twin, so it does what that button does where it shows: docked
+ * (the wide layout) it shows the Patterns list and takes focus to it; upright (the phone) the card
+ * is always there, so it grows; on a phone on its side the wheel opens.
+ */
+export const nameTap = (docked: boolean, upright: boolean): NameTap => (docked ? 'focus-list' : upright ? 'grow-card' : 'open-wheel');
