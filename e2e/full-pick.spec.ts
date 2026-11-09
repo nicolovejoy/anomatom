@@ -8,6 +8,7 @@ import { mkdirSync } from 'node:fs';
 import { encodeHash } from '../src/app/hash';
 import { PRESETS } from '../src/app/presets';
 import { defaultState } from '../src/app/state';
+import { DECK, FULL } from '../src/tunables';
 import { expect, needWebGL, test, type Page } from './fixtures';
 
 const SHOTS = 'e2e/shots';
@@ -117,17 +118,27 @@ test.describe('at 1440×900, a keyboard and a mouse', () => {
     expect((await box(page, '.region-juggler')).width).toBe(1440);
   });
 
-  test('turning the wheel changes the pattern as it settles, and the wheel stays open', async ({ page, browserName }) => {
+  test('the wheel is the docked menu: rows top aligned, the band on the chosen row, no blank rows; a scroll only browses', async ({ page, browserName }) => {
     await openFull(page, browserName, false);
     await nameBox(page).click();
     await expectOpen(page);
-    const wheel = await box(page, '.deck-wheel');
-    await page.mouse.move(wheel.x + wheel.width / 2, wheel.y + wheel.height / 2);
+    const list = await box(page, '.deck-wheel-list');
+    const first = await box(page, '.deck-row');
+    // No blank half-rows above the first: it is at the top of the list, and the chosen row is the band.
+    expect(Math.abs(first.y - list.y)).toBeLessThanOrEqual(1);
+    await expect(page.locator('.deck-row.in-band')).toHaveAttribute('data-row', '0');
+    await expect(page.locator('.deck-row.on')).toHaveAttribute('data-row', '0');
+    await expect(page.locator('#app')).toHaveClass(/deck-docked/);
+    // The menu takes the picker's height: more than a drum's worth of rows are in view.
+    const rows = await page.locator('.deck-row').evaluateAll((els) => els.filter((e) => e.getBoundingClientRect().bottom <= window.innerHeight).length);
+    expect(rows).toBeGreaterThanOrEqual(10);
+    // A scroll of the wheel browses: it picks nothing and the wheel stays.
+    await page.mouse.move(list.x + list.width / 2, list.y + list.height / 2);
     await page.mouse.wheel(0, 140);
-    await expect.poll(() => hash(page)).not.toBe('#3');
+    await page.waitForTimeout(600);
+    expect(await hash(page)).toBe('#3');
     await expect(picker(page)).toBeVisible();
     await inFull(page);
-    // The jugglers' square is still the stage's: the picture follows the pattern, not a layout.
     await expectSquareAndFullWidth(page, 1440);
   });
 
@@ -294,6 +305,30 @@ test.describe('at 844×390, a phone on its side', () => {
     await expect(picker(page)).toBeHidden();
     await inFull(page);
     await expect.poll(() => hash(page)).toBe('#51');
+  });
+});
+
+test.describe('at 844×390, a phone on its side, a deep pattern', () => {
+  test.use({ viewport: { width: 844, height: 390 }, hasTouch: true });
+
+  test('the chosen row is in view, a row or two from the top, not at the foot', async ({ page, browserName }) => {
+    await page.addInitScript(() => {
+      for (const name of ['requestFullscreen', 'webkitRequestFullscreen']) Object.defineProperty(Element.prototype, name, { value: undefined, configurable: true });
+    });
+    await page.goto(`/${hashOf('four-square')}`);
+    await needWebGL(page, browserName);
+    await full(page).tap();
+    await inFull(page);
+    await nameBox(page).tap();
+    await expectOpen(page);
+    await expect(page.locator('.deck-row.on')).toHaveCount(1);
+    await page.waitForTimeout(400);
+    const list = await box(page, '.deck-wheel-list');
+    const on = await box(page, '.deck-row.on');
+    expect(on.y).toBeGreaterThanOrEqual(list.y - 1);
+    expect(on.y + on.height).toBeLessThanOrEqual(list.y + list.height + 1);
+    // Two rows from the top (FULL.pickLeadRows), or less where the list's end is near.
+    expect(on.y - list.y).toBeLessThanOrEqual(FULL.pickLeadRows * DECK.dockedRowPx + 1);
   });
 });
 

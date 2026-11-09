@@ -357,16 +357,11 @@
   aspect-ratio: auto;
   font-size: 14px;
 }
-/* The drum sits in the middle of what the filters leave. */
+/* The wheel is the docked menu (deck.css, #app.deck-docked, which mount-deck.ts sets while it is
+   open): rows top aligned, the band on the chosen row, no blank half-rows. Only its place is here. */
 #app.full-pick.full-pick .deck-picker .deck-wheel {
   flex: none;
-  margin: auto 0;
   border-bottom: 1px solid var(--rule);
-}
-/* Rows a little wider than the card's: the picker has the room. */
-#app.full-pick.full-pick .deck-picker .deck-row {
-  gap: 12px;
-  padding: 0 16px;
 }
 
 /* Landscape: the wheel at the left, full height; the jugglers in the largest square at the right. */
@@ -377,6 +372,7 @@
 }
 #app.full-pick-left.full-pick-left .deck-picker {
   grid-area: wheel;
+  align-self: stretch;
   border-right: 1px solid var(--rule);
 }
 
@@ -388,6 +384,7 @@
 }
 #app.full-pick-top.full-pick-top .deck-picker {
   grid-area: wheel;
+  align-self: stretch;
   border-top: 1px solid var(--rule);
 }
 

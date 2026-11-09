@@ -71,6 +71,18 @@ or above them, or two copies of the pattern's name on screen at once.
 7. **Docs.** SPEC §4.1 gains a dated v6.10 paragraph replacing v6.9's "the name is a button: tapping
    it leaves full view". The v6.9 plan's ruling 13 is marked "reversed by v6.10". The About line in
    `copy.ts` follows.
+8. **The open wheel is the docked menu (coordinator, 2026-11-09, after the first screenshots; each
+   reversible).** The drum's blank half-rows left the top of the wheel empty (three visible
+   patterns on the iPhone upright, a large empty block on the iPad). In full view the picker is laid
+   out as the docked menu is (v6 ruling 1, v6.2 ruling 3), through that same path, not a third one:
+   `docked()` holds while the wheel is open in full view (`wide()` is the wide layout's own docking,
+   off in full view), so the rows are `DECK.dockedRowPx` tall, top aligned, the band on the chosen
+   row itself, no blank rows. As many rows as the room holds and the list has (the pop-up up to
+   `FULL.pickPopRows`). Opened, the list is scrolled so the chosen row is `FULL.pickLeadRows` (2) from
+   the top where it is deep in the list. A tap on a row picks, as before; arrow keys on a row pick at
+   once (the menu's rule). **Scroll-to-turn is dropped:** a scroll of the wheel only browses and
+   picks nothing, as the docked menu's does. This amends 1.6's "turning the wheel changes the
+   pattern as it settles" and section 2 ruling 1's "overlay mode".
 
 ## 3. The final mock, in words
 
@@ -103,7 +115,7 @@ one row of Play and the buttons.
 Screenshots of all five sizes, closed and open.
 
 Check for Nico: on the iPad in landscape at https://anomatom.com, ⤢, tap the pattern box. The wheel
-is on the left and the jugglers are in a square on the right; turn it, the jugglers change; tap a
+is on the left and the jugglers are in a square on the right; the chosen pattern is in view, a row or two from the top; tap a
 row, the wheel closes and full view stays. On the iPhone upright, the same, with the wheel popping
 up from the bar.
 

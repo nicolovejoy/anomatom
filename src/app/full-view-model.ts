@@ -96,42 +96,41 @@ export interface PickPlace {
   readonly square: number;
   /** The wheel's width beside the square ('left'), its height under it ('top'), 0 for the pop-up. */
   readonly side: number;
-  /** The wheel's rows, odd, and each one's height. */
+  /** The menu's rows, as many as the room holds, and each one's height (DECK.dockedRowPx). */
   readonly rows: number;
   readonly rowPx: number;
 }
 
-/** The most rows, odd, from 3 to `max`, that `room` holds at the base row height: 3 when not even that many do. */
-const oddRows = (room: number, max: number): number => {
-  for (let n = max; n > 3; n -= 2) if (n * DECK.rowPx <= room) return n;
-  return 3;
-};
-
-/** A row as tall as `room` allows `rows` of them, between the base height and FULL.pickRowMaxPx. */
-const rowHeight = (room: number, rows: number): number => Math.min(FULL.pickRowMaxPx, Math.max(DECK.rowPx, Math.floor(room / rows)));
+/** The rows `room` holds at the menu's row height, at least 3 and at most `max`. */
+const menuRowsIn = (room: number, max: number): number => Math.max(3, Math.min(max, Math.floor(room / DECK.dockedRowPx)));
 
 /**
  * The layout of the open wheel (docs/plans/v6-10-pick-in-full-view.md): for the screen's `width`
- * and `stageHeight` (the screen less the strip and the bar) and the filters' measured height.
- * Beside the jugglers ('left') the square is the largest the stage holds that leaves the wheel
- * FULL.pickWheelMinPx; under them ('top') it is what the filters and FULL.pickTopRows rows leave,
- * at most the width; the wheel takes the rest and shows as many odd rows as it holds. The pop-up
- * shows up to FULL.pickPopRows, keeping DECK.minFigurePx of the stage clear above it.
+ * and `stageHeight` (the screen less the strip and the bar) and the filters' measured height. The
+ * wheel is the docked menu (v6 ruling 1, v6.2 ruling 3, and the coordinator's ruling of 2026-11-09):
+ * rows DECK.dockedRowPx tall, as many as the room holds. Beside the jugglers ('left') the square is
+ * the largest the stage holds that leaves the wheel FULL.pickWheelMinPx; under them ('top') it is
+ * what the filters and FULL.pickTopRows rows leave, at most the width; the wheel takes the rest.
+ * The pop-up shows up to FULL.pickPopRows, keeping DECK.minFigurePx of the stage clear above it.
  */
 export function pickPlace(mode: PickMode, width: number, stageHeight: number, filtersPx: number): PickPlace {
+  const rowPx = DECK.dockedRowPx;
   if (mode === 'pop') {
-    const rows = oddRows(stageHeight - DECK.minFigurePx - filtersPx, FULL.pickPopRows);
-    return { mode, square: 0, side: 0, rows, rowPx: DECK.rowPx };
+    return { mode, square: 0, side: 0, rows: menuRowsIn(stageHeight - DECK.minFigurePx - filtersPx, FULL.pickPopRows), rowPx };
   }
   if (mode === 'left') {
     const square = Math.max(0, Math.min(stageHeight, width - FULL.pickWheelMinPx));
-    const room = stageHeight - filtersPx;
-    const rows = oddRows(room, FULL.pickMaxRows);
-    return { mode, square, side: width - square, rows, rowPx: rowHeight(room, rows) };
+    return { mode, square, side: width - square, rows: menuRowsIn(stageHeight - filtersPx, Infinity), rowPx };
   }
-  const square = Math.max(0, Math.min(width, stageHeight - filtersPx - FULL.pickTopRows * DECK.rowPx));
+  const square = Math.max(0, Math.min(width, stageHeight - filtersPx - FULL.pickTopRows * rowPx));
   const side = stageHeight - square;
-  const room = side - filtersPx;
-  const rows = oddRows(room, FULL.pickMaxRows);
-  return { mode, square, side, rows, rowPx: rowHeight(room, rows) };
+  return { mode, square, side, rows: menuRowsIn(side - filtersPx, Infinity), rowPx };
 }
+
+/**
+ * Where the open menu's list is scrolled so the chosen `row` is in view, `lead` rows from the top
+ * where the list is long enough to allow it (the rows before it stay in reach above), never past
+ * the list's end (`contentPx` of content in a view `viewPx` tall).
+ */
+export const pickScrollTop = (row: number, rowPx: number, lead: number, viewPx: number, contentPx: number): number =>
+  Math.max(0, Math.min((row - lead) * rowPx, contentPx - viewPx));

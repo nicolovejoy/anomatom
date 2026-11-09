@@ -142,7 +142,7 @@ export const copy = {
     'Pick a pattern from the wheel, or type your own.',
     'Tap Play. Space plays and pauses too.',
     'With a keyboard, ↑ and ↓ change the pattern, and ← and → change what you listen for.',
-    'Drag the jugglers to turn them, or tap ⤢, and they take the screen; ⤡ or Esc brings the rest back. Tap the pattern’s name there to pick another without leaving: the wheel opens, and the jugglers change as you turn it.',
+    'Drag the jugglers to turn them, or tap ⤢, and they take the screen; ⤡ or Esc brings the rest back. Tap the pattern’s name there to pick another without leaving: the list opens beside them, and a tap on a row picks it.',
     'Share copies a link that opens the same pattern, at the same tempo, with the same sounds.',
   ],
   aboutGlossaryHeading: 'Words',

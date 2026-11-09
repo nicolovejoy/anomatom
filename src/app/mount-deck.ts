@@ -25,7 +25,7 @@
 // select hands focus to Play after a choice, so the keys work again at once. Every step stops at
 // the ends (v6.2 ruling 2).
 import { LISTENS, type Listen } from '../sound/drummers';
-import { DECK, KNOBS, SHEET } from '../tunables';
+import { DECK, FULL, KNOBS, SHEET } from '../tunables';
 import { copy } from '../ui/copy';
 import {
   deckLabel,
@@ -66,7 +66,7 @@ import {
 } from './deck-model';
 import { cardPattern, presetPatch } from './first-minute';
 import type { Preset } from './presets';
-import { keepsBalls, leaveKey, pickMode, pickPlace } from './full-view-model';
+import { keepsBalls, leaveKey, pickMode, pickPlace, pickScrollTop } from './full-view-model';
 import { deckKey, nextListen, webMedia } from './layout-model';
 import type { Mount } from './mount';
 import { route } from './route';
@@ -260,11 +260,14 @@ export const mountDeck: Mount = (root, { store, player, sound }) => {
   // A bare address opens with the wheel open on a phone, so a first visit sees the patterns.
   let wheelOpen = location.hash === '' || location.hash === '#';
   // Full view (docs/plans/v6-10-pick-in-full-view.md, ruling 1): the one wheel opens in it from the
-  // pattern box, in its overlay mode whatever the layout, so docked and upright read as off there.
+  // pattern box. It is the docked menu (the coordinator's ruling of 2026-11-09: rows top aligned,
+  // the band on the chosen row, no blank half-rows), so `docked()` holds while it is open; the
+  // wide layout's own docking (`wide()`) and the upright card read as off in full view.
   // `fullPick`: the wheel is open in full view; UI state like `wheelOpen`, never in the link.
   let fullPick = false;
   const inFull = () => store.get().full;
-  const docked = () => dockedQuery.matches && !inFull();
+  const wide = () => dockedQuery.matches && !inFull();
+  const docked = () => wide() || (inFull() && fullPick);
   /** Docked, the wheel shows with the Patterns panel; on a phone upright always (v6.6); in full view while picked; else while opened. */
   const wheelShown = () => (inFull() ? fullPick : docked() ? store.get().panel === 'patterns' : upright() || wheelOpen);
 
@@ -288,7 +291,7 @@ export const mountDeck: Mount = (root, { store, player, sound }) => {
     showEditor();
   }
   function showEditor() {
-    app.classList.toggle('deck-editor-hidden', docked() && !editorShown);
+    app.classList.toggle('deck-editor-hidden', wide() && !editorShown);
     if (docked() && !wheel.hidden) placeWheel();
   }
 
@@ -362,7 +365,8 @@ export const mountDeck: Mount = (root, { store, player, sound }) => {
    * app (pickMode in full-view-model.ts) say where full-view.css puts it and the jugglers, and
    * --pick-square and --pick-side how big. Measured: the stage's height is the play view less the
    * strip and the bar, which no choice here changes, and the filters' height from the wrapped chips
-   * at the width the wheel gets. The wheel is a grid item or, popped up, over the stage's foot.
+   * at the width the wheel gets. The wheel is a grid item or, popped up, over the stage's foot. Its
+   * rows are the docked menu's (DECK.dockedRowPx), as many as the room holds and the list has.
    */
   function placeFullPick() {
     for (const p of ['left', 'top', 'width']) picker.style.removeProperty(p);
@@ -380,7 +384,7 @@ export const mountDeck: Mount = (root, { store, player, sound }) => {
       const place = pickPlace(mode, view.clientWidth, stageHeight, filters);
       app.style.setProperty('--pick-square', `${place.square}px`);
       app.style.setProperty('--pick-side', `${place.side}px`);
-      setRows(place.rows, place.rowPx);
+      setRows(Math.min(place.rows, rowCount), place.rowPx);
     };
     lay(DECK.filtersPx);
     const filters = picker.querySelector<HTMLElement>('.deck-filters')?.offsetHeight ?? DECK.filtersPx;
@@ -556,7 +560,7 @@ export const mountDeck: Mount = (root, { store, player, sound }) => {
     app.classList.toggle('full-pick', inFull() && shown);
     if (!(inFull() && shown)) for (const m of ['left', 'top', 'pop']) app.classList.remove(`full-pick-${m}`);
     fullName.setAttribute('aria-expanded', String(inFull() && shown));
-    app.classList.toggle('deck-editor-hidden', docked() && !editorShown);
+    app.classList.toggle('deck-editor-hidden', wide() && !editorShown);
     if (!shown || docked()) endPhase();
     // A docked wheel is always open: the pattern button then only takes focus to it. Upright the
     // button is hidden and nothing opens the wheel (v6.6 ruling 10).
@@ -1148,7 +1152,7 @@ export const mountDeck: Mount = (root, { store, player, sound }) => {
   document.addEventListener(
     'keydown',
     (e) => {
-      if (e.key !== 'Escape' || docked()) return;
+      if (e.key !== 'Escape' || wide()) return;
       if (upright()) {
         if (phase === 'compact') return;
         e.stopPropagation();
@@ -1494,6 +1498,9 @@ export const mountDeck: Mount = (root, { store, player, sound }) => {
         const row = docked() ? menuBand(current(), own, restOwn) : (current() ?? (upright() ? own : Math.max(0, bandRow)));
         band(row);
         scrollToRow(row, false);
+        // Open in full view the chosen row sits a row or two from the top, not at the foot where
+        // the nearest way would leave a deep one (pickScrollTop).
+        if (inFull() && fullPick) list.scrollTop = pickScrollTop(row, rowPx, FULL.pickLeadRows, list.clientHeight, list.scrollHeight);
       }
       if (view.state !== shownState) {
         shownState = view.state;

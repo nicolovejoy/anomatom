@@ -806,16 +806,16 @@ export const FULL = {
   /**
    * The wheel open in full view (docs/plans/v6-10-pick-in-full-view.md): beside the jugglers on a
    * landscape screen, over them on a tall wide one, popped up from the bar on a narrow tall one.
-   * The wheel beside the jugglers keeps at least pickWheelMinPx of the width; the most rows it shows
-   * is pickMaxRows (odd), and pickTopRows is the rows the wheel under the jugglers is given room
-   * for (the jugglers' square is what the filters and that many rows leave); the pop-up shows up to
-   * pickPopRows. A row grows from DECK.rowPx to at most pickRowMaxPx to fill the room its odd count leaves.
+   * The wheel is the docked menu (DECK.dockedRowPx rows, top aligned). Beside the jugglers it keeps
+   * at least pickWheelMinPx of the width and shows as many rows as the height holds; pickTopRows
+   * is the rows the wheel under the jugglers is given room for (the jugglers' square is what the
+   * filters and that many rows leave); the pop-up shows up to pickPopRows. Opened, the list is
+   * scrolled so the chosen row is pickLeadRows from the top when it is deep in the list.
    */
   pickWheelMinPx: 300,
-  pickMaxRows: 13,
   pickTopRows: 5,
   pickPopRows: 5,
-  pickRowMaxPx: 44,
+  pickLeadRows: 2,
   /** The gap under the pop-up, between it and the bar. */
   pickPopGapPx: 6,
   /** A filter chip's side in the wheel open in full view (a finger's size). */
