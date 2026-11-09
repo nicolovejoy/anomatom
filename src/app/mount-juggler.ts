@@ -25,6 +25,7 @@ import { cameraHook, defaultOrbit, keepOrbit, type Orbit } from '../view/camera3
 import { captions, describeScene, easeFraming, framingCentre, targetFraming, type Framing } from '../view/scene3d';
 import type { PlayerView } from '../view/types';
 import { createGesture, fullViewEntry, type EntryKind } from './full-view-model';
+import { asksFullscreen, ELEMENT_PROPS, EXIT_METHODS, firstMethod, fullscreenElementOf, leavesFullscreen, leavesFullView, REQUEST_METHODS } from './fullscreen-model';
 import { hintShows, hintStart, hintStep, type HintEvent } from './turn-hint-model';
 import { drawJuggler } from './juggler-canvas';
 import type { Juggler3D } from './juggler-3d.browser';
@@ -134,8 +135,35 @@ export const mountJuggler: Mount = (root, { store }) => {
     full.setAttribute('aria-pressed', String(on));
   };
   dressFull();
-  full.addEventListener('click', () => store.set({ full: !store.get().full }));
-  store.subscribe((state, previous) => state.full !== previous.full && dressFull());
+  // True fullscreen goes with full view where the browser has it (ruling 7); iPhone Safari has none
+  // and gets the layout alone. Only the ⤢ click asks, inside its handler so the user activation counts;
+  // a stage gesture has none. A refused request is dropped without a word.
+  const fullscreenOn = () => fullscreenElementOf(document as unknown as Record<string, unknown>, ELEMENT_PROPS) !== null;
+  const call = (host: object, names: readonly string[]) => {
+    const name = firstMethod(host, names);
+    if (name === null) return;
+    try {
+      const result = (host as Record<string, () => unknown>)[name]!();
+      if (result instanceof Promise) result.catch(() => {});
+    } catch {
+      // No fullscreen is not an error the reader needs told.
+    }
+  };
+  full.addEventListener('click', () => {
+    const entering = !store.get().full;
+    store.set({ full: entering });
+    if (asksFullscreen(true, entering)) call(document.documentElement, REQUEST_METHODS);
+  });
+  store.subscribe((state, previous) => {
+    if (state.full === previous.full) return;
+    dressFull();
+    if (leavesFullscreen(state.full, previous.full, fullscreenOn())) call(document, EXIT_METHODS);
+  });
+  for (const type of ['fullscreenchange', 'webkitfullscreenchange']) {
+    document.addEventListener(type, () => {
+      if (leavesFullView(store.get().full, fullscreenOn())) store.set({ full: false });
+    });
+  }
   // A drag, a second finger or a wheel tick on the 3D canvas enters full view and still turns or
   // zooms (OrbitControls hears the same events); a pointerdown or a tap alone changes nothing.
   const gesture = createGesture(FULL.dragThresholdPx);
