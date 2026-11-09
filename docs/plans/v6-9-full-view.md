@@ -71,7 +71,7 @@ with no obvious way back; an editor who loses the list every time they click the
    2D; `mount-deck.ts` owns the row, since Play, ‹ › and the pattern button are its.
 3. **The row is the deck bar, re-laid.** No second set of Play or ‹ › elements: the existing
    `.deck-bar` children are shown or hidden and ordered by CSS under `.is-full`, so one Play button
-   has one state. In full view the pattern name is a label, not the button it is elsewhere (the
+   has one state. In full view the pattern name is a label, not the button it is elsewhere (reversed by ruling 13; the
    button opens the list, which full view hides): the `.deck-pattern` button is hidden and a
    `.deck-full-name` span shows the same notation and name; ‹ ›, ↑↓ and the mouse wheel over the row
    step the pattern as today. On the wide layout the name lives in the top bar (`.topbar-pattern`),
@@ -102,6 +102,16 @@ with no obvious way back; an editor who loses the list every time they click the
     comes back as it was. On the phone the wheel card returns compact (it was hidden, not reset).
 11. **About page.** One paragraph under the controls section: ⤢, Esc, drag to turn. `copy.ts`.
 12. **SPEC §4.1** gains a dated v6.9 paragraph: full view, what it hides, what enters and leaves.
+13. **The name is a button again (Nico, 2026-11-08, after the device smoke; reverses the "label, not
+    the button" part of ruling 3).** Smoked on the device, a reader in full view who taps the pattern
+    name expects to choose a pattern. `.deck-full-name` is now a `<button>` (aria-label "Leave full
+    view and choose a pattern", reachable by keyboard); `.deck-pattern` stays hidden. A click sets
+    `full: false` (the store subscription in `mount-juggler.ts` leaves browser fullscreen with it) and
+    then does what `.deck-pattern` does where it shows (`nameTap` in `full-view-model.ts`): on the
+    wide layout, shows the Patterns panel and focuses the wheel row, through the same function the
+    top bar's pattern button uses; upright on a phone, where that button is hidden and the card is
+    always there, the card grows; on a phone on its side, the wheel opens. ‹ ›, ↑↓ and the wheel
+    over the row step as before. About and SPEC §4.1 say so.
 
 ## 3. Streams
 

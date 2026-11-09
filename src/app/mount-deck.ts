@@ -66,7 +66,7 @@ import {
 } from './deck-model';
 import { cardPattern, presetPatch } from './first-minute';
 import type { Preset } from './presets';
-import { leaveKey } from './full-view-model';
+import { leaveKey, nameTap } from './full-view-model';
 import { deckKey, nextListen, webMedia } from './layout-model';
 import type { Mount } from './mount';
 import { route } from './route';
@@ -107,7 +107,7 @@ export const mountDeck: Mount = (root, { store, player, sound }) => {
         ).join('')}
       </div>
       <button type="button" class="deck-arrow deck-prev" aria-label="${t.previous}">${chevron(true)}</button>
-      <span class="deck-full-name"><code class="deck-full-notation"></code><span class="deck-full-title"><span class="deck-full-label"></span><span class="deck-full-balls"><span class="deck-full-dot">${t.dot}</span><span class="deck-full-meta"></span></span></span></span>
+      <button type="button" class="deck-full-name"><code class="deck-full-notation"></code><span class="deck-full-title"><span class="deck-full-label"></span><span class="deck-full-balls"><span class="deck-full-dot">${t.dot}</span><span class="deck-full-meta"></span></span></span></button>
       <button type="button" class="deck-pattern">
         <code class="deck-notation"></code>
         <span class="deck-line"><span class="deck-sub"><span class="deck-name"></span><span class="deck-dot">${t.dot}</span><span class="deck-meta"></span></span><span id="pending" class="deck-pending" hidden>${copy.nextCycle}</span></span>
@@ -147,8 +147,9 @@ export const mountDeck: Mount = (root, { store, player, sound }) => {
   const playButton = $<HTMLButtonElement>('#play');
   const playLabel = $<HTMLSpanElement>('.play-label');
   const patternButton = $<HTMLButtonElement>('.deck-pattern');
-  // Full view (v6.9): the same name as a label, since the button opens a list the view hides.
-  const fullName = $<HTMLElement>('.deck-full-name');
+  // Full view (v6.9): the same name, a button too (Nico, 2026-11-08): it leaves full view and then does
+  // what the pattern button does.
+  const fullName = $<HTMLButtonElement>('.deck-full-name');
   const fullNotation = $<HTMLElement>('.deck-full-notation');
   const fullLabel = $<HTMLElement>('.deck-full-label');
   const fullDot = $<HTMLElement>('.deck-full-dot');
@@ -608,15 +609,32 @@ export const mountDeck: Mount = (root, { store, player, sound }) => {
     }, DECK.growGraceMs);
   };
 
+  /** Docked, the pattern button shows the patterns and takes focus to the wheel. */
+  const focusPatterns = () => {
+    store.set({ panel: 'patterns' });
+    rows[roving]?.focus();
+  };
   patternButton.addEventListener('click', () => {
     if (docked()) {
-      // In the top bar: shows the patterns, and takes focus to the wheel.
-      store.set({ panel: 'patterns' });
-      rows[roving]?.focus();
+      focusPatterns();
       return;
     }
     wheelOpen = !wheelOpen;
     showWheel();
+  });
+  // The name in full view (Nico, 2026-11-08): leaves full view, then does what the pattern button does
+  // where it shows: docked, the list; upright, where the button is hidden and the card is always
+  // there, the card grows; on a phone on its side, the wheel opens (full view hid it, not closed it).
+  fullName.addEventListener('click', () => {
+    store.set({ full: false });
+    const tap = nameTap(docked(), upright());
+    if (tap === 'focus-list') focusPatterns();
+    else if (tap === 'grow-card') {
+      if (phase === 'compact') grow();
+    } else {
+      wheelOpen = true;
+      showWheel();
+    }
   });
 
   /**
@@ -1289,6 +1307,7 @@ export const mountDeck: Mount = (root, { store, player, sound }) => {
       fitNotation();
     }
     patternButton.setAttribute('aria-label', t.choose(label.pattern, label.name));
+    fullName.setAttribute('aria-label', t.chooseFromFull(label.pattern, label.name));
     markRows();
     dressOwn();
     dressBand();

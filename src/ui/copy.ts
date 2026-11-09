@@ -142,7 +142,7 @@ export const copy = {
     'Pick a pattern from the wheel, or type your own.',
     'Tap Play. Space plays and pauses too.',
     'With a keyboard, ↑ and ↓ change the pattern, and ← and → change what you listen for.',
-    'Drag the jugglers to turn them, or tap ⤢, and they take the screen; ⤡ or Esc brings the rest back.',
+    'Drag the jugglers to turn them, or tap ⤢, and they take the screen; ⤡ or Esc brings the rest back, and so does tapping the pattern’s name, which opens the patterns.',
     'Share copies a link that opens the same pattern, at the same tempo, with the same sounds.',
   ],
   aboutGlossaryHeading: 'Words',
@@ -389,6 +389,8 @@ export const copy = {
     next: 'Next pattern',
     /** The pattern button: on a phone it opens the wheel. */
     choose: (pattern: string, name: string) => `${pattern}, ${name}. Choose a pattern`,
+    /** Full view's name is a button too (v6.9, 2026-11-08): it leaves full view and opens the patterns. */
+    chooseFromFull: (pattern: string, name: string) => `${pattern}, ${name}. Leave full view and choose a pattern`,
     mute: 'Mute',
     unmute: 'Unmute',
     /** The deck's one sound control: what the sound follows (its options are `listenNames`). */
