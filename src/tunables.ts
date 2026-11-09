@@ -803,4 +803,21 @@ export const FULL = {
   twoRowsBelowPx: 720,
   /** A pointer that moves further than this after going down is a drag, not a tap. */
   dragThresholdPx: 6,
+  /**
+   * The wheel open in full view (docs/plans/v6-10-pick-in-full-view.md): beside the jugglers on a
+   * landscape screen, over them on a tall wide one, popped up from the bar on a narrow tall one.
+   * The wheel beside the jugglers keeps at least pickWheelMinPx of the width; the most rows it shows
+   * is pickMaxRows (odd), and pickTopRows is the rows the wheel under the jugglers is given room
+   * for (the jugglers' square is what the filters and that many rows leave); the pop-up shows up to
+   * pickPopRows. A row grows from DECK.rowPx to at most pickRowMaxPx to fill the room its odd count leaves.
+   */
+  pickWheelMinPx: 300,
+  pickMaxRows: 13,
+  pickTopRows: 5,
+  pickPopRows: 5,
+  pickRowMaxPx: 44,
+  /** The gap under the pop-up, between it and the bar. */
+  pickPopGapPx: 6,
+  /** A filter chip's side in the wheel open in full view (a finger's size). */
+  pickChipPx: 30,
 } as const;

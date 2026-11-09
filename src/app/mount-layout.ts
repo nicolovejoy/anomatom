@@ -4,7 +4,7 @@
 // The logic, and how the panel keeps in step with the sheet's tab, is in layout-model.ts.
 //
 // Full view (docs/plans/v6-9-full-view.md): `.is-full` on the app while `AppState.full` holds, and
-// from the width and the pointer kind (full-view-model.ts) `.is-full-two-rows`, `.is-full-no-balls`
+// from the width and the pointer kind (full-view-model.ts) `.is-full-two-rows`
 // and `.is-full-caps`, which full-view.css lays the row out by. `.is-coarse` marks a finger as the
 // main pointer (`pointer: coarse`, as mount-knobs.ts reads it).
 import { DECK, FULL, LADDER, SHEET } from '../tunables';
@@ -35,12 +35,13 @@ export const mountLayout: Mount = (app, { store }) => {
   app.style.setProperty('--full-row', `${FULL.rowPx}px`);
   app.style.setProperty('--full-row-coarse', `${FULL.rowCoarsePx}px`);
   app.style.setProperty('--full-row-stacked', `${FULL.rowStackedPx}px`);
+  app.style.setProperty('--pick-chip', `${FULL.pickChipPx}px`);
+  app.style.setProperty('--pick-pop-gap', `${FULL.pickPopGapPx}px`);
   function renderFull() {
     const layout = rowLayout(app.clientWidth, coarse.matches);
     app.classList.toggle('is-coarse', coarse.matches);
     app.classList.toggle('is-full', store.get().full);
     app.classList.toggle('is-full-two-rows', layout.rows === 2);
-    app.classList.toggle('is-full-no-balls', !layout.showBalls);
     app.classList.toggle('is-full-caps', layout.keyCaps);
   }
   function render() {

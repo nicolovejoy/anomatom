@@ -41,6 +41,9 @@ or above them, or two copies of the pattern's name on screen at once.
    today). A tap on the jugglers or anywhere outside the wheel, or Esc, closes it. Esc with the wheel
    closed leaves full view, as v6.9. ⤡ leaves full view and closes the wheel. Turning the wheel
    changes the pattern as it settles, as today.
+7. **The pattern box takes all the width the controls leave (Nico, 2026-11-09)**, because many names
+   are long. It drops "· n balls" only when the name still does not fit, whatever the width; an ellipsis
+   is the last resort. (This replaces v6.9's rule that the row drops "· n balls" below a width.)
 
 ## 2. Rulings (coordinator, 2026-11-09, each reversible)
 
@@ -103,3 +106,17 @@ Check for Nico: on the iPad in landscape at https://anomatom.com, ⤢, tap the p
 is on the left and the jugglers are in a square on the right; turn it, the jugglers change; tap a
 row, the wheel closes and full view stays. On the iPhone upright, the same, with the wheel popping
 up from the bar.
+
+## 5. S2 · Listen for as symbols (not built in S1)
+
+Decided with Nico, 2026-11-09. Lands after S1 merges.
+
+- Each choice gets an icon: a drum (Height), a ball (Each ball), and for Pitch a stepped ladder
+  (tuned drums, not notes).
+- Where there is room, the icon and a word side by side: "Drums · Balls · Pitch". Where there is not,
+  the icon over a small word. Never icons alone.
+- A hover (a long press on touch) shows one plain line, from `copy.ts`:
+  - Drums: "A drum for each height: 1 and 2 tick the hi-hat, 3 the snare, 4 a tom, 5 and up the kick."
+  - Balls: "Each ball has its own drum, whatever its height, so you hear each ball travel."
+  - Pitch: "The higher the throw, the deeper the drum, nine steps from rimshot down to kick."
+- This replaces `listenShort`. The Sound tab's select keeps `listenNames` unless S2 decides otherwise.

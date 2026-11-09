@@ -1,6 +1,6 @@
 /* Full view (docs/plans/v6-9-full-view.md): the jugglers take the screen. mount-layout.ts sets
    `.is-full` on the app while AppState.full holds, `.is-coarse` for a finger as the main pointer,
-   and from the width (full-view-model.ts) `.is-full-two-rows`, `.is-full-no-balls`, `.is-full-caps`.
+   and from the width (full-view-model.ts) `.is-full-two-rows` and `.is-full-caps`.
    Under it: the stage, a thin strip, and the deck bar re-laid as the one row of controls (one Play,
    one ‹ ›: the same elements, shown, hidden and ordered here). The top bar, the right column, the
    phone's wheel card, Play square, volume and bottom bar are hidden, not reset, so leaving brings
@@ -16,11 +16,11 @@
 }
 
 /* Hidden: the top bar, the column (list, filters, Sound panel, sheet), the phone's bottom bar, the
-   pattern button (it opens a list, which full view hides; .deck-full-name is its twin: a button
-   that leaves full view, then does what the pattern button does), the key bar and the volume. */
+   pattern button (.deck-full-name is its twin: it opens the one wheel here, v6.10), the wheel itself
+   until the box is tapped (.full-pick, set by mount-deck.ts), the key bar and the volume. */
 #app.is-full .topbar,
 #app.is-full .region-sheet,
-#app.is-full .deck-picker,
+#app.is-full:not(.full-pick) .deck-picker,
 #app.is-full .deck-sound,
 #app.is-full .deck-keys,
 #app.is-full .deck-volume,
@@ -81,7 +81,8 @@
   width: auto;
   min-height: var(--full-row);
   margin: 0;
-  padding: 6px 12px;
+  /* The pattern box is flush with the bar's left and top and foot (v6.10); the controls keep their inset. */
+  padding: 0 12px 0 0;
   border-top: 1px solid var(--rule);
   background: var(--surface);
 }
@@ -89,11 +90,12 @@
   min-height: var(--full-row-coarse);
 }
 #app.is-full.is-full .deck-play {
-  order: 1;
+  order: 2;
   align-self: center;
   width: 44px;
   height: 48px;
-  margin: 0;
+  /* The controls sit together at the right, away from the pattern box. */
+  margin: 0 0 0 auto;
   padding: 0;
   grid-auto-flow: column;
   gap: 8px;
@@ -115,32 +117,42 @@
   overflow: hidden;
   clip: rect(0 0 0 0);
 }
+/* No ‹ › in full view (v6.10): ↑ ↓ and the wheel over the box still step. */
 #app.is-full.is-full .deck-arrow {
-  display: grid;
-  width: 44px;
-  height: 48px;
+  display: none;
 }
-#app.is-full.is-full .deck-prev {
-  order: 2;
-}
-#app.is-full.is-full .deck-next {
-  order: 4;
-}
+/* The pattern: a box, square, the bar's full height, its notation and name and a ▴, a rule on its right. */
 #app.is-full.is-full .deck-full-name {
-  order: 3;
+  order: 1;
   display: flex;
-  align-items: baseline;
+  align-items: center;
   gap: 10px;
-  min-width: 0;
-  flex: 0 1 auto;
+  align-self: stretch;
+  /* All the width the controls leave (v6.10 1.7); wraps the controls under it only below 120 px. */
+  min-width: 120px;
+  flex: 1 1 0;
   min-height: 40px;
-  padding: 2px 8px;
-  border-radius: 8px;
+  margin: 0;
+  padding: 0 16px;
+  border: 0;
+  border-right: 1px solid var(--rule);
+  border-radius: 0;
+  background: var(--raised);
   text-align: left;
   cursor: pointer;
 }
 #app.is-full.is-full .deck-full-name:hover {
-  background: var(--raised) !important;
+  background: var(--chip-edge) !important;
+}
+.deck-full-caret {
+  flex: none;
+  color: var(--muted);
+  font-size: 15px;
+  line-height: 1;
+}
+/* The wheel open takes the pattern's place: the band shows it. */
+#app.full-pick.full-pick .deck-full-name {
+  display: none;
 }
 .deck-full-notation {
   min-width: 0;
@@ -148,18 +160,24 @@
   text-overflow: ellipsis;
   white-space: pre;
   font: 500 16px var(--font-mono);
+  color: var(--accent);
 }
 .deck-full-name.invalid .deck-full-notation {
   color: var(--warn);
 }
 .deck-full-title {
-  flex: none;
+  flex: 0 1 auto;
+  min-width: 0;
+  overflow: hidden;
   display: flex;
   white-space: pre;
   font-size: 14px;
   color: var(--text);
 }
 .deck-full-label {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
   font-weight: 600;
 }
 .deck-full-balls {
@@ -172,16 +190,17 @@
 .deck-full-name.invalid .deck-full-meta {
   color: var(--warn-text);
 }
-#app.is-full-no-balls .deck-full-balls {
+/* mount-deck.ts (fitFullName) drops the ball count only once the notation no longer fits beside it. */
+.deck-full-name.is-short .deck-full-balls {
   display: none;
 }
 
 /* Listen for on a finger: three buttons at the row's right end. */
 #app.is-full.is-full.is-coarse .deck-listen {
-  order: 5;
+  order: 3;
   display: flex;
   gap: 1px;
-  margin-left: auto;
+  margin-left: 0;
 }
 #app.is-full.is-full .deck-listen-label {
   display: none;
@@ -214,7 +233,7 @@
 
 /* Listen for on a keyboard: ← → beside the readout, and the keys at the right. */
 #app.is-full.is-full.is-full-caps .deck-full-listen {
-  order: 5;
+  order: 3;
   display: flex;
   align-items: center;
   gap: 8px;
@@ -231,49 +250,170 @@
   font-weight: 600;
 }
 #app.is-full.is-full.is-full-caps .deck-full-keys {
-  order: 6;
+  order: 4;
   display: flex;
   align-items: center;
   gap: 20px;
-  margin-left: auto;
+  margin-left: 20px;
   font-size: 13px;
   color: var(--muted);
 }
 
-/* Two rows (the phone upright): Play and the name on the first, Listen for across the second. */
+/* Two rows (the phone upright): the pattern box across the first, Play and Listen for the second. */
 #app.is-full.is-full.is-full-two-rows .deck-bar {
   display: grid;
-  grid-template-columns: auto auto minmax(0, 1fr) auto;
+  grid-template-columns: auto minmax(0, 1fr);
   grid-auto-rows: var(--full-row-stacked);
   align-items: center;
   gap: 0 8px;
   min-height: 0;
-  padding: 0 12px;
-}
-#app.is-full.is-full.is-full-two-rows .deck-play {
-  grid-area: 1 / 1;
-}
-#app.is-full.is-full.is-full-two-rows .deck-prev {
-  grid-area: 1 / 2;
+  padding: 0;
 }
 #app.is-full.is-full.is-full-two-rows .deck-full-name {
-  grid-area: 1 / 3;
+  grid-area: 1 / 1 / 2 / -1;
+  align-self: stretch;
+  border-right: 0;
+  border-bottom: 1px solid var(--rule);
 }
-#app.is-full.is-full.is-full-two-rows .deck-next {
-  grid-area: 1 / 4;
+#app.is-full.is-full.is-full-two-rows .deck-play {
+  grid-area: 2 / 1;
+  margin: 0 0 0 12px;
 }
 #app.is-full.is-full.is-full-two-rows .deck-listen,
 #app.is-full.is-full.is-full-two-rows .deck-full-listen {
-  grid-column: 1 / -1;
-  margin: 0;
+  grid-area: 2 / 2;
+  margin: 0 12px 0 0;
 }
 #app.is-full.is-full.is-full-two-rows .deck-full-keys {
   grid-column: 1 / -1;
-  margin: 0;
+  margin: 0 12px;
   justify-content: space-between;
 }
 #app.is-full.is-full.is-full-two-rows.is-coarse .deck-bar .deck-listen-option {
   flex: 1 1 0;
   min-width: 0;
   padding: 0 4px;
+}
+/* The wheel open: the box is gone, so Play and Listen for are the one row. */
+#app.full-pick.full-pick.is-full-two-rows .deck-play,
+#app.full-pick.full-pick.is-full-two-rows .deck-listen,
+#app.full-pick.full-pick.is-full-two-rows .deck-full-listen {
+  grid-row: 1;
+}
+
+/* -------------------------------------------------------------------------------------------
+   The wheel open in full view (docs/plans/v6-10-pick-in-full-view.md). One picker, the one the
+   page has: the filters wrap, the drum is the phone's. mount-deck.ts (placeFullPick) sets
+   .full-pick and, from where it goes (pickMode in full-view-model.ts), .full-pick-left, -top or
+   -pop, and --pick-square and --pick-side in px. The stage's box (the jugglers) becomes a square;
+   the strip and the bar keep the full width under both.
+   ------------------------------------------------------------------------------------------- */
+#app.full-pick.full-pick .deck-picker {
+  display: flex;
+  flex-direction: column;
+  position: relative;
+  z-index: 5;
+  min-width: 0;
+  min-height: 0;
+  margin: 0;
+  border: 0;
+  border-radius: 0;
+  overflow: hidden;
+  background: var(--surface);
+}
+/* The chips sit on top and wrap: BALLS and JUGGLERS on one line where they fit, one group per
+   line where not. The upright card's stacked groups give way to a label beside its chips. */
+#app.full-pick.full-pick .deck-picker .deck-filters {
+  order: -1;
+  flex: none;
+  flex-wrap: wrap;
+  align-content: flex-start;
+  align-items: center;
+  gap: 4px 20px;
+  height: auto;
+  padding: 5px 14px;
+  border-top: 0;
+  border-bottom: 1px solid var(--rule);
+}
+#app.full-pick.full-pick .deck-picker .deck-filter-group {
+  flex: none;
+  flex-direction: row;
+  align-items: center;
+  gap: 4px;
+}
+#app.full-pick.full-pick .deck-picker .deck-filter-label {
+  align-self: center;
+  margin: 0 4px 0 0;
+  font-size: 11px;
+  line-height: 1;
+}
+#app.full-pick.full-pick .deck-picker .deck-filter-chips {
+  display: flex;
+  gap: 4px;
+}
+#app.full-pick.full-pick .deck-picker .deck-filter {
+  width: var(--pick-chip);
+  height: var(--pick-chip);
+  aspect-ratio: auto;
+  font-size: 14px;
+}
+/* The drum sits in the middle of what the filters leave. */
+#app.full-pick.full-pick .deck-picker .deck-wheel {
+  flex: none;
+  margin: auto 0;
+  border-bottom: 1px solid var(--rule);
+}
+/* Rows a little wider than the card's: the picker has the room. */
+#app.full-pick.full-pick .deck-picker .deck-row {
+  gap: 12px;
+  padding: 0 16px;
+}
+
+/* Landscape: the wheel at the left, full height; the jugglers in the largest square at the right. */
+#app.full-pick-left.full-pick-left .play-view {
+  grid-template-columns: var(--pick-side) minmax(0, 1fr);
+  grid-template-rows: minmax(0, 1fr) auto auto;
+  grid-template-areas: 'wheel stage' 'strip strip' 'bar bar';
+}
+#app.full-pick-left.full-pick-left .deck-picker {
+  grid-area: wheel;
+  border-right: 1px solid var(--rule);
+}
+
+/* Tall and wide (the iPad in portrait): the jugglers up into a square at the top, centred; the wheel across the full width under it. */
+#app.full-pick-top.full-pick-top .play-view {
+  grid-template-columns: minmax(0, 1fr) var(--pick-square) minmax(0, 1fr);
+  grid-template-rows: var(--pick-square) minmax(0, 1fr) auto auto;
+  grid-template-areas: '. stage .' 'wheel wheel wheel' 'strip strip strip' 'bar bar bar';
+}
+#app.full-pick-top.full-pick-top .deck-picker {
+  grid-area: wheel;
+  border-top: 1px solid var(--rule);
+}
+
+/* Both: the stage is no box of its own, so the jugglers and the strip are the grid's. */
+#app.full-pick-left.full-pick-left .stage,
+#app.full-pick-top.full-pick-top .stage {
+  display: contents;
+}
+#app.full-pick-left.full-pick-left .region-juggler,
+#app.full-pick-top.full-pick-top .region-juggler {
+  grid-area: stage;
+  aspect-ratio: 1;
+  align-self: start;
+  min-height: 0;
+}
+#app.full-pick-left.full-pick-left .region-ladder,
+#app.full-pick-top.full-pick-top .region-ladder {
+  grid-area: strip;
+}
+
+/* A narrow tall screen (the phone upright): the stage stays; the wheel pops up from the bar over its foot, nearly the full width. */
+#app.full-pick-pop.full-pick-pop .deck-picker {
+  grid-area: stage;
+  align-self: end;
+  margin: 0 var(--deck-card-margin) var(--pick-pop-gap);
+  border: 1px solid var(--rule);
+  border-radius: var(--deck-card-radius);
+  box-shadow: 0 8px 28px rgb(0 0 0 / 0.5);
 }
