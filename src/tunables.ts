@@ -820,4 +820,12 @@ export const FULL = {
   pickPopGapPx: 6,
   /** A filter chip's side in the wheel open in full view (a finger's size). */
   pickChipPx: 30,
+  /** The filters' padding in the open wheel (up and down, left and right). */
+  pickFiltersPadYPx: 5,
+  pickFiltersPadXPx: 14,
+  /** The pattern box in full view: its narrowest (under it the controls wrap), its least height, its side padding, and the ▴'s size. */
+  nameMinPx: 120,
+  nameMinHeightPx: 40,
+  namePadPx: 16,
+  caretPx: 15,
 } as const;

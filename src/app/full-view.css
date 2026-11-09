@@ -129,11 +129,11 @@
   gap: 10px;
   align-self: stretch;
   /* All the width the controls leave (v6.10 1.7); wraps the controls under it only below 120 px. */
-  min-width: 120px;
+  min-width: var(--full-name-min);
   flex: 1 1 0;
-  min-height: 40px;
+  min-height: var(--full-name-min-h);
   margin: 0;
-  padding: 0 16px;
+  padding: 0 var(--full-name-pad);
   border: 0;
   border-right: 1px solid var(--rule);
   border-radius: 0;
@@ -147,7 +147,7 @@
 .deck-full-caret {
   flex: none;
   color: var(--muted);
-  font-size: 15px;
+  font-size: var(--full-caret);
   line-height: 1;
 }
 /* The wheel open takes the pattern's place: the band shows it. */
@@ -331,7 +331,7 @@
   align-items: center;
   gap: 4px 20px;
   height: auto;
-  padding: 5px 14px;
+  padding: var(--pick-filters-pad);
   border-top: 0;
   border-bottom: 1px solid var(--rule);
 }

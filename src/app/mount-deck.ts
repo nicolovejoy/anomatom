@@ -228,7 +228,8 @@ export const mountDeck: Mount = (root, { store, player, sound }) => {
    * last row, past the cards (stepIndex).
    */
   const step = (delta: -1 | 1) => {
-    const i = stepIndex(current(), delta, order.length, restOwn && docked());
+    // The wide layout's list ends with Make your own (docked() also holds for the wheel open in full view: that is no layout).
+    const i = stepIndex(current(), delta, order.length, restOwn && dockedQuery.matches);
     if (i === null) return;
     choose(i);
     // The card may be on stage already (↑ from Make your own): the band still goes to it.
@@ -1120,12 +1121,13 @@ export const mountDeck: Mount = (root, { store, player, sound }) => {
   const sideColumn = $<HTMLDivElement>('.deck-bar');
   document.addEventListener('pointerdown', (e) => {
     const target = e.target as Node;
-    // In full view a tap on the jugglers or anywhere outside the wheel closes it (v6.10 section 1.6);
-    // the stage's own buttons do their work with it open (⤡ leaves, 2D and Reset view act), since
-    // the wheel closing could move the one under the finger.
+    // In full view a tap on the jugglers or anywhere outside the wheel closes it (v6.10 section 1.6),
+    // except the bar's own controls, which stay for use with the wheel open (Play, Listen for and its
+    // readout: coordinator ruling 9), and the stage's buttons (⤡ leaves, 2D and Reset view act),
+    // since the wheel closing could move the one under the finger.
     if (inFull()) {
-      const stageButton = target instanceof Element && target.closest('.juggler-switch, .juggler-reset, .juggler-full') !== null;
-      if (fullPick && !picker.contains(target) && !stageButton) closeWheel();
+      const kept = target instanceof Element && target.closest('.juggler-switch, .juggler-reset, .juggler-full, .deck-bar') !== null;
+      if (fullPick && !picker.contains(target) && !kept) closeWheel();
       return;
     }
     if (docked() || picker.contains(target)) return;

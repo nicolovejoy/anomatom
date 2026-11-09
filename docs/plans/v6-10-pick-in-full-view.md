@@ -83,6 +83,13 @@ or above them, or two copies of the pattern's name on screen at once.
    once (the menu's rule). **Scroll-to-turn is dropped:** a scroll of the wheel only browses and
    picks nothing, as the docked menu's does. This amends 1.6's "turning the wheel changes the
    pattern as it settles" and section 2 ruling 1's "overlay mode".
+9. **The bar's controls stay usable with the wheel open (coordinator, 2026-11-09, review of #162,
+   Nico's call to follow).** Section 1.3 keeps Play and Listen for in the bar while the wheel is open
+   so they can be used while browsing; a tap on Play, a Listen for button or the ← → readout must
+   not close the wheel. The pointerdown close exempts everything in the deck bar, as it does the
+   stage's ⤡, 2D and Reset view buttons. Any other tap outside the wheel still closes it (1.6).
+   Also: Make your own's slot at the end of the wide layout's list is keyed on the wide layout
+   itself, not on the wheel being a menu in full view.
 
 ## 3. The final mock, in words
 

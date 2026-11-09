@@ -426,3 +426,42 @@ test.describe('the pattern box takes the width the controls leave (v6.10 1.7)', 
     });
   });
 });
+
+// The bar's controls stay usable with the wheel open (plan ruling 9): a tap on Play or a Listen for
+// button neither closes the wheel nor is lost to it.
+for (const [name, viewport] of [
+  ['390×844', { width: 390, height: 844 }],
+  ['1180×820', { width: 1180, height: 820 }],
+] as const) {
+  test.describe(`at ${name}, a finger, with the wheel open`, () => {
+    test.use({ viewport, hasTouch: true });
+    test('Play and Listen for work and leave the wheel open', async ({ page, browserName }) => {
+      await openFull(page, browserName, true);
+      await nameBox(page).tap();
+      await expectOpen(page);
+      await page.locator('#play').tap();
+      await expect(page.locator('#play')).toHaveAttribute('data-state', 'playing');
+      await expect(picker(page)).toBeVisible();
+      await page.locator('.deck-listen-option[data-listen="pitch"]').tap();
+      await expect(page.locator('.deck-listen-option[data-listen="pitch"]')).toHaveAttribute('aria-pressed', 'true');
+      await expect.poll(() => hash(page)).toContain('~pitch');
+      await expect(picker(page)).toBeVisible();
+      await inFull(page);
+      // A tap outside the bar still closes it.
+      await page.touchscreen.tap(viewport.width / 2, 60);
+      await expect(picker(page)).toBeHidden();
+    });
+  });
+}
+
+test.describe('at 1440×900, with the wheel open', () => {
+  test.use({ viewport: { width: 1440, height: 900 } });
+  test('Play leaves the wheel open', async ({ page, browserName }) => {
+    await openFull(page, browserName, false);
+    await nameBox(page).click();
+    await expectOpen(page);
+    await page.locator('#play').click();
+    await expect(page.locator('#play')).toHaveAttribute('data-state', 'playing');
+    await expect(picker(page)).toBeVisible();
+  });
+});

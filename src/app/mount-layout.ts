@@ -37,6 +37,11 @@ export const mountLayout: Mount = (app, { store }) => {
   app.style.setProperty('--full-row-stacked', `${FULL.rowStackedPx}px`);
   app.style.setProperty('--pick-chip', `${FULL.pickChipPx}px`);
   app.style.setProperty('--pick-pop-gap', `${FULL.pickPopGapPx}px`);
+  app.style.setProperty('--pick-filters-pad', `${FULL.pickFiltersPadYPx}px ${FULL.pickFiltersPadXPx}px`);
+  app.style.setProperty('--full-name-min', `${FULL.nameMinPx}px`);
+  app.style.setProperty('--full-name-min-h', `${FULL.nameMinHeightPx}px`);
+  app.style.setProperty('--full-name-pad', `${FULL.namePadPx}px`);
+  app.style.setProperty('--full-caret', `${FULL.caretPx}px`);
   function renderFull() {
     const layout = rowLayout(app.clientWidth, coarse.matches);
     app.classList.toggle('is-coarse', coarse.matches);
