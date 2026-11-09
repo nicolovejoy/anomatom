@@ -7,6 +7,8 @@ on:
 jobs:
   test:
     runs-on: ubuntu-latest
+    # Runs take about a minute; a hung step must not hold the job for GitHub's six hours (#146).
+    timeout-minutes: 10
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -20,6 +22,9 @@ jobs:
 
   e2e:
     runs-on: ubuntu-latest
+    # Runs take 20 to 26 minutes (the slowest of the last 30 CI runs, 26); about twice that.
+    # One run sat in the Playwright step for 66 minutes (#146).
+    timeout-minutes: 50
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4

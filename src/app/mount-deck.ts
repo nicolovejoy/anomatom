@@ -437,7 +437,7 @@ export const mountDeck: Mount = (root, { store, player, sound }) => {
    * band is already on it: markRows). On a phone the drum turns to it; a smooth scroll issued
    * returns true, so the settle can ask for it again.
    */
-  function scrollToRow(row: number, smooth: boolean): boolean {
+  function scrollToRow(row: number, smooth: boolean, evenOnRow = false): boolean {
     if (wheel.hidden) return false;
     if (docked()) {
       const top = nearestTop(scrollForRow(row, rowPx), rowPx, list.scrollTop, list.clientHeight);
@@ -451,7 +451,9 @@ export const mountDeck: Mount = (root, { store, player, sound }) => {
       return false;
     }
     // The band is already on the row: nothing to scroll, whatever a pixel or two of snap says.
-    if (rowAt() === row || Math.abs(list.scrollTop - top) < 1) return false;
+    // Unless `evenOnRow`: a turn barely begun is on its row too (under half a row off), and its
+    // own scroll goes on past it.
+    if ((rowAt() === row && !evenOnRow) || Math.abs(list.scrollTop - top) < 1) return false;
     list.scrollTo({ top, behavior: 'smooth' });
     return true;
   }
@@ -492,9 +494,13 @@ export const mountDeck: Mount = (root, { store, player, sound }) => {
   /** Turns the phone's band to `row` as the page's own goal: asked for again until it is there, and never a pick. */
   function seekBand(row: number) {
     keyTries = 0;
-    seekRow = scrollToRow(row, true) ? row : null;
+    // Asked for even when the band is on the row already, and kept as the goal when no scroll was
+    // needed (issues 150, 157): Escape or Details in the first half row of a turn finds the band
+    // still home, and the drum's own scroll goes on past it afterwards. The scroll issued here
+    // stops that one where it can; the settle brings the band back where it cannot.
+    scrollToRow(row, true, true);
+    seekRow = row;
     clearTimeout(seekTimer);
-    if (seekRow === null) return;
     seekTimer = setTimeout(() => (seekRow = null), DECK.settleMs * DECK.keySettleTries);
     // The settle asks for the goal again even if no scroll comes (issue 139): shrunk in the same
     // task, the drum's re-snap to the row it holds can cancel the smooth scroll before it moves,
