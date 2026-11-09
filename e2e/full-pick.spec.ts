@@ -26,6 +26,11 @@ const hash = (page: Page) => page.evaluate(() => location.hash);
 
 /** Opens `#3` in full view, the 3D view drawn. */
 async function openFull(page: Page, browserName: string, touch: boolean) {
+  // These test the layout, not the browser's fullscreen: WebKit grants it headless and then takes
+  // the first Escape to leave it (which leaves full view with the wheel still open), so it is withheld.
+  await page.addInitScript(() => {
+    for (const name of ['requestFullscreen', 'webkitRequestFullscreen']) Object.defineProperty(Element.prototype, name, { value: undefined, configurable: true });
+  });
   await page.goto('/#3');
   await needWebGL(page, browserName);
   await expect(page.locator('.region-juggler')).toHaveAttribute('data-view', '3d');
