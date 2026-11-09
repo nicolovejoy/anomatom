@@ -6,9 +6,14 @@ import { expect, needWebGL, test, type Page } from './fixtures';
 
 declare global {
   interface Window {
-    __fs: { requests: number; exits: number; on: boolean };
+    __fs: { requests: number; exits: number; on: boolean; hold: boolean; queue: (() => void)[] };
   }
 }
+
+/** Holds the browser's answers until `land` lets the oldest one through. */
+const hold = (page: Page) => page.evaluate(() => void (window.__fs.hold = true));
+const land = (page: Page) => page.evaluate(() => window.__fs.queue.shift()!());
+const isOn = (page: Page) => page.evaluate(() => window.__fs.on);
 
 const app = (page: Page) => page.locator('#app');
 const full = (page: Page) => page.locator('.juggler-full');
@@ -18,20 +23,26 @@ const counts = (page: Page) => page.evaluate(() => ({ requests: window.__fs.requ
 
 test.beforeEach(async ({ page }) => {
   await page.addInitScript(() => {
-    const fs = { requests: 0, exits: 0, on: false };
+    const fs = { requests: 0, exits: 0, on: false, hold: false, queue: [] as (() => void)[] };
     window.__fs = fs;
-    const change = () => document.dispatchEvent(new Event('fullscreenchange'));
+    // The browser's answer: fullscreen on or off, then fullscreenchange. With `hold` it waits in
+    // `queue` until a test lands it, as a real browser's does some frames after the call.
+    const answer = (on: boolean) => {
+      const land = () => {
+        fs.on = on;
+        document.dispatchEvent(new Event('fullscreenchange'));
+      };
+      if (fs.hold) fs.queue.push(land);
+      else queueMicrotask(land);
+      return Promise.resolve();
+    };
     const request = () => {
       fs.requests += 1;
-      fs.on = true;
-      queueMicrotask(change);
-      return Promise.resolve();
+      return answer(true);
     };
     const exit = () => {
       fs.exits += 1;
-      fs.on = false;
-      queueMicrotask(change);
-      return Promise.resolve();
+      return answer(false);
     };
     Element.prototype.requestFullscreen = request;
     (Element.prototype as unknown as Record<string, unknown>).webkitRequestFullscreen = request;
@@ -109,4 +120,44 @@ test('a refused request leaves full view standing and says nothing', async ({ pa
   await inFull(page);
   await page.waitForTimeout(200);
   expect(errors).toEqual([]);
+});
+
+test('⤢ then ⤡ before fullscreen lands: it lands, then leaves at once, and full view stays off', async ({ page }) => {
+  await page.goto('/#3');
+  await hold(page);
+  await full(page).click();
+  await inFull(page);
+  await full(page).click();
+  await outOfFull(page);
+  expect(await counts(page)).toEqual({ requests: 1, exits: 0 });
+  await land(page); // the request lands after ⤡
+  await expect.poll(() => counts(page)).toEqual({ requests: 1, exits: 1 });
+  await land(page); // and the exit it caused
+  expect(await isOn(page)).toBe(false);
+  await outOfFull(page);
+});
+
+test('⤡ then ⤢ before the exit lands: its late change does not drop the new full view', async ({ page }) => {
+  await page.goto('/#3');
+  await full(page).click();
+  await inFull(page);
+  await hold(page);
+  await full(page).click(); // ⤡: the exit waits
+  await outOfFull(page);
+  await full(page).click(); // ⤢ again: the request waits
+  await inFull(page);
+  expect(await counts(page)).toEqual({ requests: 2, exits: 1 });
+  await land(page); // the earlier exit arrives, with no fullscreen element
+  await expect.poll(() => isOn(page)).toBe(false);
+  await inFull(page);
+  await land(page); // the new request lands
+  await expect.poll(() => isOn(page)).toBe(true);
+  await inFull(page);
+  // Engaged: the browser's own exit now does leave full view.
+  await page.evaluate(() => {
+    window.__fs.on = false;
+    document.dispatchEvent(new Event('fullscreenchange'));
+  });
+  await outOfFull(page);
+  expect(await counts(page)).toEqual({ requests: 2, exits: 1 });
 });

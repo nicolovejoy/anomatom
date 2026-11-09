@@ -19,11 +19,37 @@ export function fullscreenElementOf<T>(host: Record<string, unknown>, props: rea
   return null;
 }
 
-/** Whether a click on ⤢ asks for fullscreen: entering, from a click only (a drag has no user activation). */
-export const asksFullscreen = (fromClick: boolean, entering: boolean): boolean => fromClick && entering;
+/**
+ * Whether we asked for fullscreen and where it stands: 'pending' from the ⤢ click until the browser
+ * answers with a fullscreenchange, 'engaged' once fullscreen is on, 'idle' otherwise (also when the
+ * fullscreen on is not ours: a drag that entered full view never asks).
+ */
+export type Ask = 'idle' | 'pending' | 'engaged';
 
 /** Whether full view going from `previous` to `full` leaves fullscreen too: it went off while fullscreen is on. */
 export const leavesFullscreen = (full: boolean, previous: boolean, fullscreenOn: boolean): boolean => previous && !full && fullscreenOn;
 
-/** Whether a fullscreenchange leaves full view: the browser's own exit (Esc, Safari's) while full view is on. */
-export const leavesFullView = (full: boolean, fullscreenOn: boolean): boolean => full && !fullscreenOn;
+/** A refused request: nothing is pending any more, and no fullscreenchange will say so. */
+export const refused = (ask: Ask): Ask => (ask === 'pending' ? 'idle' : ask);
+
+/** What a fullscreenchange asks of the page. */
+export interface Change {
+  readonly ask: Ask;
+  /** Leave fullscreen: it engaged after full view had already gone off (⤢ then ⤡ before it landed). */
+  readonly exit: boolean;
+  /** Leave full view: the browser's own exit (Esc, Safari's) while full view is on. */
+  readonly leaveFullView: boolean;
+}
+
+/**
+ * Fullscreen is `on` after a fullscreenchange, with full view `full`. While a request is pending a
+ * change with nothing on is an earlier exit arriving late, not the reader leaving, so it is ignored.
+ */
+export function onFullscreenChange(ask: Ask, full: boolean, on: boolean): Change {
+  if (on) {
+    if (ask === 'pending' && !full) return { ask: 'idle', exit: true, leaveFullView: false };
+    return { ask: ask === 'pending' ? 'engaged' : ask, exit: false, leaveFullView: false };
+  }
+  if (ask === 'pending') return { ask, exit: false, leaveFullView: false };
+  return { ask: 'idle', exit: false, leaveFullView: full };
+}

@@ -25,7 +25,7 @@ import { cameraHook, defaultOrbit, keepOrbit, type Orbit } from '../view/camera3
 import { captions, describeScene, easeFraming, framingCentre, targetFraming, type Framing } from '../view/scene3d';
 import type { PlayerView } from '../view/types';
 import { createGesture, fullViewEntry, type EntryKind } from './full-view-model';
-import { asksFullscreen, ELEMENT_PROPS, EXIT_METHODS, firstMethod, fullscreenElementOf, leavesFullscreen, leavesFullView, REQUEST_METHODS } from './fullscreen-model';
+import { ELEMENT_PROPS, EXIT_METHODS, firstMethod, fullscreenElementOf, leavesFullscreen, onFullscreenChange, refused, REQUEST_METHODS, type Ask } from './fullscreen-model';
 import { hintShows, hintStart, hintStep, type HintEvent } from './turn-hint-model';
 import { drawJuggler } from './juggler-canvas';
 import type { Juggler3D } from './juggler-3d.browser';
@@ -139,29 +139,41 @@ export const mountJuggler: Mount = (root, { store }) => {
   // and gets the layout alone. Only the ⤢ click asks, inside its handler so the user activation counts;
   // a stage gesture has none. A refused request is dropped without a word.
   const fullscreenOn = () => fullscreenElementOf(document as unknown as Record<string, unknown>, ELEMENT_PROPS) !== null;
-  const call = (host: object, names: readonly string[]) => {
+  // `ask` remembers that we asked, so a quick ⤢ then ⤡ (fullscreen lands after full view went off)
+  // still exits, and an earlier exit's late fullscreenchange does not undo a newer request.
+  let ask: Ask = 'idle';
+  const call = (host: object, names: readonly string[], onRefused?: () => void) => {
     const name = firstMethod(host, names);
     if (name === null) return;
     try {
       const result = (host as Record<string, () => unknown>)[name]!();
-      if (result instanceof Promise) result.catch(() => {});
+      if (result instanceof Promise) result.catch(() => onRefused?.());
     } catch {
-      // No fullscreen is not an error the reader needs told.
+      onRefused?.();
     }
+  };
+  const leaveFullscreen = () => {
+    ask = 'idle';
+    call(document, EXIT_METHODS);
   };
   full.addEventListener('click', () => {
     const entering = !store.get().full;
     store.set({ full: entering });
-    if (asksFullscreen(true, entering)) call(document.documentElement, REQUEST_METHODS);
+    if (!entering) return;
+    ask = 'pending';
+    call(document.documentElement, REQUEST_METHODS, () => (ask = refused(ask)));
   });
   store.subscribe((state, previous) => {
     if (state.full === previous.full) return;
     dressFull();
-    if (leavesFullscreen(state.full, previous.full, fullscreenOn())) call(document, EXIT_METHODS);
+    if (leavesFullscreen(state.full, previous.full, fullscreenOn())) leaveFullscreen();
   });
   for (const type of ['fullscreenchange', 'webkitfullscreenchange']) {
     document.addEventListener(type, () => {
-      if (leavesFullView(store.get().full, fullscreenOn())) store.set({ full: false });
+      const change = onFullscreenChange(ask, store.get().full, fullscreenOn());
+      ask = change.ask;
+      if (change.exit) leaveFullscreen();
+      if (change.leaveFullView) store.set({ full: false });
     });
   }
   // A drag, a second finger or a wheel tick on the 3D canvas enters full view and still turns or

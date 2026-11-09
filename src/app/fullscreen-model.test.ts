@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'vitest';
-import { asksFullscreen, ELEMENT_PROPS, EXIT_METHODS, firstMethod, fullscreenElementOf, leavesFullscreen, leavesFullView, REQUEST_METHODS } from './fullscreen-model';
+import { ELEMENT_PROPS, EXIT_METHODS, firstMethod, fullscreenElementOf, leavesFullscreen, onFullscreenChange, refused, REQUEST_METHODS } from './fullscreen-model';
 
 describe('firstMethod', () => {
   test('prefers the standard method', () => {
@@ -26,14 +26,6 @@ describe('fullscreenElementOf', () => {
   });
 });
 
-describe('asksFullscreen', () => {
-  test('only a click that enters asks', () => {
-    expect(asksFullscreen(true, true)).toBe(true);
-    expect(asksFullscreen(true, false)).toBe(false);
-    expect(asksFullscreen(false, true)).toBe(false);
-  });
-});
-
 describe('leavesFullscreen', () => {
   test('full view going off while fullscreen is on leaves it', () => {
     expect(leavesFullscreen(false, true, true)).toBe(true);
@@ -45,12 +37,37 @@ describe('leavesFullscreen', () => {
   });
 });
 
-describe('leavesFullView', () => {
-  test('the browser exiting fullscreen while full view is on leaves full view', () => {
-    expect(leavesFullView(true, false)).toBe(true);
+describe('refused', () => {
+  test('a pending request is over', () => {
+    expect(refused('pending')).toBe('idle');
   });
-  test('entering fullscreen, or full view already off, does nothing', () => {
-    expect(leavesFullView(true, true)).toBe(false);
-    expect(leavesFullView(false, false)).toBe(false);
+  test('an engaged fullscreen is not undone by an older refusal', () => {
+    expect(refused('engaged')).toBe('engaged');
+    expect(refused('idle')).toBe('idle');
+  });
+});
+
+describe('onFullscreenChange', () => {
+  test('our request landing while full view is on engages', () => {
+    expect(onFullscreenChange('pending', true, true)).toEqual({ ask: 'engaged', exit: false, leaveFullView: false });
+  });
+  test('our request landing after full view went off (⤢ then ⤡) exits at once', () => {
+    expect(onFullscreenChange('pending', false, true)).toEqual({ ask: 'idle', exit: true, leaveFullView: false });
+  });
+  test('fullscreen that is not ours, or already engaged, is left alone', () => {
+    expect(onFullscreenChange('idle', true, true)).toEqual({ ask: 'idle', exit: false, leaveFullView: false });
+    expect(onFullscreenChange('idle', false, true)).toEqual({ ask: 'idle', exit: false, leaveFullView: false });
+    expect(onFullscreenChange('engaged', true, true)).toEqual({ ask: 'engaged', exit: false, leaveFullView: false });
+  });
+  test('an exit arriving late while a newer request is pending changes nothing', () => {
+    expect(onFullscreenChange('pending', true, false)).toEqual({ ask: 'pending', exit: false, leaveFullView: false });
+    expect(onFullscreenChange('pending', false, false)).toEqual({ ask: 'pending', exit: false, leaveFullView: false });
+  });
+  test("the browser's own exit leaves full view when it is on", () => {
+    expect(onFullscreenChange('engaged', true, false)).toEqual({ ask: 'idle', exit: false, leaveFullView: true });
+    expect(onFullscreenChange('idle', true, false)).toEqual({ ask: 'idle', exit: false, leaveFullView: true });
+  });
+  test('an exit after full view went off leaves nothing to do', () => {
+    expect(onFullscreenChange('idle', false, false)).toEqual({ ask: 'idle', exit: false, leaveFullView: false });
   });
 });
