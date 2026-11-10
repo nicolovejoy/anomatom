@@ -200,7 +200,10 @@ test.describe('at 390×844, by real touch', () => {
     expect((await camera(page)).azimuth).not.toBe(0);
     expect(await page.evaluate(() => window.scrollY)).toBe(scrollY);
     await page.waitForTimeout(600);
-    expect(await page.evaluate(() => [...(window as unknown as { seen: Set<string> }).seen])).toEqual([]);
+    // The card never grows and the page never scrolls. v6.10: the drag enters full view, where the
+    // card is hidden and reads as not upright (v6.10 ruling 1), so its phase may close to 'rest'.
+    const seen = await page.evaluate(() => [...(window as unknown as { seen: Set<string> }).seen]);
+    expect(seen.filter((s) => s !== 'rest')).toEqual([]);
     // v6.9: the drag also enters full view, which hides the card; ⤡ brings it back as it was, compact.
     await expect(page.locator('#app')).toHaveClass(/(^|\s)is-full(\s|$)/);
     await shot(page, 'orbit-turned-390x844');
