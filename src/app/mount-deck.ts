@@ -25,7 +25,7 @@
 // select hands focus to Play after a choice, so the keys work again at once. Every step stops at
 // the ends (v6.2 ruling 2).
 import { LISTENS, type Listen } from '../sound/drummers';
-import { DECK, KNOBS, SHEET } from '../tunables';
+import { DECK, FULL, KNOBS, SHEET } from '../tunables';
 import { copy } from '../ui/copy';
 import {
   deckLabel,
@@ -66,7 +66,7 @@ import {
 } from './deck-model';
 import { cardPattern, presetPatch } from './first-minute';
 import type { Preset } from './presets';
-import { leaveKey, nameTap } from './full-view-model';
+import { keepsBalls, leaveKey, pickMode, pickPlace, pickScrollTop } from './full-view-model';
 import { deckKey, nextListen, webMedia } from './layout-model';
 import type { Mount } from './mount';
 import { route } from './route';
@@ -107,7 +107,7 @@ export const mountDeck: Mount = (root, { store, player, sound }) => {
         ).join('')}
       </div>
       <button type="button" class="deck-arrow deck-prev" aria-label="${t.previous}">${chevron(true)}</button>
-      <button type="button" class="deck-full-name"><code class="deck-full-notation"></code><span class="deck-full-title"><span class="deck-full-label"></span><span class="deck-full-balls"><span class="deck-full-dot">${t.dot}</span><span class="deck-full-meta"></span></span></span></button>
+      <button type="button" class="deck-full-name"><code class="deck-full-notation"></code><span class="deck-full-title"><span class="deck-full-label"></span><span class="deck-full-balls"><span class="deck-full-dot">${t.dot}</span><span class="deck-full-meta"></span></span></span><span class="deck-full-caret" aria-hidden="true">${t.pickCaret}</span></button>
       <button type="button" class="deck-pattern">
         <code class="deck-notation"></code>
         <span class="deck-line"><span class="deck-sub"><span class="deck-name"></span><span class="deck-dot">${t.dot}</span><span class="deck-meta"></span></span><span id="pending" class="deck-pending" hidden>${copy.nextCycle}</span></span>
@@ -152,6 +152,7 @@ export const mountDeck: Mount = (root, { store, player, sound }) => {
   const fullName = $<HTMLButtonElement>('.deck-full-name');
   const fullNotation = $<HTMLElement>('.deck-full-notation');
   const fullLabel = $<HTMLElement>('.deck-full-label');
+  const fullTitle = $<HTMLElement>('.deck-full-title');
   const fullDot = $<HTMLElement>('.deck-full-dot');
   const fullMeta = $<HTMLElement>('.deck-full-meta');
   const fullReadout = $<HTMLElement>('.deck-full-readout');
@@ -227,7 +228,8 @@ export const mountDeck: Mount = (root, { store, player, sound }) => {
    * last row, past the cards (stepIndex).
    */
   const step = (delta: -1 | 1) => {
-    const i = stepIndex(current(), delta, order.length, restOwn && docked());
+    // The wide layout's list ends with Make your own (docked() also holds for the wheel open in full view: that is no layout).
+    const i = stepIndex(current(), delta, order.length, restOwn && dockedQuery.matches);
     if (i === null) return;
     choose(i);
     // The card may be on stage already (↑ from Make your own): the band still goes to it.
@@ -258,15 +260,23 @@ export const mountDeck: Mount = (root, { store, player, sound }) => {
   const dockedQuery = window.matchMedia(webMedia(SHEET.wideMinWidthPx, DECK.dockedMinHeightPx));
   // A bare address opens with the wheel open on a phone, so a first visit sees the patterns.
   let wheelOpen = location.hash === '' || location.hash === '#';
-  const docked = () => dockedQuery.matches;
-  /** Docked, the wheel shows with the Patterns panel; on a phone upright always (v6.6), else while opened. */
-  const wheelShown = () => (docked() ? store.get().panel === 'patterns' : upright() || wheelOpen);
+  // Full view (docs/plans/v6-10-pick-in-full-view.md, ruling 1): the one wheel opens in it from the
+  // pattern box. It is the docked menu (the coordinator's ruling of 2026-11-09: rows top aligned,
+  // the band on the chosen row, no blank half-rows), so `docked()` holds while it is open; the
+  // wide layout's own docking (`wide()`) and the upright card read as off in full view.
+  // `fullPick`: the wheel is open in full view; UI state like `wheelOpen`, never in the link.
+  let fullPick = false;
+  const inFull = () => store.get().full;
+  const wide = () => dockedQuery.matches && !inFull();
+  const docked = () => wide() || (inFull() && fullPick);
+  /** Docked, the wheel shows with the Patterns panel; on a phone upright always (v6.6); in full view while picked; else while opened. */
+  const wheelShown = () => (inFull() ? fullPick : docked() ? store.get().panel === 'patterns' : upright() || wheelOpen);
 
   // The pattern button sits in the bar, between ‹ and ›; on the wide layout, in the top bar.
   const topSlot = document.querySelector('.topbar-pattern');
   const nextButton = $<HTMLButtonElement>('.deck-next');
   function placePattern() {
-    if (docked() && topSlot) {
+    if (dockedQuery.matches && topSlot) {
       if (patternButton.parentElement !== topSlot) topSlot.append(patternButton);
     } else if (patternButton.nextElementSibling !== nextButton) nextButton.before(patternButton);
   }
@@ -282,14 +292,14 @@ export const mountDeck: Mount = (root, { store, player, sound }) => {
     showEditor();
   }
   function showEditor() {
-    app.classList.toggle('deck-editor-hidden', docked() && !editorShown);
+    app.classList.toggle('deck-editor-hidden', wide() && !editorShown);
     if (docked() && !wheel.hidden) placeWheel();
   }
 
   /** A phone held upright: the deck on top, the wheel a card that never closes (v6.6). */
   const sheet = document.querySelector<HTMLElement>('.region-sheet');
   const upright = () =>
-    !docked() && !app.classList.contains('is-web') && !app.classList.contains('is-wide') && !app.classList.contains('is-landscape');
+    !inFull() && !docked() && !app.classList.contains('is-web') && !app.classList.contains('is-wide') && !app.classList.contains('is-landscape');
 
   /**
    * Upright (v6.6 ruling 2) the card is in the page's flow, in the play view's grid (style.css):
@@ -301,6 +311,7 @@ export const mountDeck: Mount = (root, { store, player, sound }) => {
    * stays in view (wheelPlace in deck-model.ts).
    */
   function placeWheel() {
+    if (inFull() && !wheel.hidden) return placeFullPick();
     const flow = docked() || wheel.hidden || upright();
     if (flow) {
       for (const p of ['left', 'top', 'width']) picker.style.removeProperty(p);
@@ -348,6 +359,37 @@ export const mountDeck: Mount = (root, { store, player, sound }) => {
     setRows(place.rows, DECK.rowPx);
     app.style.setProperty('--wheel-pad-bottom', `${place.padBottom}px`);
     app.style.setProperty('--wheel-pad-right', `${place.padRight}px`);
+  }
+
+  /**
+   * The wheel open in full view (v6.10 rulings 1 and 2): `.full-pick-left`, `-top` or `-pop` on the
+   * app (pickMode in full-view-model.ts) say where full-view.css puts it and the jugglers, and
+   * --pick-square and --pick-side how big. Measured: the stage's height is the play view less the
+   * strip and the bar, which no choice here changes, and the filters' height from the wrapped chips
+   * at the width the wheel gets. The wheel is a grid item or, popped up, over the stage's foot. Its
+   * rows are the docked menu's (DECK.dockedRowPx), as many as the room holds and the list has.
+   */
+  function placeFullPick() {
+    for (const p of ['left', 'top', 'width']) picker.style.removeProperty(p);
+    app.style.setProperty('--wheel-pad-bottom', '0px');
+    app.style.setProperty('--wheel-pad-right', '0px');
+    picker.classList.remove('is-compact');
+    const view = root.closest('.play-view') as HTMLElement | null;
+    const strip = document.querySelector<HTMLElement>('.region-ladder');
+    if (!view || !strip) return;
+    const mode = pickMode(view.clientWidth, view.clientHeight);
+    for (const m of ['left', 'top', 'pop'] as const) app.classList.toggle(`full-pick-${m}`, m === mode);
+    const foot = parseFloat(getComputedStyle(view).paddingBottom) || 0;
+    const stageHeight = view.clientHeight - foot - strip.offsetHeight - bar.offsetHeight;
+    const lay = (filters: number) => {
+      const place = pickPlace(mode, view.clientWidth, stageHeight, filters);
+      app.style.setProperty('--pick-square', `${place.square}px`);
+      app.style.setProperty('--pick-side', `${place.side}px`);
+      setRows(Math.min(place.rows, rowCount), place.rowPx);
+    };
+    lay(DECK.filtersPx);
+    const filters = picker.querySelector<HTMLElement>('.deck-filters')?.offsetHeight ?? DECK.filtersPx;
+    if (filters !== DECK.filtersPx) lay(filters);
   }
 
   /** The sheet open on a phone (mount-sheet.ts sets the class). */
@@ -515,8 +557,11 @@ export const mountDeck: Mount = (root, { store, player, sound }) => {
     wheel.hidden = !shown;
     picker.hidden = !shown;
     app.classList.toggle('deck-docked', docked());
-    app.classList.toggle('wheel-open', shown && !docked());
-    app.classList.toggle('deck-editor-hidden', docked() && !editorShown);
+    app.classList.toggle('wheel-open', shown && !docked() && !inFull());
+    app.classList.toggle('full-pick', inFull() && shown);
+    if (!(inFull() && shown)) for (const m of ['left', 'top', 'pop']) app.classList.remove(`full-pick-${m}`);
+    fullName.setAttribute('aria-expanded', String(inFull() && shown));
+    app.classList.toggle('deck-editor-hidden', wide() && !editorShown);
     if (!shown || docked()) endPhase();
     // A docked wheel is always open: the pattern button then only takes focus to it. Upright the
     // button is hidden and nothing opens the wheel (v6.6 ruling 10).
@@ -534,6 +579,14 @@ export const mountDeck: Mount = (root, { store, player, sound }) => {
 
   /** Closes the phone wheel; upright, where it never closes, makes a grown one compact (v6.6 ruling 4). */
   const closeWheel = () => {
+    if (inFull()) {
+      if (!fullPick) return;
+      const had = picker.contains(document.activeElement);
+      fullPick = false;
+      showWheel();
+      if (had) fullName.focus();
+      return;
+    }
     if (upright()) {
       if (phase !== 'compact') shrink('close');
       return;
@@ -628,19 +681,13 @@ export const mountDeck: Mount = (root, { store, player, sound }) => {
     wheelOpen = !wheelOpen;
     showWheel();
   });
-  // The name in full view (Nico, 2026-11-08): leaves full view, then does what the pattern button does
-  // where it shows: docked, the list; upright, where the button is hidden and the card is always
-  // there, the card grows; on a phone on its side, the wheel opens (full view hid it, not closed it).
-  fullName.addEventListener('click', () => {
-    store.set({ full: false });
-    const tap = nameTap(docked(), upright());
-    if (tap === 'focus-list') focusPatterns();
-    else if (tap === 'grow-card') {
-      if (phase === 'compact') grow();
-    } else {
-      wheelOpen = true;
-      showWheel();
-    }
+  // The pattern box in full view (v6.10): opens the wheel there, beside the jugglers or over them,
+  // and full view stays. A keyboard's Enter or Space (a click with no detail) takes focus to the row.
+  fullName.setAttribute('aria-controls', 'deck-picker');
+  fullName.addEventListener('click', (e) => {
+    fullPick = true;
+    showWheel();
+    if (e.detail === 0) rows[roving]?.focus({ preventScroll: true });
   });
 
   /**
@@ -995,6 +1042,8 @@ export const mountDeck: Mount = (root, { store, player, sound }) => {
       markRows();
       // The next draw brings it into view, once the wheel has its new height.
       if (docked()) scrollWanted = true;
+      // In full view the editor is out of sight: full view leaves, as it does for Make your own (v6.10 ruling 5).
+      if (inFull()) store.set({ full: false });
       // Upright the card goes compact, its band on Make your own (v6.6 ruling 4).
       closeWheel();
       if (upright()) scrollToRow(own, true);
@@ -1072,6 +1121,15 @@ export const mountDeck: Mount = (root, { store, player, sound }) => {
   const sideColumn = $<HTMLDivElement>('.deck-bar');
   document.addEventListener('pointerdown', (e) => {
     const target = e.target as Node;
+    // In full view a tap on the jugglers or anywhere outside the wheel closes it (v6.10 section 1.6),
+    // except the bar's own controls, which stay for use with the wheel open (Play, Listen for and its
+    // readout: coordinator ruling 9), and the stage's buttons (⤡ leaves, 2D and Reset view act),
+    // since the wheel closing could move the one under the finger.
+    if (inFull()) {
+      const kept = target instanceof Element && target.closest('.juggler-switch, .juggler-reset, .juggler-full, .deck-bar') !== null;
+      if (fullPick && !picker.contains(target) && !kept) closeWheel();
+      return;
+    }
     if (docked() || picker.contains(target)) return;
     if (upright()) {
       if (!sideColumn.contains(target)) closeWheel();
@@ -1079,12 +1137,13 @@ export const mountDeck: Mount = (root, { store, player, sound }) => {
     }
     if (wheelOpen && !patternButton.contains(target)) closeWheel();
   });
-  // Full view hides the wheel and the sheet, so nothing is open to take Escape first: it leaves
-  // (leaveKey). Before the wheel's own handler below, which it keeps from running.
+  // Full view hides the sheet, and the wheel is open only once picked there, which takes Escape
+  // first; with neither, Escape leaves (leaveKey). Before the wheel's own handler below, which it
+  // keeps from running.
   document.addEventListener(
     'keydown',
     (e) => {
-      if (!store.get().full || !leaveKey(e.key, false, false)) return;
+      if (!store.get().full || !leaveKey(e.key, fullPick, false)) return;
       e.stopImmediatePropagation();
       store.set({ full: false });
     },
@@ -1095,17 +1154,17 @@ export const mountDeck: Mount = (root, { store, player, sound }) => {
   document.addEventListener(
     'keydown',
     (e) => {
-      if (e.key !== 'Escape' || docked()) return;
+      if (e.key !== 'Escape' || wide()) return;
       if (upright()) {
         if (phase === 'compact') return;
         e.stopPropagation();
         closeWheel();
         return;
       }
-      if (!wheelOpen) return;
+      if (!(inFull() ? fullPick : wheelOpen)) return;
       e.stopPropagation();
       closeWheel();
-      patternButton.focus();
+      (inFull() ? fullName : patternButton).focus();
     },
     { capture: true },
   );
@@ -1120,6 +1179,10 @@ export const mountDeck: Mount = (root, { store, player, sound }) => {
   };
   const stageEl = document.querySelector('.stage');
   if (stageEl && typeof ResizeObserver === 'function') new ResizeObserver(follow).observe(stageEl);
+  // Open in full view the stage may be no box of its own (the wheel's layouts make it `display:
+  // contents`): the play view is what turns with the window.
+  const viewEl = root.closest('.play-view');
+  if (viewEl && typeof ResizeObserver === 'function') new ResizeObserver(() => fullPick && follow()).observe(viewEl);
   // Docked with the editor hidden, the sheet's head under the wheel grows and shrinks (paused,
   // a sound status): the wheel follows it.
   if (sheet && typeof ResizeObserver === 'function') new ResizeObserver(() => docked() && !editorShown && follow()).observe(sheet);
@@ -1183,7 +1246,7 @@ export const mountDeck: Mount = (root, { store, player, sound }) => {
     if (e.defaultPrevented || e.isComposing || playView?.hidden || route(location.hash).view === 'about') return;
     const el = e.target instanceof Element ? e.target : null;
     const kind = el ? keyTarget(el.tagName, el instanceof HTMLInputElement ? el.type : null, el.getAttribute('role')) : 'other';
-    const key = deckKey(e.key, kind, { ctrl: e.ctrlKey, meta: e.metaKey, alt: e.altKey, shift: e.shiftKey }, docked());
+    const key = deckKey(e.key, kind, { ctrl: e.ctrlKey, meta: e.metaKey, alt: e.altKey, shift: e.shiftKey }, dockedQuery.matches);
     if (key === null) return;
     e.preventDefault();
     if (key.kind === 'step') step(key.delta);
@@ -1230,10 +1293,22 @@ export const mountDeck: Mount = (root, { store, player, sound }) => {
     const topMain = topSlot?.closest('.topbar-main');
     if (topMain) fits.observe(topMain);
   } else window.addEventListener('resize', fitNotation);
+  /**
+   * Full view's pattern box takes the width the controls leave (v6.10 1.7). The ball count goes only
+   * when the notation or the name would be cut with it (keepsBalls); a cut that remains is the last resort (an ellipsis).
+   */
+  function fitFullName() {
+    fullName.classList.remove('is-short');
+    if (fullName.clientWidth === 0) return; // not shown: fitted when it shows again
+    const whole = keepsBalls(fullNotation.scrollWidth, fullNotation.clientWidth) && keepsBalls(fullTitle.scrollWidth, fullTitle.clientWidth);
+    if (!whole) fullName.classList.add('is-short');
+  }
+  if (typeof ResizeObserver === 'function') new ResizeObserver(fitFullName).observe(fullName);
   // The web fonts arrive after the first fit (fonts.ready can resolve before Plex Mono is even
   // asked for): each finished load fits again, with the real glyphs.
   void document.fonts?.ready.then(fitNotation);
   document.fonts?.addEventListener('loadingdone', fitNotation);
+  document.fonts?.addEventListener('loadingdone', fitFullName);
 
   /**
    * Docked, and in the upright card (v6.6), each wheel row's notation is drawn smaller to fit what
@@ -1307,6 +1382,7 @@ export const mountDeck: Mount = (root, { store, player, sound }) => {
     fullLabel.textContent = label.name;
     fullDot.hidden = label.name === '';
     fullMeta.textContent = label.meta;
+    fitFullName();
     // Only a new text needs a new fit; a new width comes through the ResizeObserver.
     if (label.pattern !== fittedText) {
       fittedText = label.pattern;
@@ -1344,6 +1420,8 @@ export const mountDeck: Mount = (root, { store, player, sound }) => {
       scrollToCurrent(true);
     }
     if (state.panel !== previous.panel) showWheel();
+    // Leaving full view closes the wheel it had open; entering shows none until the box is tapped.
+    if (state.full !== previous.full) fullPick = false;
   });
   // Upright (v6.6 ruling 10) the wheel's list is the first tab stop after the top bar, then the
   // chips, Play, mute, the slider, Listen for, Details: the picker goes before the bar, the chips
@@ -1369,8 +1447,12 @@ export const mountDeck: Mount = (root, { store, player, sound }) => {
   let wasUpright = upright();
   let drawnUpright = false;
   function turned() {
+    if (!upright() && drawnUpright && !inFull()) wheelOpen = true;
+    relayout();
+  }
+  /** Re-places everything that depends on the layout: after it turned, or full view went on or off (v6.10). */
+  function relayout() {
     wasUpright = upright();
-    if (!wasUpright && drawnUpright) wheelOpen = true;
     placeParts();
     endPhase();
     showWheel();
@@ -1382,7 +1464,15 @@ export const mountDeck: Mount = (root, { store, player, sound }) => {
   // The sheet opened or closed: upright the compact card's rows follow at once (v6.7 ruling 1: the
   // band row alone while it is open, three when it closes), the band on the same row.
   let wasSheetOpen = sheetOpen();
+  let wasFull = inFull();
   new MutationObserver(() => {
+    // Full view went on or off: the wheel it showed closes (store.subscribe), and what depends on
+    // the layout (docked and upright read as off in full view) is placed again, once the classes
+    // full-view.css lays out by are on.
+    if (app.classList.contains('is-full') !== wasFull) {
+      wasFull = app.classList.contains('is-full');
+      relayout();
+    } else if (fullPick && !wheel.hidden) placeWheel();
     if (upright() !== wasUpright) turned();
     if (sheetOpen() === wasSheetOpen) return;
     wasSheetOpen = sheetOpen();
@@ -1410,6 +1500,9 @@ export const mountDeck: Mount = (root, { store, player, sound }) => {
         const row = docked() ? menuBand(current(), own, restOwn) : (current() ?? (upright() ? own : Math.max(0, bandRow)));
         band(row);
         scrollToRow(row, false);
+        // Open in full view the chosen row sits a row or two from the top, not at the foot where
+        // the nearest way would leave a deep one (pickScrollTop).
+        if (inFull() && fullPick) list.scrollTop = pickScrollTop(row, rowPx, FULL.pickLeadRows, list.clientHeight, list.scrollHeight);
       }
       if (view.state !== shownState) {
         shownState = view.state;

@@ -1,6 +1,6 @@
 // Full view (docs/plans/v6-9-full-view.md, stream S3): the jugglers take the screen. ⤢ enters,
 // ⤡ and Escape leave, and a drag, a pinch or a wheel tick on the 3D view enters too; a click or
-// a tap never does. In full view the stage holds at least 80% of the screen (75% on a phone), a thin
+// a tap never does. The pattern box opens the wheel without leaving (e2e/full-pick.spec.ts). In full view the stage holds at least 80% of the screen (75% on a phone), a thin
 // strip sits under it and one row of controls under that (two on a phone upright). Leaving
 // restores the panel the reader had. Headless; screenshots go to e2e/shots (gitignored) and to
 // test-results.
@@ -70,11 +70,11 @@ test.describe('at 1440×900, a keyboard and a mouse', () => {
     expect((await box(page, '.region-juggler')).height).toBeGreaterThanOrEqual(0.8 * vh);
     expect((await box(page, '.stage')).width).toBe(1440);
     await expect.poll(async () => (await box(page, '.ladder')).height).toBe(STRIP);
-    // The row: Play with its word, ‹ ›, the name, Listen for and its caps, the keys at the right.
+    // The row: the pattern box at the left, Play with its word, Listen for and its caps, the keys at the right; no ‹ › (v6.10).
     await expect(page.locator('#play')).toBeVisible();
     await expect(page.locator('#play')).toContainText('Play');
-    await expect(page.locator('.deck-prev')).toBeVisible();
-    await expect(page.locator('.deck-next')).toBeVisible();
+    await expect(page.locator('.deck-prev')).toBeHidden();
+    await expect(page.locator('.deck-next')).toBeHidden();
     await expect(page.locator('.deck-full-notation')).toHaveText('3');
     await expect(page.locator('.deck-full-title')).toHaveText('Cascade · 3 balls');
     await expect(page.locator('.deck-full-readout')).toHaveText('each ball');
@@ -127,14 +127,14 @@ test.describe('at 1440×900, a keyboard and a mouse', () => {
     await outOfFull(page);
   });
 
-  test('inside, Play, ‹ › and ↑ ↓ keep you there; ‹ › step the pattern and the name follows', async ({ page, browserName }) => {
+  test('inside, Play and ↑ ↓ keep you there; ↓ steps the pattern and the name follows', async ({ page, browserName }) => {
     await open(page, browserName);
     await full(page).click();
     await inFull(page);
     await page.locator('#play').click();
     await expect(page.locator('#play')).toContainText('Pause');
     await inFull(page);
-    await page.locator('.deck-next').click();
+    await page.keyboard.press('ArrowDown');
     await expect(page.locator('.deck-full-name')).toContainText('51');
     await page.keyboard.press('ArrowUp');
     await expect(page.locator('.deck-full-name')).toContainText('Cascade');
@@ -147,33 +147,6 @@ test.describe('at 1440×900, a keyboard and a mouse', () => {
     await page.mouse.wheel(0, 200);
     await expect(page.locator('.deck-full-name')).not.toContainText('Cascade');
     await inFull(page);
-  });
-
-  test('the name is a button: a click leaves full view and shows the Patterns list, the row focused', async ({ page, browserName }) => {
-    await open(page, browserName);
-    // From the Sound tab: the name brings the Patterns panel, as the top bar's pattern button does.
-    await page.locator('.panel-option[data-panel="sound"]').click();
-    await full(page).click();
-    await inFull(page);
-    const name = page.locator('button.deck-full-name');
-    await expect(name).toBeVisible();
-    await expect(name).toHaveAccessibleName('3, Cascade. Leave full view and choose a pattern');
-    await name.click();
-    await outOfFull(page);
-    await expect(page.locator('.topbar')).toBeVisible();
-    await expect(page.locator('.panel-option[data-panel="patterns"]')).toHaveAttribute('aria-pressed', 'true');
-    await expect(page.locator('.deck-wheel')).toBeVisible();
-    await expect(page.locator('.deck-row:focus')).toHaveCount(1);
-  });
-
-  test('the name is reachable by keyboard: Enter on it leaves full view and opens the list', async ({ page, browserName }) => {
-    await open(page, browserName);
-    await full(page).click();
-    await inFull(page);
-    await page.locator('button.deck-full-name').focus();
-    await page.keyboard.press('Enter');
-    await outOfFull(page);
-    await expect(page.locator('.deck-row:focus')).toHaveCount(1);
   });
 
   test('a drag on the 3D view enters full view and still turns it', async ({ page, browserName }) => {
@@ -326,7 +299,7 @@ test.describe('at 1180×820, a finger (iPad landscape)', () => {
 test.describe('at 390×844, a phone upright', () => {
   test.use({ viewport: { width: 390, height: 844 }, hasTouch: true });
 
-  test('⤢ gives two rows: Play and the name over the three Listen for buttons; the card and the bottom bar go', async ({ page, browserName }) => {
+  test('⤢ gives two rows: the pattern box over Play and the three Listen for buttons; the card and the bottom bar go', async ({ page, browserName }) => {
     await page.goto('/#3');
     await needWebGL(page, browserName);
     await expect(page.locator('.deck-details')).toBeVisible();
@@ -344,16 +317,23 @@ test.describe('at 390×844, a phone upright', () => {
     expect(stage.height).toBeGreaterThanOrEqual(0.75 * vh);
     expect((await box(page, '.region-juggler')).height).toBeGreaterThanOrEqual(0.75 * vh);
     await expect.poll(async () => (await box(page, '.ladder')).height).toBe(FULL.stripPhonePx);
-    // The name drops its ball count where the row splits.
+    // The name keeps its ball count while it fits (v6.10 1.7); the box has the whole width.
     await expect(page.locator('.deck-full-notation')).toHaveText('3');
     await expect(page.locator('.deck-full-label')).toHaveText('Cascade');
-    await expect(page.locator('.deck-full-balls')).toBeHidden();
+    await expect(page.locator('.deck-full-balls')).toBeVisible();
+    // The pattern box is a row of its own across the width (v6.10); Play and the buttons are the row under it.
+    const name = await box(page, '.deck-full-name');
+    expect(name.x).toBe(0);
+    expect(name.width).toBe(390);
     const play = await box(page, '#play');
+    expect(play.y).toBeGreaterThan(name.y + name.height - 1);
     const options = await page.locator('.deck-listen-option').evaluateAll((els) => els.map((e) => e.getBoundingClientRect()));
     expect(options).toHaveLength(3);
-    for (const o of options) expect(o.y).toBeGreaterThan(play.y + play.height - 1);
-    // Stretched across the second row.
-    expect(options[0]!.x).toBeLessThan(20);
+    for (const o of options) {
+      expect(o.y).toBeGreaterThan(name.y + name.height - 1);
+      expect(o.x).toBeGreaterThan(play.x + play.width - 1);
+    }
+    // Stretched across the rest of the row.
     expect(options[2]!.x + options[2]!.width).toBeGreaterThan(370);
     await page.locator('.deck-listen-option[data-listen="height"]').tap();
     await expect(page.locator('.deck-listen-option[data-listen="height"]')).toHaveAttribute('aria-pressed', 'true');
@@ -367,23 +347,5 @@ test.describe('at 390×844, a phone upright', () => {
     await expect(page.locator('.deck-picker')).toBeVisible();
     await expect(page.locator('.deck-wheel')).toHaveAttribute('data-phase', 'compact');
     await expect(page.locator('.deck-details')).toBeVisible();
-  });
-
-  test('the name is a button: a tap leaves full view and grows the wheel card', async ({ page, browserName }) => {
-    await page.goto('/#3');
-    await needWebGL(page, browserName);
-    await full(page).tap();
-    await inFull(page);
-    await expect(page.locator('.deck-picker')).toBeHidden();
-    await page.waitForTimeout(500);
-    await shot(page, 'full-name-390x844-before');
-    const name = page.locator('button.deck-full-name');
-    await expect(name).toHaveAccessibleName('3, Cascade. Leave full view and choose a pattern');
-    await name.tap();
-    await outOfFull(page);
-    await expect(page.locator('.deck-picker')).toBeVisible();
-    await expect(page.locator('.deck-wheel')).toHaveAttribute('data-phase', 'grown');
-    await page.waitForTimeout(300);
-    await shot(page, 'full-name-390x844-after');
   });
 });

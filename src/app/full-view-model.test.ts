@@ -1,6 +1,6 @@
 import { describe, expect, test } from 'vitest';
-import { FULL } from '../tunables';
-import { createGesture, fullViewEntry, isDrag, leaveKey, nameTap, rowLayout } from './full-view-model';
+import { DECK, FULL } from '../tunables';
+import { createGesture, fullViewEntry, isDrag, keepsBalls, leaveKey, pickMode, pickPlace, pickScrollTop, rowLayout } from './full-view-model';
 
 describe('fullViewEntry', () => {
   test('the button enters from either view', () => {
@@ -70,13 +70,18 @@ describe('rowLayout', () => {
     expect(rowLayout(FULL.twoRowsBelowPx, false).rows).toBe(1);
     expect(rowLayout(FULL.twoRowsBelowPx - 1, false).rows).toBe(2);
   });
-  test('the balls count only where there is one row to hold it', () => {
-    expect(rowLayout(1440, false).showBalls).toBe(true);
-    expect(rowLayout(390, true).showBalls).toBe(false);
-  });
   test('key caps are for a keyboard, not a finger', () => {
     expect(rowLayout(1440, false).keyCaps).toBe(true);
     expect(rowLayout(1180, true).keyCaps).toBe(false);
+  });
+});
+
+describe('keepsBalls', () => {
+  test('the count stays while the notation fits whole beside it, to half a pixel', () => {
+    expect(keepsBalls(120, 200)).toBe(true);
+    expect(keepsBalls(200, 200)).toBe(true);
+    expect(keepsBalls(200.4, 200)).toBe(true);
+    expect(keepsBalls(201, 200)).toBe(false);
   });
 });
 
@@ -104,14 +109,72 @@ describe('leaveKey', () => {
   });
 });
 
-describe('nameTap', () => {
-  test('docked, it takes the reader to the Patterns list', () => {
-    expect(nameTap(true, false)).toBe('focus-list');
+describe('pickMode', () => {
+  test('a landscape screen puts the wheel at the left, whatever its width', () => {
+    expect(pickMode(1180, 820)).toBe('left');
+    expect(pickMode(844, 390)).toBe('left');
+    expect(pickMode(600, 500)).toBe('left');
   });
-  test('upright, it grows the wheel card', () => {
-    expect(nameTap(false, true)).toBe('grow-card');
+  test('a tall screen as wide as the row puts the jugglers on top', () => {
+    expect(pickMode(820, 1180)).toBe('top');
+    expect(pickMode(FULL.twoRowsBelowPx, FULL.twoRowsBelowPx + 1)).toBe('top');
   });
-  test('on a phone on its side, it opens the wheel', () => {
-    expect(nameTap(false, false)).toBe('open-wheel');
+  test('a tall narrow screen pops the wheel up from the bar', () => {
+    expect(pickMode(390, 844)).toBe('pop');
+    expect(pickMode(FULL.twoRowsBelowPx - 1, 2000)).toBe('pop');
+  });
+});
+
+describe('pickPlace', () => {
+  const filters = 40;
+  const row = DECK.dockedRowPx;
+  test('left: the jugglers take the largest square the stage holds, the wheel the rest, as many menu rows as fit', () => {
+    const p = pickPlace('left', 1180, 676, filters);
+    expect(p.square).toBe(676);
+    expect(p.side).toBe(1180 - 676);
+    expect(p.rowPx).toBe(row);
+    expect(p.rows).toBe(Math.floor((676 - filters) / row));
+  });
+  test('left: the wheel keeps its minimum width, and the square gives way', () => {
+    const p = pickPlace('left', 700, 676, filters);
+    expect(p.side).toBe(FULL.pickWheelMinPx);
+    expect(p.square).toBe(700 - FULL.pickWheelMinPx);
+  });
+  test('left: a short stage shows fewer rows; never fewer than three, never a negative square', () => {
+    expect(pickPlace('left', 844, 270, filters).rows).toBe(Math.floor((270 - filters) / row));
+    expect(pickPlace('left', 844, 100, filters).rows).toBe(3);
+    expect(pickPlace('left', 200, 400, filters).square).toBe(0);
+  });
+  test('top: the square is what the filters and five rows leave, the wheel takes the rest of the stage', () => {
+    const p = pickPlace('top', 820, 1035, filters);
+    expect(p.square).toBe(1035 - filters - FULL.pickTopRows * row);
+    expect(p.side).toBe(1035 - p.square);
+    expect(p.rows).toBe(FULL.pickTopRows);
+  });
+  test('top: the square is at most the width, and the wheel then holds more rows', () => {
+    const p = pickPlace('top', 600, 1035, filters);
+    expect(p.square).toBe(600);
+    expect(p.rows).toBe(Math.floor((1035 - 600 - filters) / row));
+  });
+  test('top: never a negative square', () => {
+    expect(pickPlace('top', 820, 100, filters).square).toBe(0);
+  });
+  test('pop: the stage stays; up to five rows that keep the figure clear', () => {
+    expect(pickPlace('pop', 390, 724, 76)).toEqual({ mode: 'pop', square: 0, side: 0, rows: FULL.pickPopRows, rowPx: row });
+    expect(pickPlace('pop', 375, 400, 76).rows).toBe(3);
+  });
+});
+
+describe('pickScrollTop', () => {
+  test('a row near the top leaves the list at the top', () => {
+    expect(pickScrollTop(0, 44, 2, 300, 2000)).toBe(0);
+    expect(pickScrollTop(2, 44, 2, 300, 2000)).toBe(0);
+  });
+  test('a deep row sits `lead` rows from the top', () => {
+    expect(pickScrollTop(10, 44, 2, 300, 2000)).toBe(8 * 44);
+  });
+  test('never past the end of the list', () => {
+    expect(pickScrollTop(40, 44, 2, 300, 1000)).toBe(700);
+    expect(pickScrollTop(5, 44, 2, 300, 200)).toBe(0);
   });
 });

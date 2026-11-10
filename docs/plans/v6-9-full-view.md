@@ -102,7 +102,8 @@ with no obvious way back; an editor who loses the list every time they click the
     comes back as it was. On the phone the wheel card returns compact (it was hidden, not reset).
 11. **About page.** One paragraph under the controls section: ⤢, Esc, drag to turn. `copy.ts`.
 12. **SPEC §4.1** gains a dated v6.9 paragraph: full view, what it hides, what enters and leaves.
-13. **The name is a button again (Nico, 2026-11-08, after the device smoke; reverses the "label, not
+13. **Reversed by v6.10 (`docs/plans/v6-10-pick-in-full-view.md`): the name no longer leaves full view; it opens the wheel there.**
+    **The name is a button again (Nico, 2026-11-08, after the device smoke; reverses the "label, not
     the button" part of ruling 3).** Smoked on the device, a reader in full view who taps the pattern
     name expects to choose a pattern. `.deck-full-name` is now a `<button>` (aria-label "Leave full
     view and choose a pattern", reachable by keyboard); `.deck-pattern` stays hidden. A click sets

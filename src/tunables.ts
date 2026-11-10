@@ -803,4 +803,29 @@ export const FULL = {
   twoRowsBelowPx: 720,
   /** A pointer that moves further than this after going down is a drag, not a tap. */
   dragThresholdPx: 6,
+  /**
+   * The wheel open in full view (docs/plans/v6-10-pick-in-full-view.md): beside the jugglers on a
+   * landscape screen, over them on a tall wide one, popped up from the bar on a narrow tall one.
+   * The wheel is the docked menu (DECK.dockedRowPx rows, top aligned). Beside the jugglers it keeps
+   * at least pickWheelMinPx of the width and shows as many rows as the height holds; pickTopRows
+   * is the rows the wheel under the jugglers is given room for (the jugglers' square is what the
+   * filters and that many rows leave); the pop-up shows up to pickPopRows. Opened, the list is
+   * scrolled so the chosen row is pickLeadRows from the top when it is deep in the list.
+   */
+  pickWheelMinPx: 300,
+  pickTopRows: 5,
+  pickPopRows: 5,
+  pickLeadRows: 2,
+  /** The gap under the pop-up, between it and the bar. */
+  pickPopGapPx: 6,
+  /** A filter chip's side in the wheel open in full view (a finger's size). */
+  pickChipPx: 30,
+  /** The filters' padding in the open wheel (up and down, left and right). */
+  pickFiltersPadYPx: 5,
+  pickFiltersPadXPx: 14,
+  /** The pattern box in full view: its narrowest (under it the controls wrap), its least height, its side padding, and the ▴'s size. */
+  nameMinPx: 120,
+  nameMinHeightPx: 40,
+  namePadPx: 16,
+  caretPx: 15,
 } as const;
