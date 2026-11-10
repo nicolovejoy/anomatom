@@ -33,6 +33,28 @@ const camera = async (page: Page) => {
   const [azimuth, elevation, distance] = ((await three(page).getAttribute('data-camera')) ?? '').split(',').map(Number);
   return { azimuth: azimuth!, elevation: elevation!, distance: distance! };
 };
+/**
+ * `data-camera` once the drag's last moves are drawn: unchanged over ten frames. `data-camera-moved`
+ * turns true on the first frame of a drag, so a read straight after it can catch the camera
+ * part-way (#160, seen on WebKit).
+ */
+const settledCamera = (page: Page) =>
+  page.evaluate(
+    () =>
+      new Promise<string>((done) => {
+        const c = document.querySelector('canvas.juggler-3d')!;
+        let last = c.getAttribute('data-camera');
+        let still = 0;
+        const tick = () => {
+          const now = c.getAttribute('data-camera');
+          still = now === last ? still + 1 : 0;
+          last = now;
+          if (still >= 10) done(now ?? '');
+          else requestAnimationFrame(tick);
+        };
+        requestAnimationFrame(tick);
+      }),
+  );
 /** The canvas's centre, in page pixels. */
 const centre = async (page: Page) => {
   const b = (await three(page).boundingBox())!;
@@ -137,7 +159,7 @@ test.describe('at 1280×800, by mouse', () => {
     await open(page, 'passing', PASSING);
     await mouseDrag(page, -200, 60);
     await expect(three(page)).toHaveAttribute('data-camera-moved', 'true');
-    const moved = await three(page).getAttribute('data-camera');
+    const moved = await settledCamera(page);
     // Ultimates: two jugglers again.
     const before = await page.locator('.deck-notation').textContent();
     await page.evaluate((h) => (location.hash = h), hashOf('ultimates'));
@@ -156,7 +178,7 @@ test.describe('at 1280×800, by mouse', () => {
     await open(page, 'cascade', CASCADE);
     await mouseDrag(page, 150, 0);
     await expect(three(page)).toHaveAttribute('data-camera-moved', 'true');
-    const moved = await three(page).getAttribute('data-camera');
+    const moved = await settledCamera(page);
     await page.locator('.juggler-switch').click();
     await expect(page.locator('.region-juggler')).toHaveAttribute('data-view', '2d');
     await expect(page.locator('.juggler-reset')).toBeHidden();
