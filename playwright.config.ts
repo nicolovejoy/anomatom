@@ -15,7 +15,11 @@ export default defineConfig({
   use: {
     baseURL: `http://localhost:${port}`,
     headless: true,
-    trace: 'retain-on-failure',
+    // Locally, traces without the screencast: on macOS, while every display sleeps, WindowServer
+    // keeps each WebKit window capture until a display wakes, and an unattended suite's 25 frames a
+    // second filled its IOSurface table and crashed it (2026-11-09; microsoft/playwright#43066,
+    // Apple FB25101947). CI runs on Linux and keeps the screenshots.
+    trace: process.env.CI ? 'retain-on-failure' : { mode: 'retain-on-failure', screenshots: false },
   },
   projects: [
     { name: 'edge', use: { ...devices['Desktop Edge'], channel: 'msedge', headless: true } },
